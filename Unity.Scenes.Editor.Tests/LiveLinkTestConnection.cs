@@ -1,11 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
 using UnityEngine.Events;
 using UnityEngine.Networking.PlayerConnection;
 
-namespace Unity.Scenes.Editor.Tests {
+namespace Unity.Scenes.Editor.Tests
+{
     class LiveLinkTestConnection : IEditorConnection
     {
         public struct Message
@@ -18,7 +19,7 @@ namespace Unity.Scenes.Editor.Tests {
             public string FormatBytes() => string.Concat(Data.Select(b => b.ToString("X2")));
             public override string ToString() => $"{LiveLinkDebugHelper.GetMessageName(Id) ?? Id.ToString()} for {Player}, {Data.Length} bytes";
         }
-        
+
         public readonly Dictionary<Guid, List<UnityAction<MessageEventArgs>>> MessageHandlers = new Dictionary<Guid, List<UnityAction<MessageEventArgs>>>();
         public readonly List<UnityAction<int>> ConnectHandler = new List<UnityAction<int>>();
         public readonly List<UnityAction<int>> DisconnectHandler = new List<UnityAction<int>>();
@@ -28,7 +29,7 @@ namespace Unity.Scenes.Editor.Tests {
         public string GetMessageString() => GetMessageString(IncomingMessages);
         public string GetMessageString(IEnumerable<Message> msgs) => string.Join("\n", msgs.Select(msg => msg.ToString()));
         public int GetNumMessageHandlers(Guid guid) => MessageHandlers.TryGetValue(guid, out var handlers) ? handlers.Count : 0;
-        
+
         public void PostConnect(int player)
         {
             try
@@ -40,7 +41,7 @@ namespace Unity.Scenes.Editor.Tests {
                 OpenConnections.Add(player);
             }
         }
-        
+
         public void PostDisconnect(int player)
         {
             try
@@ -84,7 +85,8 @@ namespace Unity.Scenes.Editor.Tests {
             {
                 list = new List<UnityAction<MessageEventArgs>> { callback };
                 MessageHandlers[messageId] = list;
-            } else
+            }
+            else
                 list.Add(callback);
         }
 
@@ -94,12 +96,12 @@ namespace Unity.Scenes.Editor.Tests {
                 list.Remove(callback);
         }
 
-        void IEditorPlayerConnection.DisconnectAll() { }
+        void IEditorPlayerConnection.DisconnectAll() {}
         void IEditorPlayerConnection.RegisterConnection(UnityAction<int> callback) => ConnectHandler.Add(callback);
         void IEditorPlayerConnection.RegisterDisconnection(UnityAction<int> callback) => DisconnectHandler.Add(callback);
         void IEditorPlayerConnection.UnregisterConnection(UnityAction<int> callback) => ConnectHandler.Remove(callback);
         void IEditorPlayerConnection.UnregisterDisconnection(UnityAction<int> callback) => DisconnectHandler.Remove(callback);
-        
+
         void SendData(Guid messageId, byte[] data, int playerId)
         {
             IncomingMessages.Enqueue(new Message
@@ -110,12 +112,12 @@ namespace Unity.Scenes.Editor.Tests {
                     data = (byte[])data.Clone(),
                     playerId = playerId
                 }
-            });   
+            });
         }
 
         void IEditorPlayerConnection.Send(Guid messageId, byte[] data) => SendData(messageId, data, 0);
 
-        bool IEditorPlayerConnection.TrySend(Guid messageId, byte[] data) 
+        bool IEditorPlayerConnection.TrySend(Guid messageId, byte[] data)
         {
             SendData(messageId, data, 0);
             return true;

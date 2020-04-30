@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,14 +14,14 @@ namespace Unity.Scenes
     {
         public Hash128 SceneGUID;
         public Hash128 BuildConfiguration;
-        
+
         // Currently used to allow us to force subscenes to reimport
         // TODO: Remove this when we have the ability to solve this with the asset database
         public long DirtyValue;
-            
+
         static HashSet<Hash128> s_BuildConfigurationCreated = new HashSet<Hash128>();
         private static long s_AssetRefreshCounter = 0;
-        
+
         const string k_SceneDependencyCachePath = "Assets/SceneDependencyCache";
 
         internal static void ClearBuildSettingsCache()
@@ -34,9 +34,9 @@ namespace Unity.Scenes
         {
             // Invalidate cache if we had an asset refresh
             var refreshDelta = AssetDatabaseExperimental.counters.import.refresh.total;
-            if(s_AssetRefreshCounter != refreshDelta)
+            if (s_AssetRefreshCounter != refreshDelta)
                 s_BuildConfigurationCreated.Clear();
-            
+
             s_AssetRefreshCounter = refreshDelta;
         }
 
@@ -62,28 +62,28 @@ namespace Unity.Scenes
         private static unsafe void WriteSceneWithBuildSettings(ref Hash128 guid, ref SceneWithBuildConfigurationGUIDs sceneWithBuildConfigurationGUIDs, string path)
         {
             Directory.CreateDirectory(k_SceneDependencyCachePath);
-            using(var writer = new StreamBinaryWriter(path))
+            using (var writer = new StreamBinaryWriter(path))
             {
-                fixed (void* vp = &sceneWithBuildConfigurationGUIDs)
+                fixed(void* vp = &sceneWithBuildConfigurationGUIDs)
                 {
                     writer.WriteBytes(vp, sizeof(SceneWithBuildConfigurationGUIDs));
                 }
             }
             File.WriteAllText(path + ".meta",
                 $"fileFormatVersion: 2\nguid: {guid}\nDefaultImporter:\n  externalObjects: {{}}\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n");
-        
+
             // Refresh is necessary because it appears the asset pipeline
             // can't depend on an asset on disk that has not yet been refreshed.
             AssetDatabase.Refresh();
         }
-        
+
         public static unsafe Hash128 EnsureExistsFor(Hash128 sceneGUID, Hash128 buildConfigurationGUID)
         {
             var guid = ComputeBuildConfigurationGUID(sceneGUID, buildConfigurationGUID);
 
             if (s_BuildConfigurationCreated.Contains(guid))
                 return guid;
-            
+
             var sceneWithBuildConfigurationGUIDs = new SceneWithBuildConfigurationGUIDs { SceneGUID = sceneGUID, BuildConfiguration = buildConfigurationGUID, DirtyValue = 0};
 
             var fileName = GetSceneWithBuildSettingsPath(ref guid);
@@ -92,11 +92,11 @@ namespace Unity.Scenes
                 WriteSceneWithBuildSettings(ref guid, ref sceneWithBuildConfigurationGUIDs, fileName);
             }
 
-        s_BuildConfigurationCreated.Add(guid);
-            
+            s_BuildConfigurationCreated.Add(guid);
+
             return guid;
         }
-            
+
         public static unsafe SceneWithBuildConfigurationGUIDs ReadFromFile(string path)
         {
             SceneWithBuildConfigurationGUIDs sceneWithBuildConfiguration = default;
@@ -118,6 +118,5 @@ namespace Unity.Scenes
             return guid;
         }
     }
-    
 }
 #endif

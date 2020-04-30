@@ -1,4 +1,4 @@
-﻿using Unity.Assertions;
+using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -21,13 +21,13 @@ namespace Unity.Entities
 
         public static bool AddReaderTypeIndex(int typeIndex, ref UnsafeIntList reading, ref UnsafeIntList writing)
         {
-                if (reading.Contains(typeIndex))
-                    return false;
-                if (writing.Contains(typeIndex))
-                    return false;
+            if (reading.Contains(typeIndex))
+                return false;
+            if (writing.Contains(typeIndex))
+                return false;
 
-                reading.Add(typeIndex);
-                return true;
+            reading.Add(typeIndex);
+            return true;
         }
 
         public static bool AddWriterTypeIndex(int typeIndex, ref UnsafeIntList reading, ref UnsafeIntList writing)

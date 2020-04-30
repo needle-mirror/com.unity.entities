@@ -1,4 +1,3 @@
-﻿
 using Unity.Entities.UniversalDelegates;
 
 namespace Doc.CodeSamples.Tests
@@ -19,7 +18,7 @@ namespace Doc.CodeSamples.Tests
         {
             Entities
                 .ForEach((ref Translation translation,
-                          in Velocity velocity) =>
+                in Velocity velocity) =>
                 {
                     translation.Value += velocity.Value;
                 })
@@ -60,11 +59,11 @@ namespace Doc.CodeSamples.Tests
             }).Schedule();
 
             // This completes the scheduled jobs to get the result immediately, but for
-            // better efficiency you should schedule jobs early in the frame with one 
+            // better efficiency you should schedule jobs early in the frame with one
             // system and get the results late in the frame with a different system.
             this.CompleteDependency();
             UnityEngine.Debug.Log("The sum of "
-                                  + randomNumbers.Length + " numbers is " + result[0]);
+                + randomNumbers.Length + " numbers is " + result[0]);
 
             randomNumbers.Dispose();
             result.Dispose();
@@ -123,12 +122,12 @@ namespace Doc.CodeSamples.Tests
             //Schedule the first job to add all the buffer elements
             Entities
                 .ForEach((int entityInQueryIndex, in DynamicBuffer<IntBufferData> buffer) =>
+            {
+                for (int i = 0; i < buffer.Length; i++)
                 {
-                    for (int i = 0; i < buffer.Length; i++)
-                    {
-                        intermediateSums[entityInQueryIndex] += buffer[i].Value;
-                    }
-                })
+                    intermediateSums[entityInQueryIndex] += buffer[i].Value;
+                }
+            })
                 .WithStoreEntityQueryInField(ref query)
                 .WithName("IntermediateSums")
                 .ScheduleParallel(); // Execute in parallel for each chunk of entities
@@ -136,15 +135,15 @@ namespace Doc.CodeSamples.Tests
             //Schedule the second job, which depends on the first
             Job
                 .WithCode(() =>
+            {
+                int result = 0;
+                for (int i = 0; i < intermediateSums.Length; i++)
                 {
-                    int result = 0;
-                    for (int i = 0; i < intermediateSums.Length; i++)
-                    {
-                        result += intermediateSums[i];
-                    }
-                    //Not burst compatible:
-                    Debug.Log("Final sum is " + result);
-                })
+                    result += intermediateSums[i];
+                }
+                //Not burst compatible:
+                Debug.Log("Final sum is " + result);
+            })
                 .WithDeallocateOnJobCompletion(intermediateSums)
                 .WithoutBurst()
                 .WithName("FinalSum")
@@ -195,20 +194,21 @@ namespace Doc.CodeSamples.Tests
             Entities
                 .WithStoreEntityQueryInField(ref query)
                 .ForEach((int entityInQueryIndex, in Data data) =>
-                    {
-                        dataSquared[entityInQueryIndex] = data.Value * data.Value;
-                    })
+                {
+                    dataSquared[entityInQueryIndex] = data.Value * data.Value;
+                })
                 .ScheduleParallel();
 
             Job
                 .WithCode(() =>
-                {
-                    //Use dataSquared array...
-                    var v = dataSquared[dataSquared.Length -1];
-                })
+            {
+                //Use dataSquared array...
+                var v = dataSquared[dataSquared.Length - 1];
+            })
                 .WithDeallocateOnJobCompletion(dataSquared)
                 .Schedule();
         }
+
         #endregion
     }
 
@@ -221,9 +221,9 @@ namespace Doc.CodeSamples.Tests
                 .WithChangeFilter<Source>()
                 .ForEach((ref Destination outputData,
                     in Source inputData) =>
-                {
-                    /* Do work */
-                })
+                    {
+                        /* Do work */
+                    })
                 .ScheduleParallel();
             #endregion
         }
@@ -240,7 +240,7 @@ namespace Doc.CodeSamples.Tests
 
     public class ColorTable
     {
-        public static DisplayColor GetNextColor(int current){return new DisplayColor();}
+        public static DisplayColor GetNextColor(int current) {return new DisplayColor();}
     }
 
     #region with-shared-component
@@ -267,11 +267,11 @@ namespace Doc.CodeSamples.Tests
         {
             #region read-write-modifiers
             Entities.ForEach(
-                    (ref Destination outputData,
-                        in Source inputData) =>
-                    {
-                        outputData.Value = inputData.Value;
-                    })
+                (ref Destination outputData,
+                    in Source inputData) =>
+                {
+                    outputData.Value = inputData.Value;
+                })
                 .ScheduleParallel();
             #endregion
         }
@@ -299,7 +299,7 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
 
-    public struct Movement:IComponentData
+    public struct Movement : IComponentData
     {
         public float3 Value;
     }
@@ -308,18 +308,15 @@ namespace Doc.CodeSamples.Tests
     {
         protected override void OnUpdate()
         {
-
             #region lambda-params
             Entities.ForEach(
                 (Entity entity,
-                 int entityInQueryIndex,
-                 ref Translation translation,
-                 in Movement move) => {/* .. */})
-            #endregion
+                    int entityInQueryIndex,
+                    ref Translation translation,
+                    in Movement move) => { /* .. */})
+                #endregion
                 .Run();
         }
-
-
     }
 }
 
@@ -362,26 +359,26 @@ namespace Doc.CodeSamples.Tests
 
             float dt = Time.DeltaTime;
             Random rnd = new Random();
-            rnd.InitState((uint) (dt * 100000));
+            rnd.InitState((uint)(dt * 100000));
 
 
             JobHandle spawnJobHandle = Entities
                 .ForEach((int entityInQueryIndex,
-                          in SpawnParticles spawn,
-                          in LocalToWorld center) =>
+                    in SpawnParticles spawn,
+                    in LocalToWorld center) =>
                 {
                     int spawnCount = spawn.Rate;
                     for (int i = 0; i < spawnCount; i++)
                     {
                         Entity spawnedEntity = commandBufferCreate
                             .Instantiate(entityInQueryIndex,
-                                         spawn.ParticlePrefab);
+                            spawn.ParticlePrefab);
 
                         LocalToWorld spawnedCenter = center;
                         Translation spawnedOffset = new Translation()
                         {
                             Value = center.Position +
-                                    rnd.NextFloat3(-spawn.Offset, spawn.Offset)
+                                rnd.NextFloat3(-spawn.Offset, spawn.Offset)
                         };
                         Velocity spawnedVelocity = new Velocity()
                         {
@@ -393,17 +390,17 @@ namespace Doc.CodeSamples.Tests
                         };
 
                         commandBufferCreate.SetComponent(entityInQueryIndex,
-                                                         spawnedEntity,
-                                                         spawnedCenter);
+                            spawnedEntity,
+                            spawnedCenter);
                         commandBufferCreate.SetComponent(entityInQueryIndex,
-                                                         spawnedEntity,
-                                                         spawnedOffset);
+                            spawnedEntity,
+                            spawnedOffset);
                         commandBufferCreate.AddComponent(entityInQueryIndex,
-                                                         spawnedEntity,
-                                                         spawnedVelocity);
+                            spawnedEntity,
+                            spawnedVelocity);
                         commandBufferCreate.AddComponent(entityInQueryIndex,
-                                                         spawnedEntity,
-                                                         spawnedLife);
+                            spawnedEntity,
+                            spawnedLife);
                     }
                 })
                 .WithName("ParticleSpawning")
@@ -411,22 +408,22 @@ namespace Doc.CodeSamples.Tests
 
             JobHandle MoveJobHandle = Entities
                 .ForEach((ref Translation translation, in Velocity velocity) =>
+            {
+                translation = new Translation()
                 {
-                    translation = new Translation()
-                    {
-                        Value = translation.Value + velocity.Value * dt
-                    };
-                })
+                    Value = translation.Value + velocity.Value * dt
+                };
+            })
                 .WithName("MoveParticles")
                 .Schedule(spawnJobHandle);
 
             JobHandle cullJobHandle = Entities
                 .ForEach((Entity entity, int entityInQueryIndex, ref TimeToLive life) =>
-                {
-                    life.LifeLeft -= dt;
-                    if (life.LifeLeft < 0)
-                        commandBufferCull.DestroyEntity(entityInQueryIndex, entity);
-                })
+            {
+                life.LifeLeft -= dt;
+                if (life.LifeLeft < 0)
+                    commandBufferCull.DestroyEntity(entityInQueryIndex, entity);
+            })
                 .WithName("CullOldEntities")
                 .Schedule(this.Dependency);
 

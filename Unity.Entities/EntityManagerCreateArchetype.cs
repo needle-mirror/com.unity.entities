@@ -2,7 +2,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
@@ -18,10 +18,13 @@ namespace Unity.Entities
         /// <returns>The EntityArchetype object for the archetype.</returns>
         public EntityArchetype CreateArchetype(params ComponentType[] types)
         {
-            fixed (ComponentType* typesPtr = types)
+            fixed(ComponentType* typesPtr = types)
             {
-                EntityComponentStore->AssertCanCreateArchetype(typesPtr, types.Length);
-                return m_EntityDataAccess.CreateArchetype(typesPtr, types.Length);
+                var access = GetCheckedEntityDataAccess();
+                var ecs = access->EntityComponentStore;
+
+                ecs->AssertCanCreateArchetype(typesPtr, types.Length);
+                return access->CreateArchetype(typesPtr, types.Length);
             }
         }
 
@@ -31,7 +34,8 @@ namespace Unity.Entities
 
         internal EntityArchetype CreateArchetype(ComponentType* types, int count)
         {
-            return m_EntityDataAccess.CreateArchetype(types, count);
+            var access = GetCheckedEntityDataAccess();
+            return access->CreateArchetype(types, count);
         }
     }
 }

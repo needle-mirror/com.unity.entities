@@ -37,7 +37,7 @@ namespace Unity.Entities.Tests.Conversion
         protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Translation), typeof(Rotation), typeof(LocalToWorld) };
         protected static readonly IEnumerable<Type> k_RootComponents = k_CommonComponents.Append(typeof(LinkedEntityGroup));
         protected static readonly IEnumerable<Type> k_ChildComponents  = k_CommonComponents.Concat(new[] { typeof(Parent), typeof(LocalToParent) });
-        
+
         [TearDown]
         public new void TearDown()
         {
@@ -73,16 +73,16 @@ namespace Unity.Entities.Tests.Conversion
             if (m_ObjectNames.TryGetValue(name, out var serial))
                 name += serial;
             m_ObjectNames[name] = serial + 1;
-            
+
             return name;
         }
-        
+
         protected GameObject CreateGameObject(string name, params Type[] components)
             => CreateGameObject(name, DestructionBy.Fixture, components);
 
         protected GameObject CreateGameObject(string name, DestructionBy destructionBy, params Type[] components) =>
             RegisterUnityObject(new GameObject(MakeName(name ?? "go"), components), destructionBy);
-        
+
         protected GameObject CreateGameObject()
             => CreateGameObject(null);
 
@@ -95,7 +95,7 @@ namespace Unity.Entities.Tests.Conversion
             instantiated.name = MakeName($"{name ?? "go"} ({go.name})");
             return RegisterUnityObject(instantiated);
         }
-        
+
         protected T CreateScriptableObject<T>(string name = null)
             where T : ScriptableObject
         {
@@ -103,9 +103,9 @@ namespace Unity.Entities.Tests.Conversion
             obj.name = MakeName(name ?? typeof(T).Name.ToLower());
             return RegisterUnityObject(obj);
         }
-        
+
         // assets are owned by Unity, no need to track them
-        
+
         protected static T LoadAsset<T>(string name) where T : UnityObject
         {
             var path = $"Packages/com.unity.entities/Unity.Entities.Hybrid.Tests/Conversion/{name}";
@@ -115,13 +115,12 @@ namespace Unity.Entities.Tests.Conversion
 
             return asset;
         }
-        
+
         protected static T LoadScriptableObject<T>(string name) where T : ScriptableObject
             => LoadAsset<T>($"{name}.asset");
         protected static ScriptableObject LoadScriptableObject(string name)
             => LoadScriptableObject<ScriptableObject>(name);
         protected static GameObject LoadPrefab(string name)
-            => LoadAsset<GameObject>($"{name}.prefab"); 
-        
+            => LoadAsset<GameObject>($"{name}.prefab");
     }
 }

@@ -1,4 +1,4 @@
-﻿#define ENABLE_ADD_REMOVE_TEST_100
+#define ENABLE_ADD_REMOVE_TEST_100
 // #define ENABLE_ADD_REMOVE_TEST_1000
 // #define ENABLE_ADD_REMOVE_TEST_10000
 
@@ -100,7 +100,7 @@ namespace Unity.Entities.PerformanceTests
         {
         }
 
-        Type[] TagTypes = 
+        Type[] TagTypes =
         {
             typeof(TestTag0),
             typeof(TestTag1),
@@ -141,7 +141,7 @@ namespace Unity.Entities.PerformanceTests
         [TearDown]
         public override void TearDown()
         {
-            if (m_Manager != null)
+            if (m_Manager.IsCreated)
             {
                 entities1.Dispose();
                 entities2.Dispose();
@@ -419,9 +419,9 @@ namespace Unity.Entities.PerformanceTests
         public void AddSharedComponentWithGroupIncompatibleLayout()
         {
             Measure.Method(() =>
-                {
-                    m_Manager.AddSharedComponentData(group, new EcsTestSharedCompWithMaxChunkCapacity(7));
-                })
+            {
+                m_Manager.AddSharedComponentData(group, new EcsTestSharedCompWithMaxChunkCapacity(7));
+            })
                 .SetUp(() =>
                 {
                     unsafe
@@ -443,7 +443,7 @@ namespace Unity.Entities.PerformanceTests
         // Test Conditions:
         //   * +/- SharedComponent
         //   * Few/Many Archetypes
-        //        
+        //
         // EntityManagerCreateDestroyEntities:
         //   [x] public Entity CreateEntity()
         //   [x] public Entity CreateEntity(EntityArchetype archetype)
@@ -492,11 +492,11 @@ namespace Unity.Entities.PerformanceTests
         public void CreateEntity([Values(1, 10, 1000, 10000)] int size)
         {
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.CreateEntity();
-                })
-                .SetUp(() => { })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.CreateEntity();
+            })
+                .SetUp(() => {})
                 .CleanUp(() =>
                 {
                     using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
@@ -512,11 +512,11 @@ namespace Unity.Entities.PerformanceTests
         public void CreateEntityArchetypeSame([Values(1, 10, 1000, 10000)] int size)
         {
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.CreateEntity(archetype1);
-                })
-                .SetUp(() => { })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.CreateEntity(archetype1);
+            })
+                .SetUp(() => {})
                 .CleanUp(() =>
                 {
                     using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
@@ -550,10 +550,10 @@ namespace Unity.Entities.PerformanceTests
             var archetypes = default(NativeArray<EntityArchetype>);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.CreateEntity(archetypes[i]);
-                })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.CreateEntity(archetypes[i]);
+            })
                 .SetUp(() => { archetypes = CreateUniqueArchetypes(size); })
                 .CleanUp(() =>
                 {
@@ -574,10 +574,10 @@ namespace Unity.Entities.PerformanceTests
             var types = new ComponentType[size][];
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.CreateEntity(types[i]);
-                })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.CreateEntity(types[i]);
+            })
                 .SetUp(() => { types = CreateUniqueArchetypeTypes(size); })
                 .CleanUp(() =>
                 {
@@ -596,10 +596,10 @@ namespace Unity.Entities.PerformanceTests
             var sourceEntity = default(Entity);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.Instantiate(sourceEntity);
-                })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.Instantiate(sourceEntity);
+            })
                 .SetUp(() => { sourceEntity = m_Manager.CreateEntity(archetype1); })
                 .CleanUp(() =>
                 {
@@ -619,10 +619,10 @@ namespace Unity.Entities.PerformanceTests
             var sourceEntity = default(Entity);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.Instantiate(sourceEntity);
-                })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.Instantiate(sourceEntity);
+            })
                 .SetUp(() => { sourceEntity = m_Manager.CreateEntity(archetype); })
                 .CleanUp(() =>
                 {
@@ -641,10 +641,10 @@ namespace Unity.Entities.PerformanceTests
             var sourceEntities = default(NativeArray<Entity>);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.Instantiate(sourceEntities[i]);
-                })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.Instantiate(sourceEntities[i]);
+            })
                 .SetUp(() => { sourceEntities = CreateUniqueEntities(size); })
                 .CleanUp(() =>
                 {
@@ -665,10 +665,10 @@ namespace Unity.Entities.PerformanceTests
             var sourceEntities = default(NativeArray<Entity>);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.Instantiate(sourceEntities[i]);
-                })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.Instantiate(sourceEntities[i]);
+            })
                 .SetUp(() => { sourceEntities = CreateUniqueEntitiesWithSharedComponent(size); })
                 .CleanUp(() =>
                 {
@@ -732,10 +732,10 @@ namespace Unity.Entities.PerformanceTests
             var entities = default(NativeArray<Entity>);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.DestroyEntity(entities[i]);
-                })
+            {
+                for (int i = 0; i < entities.Length; i++)
+                    m_Manager.DestroyEntity(entities[i]);
+            })
                 .SetUp(() => { entities = CreateSameEntities(size); })
                 .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
@@ -748,10 +748,10 @@ namespace Unity.Entities.PerformanceTests
             var entities = default(NativeArray<Entity>);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.DestroyEntity(entities[i]);
-                })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.DestroyEntity(entities[i]);
+            })
                 .SetUp(() => { entities = CreateUniqueEntities(size); })
                 .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
@@ -812,10 +812,10 @@ namespace Unity.Entities.PerformanceTests
             var types = new ComponentType[size][];
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < size; i++)
-                        m_Manager.CreateArchetype(types[i]);
-                })
+            {
+                for (int i = 0; i < size; i++)
+                    m_Manager.CreateArchetype(types[i]);
+            })
                 .SetUp(() => { types = CreateUniqueArchetypeTypes(size); })
                 .CleanUp(() =>
                 {
@@ -828,17 +828,16 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-
         [Test, Performance]
         public void AddComponentDataWithEntitiesSameArchetype([Values(1, 10, 1000, 10000)] int size)
         {
             var entities = default(NativeArray<Entity>);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.AddComponentData(entities[i], new EcsTestFloatData {Value = 1.0f});
-                })
+            {
+                for (int i = 0; i < entities.Length; i++)
+                    m_Manager.AddComponentData(entities[i], new EcsTestFloatData {Value = 1.0f});
+            })
                 .SetUp(() => { entities = CreateSameEntities(size); })
                 .CleanUp(() =>
                 {
@@ -855,10 +854,10 @@ namespace Unity.Entities.PerformanceTests
             var entities = default(NativeArray<Entity>);
 
             Measure.Method(() =>
-                {
-                    for (int i = 0; i < entities.Length; i++)
-                        m_Manager.AddComponentData(entities[i], new EcsTestFloatData {Value = 1.0f});
-                })
+            {
+                for (int i = 0; i < entities.Length; i++)
+                    m_Manager.AddComponentData(entities[i], new EcsTestFloatData {Value = 1.0f});
+            })
                 .SetUp(() => { entities = CreateUniqueEntities(size); })
                 .CleanUp(() =>
                 {
@@ -868,7 +867,6 @@ namespace Unity.Entities.PerformanceTests
                 .WarmupCount(1)
                 .Run();
         }
-
 
         [Test, Performance]
         public void AddChunkComponentDataWithQuerySameArchetype([Values(1, 10, 1000, 10000)] int size)
@@ -903,7 +901,6 @@ namespace Unity.Entities.PerformanceTests
                 .WarmupCount(1)
                 .Run();
         }
-
 
         public enum TestComponentVariation
         {
@@ -1000,10 +997,10 @@ namespace Unity.Entities.PerformanceTests
                 var queries = new EntityQuery[0];
 
                 Measure.Method(() =>
-                    {
-                        for (int i = 0; i < queries.Length; i++)
-                            testQuery(queries[i], additionalComponentType);
-                    })
+                {
+                    for (int i = 0; i < queries.Length; i++)
+                        testQuery(queries[i], additionalComponentType);
+                })
                     .SetUp(() =>
                     {
                         if (addComponentVariation)
@@ -1015,7 +1012,6 @@ namespace Unity.Entities.PerformanceTests
                         }
                         else
                         {
-
                             if (archetypeVariation == TestArchetypeVariation.AllUnique)
                                 entities = CreateUniqueEntities(entityCount);
                             else
@@ -1063,10 +1059,10 @@ namespace Unity.Entities.PerformanceTests
                 var entityBatches = new NativeArray<Entity>[0];
 
                 Measure.Method(() =>
-                    {
-                        for (int i = 0; i < entityBatches.Length; i++)
-                            testEntityArray(entityBatches[i], additionalComponentType);
-                    })
+                {
+                    for (int i = 0; i < entityBatches.Length; i++)
+                        testEntityArray(entityBatches[i], additionalComponentType);
+                })
                     .SetUp(() =>
                     {
                         if (addComponentVariation)
@@ -1078,7 +1074,6 @@ namespace Unity.Entities.PerformanceTests
                         }
                         else
                         {
-
                             if (archetypeVariation == TestArchetypeVariation.AllUnique)
                                 entities = CreateUniqueEntities(entityCount);
                             else
@@ -1128,11 +1123,11 @@ namespace Unity.Entities.PerformanceTests
                 var entityBatches = new NativeArray<Entity>[0];
 
                 Measure.Method(() =>
-                    {
-                        for (int i = 0; i < entityBatches.Length; i++)
+                {
+                    for (int i = 0; i < entityBatches.Length; i++)
                         for (int j = 0; j < entityBatches[i].Length; j++)
                             testEntity(entityBatches[i][j], additionalComponentType);
-                    })
+                })
                     .SetUp(() =>
                     {
                         if (addComponentVariation)
@@ -1144,7 +1139,6 @@ namespace Unity.Entities.PerformanceTests
                         }
                         else
                         {
-
                             if (archetypeVariation == TestArchetypeVariation.AllUnique)
                                 entities = CreateUniqueEntities(entityCount);
                             else
@@ -1226,7 +1220,7 @@ namespace Unity.Entities.PerformanceTests
                 (entities, componentType) => { m_Manager.AddComponent(entities, componentType); }
             );
 #endif
- 
+
 #if ENABLE_ADD_REMOVE_TEST_1000
 
         [Test, Performance]
@@ -1262,8 +1256,8 @@ namespace Unity.Entities.PerformanceTests
                 (entity, componentType) => { m_Manager.AddComponent(entity, componentType); },
                 (entities, componentType) => { m_Manager.AddComponent(entities, componentType); }
             );
-#endif 
-    
+#endif
+
 #if ENABLE_ADD_REMOVE_TEST_10000
 
         [Test, Performance]
@@ -1276,8 +1270,8 @@ namespace Unity.Entities.PerformanceTests
                 (entityQuery, componentType) => { m_Manager.RemoveComponent(entityQuery, componentType); },
                 (entity, componentType) => { m_Manager.RemoveComponent(entity, componentType); },
                 (entities, componentType) => { m_Manager.RemoveComponent(entities, componentType); }
-                );
-        
+            );
+
         [Test, Performance]
         public void AddComponent10000(
             [Values(10, 1000, 10000)] int batchSize, [Values(10000)] int entityCount,
@@ -1289,6 +1283,6 @@ namespace Unity.Entities.PerformanceTests
                 (entity, componentType) => { m_Manager.AddComponent(entity, componentType); },
                 (entities, componentType) => { m_Manager.AddComponent(entities, componentType); }
             );
-#endif 
+#endif
     }
 }

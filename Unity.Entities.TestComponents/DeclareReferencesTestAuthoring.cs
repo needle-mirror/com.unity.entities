@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Unity.Entities.Tests {
+namespace Unity.Entities.Tests
+{
     [AddComponentMenu("")]
     [ConverterVersion("unity", 1)]
     public class DeclareReferencesTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity, IDeclareReferencedPrefabs

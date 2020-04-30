@@ -1,11 +1,11 @@
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
-        
+
         // @TODO Point to documentation for multithreaded way to check Entity validity.
         /// <summary>
         /// Reports whether an Entity object is still valid.
@@ -26,7 +26,7 @@ namespace Unity.Entities
         /// <see cref="Entity.Index"/> in the entities array.</returns>
         public bool Exists(Entity entity)
         {
-            return m_EntityDataAccess.Exists(entity);
+            return GetCheckedEntityDataAccess()->Exists(entity);
         }
 
         /// <summary>
@@ -38,7 +38,7 @@ namespace Unity.Entities
         /// <returns>True, if the specified entity has the component.</returns>
         public bool HasComponent<T>(Entity entity)
         {
-            return m_EntityDataAccess.HasComponent(entity, ComponentType.ReadWrite<T>());
+            return GetCheckedEntityDataAccess()->HasComponent(entity, ComponentType.ReadWrite<T>());
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace Unity.Entities
         /// <returns>True, if the specified entity has the component.</returns>
         public bool HasComponent(Entity entity, ComponentType type)
         {
-            return m_EntityDataAccess.HasComponent(entity, type);
+            return GetCheckedEntityDataAccess()->HasComponent(entity, type);
         }
 
         /// <summary>
@@ -62,7 +62,7 @@ namespace Unity.Entities
         /// <returns>True, if the chunk containing the specified entity has the component.</returns>
         public bool HasChunkComponent<T>(Entity entity)
         {
-            return m_EntityDataAccess.HasComponent(entity, ComponentType.ChunkComponent<T>());
+            return GetCheckedEntityDataAccess()->HasComponent(entity, ComponentType.ChunkComponent<T>());
         }
 
         // ----------------------------------------------------------------------------------------------------------
@@ -71,7 +71,9 @@ namespace Unity.Entities
 
         internal bool HasComponentRaw(Entity entity, int typeIndex)
         {
-            return EntityComponentStore->HasComponent(entity, typeIndex);
-        }    
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            return ecs->HasComponent(entity, typeIndex);
+        }
     }
 }

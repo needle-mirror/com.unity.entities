@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.CodeGeneratedJobForEach;
@@ -14,7 +15,6 @@ namespace Unity.Entities
     {
         public EntityQueryDescValidationException(string message) : base(message)
         {
-
         }
     }
 
@@ -27,7 +27,7 @@ namespace Unity.Entities
     /// pass an EntityQueryDesc object to <see cref="ComponentSystemBase.GetEntityQuery(EntityQueryDesc[])"/>
     /// to create the <see cref="EntityQuery"/>. Outside a system, use
     /// <see cref="EntityManager.CreateEntityQuery(EntityQueryDesc[])"/>.
-    /// 
+    ///
     /// A query description combines the component types you specify in `All`, `Any`, and `None` sets according to the
     /// following rules:
     ///
@@ -43,11 +43,11 @@ namespace Unity.Entities
     ///
     /// The query description below matches all of the archetypes that:
     /// have any of [Melee or Ranger], AND have none of [Player], AND have all of [Position and Rotation]
-    /// 
+    ///
     /// <example>
     /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-description" title="Query Description"/>
     /// </example>
-    /// 
+    ///
     /// In other words, the query created from this description selects the Enemy1 and Enemy2 entities, but not the Player entity.
     /// </remarks>
     public class EntityQueryDesc
@@ -167,7 +167,7 @@ namespace Unity.Entities
     /// <example>
     /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="entity-query-mask" title="Query Mask"/>
     /// </example>
-    /// 
+    ///
     /// You can create up to 1024 unique EntityQueryMasks in an application.
     /// Note that you cannot create an EntityQueryMasks from an EntityQuery object that has a filter.
     /// </remarks>
@@ -206,111 +206,34 @@ namespace Unity.Entities
         }
     };
 
-    /// <summary>
-    /// Use an EntityQuery object to select entities with components that meet specific requirements.
-    /// </summary>
-    /// <remarks>
-    /// An entity query defines the set of component types that an [archetype] must contain
-    /// in order for its chunks and entities to be selected and specifies whether the components accessed
-    /// through the query are read-only or read-write. 
-    ///
-    /// For simple queries, you can create an EntityQuery based on an array of
-    /// component types. The following example defines a EntityQuery that finds all entities
-    /// with both Rotation and RotationSpeed components.
-    ///
-    /// <example>
-    /// <code source="../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-from-list" title="EntityQuery Example"/>
-    /// </example>
-    ///
-    /// The query uses [ComponentType.ReadOnly] instead of the simpler `typeof` expression
-    /// to designate that the system does not write to RotationSpeed. Always specify read-only
-    /// when possible, since there are fewer constraints on read-only access to data, which can help
-    /// the Job scheduler execute your Jobs more efficiently.
-    ///
-    /// For more complex queries, you can use an <see cref="EntityQueryDesc"/> object to create the entity query.
-    /// A query description provides a flexible query mechanism to specify which archetypes to select
-    /// based on the following sets of components:
-    ///
-    /// * `All` = All component types in this array must exist in the archetype
-    /// * `Any` = At least one of the component types in this array must exist in the archetype
-    /// * `None` = None of the component types in this array can exist in the archetype
-    ///
-    /// For example, the following query includes archetypes containing Rotation and
-    /// RotationSpeed components, but excludes any archetypes containing a Frozen component:
-    ///
-    /// <example>
-    /// <code source="../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-from-description" title="EntityQuery Example"/>
-    /// </example>
-    ///
-    /// **Note:** Do not include completely optional components in the query description. To handle optional
-    /// components, use <see cref="IJobChunk"/> and the [ArchetypeChunk.Has()] method to determine whether a chunk contains the
-    /// optional component or not. Since all entities within the same chunk have the same components, you
-    /// only need to check whether an optional component exists once per chunk -- not once per entity.
-    ///
-    /// Within a system class, use the [ComponentSystemBase.GetEntityQuery()] function
-    /// to get a EntityQuery instance. Outside a system, use the [EntityManager.CreateEntityQuery()] function.
-    ///
-    /// You can filter entities based on
-    /// whether they have [changed] or whether they have a specific value for a [shared component].
-    /// Once you have created an EntityQuery object, you can
-    /// [reset] and change the filter settings, but you cannot modify the base query.
-    /// 
-    /// Use an EntityQuery for the following purposes:
-    ///
-    /// * To get a [native array] of a the values for a specific <see cref="IComponentData"/> type for all entities matching the query
-    /// * To get an [native array] of the <see cref="ArchetypeChunk"/> objects matching the query
-    /// * To schedule an <see cref="IJobChunk"/> job
-    /// * To control whether a system updates using [ComponentSystemBase.RequireForUpdate(query)]
-    /// 
-    /// Note that [Entities.ForEach] defines an entity query implicitly based on the methods you call. You can
-    /// access this implicit EntityQuery object using [Entities.WithStoreEntityQueryInField]. However, you cannot
-    /// create an [Entities.ForEach] construction based on an existing EntityQuery object.
-    ///
-    /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
-    /// [Entities.WithStoreEntityQueryInField]: xref:Unity.Entities.SystemBase.Entities
-    /// [ComponentSystemBase.GetEntityQuery()]: xref:Unity.Entities.ComponentSystemBase.GetEntityQuery*
-    /// [EntityManager.CreateEntityQuery()]: xref:Unity.Entities.EntityManager.CreateEntityQuery*
-    /// [ComponentType.ReadOnly]: xref:Unity.Entities.ComponentType.ReadOnly``1
-    /// [ComponentSystemBase.RequireForUpdate()]: xref:Unity.Entities.ComponentSystemBase.RequireForUpdate(Unity.Entities.EntityQuery)
-    /// [ArchetypeChunk.Has()]: xref:Unity.Entities.ArchetypeChunk.Has``1(Unity.Entities.ArchetypeChunkComponentType{``0})
-    /// [archetype]: xref:Unity.Entities.EntityArchetype
-    /// [changed]: xref:Unity.Entities.EntityQuery.SetChangedVersionFilter*
-    /// [shared component]: xref:Unity.Entities.EntityQuery.SetSharedComponentFilter*
-    /// [reset]: xref:Unity.Entities.EntityQuery.ResetFilter*
-    /// [native array]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html
-    /// </remarks>
-    public unsafe class EntityQuery : IDisposable
+    internal unsafe struct EntityQueryImpl
     {
-        internal ComponentDependencyManager* _DependencyManager;
-        internal EntityQueryData*           _QueryData;
-        internal EntityComponentStore*      _EntityComponentStore;
+        internal EntityDataAccess*              _Access;
+        internal EntityQueryData* _QueryData;
         internal EntityQueryFilter          _Filter;
-        internal ManagedComponentStore      _ManagedComponentStore;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal string                    _DisallowDisposing = null;
+        internal bool                    _DisallowDisposing;
 #endif
 
-        // TODO: this is temporary, used to cache some state to avoid recomputing the TransformAccessArray. We need to improve this.
-        internal IDisposable                _CachedState;
+
+        internal GCHandle                _CachedState;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal ComponentSafetyHandles* SafetyHandles => &_DependencyManager->Safety;
+        internal ComponentSafetyHandles* SafetyHandles => &_Access->DependencyManager->Safety;
 #endif
 
-        internal EntityQuery(EntityQueryData* queryData, ComponentDependencyManager* dependencyManager, EntityComponentStore* entityComponentStore, ManagedComponentStore managedComponentStore)
+        internal void Construct(EntityQueryData* queryData, EntityDataAccess* access)
         {
+            _Access = access;
             _QueryData = queryData;
             _Filter = default(EntityQueryFilter);
-            _DependencyManager = dependencyManager;
-            _EntityComponentStore = entityComponentStore;
-            _ManagedComponentStore = managedComponentStore;
+            fixed(EntityQueryImpl* self = &this)
+            {
+                access->AliveEntityQueries.Add((ulong)(IntPtr)self, default);
+            }
         }
 
-        /// <summary>
-        /// Reports whether this query would currently select zero entities.
-        /// </summary>
-        /// <returns>True, if this EntityQuery matches zero existing entities. False, if it matches one or more entities.</returns>
         public bool IsEmptyIgnoreFilter
         {
             get
@@ -330,7 +253,8 @@ namespace Unity.Entities
         {
             internal List<T> items;
 
-            internal SlowListSet() {
+            internal SlowListSet()
+            {
                 items = new List<T>();
             }
 
@@ -349,10 +273,6 @@ namespace Unity.Entities
         }
 #endif
 
-        /// <summary>
-        /// Gets the array of <see cref="ComponentType"/> objects included in this EntityQuery.
-        /// </summary>
-        /// <returns>An array of ComponentType objects</returns>
         internal ComponentType[] GetQueryTypes()
         {
 #if !NET_DOTS
@@ -388,11 +308,6 @@ namespace Unity.Entities
 #endif
         }
 
-        /// <summary>
-        ///     Packed array of this EntityQuery's ReadOnly and writable ComponentTypes.
-        ///     ReadOnly ComponentTypes come before writable types in this array.
-        /// </summary>
-        /// <returns>Array of ComponentTypes</returns>
         internal ComponentType[] GetReadAndWriteTypes()
         {
             var types = new ComponentType[_QueryData->ReaderTypesCount + _QueryData->WriterTypesCount];
@@ -409,39 +324,30 @@ namespace Unity.Entities
             return types;
         }
 
-        /// <summary>
-        /// Disposes this EntityQuery instance.
-        /// </summary>
-        /// <remarks>Do not dispose EntityQuery instances accessed using
-        /// <see cref="ComponentSystemBase.GetEntityQuery(ComponentType[])"/>. Systems automatically dispose of
-        /// their own entity queries.</remarks>
-        /// <exception cref="InvalidOperationException">Thrown if you attempt to dispose an EntityQuery
-        /// belonging to a system.</exception>
         public void Dispose()
         {
+            fixed(EntityQueryImpl* self = &this)
+            {
+                _Access->AliveEntityQueries.Remove((ulong)(IntPtr)self);
+            }
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (_DisallowDisposing != null)
-                throw new InvalidOperationException(_DisallowDisposing);
+            if (_DisallowDisposing)
+                throw new InvalidOperationException("EntityQuery cannot currently be disposed");
 #endif
 
-            if (_CachedState != null)
+            if (_CachedState.IsAllocated)
             {
-                _CachedState.Dispose();
-                _CachedState = null;
+                ((IDisposable)_CachedState.Target).Dispose();
+                _CachedState.Free();
+                _CachedState = default;
             }
 
             if (_QueryData != null)
                 ResetFilter();
 
-            _DependencyManager = null;
+            _Access = null;
             _QueryData = null;
-            _EntityComponentStore = null;
-            _ManagedComponentStore = null;
-        }
-
-        public bool IsCreated
-        {
-            get { return _EntityComponentStore != null;  }
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -467,6 +373,7 @@ namespace Unity.Entities
             var type = _QueryData->RequiredComponents + indexInEntityQuery;
             return SafetyHandles->GetBufferSafetyHandle(type->TypeIndex);
         }
+
 #endif
 
         bool GetIsReadOnly(int indexInEntityQuery)
@@ -476,106 +383,48 @@ namespace Unity.Entities
             return isReadOnly;
         }
 
-        /// <summary>
-        /// Calculates the number of entities selected by this EntityQuery.
-        /// </summary>
-        /// <remarks>
-        /// The EntityQuery must execute and apply any filters to calculate the entity count.
-        /// </remarks>
-        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCount()
         {
             SyncFilterTypes();
             return ChunkIterationUtility.CalculateEntityCount(in _QueryData->MatchingArchetypes, ref _Filter);
         }
 
-        /// <summary>
-        /// Calculates the number of entities selected by this EntityQuery, ignoring any set filters.
-        /// </summary>
-        /// <remarks>
-        /// The EntityQuery must execute to calculate the entity count.
-        /// </remarks>
-        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCountWithoutFiltering()
         {
             var dummyFilter = default(EntityQueryFilter);
             return ChunkIterationUtility.CalculateEntityCount(in _QueryData->MatchingArchetypes, ref dummyFilter);
         }
 
-        /// <summary>
-        /// Calculates the number of chunks that match this EntityQuery.
-        /// </summary>
-        /// <remarks>
-        /// The EntityQuery must execute and apply any filters to calculate the chunk count.
-        /// </remarks>
-        /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
         public int CalculateChunkCount()
         {
             SyncFilterTypes();
             return ChunkIterationUtility.CalculateChunkCount(in _QueryData->MatchingArchetypes, ref _Filter);
         }
 
-        /// <summary>
-        /// Calculates the number of chunks that match this EntityQuery, ignoring any set filters.
-        /// </summary>
-        /// <remarks>
-        /// The EntityQuery must execute to calculate the chunk count.
-        /// </remarks>
-        /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
         public int CalculateChunkCountWithoutFiltering()
         {
             var dummyFilter = default(EntityQueryFilter);
             return ChunkIterationUtility.CalculateChunkCount(_QueryData->MatchingArchetypes, ref dummyFilter);
         }
 
-        /// <summary>
-        /// Gets an ArchetypeChunkIterator which can be used to iterate over every chunk returned by this EntityQuery.
-        /// </summary>
-        /// <returns>ArchetypeChunkIterator for this EntityQuery</returns>
         public ArchetypeChunkIterator GetArchetypeChunkIterator()
         {
-            return new ArchetypeChunkIterator(_QueryData->MatchingArchetypes, _DependencyManager, _EntityComponentStore->GlobalSystemVersion, ref _Filter);
+            return new ArchetypeChunkIterator(_QueryData->MatchingArchetypes, _Access->DependencyManager, _Access->EntityComponentStore->GlobalSystemVersion, ref _Filter);
         }
 
-        /// <summary>
-        ///     Index of a ComponentType in this EntityQuery's RequiredComponents list.
-        ///     For example, you have a EntityQuery that requires these ComponentTypes: Position, Velocity, and Color.
-        ///
-        ///     These are their type indices (according to the TypeManager):
-        ///         Position.TypeIndex == 3
-        ///         Velocity.TypeIndex == 5
-        ///            Color.TypeIndex == 17
-        ///
-        ///     RequiredComponents: [Position -> Velocity -> Color] (a linked list)
-        ///     Given Velocity's TypeIndex (5), the return value would be 1, since Velocity is in slot 1 of RequiredComponents.
-        /// </summary>
-        /// <param name="componentType">Index of a ComponentType in the TypeManager</param>
-        /// <returns>An index into RequiredComponents.</returns>
         internal int GetIndexInEntityQuery(int componentType)
         {
-            // Go through all the required component types in this EntityQuery until you find the matching component type index.
             var componentIndex = 0;
             while (componentIndex < _QueryData->RequiredComponentsCount && _QueryData->RequiredComponents[componentIndex].TypeIndex != componentType)
                 ++componentIndex;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (componentIndex >= _QueryData->RequiredComponentsCount || _QueryData->RequiredComponents[componentIndex].AccessModeType == ComponentType.AccessMode.Exclude)
-                throw new InvalidOperationException( $"Trying to get iterator for {TypeManager.GetType(componentType)} but the required component type was not declared in the EntityQuery.");
+                throw new InvalidOperationException($"Trying to get iterator for {TypeManager.GetType(componentType)} but the required component type was not declared in the EntityQuery.");
 #endif
             return componentIndex;
         }
 
-        /// <summary>
-        /// Asynchronously creates an array of the chunks containing entities matching this EntityQuery.
-        /// </summary>
-        /// <remarks>
-        /// Use <paramref name="jobhandle"/> as a dependency for jobs that use the returned chunk array.
-        /// <seealso cref="CreateArchetypeChunkArray(Unity.Collections.Allocator)"/>.</remarks>
-        /// <param name="allocator">Allocator to use for the array.</param>
-        /// <param name="jobhandle">An `out` parameter assigned the handle to the internal job
-        /// that gathers the chunks matching this EntityQuery.
-        /// </param>
-        /// <returns>NativeArray of all the chunks containing entities matching this query.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArrayAsync(Allocator allocator, out JobHandle jobhandle)
         {
             JobHandle dependency = default;
@@ -584,23 +433,15 @@ namespace Unity.Entities
             if (filterCount > 0)
             {
                 var readerTypes = stackalloc int[filterCount];
-                    for (int i = 0; i < filterCount; ++i)
-                        readerTypes[i] = _QueryData->RequiredComponents[_Filter.Changed.IndexInEntityQuery[i]].TypeIndex;
+                for (int i = 0; i < filterCount; ++i)
+                    readerTypes[i] = _QueryData->RequiredComponents[_Filter.Changed.IndexInEntityQuery[i]].TypeIndex;
 
-                dependency = _DependencyManager->GetDependency(readerTypes, filterCount, null, 0);
+                dependency = _Access->DependencyManager->GetDependency(readerTypes, filterCount, null, 0);
             }
 
             return ChunkIterationUtility.CreateArchetypeChunkArrayWithoutSync(_QueryData->MatchingArchetypes, allocator, out jobhandle, ref _Filter, dependency);
         }
 
-        /// <summary>
-        /// Synchronously creates an array of the chunks containing entities matching this EntityQuery.
-        /// </summary>
-        /// <remarks>This method blocks until the internal job that performs the query completes.
-        /// <seealso cref="CreateArchetypeChunkArray(Unity.Collections.Allocator,out Unity.Jobs.JobHandle)"/>
-        /// </remarks>
-        /// <param name="allocator">Allocator to use for the array.</param>
-        /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator)
         {
             SyncFilterTypes();
@@ -610,61 +451,39 @@ namespace Unity.Entities
             return res;
         }
 
-        /// <summary>
-        /// Creates a NativeArray containing the selected entities.
-        /// </summary>
-        /// <param name="allocator">The type of memory to allocate.</param>
-        /// <param name="jobhandle">An `out` parameter assigned a handle that you can use as a dependency for a Job
-        /// that uses the NativeArray.</param>
-        /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
-        public NativeArray<Entity> ToEntityArrayAsync(Allocator allocator, out JobHandle jobhandle)
+        public NativeArray<Entity> ToEntityArrayAsync(Allocator allocator, out JobHandle jobhandle, EntityQuery outer)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetEntityManagerSafetyHandle());
+            var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetSafetyHandleForArchetypeChunkEntityType());
 #else
             var entityType = new ArchetypeChunkEntityType();
 #endif
 
-            return ChunkIterationUtility.CreateEntityArray(_QueryData->MatchingArchetypes, allocator, entityType,  this, ref _Filter, out jobhandle, GetDependency());
+            return ChunkIterationUtility.CreateEntityArray(_QueryData->MatchingArchetypes, allocator, entityType, outer, ref _Filter, out jobhandle, GetDependency());
         }
 
-        /// <summary>
-        /// Creates a NativeArray containing the selected entities.
-        /// </summary>
-        /// <remarks>This version of the function blocks until the Job used to fill the array is complete.</remarks>
-        /// <param name="allocator">The type of memory to allocate.</param>
-        /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
-        public NativeArray<Entity> ToEntityArray(Allocator allocator)
+        public NativeArray<Entity> ToEntityArray(Allocator allocator, EntityQuery outer)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetEntityManagerSafetyHandle());
+            var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetSafetyHandleForArchetypeChunkEntityType());
 #else
             var entityType = new ArchetypeChunkEntityType();
 #endif
             JobHandle job;
-            var res = ChunkIterationUtility.CreateEntityArray(_QueryData->MatchingArchetypes, allocator, entityType, this, ref _Filter, out job, GetDependency());
+            var res = ChunkIterationUtility.CreateEntityArray(_QueryData->MatchingArchetypes, allocator, entityType, outer, ref _Filter, out job, GetDependency());
             job.Complete();
             return res;
         }
 
-        internal struct GatherEntitiesResult
+        internal void GatherEntitiesToArray(out EntityQuery.GatherEntitiesResult result, EntityQuery outer)
         {
-            public int StartingOffset;
-            public int EntityCount;
-            public Entity* EntityBuffer;
-            public NativeArray<Entity> EntityArray;
-        }
-
-        internal void GatherEntitiesToArray(out GatherEntitiesResult result)
-        {
-            // The ChunkIterationUtility will perform the job if the query is not using filter
             ChunkIterationUtility.GatherEntitiesToArray(_QueryData, ref _Filter, out result);
 
             if (result.EntityBuffer == null)
             {
                 var entityCount = CalculateEntityCount();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetEntityManagerSafetyHandle());
+                var entityType = new ArchetypeChunkEntityType(SafetyHandles->GetSafetyHandleForArchetypeChunkEntityType());
 #else
                 var entityType = new ArchetypeChunkEntityType();
 #endif
@@ -673,14 +492,14 @@ namespace Unity.Entities
                     EntityType = entityType,
                     Entities = new NativeArray<Entity>(entityCount, Allocator.TempJob)
                 };
-                job.Run(this);
+                job.Run(outer);
                 result.EntityArray = job.Entities;
                 result.EntityBuffer = (Entity*)result.EntityArray.GetUnsafeReadOnlyPtr();
                 result.EntityCount = result.EntityArray.Length;
             }
         }
 
-        internal void ReleaseGatheredEntities(ref GatherEntitiesResult result)
+        internal void ReleaseGatheredEntities(ref EntityQuery.GatherEntitiesResult result)
         {
             ChunkIterationUtility.currentOffsetInResultBuffer = result.StartingOffset;
             if (result.EntityArray.IsCreated)
@@ -688,62 +507,44 @@ namespace Unity.Entities
                 result.EntityArray.Dispose();
             }
         }
-        
-        /// <summary>
-        /// Creates a NativeArray containing the components of type T for the selected entities.
-        /// </summary>
-        /// <param name="allocator">The type of memory to allocate.</param>
-        /// <param name="jobhandle">An `out` parameter assigned a handle that you can use as a dependency for a Job
-        /// that uses the NativeArray.</param>
-        /// <typeparam name="T">The component type.</typeparam>
-        /// <returns>An array containing the specified component for all the entities selected
-        /// by the EntityQuery.</returns>
-        public NativeArray<T> ToComponentDataArrayAsync<T>(Allocator allocator, out JobHandle jobhandle)
+
+        public NativeArray<T> ToComponentDataArrayAsync<T>(Allocator allocator, out JobHandle jobhandle, EntityQuery outer)
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandleForArchetypeChunkComponentType(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(true, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
-            
-            
+
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
-                throw new InvalidOperationException( $"Trying ToComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+                throw new InvalidOperationException($"Trying ToComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
-            return ChunkIterationUtility.CreateComponentDataArray(_QueryData->MatchingArchetypes, allocator, componentType, this, ref _Filter, out jobhandle, GetDependency());
+            return ChunkIterationUtility.CreateComponentDataArray(_QueryData->MatchingArchetypes, allocator, componentType, outer, ref _Filter, out jobhandle, GetDependency());
         }
 
-        /// <summary>
-        /// Creates a NativeArray containing the components of type T for the selected entities.
-        /// </summary>
-        /// <param name="allocator">The type of memory to allocate.</param>
-        /// <typeparam name="T">The component type.</typeparam>
-        /// <returns>An array containing the specified component for all the entities selected
-        /// by the EntityQuery.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if you ask for a component that is not part of
-        /// the group.</exception>
-        public NativeArray<T> ToComponentDataArray<T>(Allocator allocator)
+        public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, EntityQuery outer)
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), true), true, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandleForArchetypeChunkComponentType(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(true, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
-                throw new InvalidOperationException( $"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+                throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
 
             JobHandle job;
-            var res = ChunkIterationUtility.CreateComponentDataArray(_QueryData->MatchingArchetypes, allocator, componentType, this, ref _Filter, out job, GetDependency());
+            var res = ChunkIterationUtility.CreateComponentDataArray(_QueryData->MatchingArchetypes, allocator, componentType, outer, ref _Filter, out job, GetDependency());
             job.Complete();
             return res;
         }
@@ -754,17 +555,18 @@ namespace Unity.Entities
             int typeIndex = TypeManager.GetTypeIndex<T>();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(typeIndex, true), true, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandleForArchetypeChunkComponentType(typeIndex, true), true, _Access->EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(true, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
-                throw new InvalidOperationException( $"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+                throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
-            
+
+            var mcs = _Access->ManagedComponentStore;
             var matches = _QueryData->MatchingArchetypes;
             var entityCount = ChunkIterationUtility.CalculateEntityCount(matches, ref _Filter);
             T[] res = new T[entityCount];
@@ -782,86 +584,96 @@ namespace Unity.Entities
                     if (_Filter.RequiresMatchesFilter && !chunk->MatchesFilter(match, ref _Filter))
                         continue;
 
-                    var managedComponentArray = (int*)ChunkDataUtility.GetComponentDataRW(chunk,0, indexInTypeArray, _EntityComponentStore->GlobalSystemVersion);
+                    var managedComponentArray = (int*)ChunkDataUtility.GetComponentDataRW(chunk, 0, indexInTypeArray);
                     for (int entityIndex = 0; entityIndex < chunk->Count; ++entityIndex)
                     {
-                        res[i++] = (T)_ManagedComponentStore.GetManagedComponent(managedComponentArray[entityIndex]);
+                        res[i++] = (T)mcs.GetManagedComponent(managedComponentArray[entityIndex]);
                     }
                 }
             }
 
             return res;
         }
+
 #endif
 
-        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray)
-        where T : struct, IComponentData
+        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, EntityQuery outer)
+            where T : struct, IComponentData
         {
-            // throw if non equal size
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var entityCount = CalculateEntityCount();
             if (entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
 
-            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandleForArchetypeChunkComponentType(TypeManager.GetTypeIndex<T>(), false), false, _Access->EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(false, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(false, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
-            
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
-                throw new InvalidOperationException( $"Trying CopyFromComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+                throw new InvalidOperationException($"Trying CopyFromComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
-            
 
-            ChunkIterationUtility.CopyFromComponentDataArray(_QueryData->MatchingArchetypes, componentDataArray, componentType, this, ref _Filter, out var job, GetDependency());
+
+            ChunkIterationUtility.CopyFromComponentDataArray(_QueryData->MatchingArchetypes, componentDataArray, componentType, outer, ref _Filter, out var job, GetDependency());
             job.Complete();
         }
 
-        public void CopyFromComponentDataArrayAsync<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle)
-            where T : struct,IComponentData
+        public void CopyFromComponentDataArrayAsync<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle, EntityQuery outer)
+            where T : struct, IComponentData
         {
-            // throw if non equal size
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var entityCount = CalculateEntityCount();
-            if(entityCount != componentDataArray.Length)
+            if (entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandle(TypeManager.GetTypeIndex<T>(), false), false, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(SafetyHandles->GetSafetyHandleForArchetypeChunkComponentType(TypeManager.GetTypeIndex<T>(), false), false, _Access->EntityComponentStore->GlobalSystemVersion);
 #else
-            var componentType = new ArchetypeChunkComponentType<T>(false, _EntityComponentStore->GlobalSystemVersion);
+            var componentType = new ArchetypeChunkComponentType<T>(false, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
-            
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
-                throw new InvalidOperationException( $"Trying CopyFromComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+                throw new InvalidOperationException($"Trying CopyFromComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
 
-            ChunkIterationUtility.CopyFromComponentDataArray(_QueryData->MatchingArchetypes, componentDataArray, componentType, this, ref _Filter, out jobhandle, GetDependency());
+            ChunkIterationUtility.CopyFromComponentDataArray(_QueryData->MatchingArchetypes, componentDataArray, componentType, outer, ref _Filter, out jobhandle, GetDependency());
         }
 
         public Entity GetSingletonEntity()
         {
-            var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var entityCount);
+            // Fast path with no filter
+            if (!_Filter.RequiresMatchesFilter)
+            {
+                var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var archetypeEntityCount);
+       #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (archetypeEntityCount != 1)
+                    throw new InvalidOperationException($"GetSingletonEntity() requires that exactly one entity exists that matches this query, but there are {archetypeEntityCount}.");
+       #endif
+                return UnsafeUtilityEx.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(_QueryData->MatchingArchetypes.Ptr[archetypeIndex]->Archetype->Chunks.p[0], 0));
+            }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (entityCount != 1)
-                throw new InvalidOperationException($"GetSingletonEntity() requires that there be exactly one, there is currently {entityCount}.");
-            
-            if (_Filter.RequiresMatchesFilter)
-                throw new InvalidOperationException($"GetSingletonEntity() requires that the EntityQuery does not use Filtering.");
-#endif
-            
-            return UnsafeUtilityEx.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(_QueryData->MatchingArchetypes.Ptr[archetypeIndex]->Archetype->Chunks.p[0], 0));
+            // Slow path with filter, can't just use first matching archetype/chunk
+       #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var queryEntityCount = CalculateEntityCount();
+            if (queryEntityCount != 1)
+                throw new InvalidOperationException($"GetSingletonEntity() requires that exactly one entity exists that matches this query, but there are {queryEntityCount}.");
+       #endif
+            var iterator = GetArchetypeChunkIterator();
+            iterator.MoveNext();
+            var array = iterator.GetCurrentChunkComponentDataPtr(false, 0);
+            UnsafeUtility.CopyPtrToStructure(array, out Entity entity);
+            return entity;
         }
 
-        int GetFirstArchetypeIndexWithEntity(out int entityCount)
+        internal int GetFirstArchetypeIndexWithEntity(out int entityCount)
         {
             entityCount = 0;
             int archeTypeIndex = -1;
@@ -875,110 +687,68 @@ namespace Unity.Entities
 
             return archeTypeIndex;
         }
-            
-        /// <summary>
-        /// Gets the value of a singleton component.
-        /// </summary>
-        /// <remarks>A singleton component is a component of which only one instance exists in the world.</remarks>
-        /// <typeparam name="T">The component type.</typeparam>
-        /// <returns>A copy of the singleton component.</returns>
-        /// <exception cref="InvalidOperationException"></exception>
-        /// <seealso cref="SetSingleton{T}(T)"/>
-        /// <seealso cref="GetSingletonEntity"/>
-        /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
+
         public T GetSingleton<T>() where T : struct, IComponentData
         {
-            int typeIndex = TypeManager.GetTypeIndex<T>();
-            var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var entityCount);
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            _Access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (entityCount != 1)
-                throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that there be exactly one of {typeof(T)}, there is currently {entityCount}.");
-            
-            if (_Filter.RequiresMatchesFilter)
-                throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that the EntityQuery does not use Filtering.");
-#endif
-            
-            _DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
-
-            var archetype = _QueryData->MatchingArchetypes.Ptr[archetypeIndex]->Archetype;
-            for (var typeIndexInArchetype = 0; typeIndexInArchetype < archetype->TypesCount; ++typeIndexInArchetype)
+            // Fast path with no filter
+            if (!_Filter.RequiresMatchesFilter && _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
-                if (archetype->Types[typeIndexInArchetype].TypeIndex == typeIndex)
+                var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var archetypeEntityCount);
+       #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (archetypeEntityCount != 1)
+                    throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {archetypeEntityCount}.");
+       #endif
+                var archetype = _QueryData->MatchingArchetypes.Ptr[archetypeIndex]->Archetype;
+                for (var typeIndexInArchetype = 0; typeIndexInArchetype < archetype->TypesCount; ++typeIndexInArchetype)
                 {
-                    void* ptrValue = ChunkIterationUtility.GetChunkComponentDataROPtr(archetype->Chunks.p[0], typeIndexInArchetype);
-                    return UnsafeUtilityEx.AsRef<T>(ptrValue);
+                    if (archetype->Types[typeIndexInArchetype].TypeIndex == typeIndex)
+                        return UnsafeUtilityEx.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(archetype->Chunks.p[0], typeIndexInArchetype));
                 }
+                return default;
             }
-            return default; 
+
+            // Slow path with filter, can't just use first matching archetype/chunk
+       #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var queryEntityCount = CalculateEntityCount();
+            if (queryEntityCount != 1)
+                throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+       #endif
+            var iterator = GetArchetypeChunkIterator();
+            iterator.MoveNext();
+            return UnsafeUtilityEx.AsRef<T>(iterator.GetCurrentChunkComponentDataPtr(false, 1));
         }
 
-        /// <summary>
-        /// Sets the value of a singleton component.
-        /// </summary>
-        /// <remarks>
-        /// For a component to be a singleton, there can be only one instance of that component
-        /// in a <see cref="World"/>.
-        ///
-        /// **Note:** singletons are otherwise normal entities. The EntityQuery and <see cref="ComponentSystemBase"/>
-        /// singleton functions add checks that you have not created two instances of a
-        /// type intended to be a singleton, but other APIs do not prevent such accidental creation.
-        /// 
-        /// To create a singleton, create an entity with the singleton component.
-        ///
-        /// For example, if you had a component defined as:
-        /// 
-        /// <example>
-        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="singleton-type-example" title="Singleton"/>
-        /// </example>
-        ///
-        /// You could create a singleton as follows:
-        ///
-        /// <example>
-        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="create-singleton" title="Create Singleton"/>
-        /// </example>
-        /// 
-        /// To update the singleton component after creation, you can use an EntityQuery object that
-        /// selects the singleton entity and call this `SetSingleton()` function:
-        ///
-        /// <example>
-        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="set-singleton" title="Set Singleton"/>
-        /// </example>
-        /// 
-        /// You can set and get the singleton value from a system: see <seealso cref="ComponentSystemBase.SetSingleton{T}(T)"/>
-        /// and <seealso cref="ComponentSystemBase.GetSingleton{T}"/>.
-        /// </remarks>
-        /// <param name="value">An instance of type T containing the values to set.</param>
-        /// <typeparam name="T">The component type.</typeparam>
-        /// <exception cref="InvalidOperationException">Thrown if more than one instance of this component type
-        /// exists in the world or the component type appears in more than one archetype.</exception>
-        /// <seealso cref="GetSingleton{T}"/>
-        /// <seealso cref="GetSingletonEntity"/>
         public void SetSingleton<T>(T value) where T : struct, IComponentData
         {
-            int typeIndex = TypeManager.GetTypeIndex<T>();
-            var archeTypeIndex = GetFirstArchetypeIndexWithEntity(out var entityCount);
-            
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (entityCount != 1)
-                throw new InvalidOperationException($"SetSingleton<{typeof(T)}>(typeof(T)) requires that there be exactly one of {typeof(T)}, there is currently {entityCount}.");
-            
-            if (_Filter.RequiresMatchesFilter)
-                throw new InvalidOperationException($"SetSingleton<{typeof(T)}>(typeof(T)) requires that the EntityQuery does not use Filtering.");
-#endif
-            
-            _DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            _Access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
 
-            var archetype = _QueryData->MatchingArchetypes.Ptr[archeTypeIndex]->Archetype;
-            for (var typeIndexInArchetype = 0; typeIndexInArchetype < archetype->TypesCount; ++typeIndexInArchetype)
+            // Fast path with no filter & assuming this is a simple query with just one singleton component
+            if (!_Filter.RequiresMatchesFilter && _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
-                if (archetype->Types[typeIndexInArchetype].TypeIndex == typeIndex)
-                {
-                    void* ptrValue = ChunkIterationUtility.GetChunkComponentDataPtr(archetype->Chunks.p[0], true, typeIndexInArchetype, _EntityComponentStore->GlobalSystemVersion);
-                    UnsafeUtility.CopyStructureToPtr(ref value, ptrValue);
-                    return;
-                }
+                var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var entityCount);
+               #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (entityCount != 1)
+                    throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {entityCount}.");
+               #endif
+                var match = _QueryData->MatchingArchetypes.Ptr[archetypeIndex];
+                UnsafeUtility.CopyStructureToPtr(ref value, ChunkIterationUtility.GetChunkComponentDataPtr(match->Archetype->Chunks.p[0], true,
+                    match->IndexInArchetype[1], _Access->EntityComponentStore->GlobalSystemVersion));
+                return;
             }
+
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var queryEntityCount = CalculateEntityCount();
+            if (queryEntityCount != 1)
+                throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+#endif
+            var iterator = GetArchetypeChunkIterator();
+            iterator.MoveNext();
+            UnsafeUtility.CopyStructureToPtr(ref value, iterator.GetCurrentChunkComponentDataPtr(true, GetIndexInEntityQuery(typeIndex)));
         }
 
         internal bool CompareComponents(ComponentType* componentTypes, int count)
@@ -986,61 +756,28 @@ namespace Unity.Entities
             return EntityQueryManager.CompareComponents(componentTypes, count, _QueryData);
         }
 
-        /// <summary>
-        /// Compares a list of component types to the types defining this EntityQuery.
-        /// </summary>
-        /// <remarks>Only required types in the query are used as the basis for the comparison.
-        /// If you include types that the query excludes or only includes as optional,
-        /// the comparison returns false.</remarks>
-        /// <param name="componentTypes">An array of ComponentType objects.</param>
-        /// <returns>True, if the list of types, including any read/write access specifiers,
-        /// matches the list of required component types of this EntityQuery.</returns>
         public bool CompareComponents(ComponentType[] componentTypes)
         {
-            fixed (ComponentType* componentTypesPtr = componentTypes)
+            fixed(ComponentType* componentTypesPtr = componentTypes)
             {
                 return EntityQueryManager.CompareComponents(componentTypesPtr, componentTypes.Length, _QueryData);
             }
         }
 
-        /// <summary>
-        /// Compares a list of component types to the types defining this EntityQuery.
-        /// </summary>
-        /// <remarks>Only required types in the query are used as the basis for the comparison.
-        /// If you include types that the query excludes or only includes as optional,
-        /// the comparison returns false. Do not include the <see cref="Entity"/> type, which
-        /// is included implicitly.</remarks>
-        /// <param name="componentTypes">An array of ComponentType objects.</param>
-        /// <returns>True, if the list of types, including any read/write access specifiers,
-        /// matches the list of required component types of this EntityQuery.</returns>
         public bool CompareComponents(NativeArray<ComponentType> componentTypes)
         {
             return EntityQueryManager.CompareComponents((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(), componentTypes.Length, _QueryData);
         }
 
-        /// <summary>
-        /// Compares a query description to the description defining this EntityQuery.
-        /// </summary>
-        /// <remarks>The `All`, `Any`, and `None` components in the query description are
-        /// compared to the corresponding list in this EntityQuery.</remarks>
-        /// <param name="queryDesc">The query description to compare.</param>
-        /// <returns>True, if the query description contains the same components with the same
-        /// read/write access modifiers as this EntityQuery.</returns>
         public bool CompareQuery(EntityQueryDesc[] queryDesc)
         {
             return EntityQueryManager.CompareQuery(queryDesc, _QueryData);
         }
 
-        /// <summary>
-        /// Resets this EntityQuery's filter.
-        /// </summary>
-        /// <remarks>
-        /// Removes references to shared component data, if applicable, then resets the filter type to None.
-        /// </remarks>
         public void ResetFilter()
         {
             var sharedCount = _Filter.Shared.Count;
-            var sm = _ManagedComponentStore;
+            var sm = _Access->ManagedComponentStore;
             for (var i = 0; i < sharedCount; ++i)
                 sm.RemoveReference(_Filter.Shared.SharedComponentIndex[i]);
 
@@ -1048,13 +785,6 @@ namespace Unity.Entities
             _Filter.Shared.Count = 0;
         }
 
-        /// <summary>
-        /// Filters this EntityQuery so that it only selects entities with shared component values
-        /// matching the values specified by the `sharedComponent1` parameter.
-        /// </summary>
-        /// <param name="sharedComponent1">The shared component values on which to filter.</param>
-        /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
-        /// one of the types used to create the EntityQuery.</typeparam>
         public void SetSharedComponentFilter<SharedComponent1>(SharedComponent1 sharedComponent1)
             where SharedComponent1 : struct, ISharedComponentData
         {
@@ -1062,19 +792,6 @@ namespace Unity.Entities
             AddSharedComponentFilter(sharedComponent1);
         }
 
-        /// <summary>
-        /// Filters this EntityQuery based on the values of two separate shared components.
-        /// </summary>
-        /// <remarks>
-        /// The filter only selects entities for which both shared component values
-        /// specified by the `sharedComponent1` and `sharedComponent2` parameters match.
-        /// </remarks>
-        /// <param name="sharedComponent1">Shared component values on which to filter.</param>
-        /// <param name="sharedComponent2">Shared component values on which to filter.</param>
-        /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
-        /// one of the types used to create the EntityQuery.</typeparam>
-        /// <typeparam name="SharedComponent2">The type of shared component. (The type must also be
-        /// one of the types used to create the EntityQuery.</typeparam>
         public void SetSharedComponentFilter<SharedComponent1, SharedComponent2>(SharedComponent1 sharedComponent1,
             SharedComponent2 sharedComponent2)
             where SharedComponent1 : struct, ISharedComponentData
@@ -1085,13 +802,6 @@ namespace Unity.Entities
             AddSharedComponentFilter(sharedComponent2);
         }
 
-        /// <summary>
-        /// Filters out entities in chunks for which the specified component has not changed.
-        /// </summary>
-        /// <remarks>
-        ///     Saves a given ComponentType's index in RequiredComponents in this group's Changed filter.
-        /// </remarks>
-        /// <param name="componentType">ComponentType to mark as changed on this EntityQuery's filter.</param>
         public void SetChangedVersionFilter(ComponentType componentType)
         {
             ResetFilter();
@@ -1134,7 +844,7 @@ namespace Unity.Entities
         public void AddSharedComponentFilter<SharedComponent>(SharedComponent sharedComponent)
             where SharedComponent : struct, ISharedComponentData
         {
-            var sm = _ManagedComponentStore;
+            var sm = _Access->ManagedComponentStore;
 
             var newFilterIndex = _Filter.Shared.Count;
             if (newFilterIndex >= EntityQueryFilter.SharedComponentData.Capacity)
@@ -1149,52 +859,30 @@ namespace Unity.Entities
 #endif
         }
 
-        /// <summary>
-        /// Ensures all jobs running on this EntityQuery complete.
-        /// </summary>
-        /// <remarks>An entity query uses jobs internally when required to create arrays of
-        /// entities and chunks. This function completes those jobs and returns when they are finished.
-        /// </remarks>
         public void CompleteDependency()
         {
-            _DependencyManager->CompleteDependenciesNoChecks(_QueryData->ReaderTypes, _QueryData->ReaderTypesCount,
+            _Access->DependencyManager->CompleteDependenciesNoChecks(_QueryData->ReaderTypes, _QueryData->ReaderTypesCount,
                 _QueryData->WriterTypes, _QueryData->WriterTypesCount);
         }
 
-        /// <summary>
-        /// Combines all dependencies in this EntityQuery into a single JobHandle.
-        /// </summary>
-        /// <remarks>An entity query uses jobs internally when required to create arrays of
-        /// entities and chunks.</remarks>
-        /// <returns>JobHandle that represents the combined dependencies of this EntityQuery</returns>
         public JobHandle GetDependency()
         {
-            return _DependencyManager->GetDependency(_QueryData->ReaderTypes, _QueryData->ReaderTypesCount,
+            return _Access->DependencyManager->GetDependency(_QueryData->ReaderTypes, _QueryData->ReaderTypesCount,
                 _QueryData->WriterTypes, _QueryData->WriterTypesCount);
         }
 
-        /// <summary>
-        /// Adds another job handle to this EntityQuery's dependencies.
-        /// </summary>
-        /// <remarks>An entity query uses jobs internally when required to create arrays of
-        /// entities and chunks. This junction adds an external job as a dependency for those
-        /// internal jobs.</remarks>
         public JobHandle AddDependency(JobHandle job)
         {
-            return _DependencyManager->AddDependency(_QueryData->ReaderTypes, _QueryData->ReaderTypesCount,
+            return _Access->DependencyManager->AddDependency(_QueryData->ReaderTypes, _QueryData->ReaderTypesCount,
                 _QueryData->WriterTypes, _QueryData->WriterTypesCount, job);
         }
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <returns></returns>
         public int GetCombinedComponentOrderVersion()
         {
             var version = 0;
 
             for (var i = 0; i < _QueryData->RequiredComponentsCount; ++i)
-                version += _EntityComponentStore->GetComponentTypeOrderVersion(_QueryData->RequiredComponents[i].TypeIndex);
+                version += _Access->EntityComponentStore->GetComponentTypeOrderVersion(_QueryData->RequiredComponents[i].TypeIndex);
 
             return version;
         }
@@ -1210,27 +898,18 @@ namespace Unity.Entities
             return anyAdded;
         }
 
-        /// <summary>
-        /// Syncs the needed types for the filter.
-        /// For every type that is change filtered we need to CompleteWriteDependency to avoid race conditions on the
-        /// change version of those types
-        /// </summary>
         internal void SyncFilterTypes()
         {
             for (int i = 0; i < _Filter.Changed.Count; ++i)
             {
                 var type = _QueryData->RequiredComponents[_Filter.Changed.IndexInEntityQuery[i]];
-                _DependencyManager->CompleteWriteDependency(type.TypeIndex);
+                _Access->DependencyManager->CompleteWriteDependency(type.TypeIndex);
             }
         }
 
-        /// <summary>
-        /// Syncs the needed types for the filter using the types in UnsafeMatchingArchetypePtrList
-        /// This version is used when the EntityQuery is not known
-        /// </summary>
         internal static void SyncFilterTypes(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, ComponentDependencyManager* safetyManager)
         {
-            if(matchingArchetypes.Length < 1)
+            if (matchingArchetypes.Length < 1)
                 return;
 
             var match = *matchingArchetypes.Ptr;
@@ -1243,78 +922,373 @@ namespace Unity.Entities
             }
         }
 
-        /// <summary>
-        /// Reports whether this entity query has a filter applied to it.
-        /// </summary>
-        /// <returns>Returns true if the query has a filter, returns false if the query does not have a filter.</returns>
         public bool HasFilter()
         {
             return _Filter.RequiresMatchesFilter;
         }
-        
-        [Obsolete("CreateArchetypeChunkArray with out JobHandle parameter renamed to CreateArchetypeChunkArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> CreateArchetypeChunkArrayAsync(*)", false)]
-        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator, out JobHandle jobhandle) => CreateArchetypeChunkArrayAsync(allocator, out jobhandle);
-        
-        [Obsolete("ToEntityArray with out JobHandle parameter renamed to ToEntityArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> ToEntityArrayAsync(*)", false)]
-        public NativeArray<Entity> ToEntityArray(Allocator allocator, out JobHandle jobhandle) => ToEntityArrayAsync(allocator, out jobhandle);
-        
-        [Obsolete("ToComponentDataArray with out JobHandle parameter renamed to ToComponentDataArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> ToComponentDataArrayAsync(*)", false)]
-        public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, out JobHandle jobhandle) where T : struct, IComponentData => ToComponentDataArrayAsync<T>(allocator, out jobhandle);
-        
-        [Obsolete("CopyFromComponentDataArray with out JobHandle parameter renamed to CopyFromComponentDataArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> CopyFromComponentDataArrayAsync(*)", false)]
-        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle) where T : struct, IComponentData => CopyFromComponentDataArrayAsync(componentDataArray, out jobhandle);
+
+        internal static EntityQueryImpl* Allocate()
+        {
+            void* ptr = UnsafeUtility.Malloc(sizeof(EntityQueryImpl), 8, Allocator.Persistent);
+            UnsafeUtility.MemClear(ptr, sizeof(EntityQueryImpl));
+            return (EntityQueryImpl*)ptr;
+        }
+
+        internal static void Free(EntityQueryImpl* impl)
+        {
+            UnsafeUtility.Free(impl, Allocator.Persistent);
+        }
     }
 
-#if !UNITY_DISABLE_MANAGED_COMPONENTS
-    public static unsafe class EntityQueryManagedComponentExtensions
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public struct EntityQueryNullShim
     {
+    }
+
+    /// <summary>
+    /// Use an EntityQuery object to select entities with components that meet specific requirements.
+    /// </summary>
+    /// <remarks>
+    /// An entity query defines the set of component types that an [archetype] must contain
+    /// in order for its chunks and entities to be selected and specifies whether the components accessed
+    /// through the query are read-only or read-write.
+    ///
+    /// For simple queries, you can create an EntityQuery based on an array of
+    /// component types. The following example defines a EntityQuery that finds all entities
+    /// with both Rotation and RotationSpeed components.
+    ///
+    /// <example>
+    /// <code source="../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-from-list" title="EntityQuery Example"/>
+    /// </example>
+    ///
+    /// The query uses [ComponentType.ReadOnly] instead of the simpler `typeof` expression
+    /// to designate that the system does not write to RotationSpeed. Always specify read-only
+    /// when possible, since there are fewer constraints on read-only access to data, which can help
+    /// the Job scheduler execute your Jobs more efficiently.
+    ///
+    /// For more complex queries, you can use an <see cref="EntityQueryDesc"/> object to create the entity query.
+    /// A query description provides a flexible query mechanism to specify which archetypes to select
+    /// based on the following sets of components:
+    ///
+    /// * `All` = All component types in this array must exist in the archetype
+    /// * `Any` = At least one of the component types in this array must exist in the archetype
+    /// * `None` = None of the component types in this array can exist in the archetype
+    ///
+    /// For example, the following query includes archetypes containing Rotation and
+    /// RotationSpeed components, but excludes any archetypes containing a Frozen component:
+    ///
+    /// <example>
+    /// <code source="../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-from-description" title="EntityQuery Example"/>
+    /// </example>
+    ///
+    /// **Note:** Do not include completely optional components in the query description. To handle optional
+    /// components, use <see cref="IJobChunk"/> and the [ArchetypeChunk.Has()] method to determine whether a chunk contains the
+    /// optional component or not. Since all entities within the same chunk have the same components, you
+    /// only need to check whether an optional component exists once per chunk -- not once per entity.
+    ///
+    /// Within a system class, use the [ComponentSystemBase.GetEntityQuery()] function
+    /// to get a EntityQuery instance. Outside a system, use the [EntityManager.CreateEntityQuery()] function.
+    ///
+    /// You can filter entities based on
+    /// whether they have [changed] or whether they have a specific value for a [shared component].
+    /// Once you have created an EntityQuery object, you can
+    /// [reset] and change the filter settings, but you cannot modify the base query.
+    ///
+    /// Use an EntityQuery for the following purposes:
+    ///
+    /// * To get a [native array] of a the values for a specific <see cref="IComponentData"/> type for all entities matching the query
+    /// * To get an [native array] of the <see cref="ArchetypeChunk"/> objects matching the query
+    /// * To schedule an <see cref="IJobChunk"/> job
+    /// * To control whether a system updates using [ComponentSystemBase.RequireForUpdate(query)]
+    ///
+    /// Note that [Entities.ForEach] defines an entity query implicitly based on the methods you call. You can
+    /// access this implicit EntityQuery object using [Entities.WithStoreEntityQueryInField]. However, you cannot
+    /// create an [Entities.ForEach] construction based on an existing EntityQuery object.
+    ///
+    /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
+    /// [Entities.WithStoreEntityQueryInField]: xref:Unity.Entities.SystemBase.Entities
+    /// [ComponentSystemBase.GetEntityQuery()]: xref:Unity.Entities.ComponentSystemBase.GetEntityQuery*
+    /// [EntityManager.CreateEntityQuery()]: xref:Unity.Entities.EntityManager.CreateEntityQuery*
+    /// [ComponentType.ReadOnly]: xref:Unity.Entities.ComponentType.ReadOnly``1
+    /// [ComponentSystemBase.RequireForUpdate()]: xref:Unity.Entities.ComponentSystemBase.RequireForUpdate(Unity.Entities.EntityQuery)
+    /// [ArchetypeChunk.Has()]: xref:Unity.Entities.ArchetypeChunk.Has``1(Unity.Entities.ArchetypeChunkComponentType{``0})
+    /// [archetype]: xref:Unity.Entities.EntityArchetype
+    /// [changed]: xref:Unity.Entities.EntityQuery.SetChangedVersionFilter*
+    /// [shared component]: xref:Unity.Entities.EntityQuery.SetSharedComponentFilter*
+    /// [reset]: xref:Unity.Entities.EntityQuery.ResetFilter*
+    /// [native array]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html
+    /// </remarks>
+    unsafe public struct EntityQuery : IDisposable
+    {
+        public bool Equals(EntityQuery other)
+        {
+            return __impl == other.__impl;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is EntityQuery other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return unchecked((int)(long)__impl);
+        }
+
+        static internal unsafe EntityQuery Construct(EntityQueryData* queryData, EntityDataAccess* access)
+        {
+            EntityQuery _result = default;
+            var _ptr = EntityQueryImpl.Allocate();
+            _ptr->Construct(queryData, access);
+            _result.__seqno = World.ms_NextSequenceNumber.Data++;
+            _result.__impl = _ptr;
+            _CreateSafetyHandle(ref _result);
+            return _result;
+        }
+
+        /// <summary>
+        /// Reports whether this query would currently select zero entities.
+        /// </summary>
+        /// <returns>True, if this EntityQuery matches zero existing entities. False, if it matches one or more entities.</returns>
+        public bool IsEmptyIgnoreFilter => _GetImpl()->IsEmptyIgnoreFilter;
+
+        /// <summary>
+        /// Gets the array of <see cref="ComponentType"/> objects included in this EntityQuery.
+        /// </summary>
+        /// <returns>An array of ComponentType objects</returns>
+        internal ComponentType[] GetQueryTypes() => _GetImpl()->GetQueryTypes();
+
+        /// <summary>
+        ///     Packed array of this EntityQuery's ReadOnly and writable ComponentTypes.
+        ///     ReadOnly ComponentTypes come before writable types in this array.
+        /// </summary>
+        /// <returns>Array of ComponentTypes</returns>
+        internal ComponentType[] GetReadAndWriteTypes() => _GetImpl()->GetReadAndWriteTypes();
+
+        /// <summary>
+        /// Disposes this EntityQuery instance.
+        /// </summary>
+        /// <remarks>Do not dispose EntityQuery instances accessed using
+        /// <see cref="ComponentSystemBase.GetEntityQuery(ComponentType[])"/>. Systems automatically dispose of
+        /// their own entity queries.</remarks>
+        /// <exception cref="InvalidOperationException">Thrown if you attempt to dispose an EntityQuery
+        /// belonging to a system.</exception>
+        public void Dispose()
+        {
+            var self = _GetImpl();
+            self->Dispose();
+
+            EntityQueryImpl.Free(self);
+
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.Release(__safety);
+            #endif
+
+            __impl = null;
+        }
+
+        internal IDisposable _CachedState
+        {
+            get
+            {
+                var impl = _GetImpl();
+                if (!impl->_CachedState.IsAllocated)
+                    return null;
+                return (IDisposable)impl->_CachedState.Target;
+            }
+            set
+            {
+                var impl = _GetImpl();
+                if (!impl->_CachedState.IsAllocated)
+                {
+                    impl->_CachedState = GCHandle.Alloc(value);
+                }
+                else
+                {
+                    impl->_CachedState.Target = value;
+                }
+            }
+        }
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        /// <summary>
+        ///     Gets safety handle to a ComponentType required by this EntityQuery.
+        /// </summary>
+        /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list./param>
+        /// <returns>AtomicSafetyHandle for a ComponentType</returns>
+        internal AtomicSafetyHandle GetSafetyHandle(int indexInEntityQuery) => _GetImpl()->GetSafetyHandle(indexInEntityQuery);
+
+        /// <summary>
+        ///     Gets buffer safety handle to a ComponentType required by this EntityQuery.
+        /// </summary>
+        /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list./param>
+        /// <returns>AtomicSafetyHandle for a buffer</returns>
+        internal AtomicSafetyHandle GetBufferSafetyHandle(int indexInEntityQuery) => _GetImpl()->GetBufferSafetyHandle(indexInEntityQuery);
+
+#endif
+
+        /// <summary>
+        /// Calculates the number of entities selected by this EntityQuery.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must execute and apply any filters to calculate the entity count.
+        /// </remarks>
+        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
+        public int CalculateEntityCount() => _GetImpl()->CalculateEntityCount();
+        /// <summary>
+        /// Calculates the number of entities selected by this EntityQuery, ignoring any set filters.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must execute to calculate the entity count.
+        /// </remarks>
+        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
+        public int CalculateEntityCountWithoutFiltering() => _GetImpl()->CalculateEntityCountWithoutFiltering();
+        /// <summary>
+        /// Calculates the number of chunks that match this EntityQuery.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must execute and apply any filters to calculate the chunk count.
+        /// </remarks>
+        /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
+        public int CalculateChunkCount() => _GetImpl()->CalculateChunkCount();
+        /// <summary>
+        /// Calculates the number of chunks that match this EntityQuery, ignoring any set filters.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must execute to calculate the chunk count.
+        /// </remarks>
+        /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
+        public int CalculateChunkCountWithoutFiltering() => _GetImpl()->CalculateChunkCountWithoutFiltering();
+        /// <summary>
+        /// Gets an ArchetypeChunkIterator which can be used to iterate over every chunk returned by this EntityQuery.
+        /// </summary>
+        /// <returns>ArchetypeChunkIterator for this EntityQuery</returns>
+        public ArchetypeChunkIterator GetArchetypeChunkIterator() => _GetImpl()->GetArchetypeChunkIterator();
+        /// <summary>
+        ///     Index of a ComponentType in this EntityQuery's RequiredComponents list.
+        ///     For example, you have a EntityQuery that requires these ComponentTypes: Position, Velocity, and Color.
+        ///
+        ///     These are their type indices (according to the TypeManager):
+        ///         Position.TypeIndex == 3
+        ///         Velocity.TypeIndex == 5
+        ///            Color.TypeIndex == 17
+        ///
+        ///     RequiredComponents: [Position -> Velocity -> Color] (a linked list)
+        ///     Given Velocity's TypeIndex (5), the return value would be 1, since Velocity is in slot 1 of RequiredComponents.
+        /// </summary>
+        /// <param name="componentType">Index of a ComponentType in the TypeManager</param>
+        /// <returns>An index into RequiredComponents.</returns>
+        internal int GetIndexInEntityQuery(int componentType) => _GetImpl()->GetIndexInEntityQuery(componentType);
+        /// <summary>
+        /// Asynchronously creates an array of the chunks containing entities matching this EntityQuery.
+        /// </summary>
+        /// <remarks>
+        /// Use <paramref name="jobhandle"/> as a dependency for jobs that use the returned chunk array.
+        /// <seealso cref="CreateArchetypeChunkArray(Unity.Collections.Allocator)"/>.</remarks>
+        /// <param name="allocator">Allocator to use for the array.</param>
+        /// <param name="jobhandle">An `out` parameter assigned the handle to the internal job
+        /// that gathers the chunks matching this EntityQuery.
+        /// </param>
+        /// <returns>NativeArray of all the chunks containing entities matching this query.</returns>
+        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArrayAsync(Allocator allocator, out JobHandle jobhandle) => _GetImpl()->CreateArchetypeChunkArrayAsync(allocator, out jobhandle);
+
+        /// <summary>
+        /// Synchronously creates an array of the chunks containing entities matching this EntityQuery.
+        /// </summary>
+        /// <remarks>This method blocks until the internal job that performs the query completes.
+        /// <seealso cref="CreateArchetypeChunkArray(Unity.Collections.Allocator,out Unity.Jobs.JobHandle)"/>
+        /// </remarks>
+        /// <param name="allocator">Allocator to use for the array.</param>
+        /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
+        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator) => _GetImpl()->CreateArchetypeChunkArray(allocator);
+        /// <summary>
+        /// Creates a NativeArray containing the selected entities.
+        /// </summary>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <param name="jobhandle">An `out` parameter assigned a handle that you can use as a dependency for a Job
+        /// that uses the NativeArray.</param>
+        /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
+        public NativeArray<Entity> ToEntityArrayAsync(Allocator allocator, out JobHandle jobhandle) => _GetImpl()->ToEntityArrayAsync(allocator, out jobhandle, this);
+        /// <summary>
+        /// Creates a NativeArray containing the selected entities.
+        /// </summary>
+        /// <remarks>This version of the function blocks until the Job used to fill the array is complete.</remarks>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
+        public NativeArray<Entity> ToEntityArray(Allocator allocator) => _GetImpl()->ToEntityArray(allocator, this);
+
+        internal struct GatherEntitiesResult
+        {
+            public int StartingOffset;
+            public int EntityCount;
+            public Entity* EntityBuffer;
+            public NativeArray<Entity> EntityArray;
+        }
+
+        internal void GatherEntitiesToArray(out GatherEntitiesResult result) => _GetImpl()->GatherEntitiesToArray(out result, this);
+        internal void ReleaseGatheredEntities(ref GatherEntitiesResult result) => _GetImpl()->ReleaseGatheredEntities(ref result);
+        /// <summary>
+        /// Creates a NativeArray containing the components of type T for the selected entities.
+        /// </summary>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <param name="jobhandle">An `out` parameter assigned a handle that you can use as a dependency for a Job
+        /// that uses the NativeArray.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>An array containing the specified component for all the entities selected
+        /// by the EntityQuery.</returns>
+        public NativeArray<T> ToComponentDataArrayAsync<T>(Allocator allocator, out JobHandle jobhandle)            where T : struct, IComponentData
+            => _GetImpl()->ToComponentDataArrayAsync<T>(allocator, out jobhandle, this);
+        /// <summary>
+        /// Creates a NativeArray containing the components of type T for the selected entities.
+        /// </summary>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>An array containing the specified component for all the entities selected
+        /// by the EntityQuery.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if you ask for a component that is not part of
+        /// the group.</exception>
+        public NativeArray<T> ToComponentDataArray<T>(Allocator allocator)            where T : struct, IComponentData
+            => _GetImpl()->ToComponentDataArray<T>(allocator, this);
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        public T[] ToComponentDataArray<T>() where T : class, IComponentData
+            => _GetImpl()->ToComponentDataArray<T>();
+#endif
+
+        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray)            where T : struct, IComponentData
+            => _GetImpl()->CopyFromComponentDataArray<T>(componentDataArray, this);
+
+        public void CopyFromComponentDataArrayAsync<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle)            where T : struct, IComponentData
+            => _GetImpl()->CopyFromComponentDataArrayAsync<T>(componentDataArray, out jobhandle, this);
+
+        public Entity GetSingletonEntity() => _GetImpl()->GetSingletonEntity();
+
         /// <summary>
         /// Gets the value of a singleton component.
         /// </summary>
-        /// <remarks>A singleton component is a component of which only one instance exists in the world.
-        /// The entity associated wth a singleton component cannot have any other components.</remarks>
+        /// <remarks>A singleton component is a component of which only one instance exists that satisfies this query.</remarks>
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A copy of the singleton component.</returns>
         /// <exception cref="InvalidOperationException"></exception>
         /// <seealso cref="SetSingleton{T}(T)"/>
         /// <seealso cref="GetSingletonEntity"/>
         /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
-        public static T GetSingleton<T>(this EntityQuery query) where T : class, IComponentData
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (query.GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>()) != 1)
-                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that {typeof(T)} is the only component type in its archetype.");
-
-            var entityCount = query.CalculateEntityCount();
-            if (entityCount != 1)
-                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {entityCount}.");
-#endif
-
-            query.CompleteDependency();
-            
-            var iterator = query.GetArchetypeChunkIterator();
-            iterator.MoveNext();
-
-            var managedComponentIndex = *(int*)iterator.GetCurrentChunkComponentDataPtr(false, 1);
-            return (T) query._ManagedComponentStore.GetManagedComponent(managedComponentIndex);
-        }
-
+        public T GetSingleton<T>() where T : struct, IComponentData
+            => _GetImpl()->GetSingleton<T>();
         /// <summary>
         /// Sets the value of a singleton component.
         /// </summary>
         /// <remarks>
         /// For a component to be a singleton, there can be only one instance of that component
-        /// in a <see cref="World"/>. The component must be the only component in its archetype
-        /// and you cannot use the same type of component as a normal component.
+        /// that satisfies this query.
         ///
         /// **Note:** singletons are otherwise normal entities. The EntityQuery and <see cref="ComponentSystemBase"/>
         /// singleton functions add checks that you have not created two instances of a
-        /// type intended to be a singleton, but other APIs do not prevent such accidental creation.
-        /// 
-        /// To create a singleton, create an entity with the singleton component as its only component.
+        /// type that can be accessed by this singleton query, but other APIs do not prevent such accidental creation.
+        ///
+        /// To create a singleton, create an entity with the singleton component.
         ///
         /// For example, if you had a component defined as:
-        /// 
+        ///
         /// <example>
         /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="singleton-type-example" title="Singleton"/>
         /// </example>
@@ -1324,14 +1298,283 @@ namespace Unity.Entities
         /// <example>
         /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="create-singleton" title="Create Singleton"/>
         /// </example>
-        /// 
+        ///
         /// To update the singleton component after creation, you can use an EntityQuery object that
         /// selects the singleton entity and call this `SetSingleton()` function:
         ///
         /// <example>
         /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="set-singleton" title="Set Singleton"/>
         /// </example>
-        /// 
+        ///
+        /// You can set and get the singleton value from a system: see <seealso cref="ComponentSystemBase.SetSingleton{T}(T)"/>
+        /// and <seealso cref="ComponentSystemBase.GetSingleton{T}"/>.
+        /// </remarks>
+        /// <param name="value">An instance of type T containing the values to set.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <exception cref="InvalidOperationException">Thrown if more than one instance of this component type
+        /// exists in the world or the component type appears in more than one archetype.</exception>
+        /// <seealso cref="GetSingleton{T}"/>
+        /// <seealso cref="GetSingletonEntity"/>
+        public void SetSingleton<T>(T value) where T : struct, IComponentData
+            => _GetImpl()->SetSingleton<T>(value);
+        internal bool CompareComponents(ComponentType* componentTypes, int count) => _GetImpl()->CompareComponents(componentTypes, count);
+        /// <summary>
+        /// Compares a list of component types to the types defining this EntityQuery.
+        /// </summary>
+        /// <remarks>Only required types in the query are used as the basis for the comparison.
+        /// If you include types that the query excludes or only includes as optional,
+        /// the comparison returns false.</remarks>
+        /// <param name="componentTypes">An array of ComponentType objects.</param>
+        /// <returns>True, if the list of types, including any read/write access specifiers,
+        /// matches the list of required component types of this EntityQuery.</returns>
+        public bool CompareComponents(ComponentType[] componentTypes) => _GetImpl()->CompareComponents(componentTypes);
+        /// <summary>
+        /// Compares a list of component types to the types defining this EntityQuery.
+        /// </summary>
+        /// <remarks>Only required types in the query are used as the basis for the comparison.
+        /// If you include types that the query excludes or only includes as optional,
+        /// the comparison returns false. Do not include the <see cref="Entity"/> type, which
+        /// is included implicitly.</remarks>
+        /// <param name="componentTypes">An array of ComponentType objects.</param>
+        /// <returns>True, if the list of types, including any read/write access specifiers,
+        /// matches the list of required component types of this EntityQuery.</returns>
+        public bool CompareComponents(NativeArray<ComponentType> componentTypes) => _GetImpl()->CompareComponents(componentTypes);
+        /// <summary>
+        /// Compares a query description to the description defining this EntityQuery.
+        /// </summary>
+        /// <remarks>The `All`, `Any`, and `None` components in the query description are
+        /// compared to the corresponding list in this EntityQuery.</remarks>
+        /// <param name="queryDesc">The query description to compare.</param>
+        /// <returns>True, if the query description contains the same components with the same
+        /// read/write access modifiers as this EntityQuery.</returns>
+        public bool CompareQuery(EntityQueryDesc[] queryDesc) => _GetImpl()->CompareQuery(queryDesc);
+        /// <summary>
+        /// Resets this EntityQuery's filter.
+        /// </summary>
+        /// <remarks>
+        /// Removes references to shared component data, if applicable, then resets the filter type to None.
+        /// </remarks>
+        public void ResetFilter() => _GetImpl()->ResetFilter();
+        /// <summary>
+        /// Filters this EntityQuery so that it only selects entities with shared component values
+        /// matching the values specified by the `sharedComponent1` parameter.
+        /// </summary>
+        /// <param name="sharedComponent1">The shared component values on which to filter.</param>
+        /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
+        /// one of the types used to create the EntityQuery.</typeparam>
+        public void SetSharedComponentFilter<SharedComponent1>(SharedComponent1 sharedComponent1)            where SharedComponent1 : struct, ISharedComponentData
+            => _GetImpl()->SetSharedComponentFilter<SharedComponent1>(sharedComponent1);
+        /// <summary>
+        /// Filters this EntityQuery based on the values of two separate shared components.
+        /// </summary>
+        /// <remarks>
+        /// The filter only selects entities for which both shared component values
+        /// specified by the `sharedComponent1` and `sharedComponent2` parameters match.
+        /// </remarks>
+        /// <param name="sharedComponent1">Shared component values on which to filter.</param>
+        /// <param name="sharedComponent2">Shared component values on which to filter.</param>
+        /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
+        /// one of the types used to create the EntityQuery.</typeparam>
+        /// <typeparam name="SharedComponent2">The type of shared component. (The type must also be
+        /// one of the types used to create the EntityQuery.</typeparam>
+        public void SetSharedComponentFilter<SharedComponent1, SharedComponent2>(SharedComponent1 sharedComponent1,
+            SharedComponent2 sharedComponent2)            where SharedComponent1 : struct, ISharedComponentData
+            where SharedComponent2 : struct, ISharedComponentData
+            => _GetImpl()->SetSharedComponentFilter<SharedComponent1, SharedComponent2>(sharedComponent1, sharedComponent2);
+        /// <summary>
+        /// Filters out entities in chunks for which the specified component has not changed.
+        /// </summary>
+        /// <remarks>
+        ///     Saves a given ComponentType's index in RequiredComponents in this group's Changed filter.
+        /// </remarks>
+        /// <param name="componentType">ComponentType to mark as changed on this EntityQuery's filter.</param>
+        public void SetChangedVersionFilter(ComponentType componentType) => _GetImpl()->SetChangedVersionFilter(componentType);
+        internal void SetChangedFilterRequiredVersion(uint requiredVersion) => _GetImpl()->SetChangedFilterRequiredVersion(requiredVersion);
+        public void SetChangedVersionFilter(ComponentType[] componentType) => _GetImpl()->SetChangedVersionFilter(componentType);
+        public void AddChangedVersionFilter(ComponentType componentType) => _GetImpl()->AddChangedVersionFilter(componentType);
+        public void AddSharedComponentFilter<SharedComponent>(SharedComponent sharedComponent)            where SharedComponent : struct, ISharedComponentData
+            => _GetImpl()->AddSharedComponentFilter<SharedComponent>(sharedComponent);
+        /// <summary>
+        /// Ensures all jobs running on this EntityQuery complete.
+        /// </summary>
+        /// <remarks>An entity query uses jobs internally when required to create arrays of
+        /// entities and chunks. This function completes those jobs and returns when they are finished.
+        /// </remarks>
+        public void CompleteDependency() => _GetImpl()->CompleteDependency();
+        /// <summary>
+        /// Combines all dependencies in this EntityQuery into a single JobHandle.
+        /// </summary>
+        /// <remarks>An entity query uses jobs internally when required to create arrays of
+        /// entities and chunks.</remarks>
+        /// <returns>JobHandle that represents the combined dependencies of this EntityQuery</returns>
+        public JobHandle GetDependency() => _GetImpl()->GetDependency();
+        /// <summary>
+        /// Adds another job handle to this EntityQuery's dependencies.
+        /// </summary>
+        /// <remarks>An entity query uses jobs internally when required to create arrays of
+        /// entities and chunks. This junction adds an external job as a dependency for those
+        /// internal jobs.</remarks>
+        public JobHandle AddDependency(JobHandle job) => _GetImpl()->AddDependency(job);
+        /// <summary>
+        ///
+        /// </summary>
+        /// <returns></returns>
+        public int GetCombinedComponentOrderVersion() => _GetImpl()->GetCombinedComponentOrderVersion();
+        internal bool AddReaderWritersToLists(ref UnsafeIntList reading, ref UnsafeIntList writing) => _GetImpl()->AddReaderWritersToLists(ref reading, ref writing);
+        /// <summary>
+        /// Syncs the needed types for the filter.
+        /// For every type that is change filtered we need to CompleteWriteDependency to avoid race conditions on the
+        /// change version of those types
+        /// </summary>
+        internal void SyncFilterTypes() => _GetImpl()->SyncFilterTypes();
+        /// <summary>
+        /// Syncs the needed types for the filter using the types in UnsafeMatchingArchetypePtrList
+        /// This version is used when the EntityQuery is not known
+        /// </summary>
+        internal static void SyncFilterTypes(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, ComponentDependencyManager* safetyManager) => EntityQueryImpl.SyncFilterTypes(ref matchingArchetypes, ref filter, safetyManager);
+        /// <summary>
+        /// Reports whether this entity query has a filter applied to it.
+        /// </summary>
+        /// <returns>Returns true if the query has a filter, returns false if the query does not have a filter.</returns>
+        public bool HasFilter() => _GetImpl()->HasFilter();
+        [Obsolete("CreateArchetypeChunkArray with out JobHandle parameter renamed to CreateArchetypeChunkArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> CreateArchetypeChunkArrayAsync(*)", false)]
+        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator, out JobHandle jobhandle) => CreateArchetypeChunkArrayAsync(allocator, out jobhandle);
+        [Obsolete("ToEntityArray with out JobHandle parameter renamed to ToEntityArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> ToEntityArrayAsync(*)", false)]
+        public NativeArray<Entity> ToEntityArray(Allocator allocator, out JobHandle jobhandle) => ToEntityArrayAsync(allocator, out jobhandle);
+        [Obsolete("ToComponentDataArray with out JobHandle parameter renamed to ToComponentDataArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> ToComponentDataArrayAsync(*)", false)]
+        public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, out JobHandle jobhandle) where T : struct, IComponentData  => ToComponentDataArrayAsync<T>(allocator, out jobhandle);
+        [Obsolete("CopyFromComponentDataArray with out JobHandle parameter renamed to CopyFromComponentDataArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> CopyFromComponentDataArrayAsync(*)", false)]
+        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle) where T : struct, IComponentData  => CopyFromComponentDataArrayAsync<T>(componentDataArray, out jobhandle);
+
+        /// <summary>
+        ///  Internal gen impl
+        /// </summary>
+        /// <returns></returns>
+        internal EntityQueryImpl* _GetImpl()
+        {
+            _CheckSafetyHandle();
+            return __impl;
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void _CheckSafetyHandle()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(__safety);
+#endif
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void _CreateSafetyHandle(ref EntityQuery _s)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            _s.__safety = AtomicSafetyHandle.Create();
+#endif
+        }
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        AtomicSafetyHandle __safety;
+#endif
+
+        internal EntityQueryImpl* __impl;
+        internal ulong __seqno;
+
+        // Temporarily allow conversion from null reference to allow existing packages to compile.
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("EntityQuery is a struct. Please use `default` instead of `null`. (RemovedAfter 2020-07-01)")]
+        public static implicit operator EntityQuery(EntityQueryNullShim? shim) => default(EntityQuery);
+
+        public static bool operator==(EntityQuery lhs, EntityQuery rhs)
+        {
+            return lhs.__seqno == rhs.__seqno;
+        }
+
+        public static bool operator!=(EntityQuery lhs, EntityQuery rhs)
+        {
+            return !(lhs == rhs);
+        }
+    }
+
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    public static unsafe class EntityQueryManagedComponentExtensions
+    {
+        /// <summary>
+        /// Gets the value of a singleton component.
+        /// </summary>
+        /// <remarks>A singleton component is a component of which only one instance exists that satisfies this query.</remarks>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <returns>A copy of the singleton component.</returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        /// <seealso cref="SetSingleton{T}(T)"/>
+        /// <seealso cref="GetSingletonEntity"/>
+        /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
+        public static T GetSingleton<T>(this EntityQuery query) where T : class, IComponentData
+        {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var impl = query._GetImpl();
+            impl->_Access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
+            int managedComponentIndex;
+
+            // Fast path with no filter & assuming this is a simple query with just one singleton component
+            if (!impl->_Filter.RequiresMatchesFilter && impl->_QueryData->RequiredComponentsCount <= 2 && impl->_QueryData->RequiredComponents[1].TypeIndex == typeIndex)
+            {
+                var archetypeIndex = impl->GetFirstArchetypeIndexWithEntity(out var archetypeEntityCount);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (archetypeEntityCount != 1)
+                    throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {archetypeEntityCount}.");
+#endif
+                var match = impl->_QueryData->MatchingArchetypes.Ptr[archetypeIndex];
+                managedComponentIndex = *(int*)ChunkIterationUtility.GetChunkComponentDataPtr(match->Archetype->Chunks.p[0], true,
+                    match->IndexInArchetype[1], impl->_Access->EntityComponentStore->GlobalSystemVersion);
+                return (T)impl->_Access->ManagedComponentStore.GetManagedComponent(managedComponentIndex);
+            }
+
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var queryEntityCount = query.CalculateEntityCount();
+            if (queryEntityCount != 1)
+                throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+#endif
+
+            var iterator = query.GetArchetypeChunkIterator();
+            iterator.MoveNext();
+            managedComponentIndex = *(int*)iterator.GetCurrentChunkComponentDataPtr(true, 1);
+            return (T)impl->_Access->ManagedComponentStore.GetManagedComponent(managedComponentIndex);
+        }
+
+        /// <summary>
+        /// Sets the value of a singleton component.
+        /// </summary>
+        /// <remarks>
+        /// For a component to be a singleton, there can be only one instance of that component
+        /// that satisfies this query.
+        ///
+        /// **Note:** singletons are otherwise normal entities. The EntityQuery and <see cref="ComponentSystemBase"/>
+        /// singleton functions add checks that you have not created two instances of a
+        /// type that can be accessed by this singleton query, but other APIs do not prevent such accidental creation.
+        ///
+        /// To create a singleton, create an entity with the singleton component.
+        ///
+        /// For example, if you had a component defined as:
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="singleton-type-example" title="Singleton"/>
+        /// </example>
+        ///
+        /// You could create a singleton as follows:
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="create-singleton" title="Create Singleton"/>
+        /// </example>
+        ///
+        /// To update the singleton component after creation, you can use an EntityQuery object that
+        /// selects the singleton entity and call this `SetSingleton()` function:
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="set-singleton" title="Set Singleton"/>
+        /// </example>
+        ///
         /// You can set and get the singleton value from a system: see <seealso cref="ComponentSystemBase.SetSingleton{T}(T)"/>
         /// and <seealso cref="ComponentSystemBase.GetSingleton{T}"/>.
         /// </remarks>
@@ -1343,22 +1586,40 @@ namespace Unity.Entities
         /// <seealso cref="EntityQuery.GetSingletonEntity"/>
         public static void SetSingleton<T>(this EntityQuery query, T value) where T : class, IComponentData
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (query.GetIndexInEntityQuery(TypeManager.GetTypeIndex<T>()) != 1)
-                throw new System.InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that {typeof(T)} is the only component type in its archetype.");
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var impl = query._GetImpl();
+            var access = impl->_Access;
 
-            var entityCount = query.CalculateEntityCount();
-            if (entityCount != 1)
-                throw new System.InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exists but there are {entityCount}.");
+            access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
+            int* managedComponentIndex;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (value != null && value.GetType() != typeof(T))
+                throw new ArgumentException($"Assigning component value is of type: {value.GetType()} but the expected component type is: {typeof(T)}");
 #endif
 
-            query.CompleteDependency();
+            if (!impl->_Filter.RequiresMatchesFilter && impl->_QueryData->RequiredComponentsCount <= 2 && impl->_QueryData->RequiredComponents[1].TypeIndex == typeIndex)
+            {
+                var archetypeIndex = impl->GetFirstArchetypeIndexWithEntity(out var entityCount);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (entityCount != 1)
+                    throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {entityCount}.");
+#endif
+                var match = impl->_QueryData->MatchingArchetypes.Ptr[archetypeIndex];
+                managedComponentIndex = (int*)ChunkIterationUtility.GetChunkComponentDataPtr(match->Archetype->Chunks.p[0], true,
+                    match->IndexInArchetype[1], access->EntityComponentStore->GlobalSystemVersion);
+                access->ManagedComponentStore.UpdateManagedComponentValue(managedComponentIndex, value, ref *access->EntityComponentStore);
+            }
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var queryEntityCount = query.CalculateEntityCount();
+            if (queryEntityCount != 1)
+                throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+#endif
 
             var iterator = query.GetArchetypeChunkIterator();
             iterator.MoveNext();
-
-            var managedComponentIndex = (int*)iterator.GetCurrentChunkComponentDataPtr(false, 1);
-            query._ManagedComponentStore.UpdateManagedComponentValue(managedComponentIndex, value, ref *query._EntityComponentStore);
+            managedComponentIndex = (int*)iterator.GetCurrentChunkComponentDataPtr(true, 1);
+            access->ManagedComponentStore.UpdateManagedComponentValue(managedComponentIndex, value, ref *access->EntityComponentStore);
         }
     }
 #endif

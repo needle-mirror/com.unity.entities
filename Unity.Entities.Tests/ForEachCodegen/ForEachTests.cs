@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
 using Unity.Transforms;
 using UnityEngine;
+#if !UNITY_PORTABLE_TEST_RUNNER
+using System.Linq;
+#endif
 
 namespace Unity.Entities.Tests.ForEachCodegen
 {
@@ -19,7 +21,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public static implicit operator TestBufferElement(int e) { return new TestBufferElement { Value = e }; }
             public int Value;
         }
-            
+
         private MyTestSystem TestSystem;
         private Entity TestEntity;
 
@@ -27,14 +29,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void SetUp()
         {
             TestSystem = World.GetOrCreateSystem<MyTestSystem>();
-            
+
             var myArch = m_Manager.CreateArchetype(
                 ComponentType.ReadWrite<EcsTestData>(),
                 ComponentType.ReadWrite<EcsTestData2>(),
                 ComponentType.ReadWrite<EcsTestSharedComp>(),
                 ComponentType.ReadWrite<TestBufferElement>(),
                 ComponentType.ReadWrite<EcsTestTag>());
-            
+
             TestEntity = m_Manager.CreateEntity(myArch);
             m_Manager.SetComponentData(TestEntity, new EcsTestData() { value = 3});
             m_Manager.SetComponentData(TestEntity, new EcsTestData2() { value0 = 4});
@@ -43,14 +45,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
             buffer.Add(new TestBufferElement() {Value = 19});
             m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp() { value = 5 });
         }
-        
+
         [Test]
         public void SimplestCase()
         {
             TestSystem.SimplestCase().Complete();
             Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void WithTagComponent()
         {
@@ -64,14 +66,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.WithTagComponentReadOnly().Complete();
             Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void WithAllSharedComponent()
         {
             TestSystem.WithAllSharedComponentData().Complete();
             Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void WithSharedComponentFilter()
         {
@@ -85,14 +87,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.WithChangeFilter().Complete();
             Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void WithJobAndThenEntitiesForEach()
         {
             TestSystem.WithJobAndThenEntitiesForEach().Complete();
             Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void StoresEntityQueryInField()
         {
@@ -100,14 +102,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
             var entityCountFromJob = TestSystem.StoresEntityQueryInField();
             Assert.AreEqual(entityCountFromQuery, entityCountFromJob);
         }
-        
+
         [Test]
         public void AddToDynamicBuffer()
         {
             TestSystem.AddToDynamicBuffer().Complete();
             var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
             Assert.AreEqual(3, buffer.Length);
-            CollectionAssert.AreEqual(new []{18, 19, 4}, buffer.Reinterpret<int>().AsNativeArray());
+            CollectionAssert.AreEqual(new[] {18, 19, 4}, buffer.Reinterpret<int>().AsNativeArray());
         }
 
         [Test]
@@ -115,23 +117,22 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.ModifyDynamicBuffer().Complete();
             var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
-            CollectionAssert.AreEqual(new []{18 * 2, 19 * 2}, buffer.Reinterpret<int>().AsNativeArray());
+            CollectionAssert.AreEqual(new[] {18 * 2, 19 * 2}, buffer.Reinterpret<int>().AsNativeArray());
         }
 
         [Test]
         public void IterateExistingDynamicBufferReadOnly()
         {
             TestSystem.IterateExistingDynamicBufferReadOnly().Complete();
-            Assert.AreEqual(18+19, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+            Assert.AreEqual(18 + 19, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void IterateExistingDynamicBuffer_NoModifier()
         {
             TestSystem.IterateExistingDynamicBuffer_NoModifier().Complete();
-            Assert.AreEqual(18+19+20, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+            Assert.AreEqual(18 + 19 + 20, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-
 
         [Test]
         public void WithNone()
@@ -167,7 +168,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.FirstNotCapturingThenCapturing().Complete();
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void UseEntityIndexTest()
         {
@@ -188,7 +189,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.RunInsideLoopCapturingLoopCondition();
             Assert.AreEqual(103, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void WriteBackToLocalTest()
         {
@@ -205,7 +206,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             Assert.AreEqual("Hello there Sailor!", TestSystem.CaptureAndOperateOnReferenceType());
         }
-        
+
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void IterateSharedComponentDataTest()
         {
@@ -214,15 +217,17 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             TestSystem.EntityManager.SetSharedComponentData(entity1, new MySharedComponentData() {Value = 1});
             TestSystem.EntityManager.SetSharedComponentData(entity2, new MySharedComponentData() {Value = 2});
-            
+
             var observedDatas = TestSystem.IterateSharedComponentData();
-            
+
             Assert.AreEqual(2, observedDatas.Count);
 
             var sorted = observedDatas.OrderBy(o => o.Value).ToArray();
             Assert.AreEqual(1, sorted[0].Value);
             Assert.AreEqual(2, sorted[1].Value);
         }
+
+#endif
 
         public struct MyBufferElementData : IBufferElementData
         {
@@ -234,13 +239,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             var entity1 = TestSystem.EntityManager.CreateEntity(ComponentType.ReadWrite<MyBufferElementData>());
             var entity2 = TestSystem.EntityManager.CreateEntity();
-            
+
             var observedEntities = TestSystem.BufferElementAsQueryFilter();
-            
+
             CollectionAssert.Contains(observedEntities, entity2);
             CollectionAssert.DoesNotContain(observedEntities, entity1);
         }
-        
+
         [Test]
         public void InvokeInstanceMethodWhileCapturingNothingTest()
         {
@@ -254,7 +259,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             var result = TestSystem.CaptureFieldAndLocalNoBurstAndRun();
             Assert.AreEqual(124, result);
         }
-        
+
         [Test]
         public void CaptureFromMultipleScopesAndRunTest()
         {
@@ -275,6 +280,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
+        [Test]
+        public void CaptureInnerAndOuterValueAndScheduleTest()
+        {
+            TestSystem.CaptureInnerAndOuterValueAndSchedule().Complete();
+            Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         [StandaloneFixme] // UnsafeUtility.CopyObjectAddressToPtr not implemented
@@ -287,6 +299,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             m_Manager.AddComponentData(entity, new EcsTestManagedComponent4() { value4 = "SomeString4" });
             TestSystem.Many_ManagedComponents();
         }
+
 #endif
 
 #if !UNITY_DOTSPLAYER
@@ -300,8 +313,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(Camera.main, reportedCamera);
             Assert.AreEqual(entity, reportedEntity);
         }
+
 #endif
-        
+
         [Test]
         [StandaloneFixme]
         public void JobDebuggerSafetyThrowsInRun()
@@ -323,13 +337,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         class MyTestSystem : TestJobComponentSystem
         {
             public EntityQuery m_StoredQuery;
-            
+
             public JobHandle SimplestCase()
             {
                 //int multiplier = 1;
                 return Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0;}).Schedule(default);
             }
-            
+
             public JobHandle WithTagComponent()
             {
                 return Entities.ForEach((ref EcsTestData e1, ref EcsTestTag e2) => { e1.value = 5;}).Schedule(default);
@@ -339,7 +353,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 return Entities.ForEach((ref EcsTestData e1, in EcsTestTag e2) => { e1.value = 5;}).Schedule(default);
             }
-            
+
             public JobHandle WithNone()
             {
                 int multiplier = 1;
@@ -348,7 +362,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
                     .Schedule(default);
             }
-            
+
             public JobHandle WithAny_DoesntExecute_OnEntityWithoutThatComponent()
             {
                 int multiplier = 1;
@@ -357,7 +371,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
                     .Schedule(default);
             }
-            
+
             public JobHandle WithAllSharedComponentData()
             {
                 int multiplier = 1;
@@ -366,7 +380,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
                     .Schedule(default);
             }
-            
+
             public JobHandle WithSharedComponentFilter()
             {
                 int multiplier = 1;
@@ -375,7 +389,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
                     .Schedule(default);
             }
-            
+
             public JobHandle WithChangeFilter()
             {
                 int multiplier = 1;
@@ -386,10 +400,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .WithChangeFilter<EcsTestData>()
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
                     .Run();
-                
+
                 AfterUpdateVersioning();  // sets last version to current version (1)
                 BeforeUpdateVersioning(); // increments version and sets all queries to last version (1)
-                
+
                 // Shouldn't run, version matches system version (1)
                 Entities
                     .WithChangeFilter<EcsTestData>()
@@ -398,13 +412,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
                 return default;
             }
-            
+
             public JobHandle WithJobAndThenEntitiesForEach()
             {
                 int multiplier = 1;
-                
+
                 Job.WithCode(() => { multiplier = 3; }).Run();
-                
+
                 return Entities
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
                     .Schedule(default);
@@ -413,12 +427,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public int StoresEntityQueryInField()
             {
                 int count = 0;
-                
+
                 Entities
                     .WithStoreEntityQueryInField(ref m_StoredQuery)
                     .ForEach((ref EcsTestData e1) => { count++; })
                     .Run();
-                
+
                 return count;
             }
 
@@ -426,9 +440,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 return Entities
                     .ForEach((ref EcsTestData e1, ref DynamicBuffer<TestBufferElement> buf) =>
-                    {
-                        buf.Add(4);
-                    })
+                {
+                    buf.Add(4);
+                })
                     .Schedule(default);
             }
 
@@ -436,9 +450,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 return Entities
                     .ForEach((ref EcsTestData e1, ref DynamicBuffer<TestBufferElement> buf) =>
-                    {
-                        for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
-                    })
+                {
+                    for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
+                })
                     .Schedule(default);
             }
 
@@ -446,9 +460,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 return Entities
                     .ForEach((ref EcsTestData e1, in DynamicBuffer<TestBufferElement> buf) =>
-                    {
-                        e1.value = SumOfBufferElements(buf);
-                    })
+                {
+                    e1.value = SumOfBufferElements(buf);
+                })
                     .Schedule(default);
             }
 
@@ -456,10 +470,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 return Entities
                     .ForEach((DynamicBuffer<TestBufferElement> buf, ref EcsTestData e1) =>
-                    {
-                        buf.Add(20);
-                        e1.value = SumOfBufferElements(buf);
-                    })
+                {
+                    buf.Add(20);
+                    e1.value = SumOfBufferElements(buf);
+                })
                     .Schedule(default);
             }
 
@@ -480,12 +494,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         int scope3 = 3;
                         Entities
                             .ForEach((ref EcsTestData e1) =>
-                            {
-                                var sum = scope1 + scope2 + scope3;
-                                scope1 = sum;
-                                scope2 = -sum;
-                                scope3 = 321;
-                            })
+                        {
+                            var sum = scope1 + scope2 + scope3;
+                            scope1 = sum;
+                            scope2 = -sum;
+                            scope3 = 321;
+                        })
                             .Run();
 
                         Assert.AreEqual(-6, scope2);
@@ -504,9 +518,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         int scope3 = 3;
                         return Entities
                             .ForEach((ref EcsTestData e1) =>
-                            {
-                                e1.value = scope1 + scope2 + scope3;
-                            })
+                        {
+                            e1.value = scope1 + scope2 + scope3;
+                        })
                             .Schedule(default);
                     }
                 }
@@ -517,14 +531,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 int capture_from_outer_scope = 1;
                 return Entities
                     .ForEach((ref EcsTestData e1) =>
+                {
+                    int capture_from_delegate_scope = 8;
+                    int MyLocalFunction()
                     {
-                        int capture_from_delegate_scope = 8;
-                        int MyLocalFunction()
-                        {
-                            return capture_from_outer_scope + capture_from_delegate_scope;
-                        }
-                        e1.value = MyLocalFunction(); 
-                    })
+                        return capture_from_outer_scope + capture_from_delegate_scope;
+                    }
+                    e1.value = MyLocalFunction();
+                })
                     .Schedule(default);
             }
 
@@ -534,7 +548,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 var job1 = Entities.ForEach((ref EcsTestData e1) => e1.value = capturedValue).Schedule(default);
                 return Entities.ForEach((ref EcsTestData e1) => e1.value *= 3).Schedule(job1);
             }
-            
+
             public JobHandle FirstNotCapturingThenCapturing()
             {
                 int capturedValue = 3;
@@ -555,15 +569,15 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 int someOtherValue = 8;
                 return () => someOtherValue;
             }
-            
+
             public void UseEntityIndex()
             {
                 Entities.ForEach((int entityInQueryIndex, ref EcsTestData etd) =>
-                    {
-                        etd.value = entityInQueryIndex + 1234;
-                    }).Run();
-            } 
-            
+                {
+                    etd.value = entityInQueryIndex + 1234;
+                }).Run();
+            }
+
             public JobHandle ScheduleEcsTestData()
             {
                 int multiplier = 1;
@@ -579,7 +593,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier; })
                     .Run();
             }
-            
+
             public void RunInsideLoopCapturingLoopCondition()
             {
                 int variable = 10;
@@ -605,11 +619,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 return myString;
             }
 
-            
             public List<MySharedComponentData> IterateSharedComponentData()
             {
                 var result = new List<MySharedComponentData>();
-                
+
                 Entities.WithoutBurst().ForEach((MySharedComponentData data) => { result.Add(data); }).Run();
                 return result;
             }
@@ -624,7 +637,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .Run();
                 return result;
             }
-            
+
             void MyInstanceMethod()
             {
                 myField++;
@@ -645,7 +658,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Entities.WithoutBurst().ForEach((Entity e) => mySpecialField += localValue).Run();
                 return mySpecialField;
             }
-            
+
             struct CaptureStruct
             {
                 public int Value;
@@ -659,10 +672,24 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     int multiplier = 1;
                     Entities
                         .ForEach((ref EcsTestData e1) =>
-                        {
-                            e1.value += multiplier + outter.Value + inner.Value;
-                        })
+                    {
+                        e1.value += multiplier + outter.Value + inner.Value;
+                    })
                         .Run();
+                }
+            }
+
+            public JobHandle CaptureInnerAndOuterValueAndSchedule()
+            {
+                int outerCapure = 3;
+                {
+                    int innerCapture = 2;
+                    return Entities
+                        .ForEach((ref EcsTestData testData) =>
+                    {
+                        testData.value = outerCapure * innerCapture;
+                    })
+                        .Schedule(default);
                 }
             }
 
@@ -682,12 +709,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     }).Run();
                 Assert.AreEqual(1, counter);
             }
+
 #endif
 
 #if !UNITY_DOTSPLAYER
             public (Camera, Entity) IterateEntitiesWithCameraComponent()
             {
-                (Camera camera, Entity entity) result = default;
+                (Camera camera, Entity entity)result = default;
                 Entities.WithoutBurst().ForEach((Camera camera, Entity e) =>
                 {
                     result.camera = camera;
@@ -695,6 +723,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }).Run();
                 return result;
             }
+
 #endif
         }
 

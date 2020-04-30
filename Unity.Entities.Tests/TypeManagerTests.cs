@@ -33,6 +33,8 @@ namespace Unity.Entities.Tests
         {
             int empty;
         }
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1433
         struct TestTypeWithBool : IComponentData, IEquatable<TestTypeWithBool>
         {
             bool empty;
@@ -47,6 +49,7 @@ namespace Unity.Entities.Tests
                 return empty.GetHashCode();
             }
         }
+
         struct TestTypeWithChar : IComponentData, IEquatable<TestTypeWithChar>
         {
             char empty;
@@ -61,6 +64,7 @@ namespace Unity.Entities.Tests
                 return empty.GetHashCode();
             }
         }
+#endif
 
         public struct GenericComponent<T> : IComponentData
         {
@@ -81,6 +85,8 @@ namespace Unity.Entities.Tests
             Assert.AreNotEqual(archetype1, archetype2);
         }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1433
         [Test]
         public void TestPrimitiveButNotBlittableTypesAllowed()
         {
@@ -88,9 +94,11 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, TypeManager.GetTypeInfo<TestTypeWithChar>().SizeInChunk);
         }
 
+#endif
+
         // We need to decide whether this should actually be allowed; for now, add a test to make sure
         // we don't break things more than they already are.
-        
+
 
         [Test]
         public void TestGenericComponents()
@@ -100,7 +108,7 @@ namespace Unity.Entities.Tests
 
             Assert.AreNotEqual(index1, index2);
         }
-        
+
         [Test]
         public void TestGenericComponentsThrowsOnUnregisteredGeneric()
         {
@@ -155,7 +163,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, CollectionHelper.Align(0, 64));
             Assert.AreEqual(0, CollectionHelper.Align(0, 128));
         }
-        
+
         [Test]
         public void TestAlignUp_AlignMultipleOfAlignment()
         {
@@ -168,7 +176,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(128, CollectionHelper.Align(128, 64));
             Assert.AreEqual(256, CollectionHelper.Align(256, 128));
         }
-        
+
         [Test]
         public void TestAlignUp_Align1ToPow2()
         {
@@ -181,7 +189,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(64, CollectionHelper.Align(1, 64));
             Assert.AreEqual(128, CollectionHelper.Align(1, 128));
         }
-        
+
         [Test]
         public void TestAlignUp_Align3ToPow2()
         {
@@ -194,7 +202,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(64, CollectionHelper.Align(3, 64));
             Assert.AreEqual(128, CollectionHelper.Align(3, 128));
         }
-        
+
         [Test]
         public void TestAlignUp_Align15ToPow2()
         {
@@ -207,7 +215,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(64, CollectionHelper.Align(15, 64));
             Assert.AreEqual(128, CollectionHelper.Align(15, 128));
         }
-        
+
         [Test]
         public void TestAlignUp_Align63ToPow2()
         {
@@ -220,7 +228,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(64, CollectionHelper.Align(63, 64));
             Assert.AreEqual(128, CollectionHelper.Align(63, 128));
         }
-        
+
         [Test]
         public void TestAlignUp_ZeroAlignment()
         {
@@ -248,12 +256,12 @@ namespace Unity.Entities.Tests
         }
 
         [DisableAutoTypeRegistration]
-        struct NonBlittableBuffer: IBufferElementData
+        struct NonBlittableBuffer : IBufferElementData
         {
             string empty;
         }
 
-        class ClassBuffer: IBufferElementData
+        class ClassBuffer : IBufferElementData
         {
         }
 
@@ -300,7 +308,6 @@ namespace Unity.Entities.Tests
             Assert.IsNotNull(layout.GetHashFn);
             Assert.IsNotNull(layout.EqualFn);
         }
-
 
         [TestCase(typeof(UnityEngine.Transform))]
         [TestCase(typeof(TypeManagerTests))]
@@ -398,7 +405,7 @@ namespace Unity.Entities.Tests
         {
             public int Int;
         }
-        
+
         [Test]
         public void AddNewComponentTypes()
         {
@@ -409,9 +416,9 @@ namespace Unity.Entities.Tests
                 TypeManager.GetTypeIndex(typeToAdd);
                 testAlreadyRan = true;
             }
-            catch (ArgumentException){ }
+            catch (ArgumentException) {}
 
-            // If we haven't registered the component yet we should have thrown above before setting 
+            // If we haven't registered the component yet we should have thrown above before setting
             // however, since we cannot remove types from the TypeManager, subsequent test
             // runs without a domain reload will already have our test type registered so simply abort
             if (testAlreadyRan)
@@ -538,6 +545,7 @@ namespace Unity.Entities.Tests
                 Assert.Throws<ArgumentException>(() => TypeManager.AddNewComponentTypes(new Type[] { typeToAdd }));
             }
         }
+
 #endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -577,7 +585,7 @@ namespace Unity.Entities.Tests
         {
             public int Value;
         }
-        
+
         class ComponentWithScriptableObjectReference : IComponentData
         {
             public TestScriptableObjectWithFields Value;
@@ -592,6 +600,7 @@ namespace Unity.Entities.Tests
                 TypeManager.GetHashCode(component, TypeManager.GetTypeIndex<ComponentWithScriptableObjectReference>());
             });
         }
+
 #endif
 #endif
     }

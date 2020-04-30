@@ -7,7 +7,7 @@ namespace Unity.Entities.Tests
     [TestFixture]
     class WriteGroupTests : ECSTestsFixture
     {
-        // 
+        //
         //     +-----------+        +----------+
         //     |TestOutputA<--------+TestInputB|
         //     +-----------+    ^   +----------+
@@ -268,7 +268,7 @@ namespace Unity.Entities.Tests
 
             group0.Dispose();
         }
-        
+
         [Test]
         public void WG_NotExcludesWhenOverrideWriteGroup()
         {

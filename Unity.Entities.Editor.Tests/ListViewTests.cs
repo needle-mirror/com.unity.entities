@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.Tests;
@@ -164,7 +164,7 @@ namespace Unity.Entities.Editor.Tests
             var listView = new SystemListView(
                 new TreeViewState(),
                 new MultiColumnHeader(SystemListView.GetHeaderState()),
-                (system, world) => { },
+                (system, world) => {},
                 () => World2,
                 () => true);
             var systemItems = listView.GetRows().Where(x => listView.systemsById.ContainsKey(x.id)).Select(x => listView.systemsById[x.id]);
@@ -185,7 +185,7 @@ namespace Unity.Entities.Editor.Tests
             var listView = new SystemListView(
                 new TreeViewState(),
                 new MultiColumnHeader(SystemListView.GetHeaderState()),
-                (system, world) => { },
+                (system, world) => {},
                 () => null,
                 () => true);
             var systemItems = listView.GetRows().Where(x => listView.systemsById.ContainsKey(x.id)).Select(x => listView.systemsById[x.id]);
@@ -199,8 +199,7 @@ namespace Unity.Entities.Editor.Tests
                 allSystems.Add(system);
             }
             var systemList = systemItems.ToList();
-            Assert.AreEqual(allSystems.Count(x => !(x is ComponentSystemGroup) ), allSystems.Intersect(systemList).Count());
+            Assert.AreEqual(allSystems.Count(x => !(x is ComponentSystemGroup)), allSystems.Intersect(systemList).Count());
         }
-
     }
 }

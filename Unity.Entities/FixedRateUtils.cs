@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Unity.Core;
 
 namespace Unity.Entities
@@ -17,7 +17,7 @@ namespace Unity.Entities
             var manager = new FixedRateCatchUpManager(timeStep);
             group.UpdateCallback = manager.UpdateCallback;
         }
-        
+
         /// <summary>
         /// Configure the given ComponentSystemGroup to update at a fixed timestep, given by timeStep.
         /// The group will always be ticked exactly once, and the time will be the given timeStep since
@@ -113,7 +113,7 @@ namespace Unity.Entities
                 group.World.PushTime(new TimeData(
                     elapsedTime: m_LastFixedUpdateTime,
                     deltaTime: m_FixedTimeStep));
-                
+
                 m_DidPushTime = true;
                 return true;
             }

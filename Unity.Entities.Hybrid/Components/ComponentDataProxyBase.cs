@@ -3,18 +3,18 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 
 // Temporarily needed to upgrade RenderMesh so it adds local to world
-[assembly:InternalsVisibleTo("Unity.Rendering.Hybrid")]
+[assembly: InternalsVisibleTo("Unity.Rendering.Hybrid")]
 
 namespace Unity.Entities
 {
     sealed class WrappedComponentDataAttribute : PropertyAttribute
     {
     }
-    
 
-    // TODO: This should be fully implemented in C++ for efficiency
+
     [ExecuteAlways]
     [RequireComponent(typeof(GameObjectEntity))]
+    [Obsolete("ComponentDataProxyBase has been deprecated. Please use the new GameObject-to-entity conversion workflows instead. (RemovedAfter 2020-07-03).")]
     public abstract class ComponentDataProxyBase : MonoBehaviour, ISerializationCallbackReceiver
     {
         internal abstract ComponentType GetComponentType();
@@ -50,7 +50,7 @@ namespace Unity.Entities
 
         internal bool TryGetEntityAndManager(out EntityManager entityManager, out Entity entity)
         {
-            entityManager = null;
+            entityManager = default;
             entity = Entity.Null;
             // gameObject is not initialized yet in native when OnBeforeSerialized() is called via SmartReset()
             if (gameObject == null)
@@ -58,7 +58,7 @@ namespace Unity.Entities
             var gameObjectEntity = GetComponent<GameObjectEntity>();
             if (gameObjectEntity == null)
                 return false;
-            if (gameObjectEntity.EntityManager == null)
+            if (!gameObjectEntity.EntityManager.IsCreated)
                 return false;
             if (!gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
                 return false;
@@ -95,6 +95,6 @@ namespace Unity.Entities
                 UpdateSerializedData(entityManager, entity);
         }
 
-        void ISerializationCallbackReceiver.OnAfterDeserialize() { }
+        void ISerializationCallbackReceiver.OnAfterDeserialize() {}
     }
 }

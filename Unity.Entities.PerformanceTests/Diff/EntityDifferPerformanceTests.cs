@@ -20,18 +20,18 @@ namespace Unity.Entities.PerformanceTests
             CreateEntitiesWithMockComponentData(SrcEntityManager, entityCount, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
 
             Measure.Method(() =>
-                   {
-                       using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
-                       {
-                           using (differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob))
-                           {
-                           }
-                       }
-                   })
-                   .Definition("EntityDiffer")
-                   .WarmupCount(1)
-                   .MeasurementCount(100)
-                   .Run();
+            {
+                using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+                {
+                    using (differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob))
+                    {
+                    }
+                }
+            })
+                .SampleGroup("EntityDiffer")
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .Run();
         }
 
         /// <summary>
@@ -45,18 +45,18 @@ namespace Unity.Entities.PerformanceTests
             CreateEntitiesWithMockComponentData(SrcEntityManager, entityCount, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
 
             Measure.Method(() =>
-                   {
-                       using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
-                       {
-                           using (differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
-                           {
-                           }
-                       }
-                   })
-                   .Definition("EntityDiffer")
-                   .WarmupCount(1)
-                   .MeasurementCount(100)
-                   .Run();
+            {
+                using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+                {
+                    using (differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
+                    {
+                    }
+                }
+            })
+                .SampleGroup("EntityDiffer")
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .Run();
         }
 
         /// <summary>
@@ -69,18 +69,18 @@ namespace Unity.Entities.PerformanceTests
             CreateEntitiesWithMockComponentData(SrcEntityManager, entityCount, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
 
             Measure.Method(() =>
-                   {
-                       using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
-                       {
-                           using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.TempJob))
-                           {
-                           }
-                       }
-                   })
-                   .Definition("EntityDiffer")
-                   .WarmupCount(1)
-                   .MeasurementCount(100)
-                   .Run();
+            {
+                using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+                {
+                    using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.TempJob))
+                    {
+                    }
+                }
+            })
+                .SampleGroup("EntityDiffer")
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .Run();
         }
 
         /// <summary>
@@ -99,22 +99,20 @@ namespace Unity.Entities.PerformanceTests
                 // Fast forward the shadow world
                 using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.TempJob))
                 {
-
                 }
 
                 Measure.Method(() =>
-                       {
-                           // Get changes with all options selected
-                           using (differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob))
-                           {
-                           }
-                       })
-                       .Definition("EntityDiffer")
-                       .WarmupCount(1)
-                       .MeasurementCount(100)
-                       .Run();
+                {
+                    // Get changes with all options selected
+                    using (differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob))
+                    {
+                    }
+                })
+                    .SampleGroup("EntityDiffer")
+                    .WarmupCount(1)
+                    .MeasurementCount(100)
+                    .Run();
             }
-
         }
 
         /// <summary>
@@ -142,24 +140,23 @@ namespace Unity.Entities.PerformanceTests
                 // Fast forward the shadow world
                 using (differ.GetChanges(EntityManagerDifferOptions.FastForwardShadowWorld, Allocator.TempJob))
                 {
-
                 }
 
                 var startValue = 99;
 
                 Measure.Method(() =>
-                       {
-                           SrcEntityManager.SetComponentData(entity, new EcsTestData(startValue++));
+                {
+                    SrcEntityManager.SetComponentData(entity, new EcsTestData(startValue++));
 
-                           // Get changes with all options selected
-                           using (differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
-                           {
-                           }
-                       })
-                       .Definition("EntityDiffer")
-                       .WarmupCount(1)
-                       .MeasurementCount(100)
-                       .Run();
+                    // Get changes with all options selected
+                    using (differ.GetChanges(EntityManagerDifferOptions.IncludeForwardChangeSet, Allocator.TempJob))
+                    {
+                    }
+                })
+                    .SampleGroup("EntityDiffer")
+                    .WarmupCount(1)
+                    .MeasurementCount(100)
+                    .Run();
             }
         }
     }

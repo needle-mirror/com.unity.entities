@@ -10,7 +10,7 @@ namespace Unity.Entities.Conversion
     {
         ILogHandler m_HookedLogger;
         GameObjectConversionMappingSystem m_MappingSystem;
-        
+
         public JournalingUnityLogger(GameObjectConversionMappingSystem mappingSystem) =>
             m_MappingSystem = mappingSystem;
 
@@ -18,16 +18,16 @@ namespace Unity.Entities.Conversion
         {
             if (m_HookedLogger != null)
                 throw new InvalidOperationException("Unexpected double-hook");
-            
+
             m_HookedLogger = UnityDebug.unityLogger.logHandler;
             UnityDebug.unityLogger.logHandler = this;
         }
-        
+
         public void Unhook()
         {
             if (UnityDebug.unityLogger.logHandler != this)
                 throw new InvalidOperationException("Not currently hooked into logger");
-            
+
             UnityDebug.unityLogger.logHandler = m_HookedLogger;
             m_HookedLogger = null;
         }

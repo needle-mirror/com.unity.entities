@@ -14,7 +14,7 @@ namespace Unity.Entities
         {
             PropertyBagStore.AddPropertyBag(new ListPropertyBag<DynamicBufferContainer<TElement>, TElement>());
         }
-        
+
         readonly BufferHeader* m_Buffer;
         readonly bool m_IsReadOnly;
 
@@ -78,7 +78,7 @@ namespace Unity.Entities
         public int IndexOf(TElement item) => throw new InvalidOperationException();
         public void Insert(int index, TElement item) => throw new InvalidOperationException();
         public void RemoveAt(int index) => throw new InvalidOperationException();
-        
+
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void CheckBounds(int index)
         {
@@ -87,10 +87,10 @@ namespace Unity.Entities
                 throw new IndexOutOfRangeException($"Index {index} is out of range in DynamicBufferContainer of '{Count}' Count.");
 #endif
         }
-        
+
         public override int GetHashCode()
         {
-            return (int) math.hash(new uint2((uint) m_Buffer, (uint) Count));
+            return (int)math.hash(new uint2((uint)m_Buffer, (uint)Count));
         }
     }
 }

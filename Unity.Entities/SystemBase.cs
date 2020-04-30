@@ -1,5 +1,6 @@
-
 using System;
+using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -11,20 +12,20 @@ namespace Unity.Entities
     /// </summary>
     /// <remarks>
     /// ### Systems in ECS
-    /// 
+    ///
     /// A typical system operates on a set of entities that have specific components. The system identifies
     /// the components of interest, reading and writing data, and performing other entity operations as appropriate.
     ///
     /// The following example shows a basic system that iterates over entities using a [Entities.ForEach] construction.
     /// In this  example, the system iterates over all entities with both a Displacement and a Velocity component and
     /// updates the Displacement based on the delta time elapsed since the last frame.
-    /// 
+    ///
     /// <example>
     /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="basic-system" title="Basic System Example"/>
     /// </example>
     ///
     /// #### System lifecycle callbacks
-    /// 
+    ///
     /// You can define a set of system lifecycle event functions when you implement a system. The runtime invokes these
     /// functions in the following order:
     ///
@@ -41,7 +42,7 @@ namespace Unity.Entities
     /// jobs from the <see cref="SystemBase.OnUpdate"/> function.
     ///
     /// #### System update order
-    /// 
+    ///
     /// The runtime executes systems in the order determined by their <seealso cref="ComponentSystemGroup"/>. Place a system
     /// in a group using <seealso cref="UpdateInGroupAttribute"/>. Use <seealso cref="UpdateBeforeAttribute"/> and
     /// <seealso cref="UpdateAfterAttribute"/> to specify the execution order within a group.
@@ -60,14 +61,14 @@ namespace Unity.Entities
     /// with no queries is also updated every frame.
     ///
     /// #### Entities.ForEach and Job.WithCode constructions
-    /// 
+    ///
     /// The <see cref="Entities"/> property provides a convenient mechanism for iterating over entity
     /// data. Using an [Entities.ForEach] construction, you can define your entity query, specify a lambda function
     /// to run for each entity, and either schedule the work to be done on a background thread or execute the work
-    /// immediately on the main thread. 
+    /// immediately on the main thread.
     ///
     /// The [Entities.ForEach] construction uses a C# compiler extension to take a data query syntax that describes
-    /// your intent and translate it into efficient (optionally) job-based code.  
+    /// your intent and translate it into efficient (optionally) job-based code.
     ///
     /// The <see cref="Job"/> property provides a similar mechanism for defining a [C# Job]. You can only use
     /// `Schedule()`to run a [Job.WithCode] construction, which executes the lambda function as a single job.
@@ -75,7 +76,7 @@ namespace Unity.Entities
     /// #### System attributes
     ///
     /// You can use a number of attributes on your SystemBase implementation to control when it updates:
-    /// 
+    ///
     /// * <seealso cref="UpdateInGroupAttribute"/> -- place the system in a <seealso cref="ComponentSystemGroup"/>.
     /// * <seealso cref="UpdateBeforeAttribute"/> -- always update the system before another system in the same group.
     /// * <seealso cref="UpdateAfterAttribute"/> -- always update the system after another system in the same group.
@@ -93,11 +94,8 @@ namespace Unity.Entities
     /// [Entities.ForEach]: xref:ecs-entities-foreach
     /// [Job.WithCode]: xref:ecs-entities-foreach
     /// </remarks>
-    public abstract class SystemBase : ComponentSystemBase
+    public unsafe abstract class SystemBase : ComponentSystemBase
     {
-        bool      _GetDependencyFromSafetyManager;
-        JobHandle _JobHandle;
-
         /// <summary>
         /// The ECS-related data dependencies of the system.
         /// </summary>
@@ -110,7 +108,7 @@ namespace Unity.Entities
         ///
         /// The following example illustrates an `OnUpdate()` implementation that relies on implicit dependency
         /// management. The function schedules three jobs, each depending on the previous one:
-        /// 
+        ///
         /// <example>
         /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="simple-dependency" title="Implicit Dependency Example"/>
         /// </example>
@@ -120,14 +118,14 @@ namespace Unity.Entities
         /// [JobHandle] representing the input dependencies combined with the new job. The [JobHandle] objects of any
         /// jobs scheduled with explicit dependencies are not combined with the system’s Dependency property. You must set the Dependency
         /// property manually to make sure that later systems receive the correct job dependencies.
-        /// 
+        ///
         /// The following <see cref="OnUpdate"/> function illustrates manual dependency management. The function uses
         /// two [Entity.ForEach] constructions that schedule jobs which do not depend upon each other, only the incoming
         /// dependencies of the system. Then a [Job.WithCode] construction schedules a job that depends on both of the
         /// prior jobs, who’s dependencies are combined using [JobHandle.CombineDependencies]. Finally, the [JobHandle]
         /// of the last job is assigned to the Dependency property so that the ECS safety manager can propagate the
         /// dependencies to subsequent systems.
-        /// 
+        ///
         /// <example>
         /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="manual-dependency" title="Manual Dependency Example"/>
         /// </example>
@@ -135,48 +133,18 @@ namespace Unity.Entities
         /// You can combine implicit and explicit dependency management (by using [JobHandle.CombineDependencies]);
         /// however, doing so can be error prone. When you set the Dependency property, the assigned [JobHandle]
         /// replaces any existing dependency, it is not combined with them.
-        /// 
+        ///
         /// Note that the default, implicit dependency management does not include <see cref="IJobChunk"/> jobs.
         /// You must manage the dependencies for IJobChunk explicitly.
-        /// 
+        ///
         /// [JobHandle]: https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.html
         /// [JobHandle.CompleteDependencies]: https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.CombineDependencies.html
         /// [Entities.ForEach]: xref:ecs-entities-foreach
         /// [Job.WithCode]: xref:ecs-entities-foreach
         /// </remarks>
-        unsafe protected JobHandle Dependency
-        {
-            get
-            {
-                if (_GetDependencyFromSafetyManager)
-                {
-                    _GetDependencyFromSafetyManager = false;
-                    _JobHandle = m_DependencyManager->GetDependency(m_JobDependencyForReadingSystems.Ptr,
-                        m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
-                        m_JobDependencyForWritingSystems.Length);
-                }
+        protected JobHandle Dependency { get => CheckedState()->Dependency; set => CheckedState()->Dependency = value; }
 
-                return _JobHandle;
-            }
-            set
-            {
-                _GetDependencyFromSafetyManager = false;
-                _JobHandle = value;
-            }
-        }
-
-        unsafe protected void CompleteDependency()
-        {
-            // Previous frame job
-            _JobHandle.Complete();
-
-            // We need to get more job handles from other systems
-            if (_GetDependencyFromSafetyManager)
-            {
-                _GetDependencyFromSafetyManager = false;
-                CompleteDependencyInternal();
-            }
-        }
+        protected void CompleteDependency() => CheckedState()->CompleteDependency();
 
         /// <summary>
         /// Provides a mechanism for defining an entity query and invoking a lambda expression on each entity
@@ -188,33 +156,33 @@ namespace Unity.Entities
         /// data. Entities provides a LINQ method-style syntax that you use to describe the work to be performed.
         /// Unity uses a compiler extension to convert the description into efficient, (optionally) multi-threaded
         /// executable code.
-        /// 
+        ///
         /// <example>
         /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="entities-foreach-basic" title="Basic ForEach Example"/>
         /// </example>
-        /// 
+        ///
         /// ##### **Describing the entity query**
         ///
         /// The components that you specify as parameters for your lambda function are automatically added to
         /// the entity query created for an Entities.Foreach construction. You can also add a number of "With"
         /// clauses to identify which entities that you want to process These clauses include:
-        /// 
+        ///
         /// * **`WithAll`** -- An entity must have all of these component types (in addition to having all
         /// the component types found in the lambda parameter list).
-        ///   
-        /// * **`WithAny`** -- An entity must have one or more of these component types. 
-        /// 
+        ///
+        /// * **`WithAny`** -- An entity must have one or more of these component types.
+        ///
         /// * **`WithNone`** -- An entity must not have any of these component types.
-        /// 
+        ///
         /// * **`WithChangeFilter()`** -- Only selects entities in chunks in which the specified component might have
         ///   changed since the last time this system instance updated.
-        /// 
+        ///
         /// * **`WithSharedComponentFilter(ISharedComponentData)`** -- Only select chunks that have a specified value
         ///   for a shared component.
-        /// 
+        ///
         /// * **`WithEntityQueryOptions(EntityQueryOptions)`** -- Specify additonal options defined in a
         ///   <see cref="EntityQueryOptions"/> object.
-        /// 
+        ///
         /// * **`WithStoreEntityQueryInField(EntityQuery)`** -- Stores the <see cref="EntityQuery"/> object generated
         ///   by the Entities.ForEach in an EntityQuery field on your system. You can use this EntityQuery object for
         ///   such purposes as getting the number of entities that will be selected by the query. Note that this function
@@ -239,12 +207,12 @@ namespace Unity.Entities
         ///
         /// * **`Entity entity`** — the Entity instance of the current entity. (The parameter can be named anything as
         ///   long as the type is Entity.)
-        /// 
+        ///
         /// * **`int entityInQueryIndex`** — the index of the entity in the list of all entities selected by the query.
         ///   Use the entity index value when you have a [native array] that you need to fill with a unique value for
         ///   each entity. You can use the entityInQueryIndex as the index in that array. The entityInQueryIndex should
         ///   also be used as the jobIndex for adding commands to a concurrent <see cref="EntityCommandBuffer"/>.
-        /// 
+        ///
         /// * **`int nativeThreadIndex`** — a unique index for the thread executing the current iteration of the
         ///   lambda function. When you execute the lambda function using Run(), nativeThreadIndex is always zero.
         ///
@@ -268,7 +236,7 @@ namespace Unity.Entities
         /// ##### **Executing the lambda function**
         ///
         /// To execute a ForEach construction, you have three options:
-        /// 
+        ///
         /// * **`ScheduleParallel()`** -- schedules the work to be done in parallel using the [C# Job] system. Each
         ///   parallel job instance processes at least one chunk of entities at a time. In other words, if all the
         ///   selected entities are in the same chunk, then only one job instance is spawned.
@@ -279,7 +247,7 @@ namespace Unity.Entities
         /// * **`Run()`** -- evaluates the entity query and invokes the lambda function for each selected entity
         ///   immediately on the main thread. Calling `Run()` completes the system <see cref="Dependency"/> [JobHandle]
         ///   before running, blocking the main thread, if necessary, while it waits for those jobs to finish.
-        /// 
+        ///
         /// When you call Schedule() or ScheduleParallel() without parameters, then the scheduled jobs use the current
         /// value of <see cref="Dependency"/>. You can also pass a [JobHandle] to these functions to define the dependencies
         /// of the scheduled job. In this case, the Entities.forEach construction returns a new [JobHandle] that adds the
@@ -313,16 +281,16 @@ namespace Unity.Entities
         protected internal ForEachLambdaJobDescription Entities => new ForEachLambdaJobDescription();
 
 #if ENABLE_DOTS_COMPILER_CHUNKS
-            /// <summary>
-            /// Use query.Chunks.ForEach((ArchetypeChunk chunk, int chunkIndex, int indexInQueryOfFirstEntity) => { YourCodeGoesHere(); }).Schedule();
-            /// </summary>
-            public LambdaJobChunkDescription Chunks
+        /// <summary>
+        /// Use query.Chunks.ForEach((ArchetypeChunk chunk, int chunkIndex, int indexInQueryOfFirstEntity) => { YourCodeGoesHere(); }).Schedule();
+        /// </summary>
+        public LambdaJobChunkDescription Chunks
+        {
+            get
             {
-                get
-                {
-                    return new LambdaJobChunkDescription();
-                }
+                return new LambdaJobChunkDescription();
             }
+        }
 #endif
 
         /// <summary>
@@ -332,11 +300,11 @@ namespace Unity.Entities
         /// The Jobs property provides a convenient mechanism for implementing single jobs. Unity uses a compiler
         /// extension to convert the job description you create with Job.WithCode into efficient, executable code that
         /// (optionally) runs in a background thread.
-        /// 
+        ///
         /// <example>
         /// <code source="../DocCodeSamples.Tests/LambdaJobExamples.cs" region="job-with-code-example" title="Basic Job Example"/>
         /// </example>
-        /// 
+        ///
         /// Implement your lambda function inside the `Job.WithCode(lambda)` function. The lambda function cannot
         /// take any parameters. You can capture local variables.
         ///
@@ -344,7 +312,7 @@ namespace Unity.Entities
         /// * `Run()` -- executes immediately on the main thread. Immediately before it invokes `Run()` the system
         ///    completes all jobs with a [JobHandle] in the system <see cref="Dependency"/> property as well as any
         ///    jobs with a [JobHandle] passed as a dependency to `Run()` as an (optional) parameter.
-        ///    
+        ///
         /// When scheduling a job, you can pass a [JobHandle] to set the job's dependencies explicitly and the
         /// construction returns the updated [JobHandle] combining the earlier dependencies with the new job. If you
         /// do not provide a [JobHandle], the system uses <see cref="Dependency"/> when scheduling the job, and updates
@@ -396,49 +364,6 @@ namespace Unity.Entities
             get { return new LambdaSingleJobDescription(); }
         }
 
-        void BeforeOnUpdate()
-        {
-            BeforeUpdateVersioning();
-
-            // We need to wait on all previous frame dependencies, otherwise it is possible that we create infinitely long dependency chains
-            // without anyone ever waiting on it
-            _JobHandle.Complete();
-            _GetDependencyFromSafetyManager = true;
-        }
-#pragma warning disable 649
-        private unsafe struct JobHandleData
-        {
-            public void* jobGroup;
-            public int version;
-        }
-#pragma warning restore 649
-
-        unsafe void AfterOnUpdate(bool throwException)
-        {
-            AfterUpdateVersioning();
-
-            // If outputJob says no relevant jobs were scheduled,
-            // then no need to batch them up or register them.
-            // This is a big optimization if we only Run methods on main thread...
-            var outputJob = _JobHandle;
-            if (((JobHandleData*) &outputJob)->jobGroup != null)
-            {
-                JobHandle.ScheduleBatchedJobs();
-                _JobHandle = m_DependencyManager->AddDependency(m_JobDependencyForReadingSystems.Ptr,
-                    m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
-                    m_JobDependencyForWritingSystems.Length, outputJob);
-            }
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (JobsUtility.JobDebuggerEnabled)
-            {
-                var dependencyError = SystemDependencySafetyUtility.CheckSafetyAfterUpdate(this, ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems, m_DependencyManager);
-                if (throwException && dependencyError != null)
-                    throw new InvalidOperationException(dependencyError);
-            }
-#endif
-        }
-
         /// <summary>
         /// Update the system manually.
         /// </summary>
@@ -448,50 +373,113 @@ namespace Unity.Entities
         /// </remarks>
         public sealed override void Update()
         {
+            var state = CheckedState();
+
 #if ENABLE_PROFILER
-            using (m_ProfilerMarker.Auto())
+            using (state->m_ProfilerMarker.Auto())
 #endif
             {
                 if (Enabled && ShouldRunSystem())
                 {
-                    if (!m_PreviouslyEnabled)
+                    if (!state->m_PreviouslyEnabled)
                     {
-                        m_PreviouslyEnabled = true;
+                        state->m_PreviouslyEnabled = true;
                         OnStartRunning();
                     }
 
-                    BeforeOnUpdate();
+                    state->BeforeOnUpdate();
 
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     var oldExecutingSystem = ms_ExecutingSystem;
                     ms_ExecutingSystem = this;
-    #endif
+#endif
                     try
                     {
                         OnUpdate();
                     }
                     catch
                     {
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                         ms_ExecutingSystem = oldExecutingSystem;
-    #endif
+#endif
 
-                        AfterOnUpdate(false);
+                        state->AfterOnUpdate();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        var hasSafetyError = false;
+                        var details = default(SystemDependencySafetyUtility.SafetyErrorDetails);
+                        state->CheckSafety(ref details, ref hasSafetyError);
+#endif
+
                         throw;
                     }
 
-    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     ms_ExecutingSystem = oldExecutingSystem;
-    #endif
+#endif
 
-                    AfterOnUpdate(true);
+                    state->AfterOnUpdate();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    {
+                        var hasSafetyError = false;
+                        var details = default(SystemDependencySafetyUtility.SafetyErrorDetails);
+                        state->CheckSafety(ref details, ref hasSafetyError);
+                        if (hasSafetyError)
+                        {
+                            throw new InvalidOperationException(details.FormatToString(GetType()));
+                        }
+                    }
+#endif
                 }
-                else if (m_PreviouslyEnabled)
+                else if (state->m_PreviouslyEnabled)
                 {
-                    m_PreviouslyEnabled = false;
+                    state->m_PreviouslyEnabled = false;
                     OnStopRunning();
-                }                
+                }
             }
+        }
+
+        internal static bool UnmanagedUpdate(SystemState* state, out SystemDependencySafetyUtility.SafetyErrorDetails errorDetails)
+        {
+            var hasSafetyError = false;
+            errorDetails = default;
+
+#if ENABLE_PROFILER
+            state->m_ProfilerMarker.Begin();
+#endif
+            if (state->Enabled && state->ShouldRunSystem())
+            {
+                if (!state->m_PreviouslyEnabled)
+                {
+                    state->m_PreviouslyEnabled = true;
+                    // TODO - don't have this
+                    // OnStartRunning();
+                }
+
+                state->BeforeOnUpdate();
+
+                SystemBaseRegistry.CallOnUpdate(state);
+
+                state->AfterOnUpdate();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                var details = default(SystemDependencySafetyUtility.SafetyErrorDetails);
+                state->CheckSafety(ref details, ref hasSafetyError);
+                errorDetails = details;
+#endif
+            }
+            else if (state->m_PreviouslyEnabled)
+            {
+                state->m_PreviouslyEnabled = false;
+                // TODO - don't have this
+                // OnStopRunning();
+            }
+#if ENABLE_PROFILER
+            state->m_ProfilerMarker.End();
+#endif
+
+            return hasSafetyError;
         }
 
         internal sealed override void OnBeforeCreateInternal(World world)
@@ -502,13 +490,13 @@ namespace Unity.Entities
         internal sealed override void OnBeforeDestroyInternal()
         {
             base.OnBeforeDestroyInternal();
-            _JobHandle.Complete();
+            CheckedState()->m_JobHandle.Complete();
         }
 
         /// <summary>Implement `OnUpdate()` to perform the major work of this system.</summary>
         /// <remarks>
         /// The system invokes `OnUpdate()` once per frame on the main thread when any of this system's
-        /// [EntityQueries] match existing entities, the system has the [AlwaysUpdateSystem] 
+        /// [EntityQueries] match existing entities, the system has the [AlwaysUpdateSystem]
         /// attribute, or the system has no queries at all. `OnUpdate()` is triggered by the system's
         /// parent system group, which calls the <see cref="Update"/> method of all its child
         /// systems in its own `OnUpdate()` function. The `Update()` function evaluates whether a system
@@ -528,7 +516,7 @@ namespace Unity.Entities
         /// [AlwaysUpdate]: xref:Unity.Entities.AlwaysUpdateSystemAttribute
         /// </remarks>
         protected abstract void OnUpdate();
-        
+
         /// <summary>
         /// Look up the value of a component for an entity.
         /// </summary>
@@ -559,7 +547,7 @@ namespace Unity.Entities
         {
             return EntityManager.GetComponentData<T>(entity);
         }
-        
+
         /// <summary>
         /// Sets the value of a component of an entity.
         /// </summary>
@@ -590,7 +578,7 @@ namespace Unity.Entities
         {
             EntityManager.SetComponentData(entity, component);
         }
-        
+
         /// <summary>
         /// Checks whether an entity has a specific type of component.
         /// </summary>
@@ -623,6 +611,27 @@ namespace Unity.Entities
         protected internal bool HasComponent<T>(Entity entity) where T : struct, IComponentData
         {
             return EntityManager.HasComponent<T>(entity);
+        }
+
+        /// <summary>
+        /// Gets an dictionary-like container containing all components of type T, keyed by Entity.
+        /// </summary>
+        /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
+        /// read-only whenever possible.</param>
+        /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
+        /// <remarks>
+        /// When you call this method on the main thread, it invokes <see cref="ComponentSystemBase.GetComponentDataFromEntity{T}"/>.
+        /// (An [Entities.ForEach] function invoked with `Run()` executes on the main thread.) When you call this method
+        /// inside a job scheduled using [Entities.ForEach], this method gets replaced direct access to
+        /// <see cref="ComponentDataFromEntity{T}"/>.
+        ///
+        /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
+        /// </remarks>
+        /// <returns>All component data of type T.</returns>
+        public new ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
+            where T : struct, IComponentData
+        {
+            return base.GetComponentDataFromEntity<T>(isReadOnly);
         }
     }
 }

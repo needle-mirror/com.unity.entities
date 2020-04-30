@@ -1,4 +1,3 @@
-
 using System.Linq;
 #if UNITY_DOTSPLAYER
 using Mono.Cecil;
@@ -50,13 +49,13 @@ namespace Unity.Entities.CodeGen
                 bool shouldScan = type.CustomAttributes.Any(ca => ca.AttributeType.Name == nameof(GenerateFieldInfoAttribute) && ca.AttributeType.Namespace == "Unity.Entities");
                 foreach (var method in type.GetMethods())
                 {
-                    if (method.Body == null) 
+                    if (method.Body == null)
                         continue;
 
                     if (!shouldScan)
                         shouldScan = method.CustomAttributes.Any(ca => ca.AttributeType.Name == nameof(GenerateFieldInfoAttribute) && ca.AttributeType.Namespace == "Unity.Entities");
-                    
-                    if(!shouldScan)
+
+                    if (!shouldScan)
                         continue;
 
                     foreach (var instruction in method.Body.Instructions)
@@ -148,7 +147,7 @@ namespace Unity.Entities.CodeGen
                 il.Emit(OpCodes.Stsfld, fieldInfoField);
 
                 // Now replace ldstr with a nop and call to a load from our new field
-                foreach (var (methodProcessor, ldstrOp) in fieldNameInstructionMap[fieldInfoData])
+                foreach (var(methodProcessor, ldstrOp) in fieldNameInstructionMap[fieldInfoData])
                 {
                     var module = methodProcessor.Body.Method.Module;
                     var callOp = ldstrOp.Next;
@@ -161,6 +160,11 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Ret);
 
             return true;
+        }
+
+        protected override bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes)
+        {
+            return false;
         }
     }
 }

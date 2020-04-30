@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -37,7 +38,7 @@ namespace Unity.Entities.CodeGen
                 }
             }
         }
-        
+
         public void EmitScheduleInitializeOnLoadCode(ILProcessor scheduleIL)
         {
             // We have ComponentDataFromEntityFields, generate IL in the ScheduleTimeInitialize method to set them up
@@ -47,7 +48,7 @@ namespace Unity.Entities.CodeGen
                 scheduleIL.Emit(OpCodes.Ldarg_1); // System
                 scheduleIL.Emit(field.HasReadOnlyAttribute() ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0); // True/False
 
-                var fieldComponentType = ((GenericInstanceType) (field.FieldType)).GenericArguments.First();
+                var fieldComponentType = ((GenericInstanceType)(field.FieldType)).GenericArguments.First();
                 var methodInfo = typeof(ComponentSystemBase).GetMethod(nameof(ComponentSystemBase.GetComponentDataFromEntity));
                 var getComponentDataFromEntityMethod = TypeDefinition.Module.ImportReference(methodInfo);
                 var genericInstanceMethod = getComponentDataFromEntityMethod.MakeGenericInstanceMethod(fieldComponentType);
@@ -56,7 +57,7 @@ namespace Unity.Entities.CodeGen
                 scheduleIL.Emit(OpCodes.Stfld, field);
             }
         }
-        
+
         // Gets or created a field definition for a type as needed.
         // This will first check if a RW one is available, if that is the case we should use that.
         // If not it will check to see if a RO one is available, use that and promote to RW if needed.
@@ -65,7 +66,7 @@ namespace Unity.Entities.CodeGen
         {
             if (ComponentDataFromEntityFields.TryGetValue(type.FullName, out var result))
             {
-                if (result.HasReadOnlyAttribute() && !asReadOnly) 
+                if (result.HasReadOnlyAttribute() && !asReadOnly)
                     result.RemoveReadOnlyAttribute();
 
                 return result;
@@ -77,27 +78,93 @@ namespace Unity.Entities.CodeGen
             TypeDefinition.Fields.Add(result);
             result.AddNoAliasAttribute();
 
-            if (asReadOnly) 
+            if (asReadOnly)
                 result.AddReadOnlyAttribute();
 
             ComponentDataFromEntityFields[type.FullName] = result;
             return result;
         }
 
-        void PatchInstructionToComponentAccessMethod(MethodDefinition method, Instruction instruction, PatchableMethod unpatchedMethod)
+        // This method is responsible for transforming the IL that calls a component access method (GetComponent/SetComponent/etc)
+        // into the IL that loads a previously created ComponentDataFromEntity and either calls a method (get_Item/set_Item/HasComponent)
+        // or leaves it on the stack (in the case where the method being replaced is GetComponentDataFromEntity).
+        //
+        // For the source IL, there are three cases where the this instance can come from, depending on how roslyn emitted the code:
+        //
+        // 1. Either the original system was captured into a <>_this variable in our DisplayClass.  In this case the IL will look like:
+        // ldarg0
+        // ldfld <>__this
+        // IL to load entity
+        // call GetComponent<T>
+        //
+        // 2. Or we got emitted without a DisplayClass, and our method is on the actual system itself, and in that case the system is just ldarg0:
+        // ldarg0
+        // IL to load entity
+        // call GetComponent<T>
+        //
+        // 3. OR we captured from multiple scopes, in which case <>this will live inside of another DisplayClass:
+        // ldarg.0
+        // ldfld valuetype '<>c__DisplayClass0_1'::'CS$<>8__locals1'
+        // ldfld class '<>c__DisplayClass0_0'::'<>4__this'
+        // ldarg.1
+        // call GetComponent<T>
+
+        // And the output IL that we want looks like this:
+        // ldarg0
+        // ldfld ComponentDataFromEntity
+        // IL to load entity
+        // call ComponentDataFromEntity.GetComponent<t>(entity e);
+        //
+        // So the changes we are going to do is remove that original ldfld if it existed, and add the ldfld for our ComponentDataFromEntity
+        // and then patch the callsite target.  We also need to get nop any ldfld instructions that were used to load the nested DisplayClasses
+        // in the case where we captured locals from multiple scopes.
+        void PatchInstructionToComponentAccessMethod(MethodDefinition method, Instruction instruction, PatchableMethod patchableMethod)
         {
+            method.Body.SimplifyMacros();
             var ilProcessor = method.Body.GetILProcessor();
             var componentAccessMethod = (GenericInstanceMethod)instruction.Operand;
             var componentDataType = componentAccessMethod.GenericArguments.First();
-            var componentDataFromEntityField = GetOrCreateComponentDataFromEntityField(componentDataType, unpatchedMethod.ReadOnly);
-            
+
+            bool readOnlyAccess = true;
+            Instruction instructionThatPushedROAccess = null;
+            switch (patchableMethod.AccessRights)
+            {
+                case PatchableMethod.ComponentAccessRights.ReadOnly:
+                    readOnlyAccess = true;
+                    break;
+                case PatchableMethod.ComponentAccessRights.ReadWrite:
+                    readOnlyAccess = false;
+                    break;
+
+                // Get read-access from method's param (we later nop the instruction that loads)
+                case PatchableMethod.ComponentAccessRights.GetFromFirstMethodParam:
+                    instructionThatPushedROAccess =
+                        CecilHelpers.FindInstructionThatPushedArg(componentAccessMethod.ElementMethod.Resolve(), 1, instruction, true);
+                    if (instructionThatPushedROAccess.IsLoadConstantInt(out var intVal))
+                        readOnlyAccess = intVal != 0;
+                    else
+                    {
+                        if (instructionThatPushedROAccess.IsInvocation(out var _))
+                            UserError.DC0048(method, patchableMethod.UnpatchedMethod, instruction).Throw();
+                        else if (instructionThatPushedROAccess.IsLoadLocal(out _) ||
+                                 instructionThatPushedROAccess.IsLoadArg(out _) ||
+                                 instructionThatPushedROAccess.IsLoadFieldOrLoadFieldAddress())
+                            UserError.DC0049(method, patchableMethod.UnpatchedMethod, instruction).Throw();
+                        else
+                            InternalCompilerError.DCICE008(method, patchableMethod.UnpatchedMethod, instruction).Throw();
+                    }
+                    break;
+            }
+
+            var componentDataFromEntityField = GetOrCreateComponentDataFromEntityField(componentDataType, readOnlyAccess);
+
             // Make sure our componentDataFromEntityField doesn't give write access to a lambda parameter of the same type
             // or there is a writable lambda parameter that gives access to this type (either could violate aliasing rules).
             foreach (var parameter in LambdaParameters)
             {
                 if (parameter.ParameterType.GetElementType().TypeReferenceEquals(componentDataType))
                 {
-                    if (!unpatchedMethod.ReadOnly)
+                    if (!readOnlyAccess)
                         UserError.DC0046(method, componentAccessMethod.Name, componentDataType.Name, instruction).Throw();
                     else if (!parameter.HasCompilerServicesIsReadOnlyAttribute())
                         UserError.DC0047(method, componentAccessMethod.Name, componentDataType.Name, instruction).Throw();
@@ -108,71 +175,51 @@ namespace Unity.Entities.CodeGen
             // Note: we don't want to do this when our method was inserted into our declaring type (in the case where we aren't capturing).
             var instructionThatPushedThis = CecilHelpers.FindInstructionThatPushedArg(method, 0, instruction, true);
             if (instructionThatPushedThis == null)
-                    UserError.DC0045(method, componentAccessMethod.Name, instruction).Throw();
-            
-            // This instruction is responsible for pushing the SystemBase 'this' object, that we called GetComponent<T>(Entity e) or its friends on.
-            // there are two cases where this instance can come from, depending on how roslyn emitted the code. Either the original system
-            // was captured into a <>_this variable in our DisplayClass.  In this case the IL will look like:
-            //
-            // ldarg0
-            // ldfld <>__this
-            // IL to load entity
-            // call GetComponent<T>
-            //
-            // Or we got emitted without a DisplayClass, and our method is on the
-            // actual system itself, and in that case the system is just ldarg0:
-            //
-            // ldarg0
-            // IL to load entity
-            // call GetComponent<T>
-            //
-            // OR we captured from multiple scopes, in which case <>this will live inside of another DisplayClass:
-            // ldarg.0
-            // ldfld valuetype '<>c__DisplayClass0_1'::'CS$<>8__locals1'
-            // ldfld class '<>c__DisplayClass0_0'::'<>4__this'
-            // ldarg.1
-            // call GetComponent<T>
-            
-            // the output IL that we want looks like this:
-            // ldarg0
-            // ldfld ComponentDataFromEntity
-            // IL to load entity
-            // call ComponentDataFromEntity.GetComponent<t>(entity e);
-            //
-            // So the changes we are going to do is remove that original ldfld if it existed, and add the ldfld for our ComponentDataFromEntity
-            // and then patch the callsite target.  We also need to get nop any ldfld instructions that were used to load the nested DisplayClasses
-            // in the case where we captured locals from multiple scopes.
+                UserError.DC0045(method, componentAccessMethod.Name, instruction).Throw();
 
             // Nop the ldfld for this
-            if (instructionThatPushedThis.OpCode == OpCodes.Ldfld) 
+            if (instructionThatPushedThis.OpCode == OpCodes.Ldfld)
                 instructionThatPushedThis.MakeNOP();
-            
+
             // Nop any ldflds of nested DisplayClasses
             var previousInstruction = instructionThatPushedThis.Previous;
-            while (previousInstruction != null && previousInstruction.OpCode == OpCodes.Ldfld && 
-                   ((FieldReference) previousInstruction.Operand).IsNestedDisplayClassField())
+            while (previousInstruction != null && previousInstruction.OpCode == OpCodes.Ldfld &&
+                   ((FieldReference)previousInstruction.Operand).IsNestedDisplayClassField())
             {
                 previousInstruction.MakeNOP();
                 previousInstruction = previousInstruction.Previous;
             }
 
             // Insert Ldflda of componentDataFromEntityField after that point
-            var componentDataFromEntityFieldInstruction = CecilHelpers.MakeInstruction(OpCodes.Ldflda, componentDataFromEntityField);
+            var componentDataFromEntityFieldInstruction = CecilHelpers.MakeInstruction(
+                patchableMethod.AccessFieldAsRef ? OpCodes.Ldflda : OpCodes.Ldfld, componentDataFromEntityField);
             ilProcessor.InsertAfter(instructionThatPushedThis, componentDataFromEntityFieldInstruction);
-            
-            // Replace method that we invoke from SystemBase method to ComponentDataFromEntity<T> method (HasComponent, get_Item or set_Item)
-            var componentDataFromEntityTypeDef = componentDataFromEntityField.FieldType.Resolve();
-            var itemAccessMethod = TypeDefinition.Module.ImportReference(
-                componentDataFromEntityTypeDef.Methods.Single(m => m.Name == unpatchedMethod.PatchedMethod));
-            var closedGetItemMethod = itemAccessMethod.MakeGenericHostMethod(componentDataFromEntityField.FieldType);
-            instruction.Operand = TypeDefinition.Module.ImportReference(closedGetItemMethod);
+
+            // Replace method that we invoke from SystemBase method to ComponentDataFromEntity<T> method if we have one
+            // (HasComponent, get_Item or set_Item).  Otherwise nop.
+            if (patchableMethod.PatchedMethod != null)
+            {
+                var componentDataFromEntityTypeDef = componentDataFromEntityField.FieldType.Resolve();
+                var itemAccessMethod = TypeDefinition.Module.ImportReference(
+                    componentDataFromEntityTypeDef.Methods.Single(m => m.Name == patchableMethod.PatchedMethod));
+                var closedGetItemMethod =
+                    itemAccessMethod.MakeGenericHostMethod(componentDataFromEntityField.FieldType);
+                instruction.Operand = TypeDefinition.Module.ImportReference(closedGetItemMethod);
+            }
+            else
+                instruction.MakeNOP();
+
+            // Handle special case where we have an instruction that pushed an argument for Read/Write access, nop that out
+            instructionThatPushedROAccess?.MakeNOP();
+            method.Body.OptimizeMacros();
         }
-        
+
         public struct PatchableMethod
         {
             public string UnpatchedMethod;
             public string PatchedMethod;
-            public bool ReadOnly;
+            public ComponentAccessRights AccessRights;
+            public bool AccessFieldAsRef;
 
             public static bool For(MethodReference invocationTarget, out PatchableMethod result)
             {
@@ -189,11 +236,19 @@ namespace Unity.Entities.CodeGen
                 return false;
             }
 
+            public enum ComponentAccessRights
+            {
+                ReadOnly,
+                ReadWrite,
+                GetFromFirstMethodParam
+            }
+
             static PatchableMethod[] AllPatchableMethods =
             {
-                new PatchableMethod() {UnpatchedMethod = "HasComponent", PatchedMethod = "HasComponent", ReadOnly = true},
-                new PatchableMethod() {UnpatchedMethod = "GetComponent", PatchedMethod = "get_Item", ReadOnly = true},
-                new PatchableMethod() {UnpatchedMethod = "SetComponent", PatchedMethod = "set_Item", ReadOnly = false},
+                new PatchableMethod() { UnpatchedMethod = nameof(SystemBase.HasComponent), PatchedMethod = "HasComponent", AccessRights = ComponentAccessRights.ReadOnly, AccessFieldAsRef = true },
+                new PatchableMethod() { UnpatchedMethod = nameof(SystemBase.GetComponent), PatchedMethod = "get_Item", AccessRights = ComponentAccessRights.ReadOnly, AccessFieldAsRef = true },
+                new PatchableMethod() { UnpatchedMethod = nameof(SystemBase.SetComponent), PatchedMethod = "set_Item", AccessRights = ComponentAccessRights.ReadWrite, AccessFieldAsRef = true },
+                new PatchableMethod() { UnpatchedMethod = nameof(SystemBase.GetComponentDataFromEntity), PatchedMethod = null, AccessRights = ComponentAccessRights.GetFromFirstMethodParam, AccessFieldAsRef = false }
             };
         }
     }

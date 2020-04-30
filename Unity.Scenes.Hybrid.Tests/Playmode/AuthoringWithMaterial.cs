@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Unity.Entities;
 using Unity.Scenes.Hybrid.Tests;
 using UnityEngine;

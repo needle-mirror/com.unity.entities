@@ -1,3 +1,6 @@
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -5,6 +8,7 @@ using System.Linq;
 using System.Text;
 using NUnit.Framework;
 using Unity.Collections;
+
 
 namespace Unity.Entities.Tests
 {
@@ -23,13 +27,13 @@ namespace Unity.Entities.Tests
         static bool PrivateAreEqual(IReadOnlyList<DebugEntity> expected, IReadOnlyList<DebugEntity> actual)
         {
             //@TODO: do this with proper Equals/Equatable impls so can just use nunit's CollectionAssert stuff
-            
+
             if (actual.Count != expected.Count)
                 return false;
 
             for (var i = 0; i < expected.Count; ++i)
             {
-                var (de0, de1) = (expected[i], actual[i]);
+                var(de0, de1) = (expected[i], actual[i]);
                 if (de0.Entity != de1.Entity)
                     return false;
                 if (de0.Components.Count != de1.Components.Count)
@@ -37,7 +41,7 @@ namespace Unity.Entities.Tests
 
                 for (var j = 0; j < de0.Components.Count; ++j)
                 {
-                    var (dc0, dc1) = (de0.Components[j], de1.Components[j]);
+                    var(dc0, dc1) = (de0.Components[j], de1.Components[j]);
                     if (!ReferenceEquals(dc0.Type, dc1.Type))
                         return false;
                     if (dc0.Data is IEnumerable dce0 && dc1.Data is IEnumerable dce1)
@@ -49,7 +53,7 @@ namespace Unity.Entities.Tests
 
             return true;
         }
-        
+
         /// <summary>
         /// Assert that there are no entities in `entityManager`. It will dump a report of what it finds on failure.
         /// </summary>
@@ -62,7 +66,7 @@ namespace Unity.Entities.Tests
         /// Use this function to validate that the contents of ECS exactly match what is expected. It works like this:
         ///
         /// 1. All entities are retrieved
-        /// 2. For each entity, every matcher is tested against. Entities may be in any order, but matchers are tested 
+        /// 2. For each entity, every matcher is tested against. Entities may be in any order, but matchers are tested
         ///    in the order they are given to this method. This means that the more specific matchers should appear
         ///    earlier in the array.
         /// 3. When a match is found, both the entity and the matcher are paired and removed
@@ -89,7 +93,7 @@ namespace Unity.Entities.Tests
 
             Contains(entityManager, matchers, false);
         }
-        
+
         static void Contains(EntityManager entityManager, IEnumerable<EntityMatch> matchers, bool only)
         {
             var entitiesList = DebugEntity
@@ -100,11 +104,11 @@ namespace Unity.Entities.Tests
                 .Select((m, i) => (m, ei: -1))
                 .ToList();
 
-            var (remainingEntities, remainingMatchers) = (entitiesList.Count, matchersList.Count);
+            var(remainingEntities, remainingMatchers) = (entitiesList.Count, matchersList.Count);
             for (var ei = 0; ei < entitiesList.Count; ++ei)
             {
                 var entity = entitiesList[ei].e;
-                
+
                 for (var mi = 0; mi < matchersList.Count; ++mi)
                 {
                     var matcher = matchersList[mi];
@@ -124,13 +128,13 @@ namespace Unity.Entities.Tests
                 fail = true;
             else if (only && remainingEntities > 0)
                 fail = true;
-            
+
             if (fail)
             {
                 var sb = new StringBuilder();
                 sb.AppendLine("Entities do not match exactly what is expected");
                 sb.AppendLine();
-                
+
                 sb.AppendLine("Matchers");
                 for (var mi = 0; mi < matchersList.Count; ++mi)
                 {
@@ -139,7 +143,7 @@ namespace Unity.Entities.Tests
                     sb.AppendLine($"  {mi}»{es} - {matchersList[mi].m.Desc}");
                 }
                 sb.AppendLine();
-                
+
                 sb.AppendLine("Entities");
                 for (var ei = 0; ei < entitiesList.Count; ++ei)
                 {
@@ -159,7 +163,7 @@ namespace Unity.Entities.Tests
     public class EntityMatch
     {
         Func<string> m_DescMaker;
-        Func<DebugEntity, bool> m_Matcher; 
+        Func<DebugEntity, bool> m_Matcher;
 
         EntityMatch(Func<string> descMaker, Func<DebugEntity, bool> matcher)
             => (m_DescMaker, m_Matcher) = (descMaker, matcher);
@@ -176,7 +180,7 @@ namespace Unity.Entities.Tests
             => new EntityMatch(descMaker, matcher);
 
         /// <summary>
-        /// This will do a simple match for the given Entity, ignoring any components.   
+        /// This will do a simple match for the given Entity, ignoring any components.
         /// </summary>
         public static EntityMatch Any(Entity entity)
             => new EntityMatch(() => $"{entity} /any/", de => de.Entity == entity);
@@ -184,19 +188,19 @@ namespace Unity.Entities.Tests
         class DelegateEquals<T>
         {
             Func<T, bool> m_Comparer;
-            
+
             public DelegateEquals(Func<T, bool> comparer) => m_Comparer = comparer;
             public override bool Equals(object obj) => obj is T data && m_Comparer(data);
             public override int GetHashCode() => throw new InvalidOperationException();
 
             public override string ToString() => $"{typeof(T).Name}=>{{...}}";
         }
-        
+
         /// <summary>
         /// Component matcher that can take a lambda for more flexible matching of components. Pass this in as a `matchData`.
         /// </summary>
         public static object Component<T>(Func<T, bool> comparer) => new DelegateEquals<T>(comparer);
-        
+
         /// <summary>
         /// Use this matcher to validate that the components of an Entity exactly match what is expected. It works like this:
         ///
@@ -204,7 +208,7 @@ namespace Unity.Entities.Tests
         /// 2. Comparisons for each `matchData` element are are run over each entity
         /// 3. When a match is found, both the component and the `matchData` element are paired and removed
         /// 4. If, at the end, there are either `matchData` elements or components remaining, the matcher returns false
-        /// 
+        ///
         /// (If `matchData` is empty, then it will only match an entity that has no components.)
         ///
         /// Elements in `matchData` can be any of:
@@ -267,10 +271,10 @@ namespace Unity.Entities.Tests
             Entity? entity = null;
             var componentTypeList = componentTypes.ToList();
             var componentDataList = new List<object>();
-            
+
             foreach (var data in matchData)
             {
-                switch (data) 
+                switch (data)
                 {
                     case Entity e:
                         if (entity != null)
@@ -299,7 +303,7 @@ namespace Unity.Entities.Tests
                     return false;
 
                 var debugComponents = debugEntity.Components.ToList();
-                
+
                 if (!componentTypeList.All(type => debugComponents.RemoveSwapBack(v => v.Type == type)) ||
                     !componentDataList.All(data => debugComponents.RemoveSwapBack(v => data.Equals(v.Data))))
                     return false;
@@ -310,7 +314,7 @@ namespace Unity.Entities.Tests
             string MakeDesc()
             {
                 var sb = new StringBuilder();
-                
+
                 if (entity != null)
                     sb.Append(entity.Value);
                 else
@@ -318,19 +322,19 @@ namespace Unity.Entities.Tests
 
                 var components = Enumerable
                     .Concat(
-                        componentTypeList.Select(t => t.Name),
-                        componentDataList.Select(d =>
-                        {
-                            if (d.GetType().IsGenericType && d.GetType().GetGenericTypeDefinition() == typeof(DelegateEquals<>))
-                                return d.ToString();
-                            return new DebugComponent { Data = d }.ToString(20);
-                        }))
+                    componentTypeList.Select(t => t.Name),
+                    componentDataList.Select(d =>
+                    {
+                        if (d.GetType().IsGenericType && d.GetType().GetGenericTypeDefinition() == typeof(DelegateEquals<>))
+                            return d.ToString();
+                        return new DebugComponent { Data = d }.ToString(20);
+                    }))
                     .OrderBy(_ => _);
-                
+
                 var componentsStr = string.Join(", ", components);
                 if (componentsStr.Length != 0)
                     sb.Append($" <{componentsStr}>");
-                
+
                 sb.Append($" /{matchType.ToString().ToLower()}/");
 
                 return sb.ToString();
@@ -340,3 +344,4 @@ namespace Unity.Entities.Tests
         }
     }
 }
+#endif // UNITY_DOTSPLAYER_IL2CPP

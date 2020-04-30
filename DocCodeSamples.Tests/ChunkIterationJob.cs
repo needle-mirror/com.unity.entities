@@ -1,4 +1,4 @@
-﻿using Unity.Burst;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -29,9 +29,10 @@ namespace Doc.CodeSamples.Tests
         protected override void OnCreate()
         {
             m_Query = GetEntityQuery(ComponentType.ReadOnly<Rotation>(),
-                                     ComponentType.ReadOnly<RotationSpeed>());
+                ComponentType.ReadOnly<RotationSpeed>());
             //...
         }
+
         #endregion
 
         [BurstCompile]
@@ -102,6 +103,7 @@ namespace Doc.CodeSamples.Tests
             };
             m_Query = GetEntityQuery(queryDescription);
         }
+
         #endregion
 
         #region speedjob
@@ -169,7 +171,6 @@ namespace Doc.CodeSamples.Tests
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
 
                 #endregion
-
             {
                 #region getcomponents
 
@@ -255,7 +256,7 @@ namespace Doc.CodeSamples.Tests
 
                 for (var i = 0; i < outputs.Length; i++)
                 {
-                    outputs[i] = new Output{ Value = inputAs[i].Value + inputBs[i].Value };
+                    outputs[i] = new Output { Value = inputAs[i].Value + inputBs[i].Value };
                 }
             }
         }
@@ -273,7 +274,7 @@ namespace Doc.CodeSamples.Tests
             job.InputAType = GetArchetypeChunkComponentType<InputA>(true);
             job.InputBType = GetArchetypeChunkComponentType<InputB>(true);
             job.OutputType = GetArchetypeChunkComponentType<Output>(false);
-            
+
             this.Dependency = job.ScheduleParallel(m_Query, this.Dependency);
         }
 

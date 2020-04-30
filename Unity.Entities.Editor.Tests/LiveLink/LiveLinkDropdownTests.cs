@@ -174,7 +174,7 @@ namespace Unity.Entities.Editor.Tests
                 var name = g.Q<Label>().text;
                 if (name == configurationGuid1.ToString())
                     Assert.That(playerNames, Is.EqualTo(new[] { connections[0].Name, connections[1].Name }));
-                else if(name == configurationGuid2.ToString())
+                else if (name == configurationGuid2.ToString())
                     Assert.That(playerNames, Is.EqualTo(new[] { connections[2].Name }));
                 else
                     Assert.Fail("Unexpected group name");
@@ -190,7 +190,7 @@ namespace Unity.Entities.Editor.Tests
                 var name = g.Q<Label>().text;
                 if (name == configurationGuid3.ToString())
                     Assert.That(playerNames, Is.EqualTo(new[] { connections[0].Name }));
-                else if(name == configurationGuid2.ToString())
+                else if (name == configurationGuid2.ToString())
                     Assert.That(playerNames, Is.EqualTo(new[] { connections[1].Name, connections[2].Name }));
                 else
                     Assert.Fail("Unexpected group name");

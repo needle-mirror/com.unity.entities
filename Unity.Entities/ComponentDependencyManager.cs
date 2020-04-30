@@ -21,7 +21,7 @@ namespace Unity.Entities
     /// Job component systems that have no other type dependencies have their JobHandles registered on the Entity type
     /// to ensure that they are completed by CompleteAllJobsAndInvalidateArrays
     /// </summary>
-#if !ENABLE_SIMPLE_SYSTEM_DEPENDENCIES    
+#if !ENABLE_SIMPLE_SYSTEM_DEPENDENCIES
     unsafe partial struct ComponentDependencyManager
     {
         struct DependencyHandle
@@ -30,13 +30,13 @@ namespace Unity.Entities
             public int       NumReadFences;
             public int       TypeIndex;
         }
-   
+
         const int              kMaxReadJobHandles = 17;
         const int              kMaxTypes = TypeManager.MaximumTypesCount;
 
         JobHandle*             m_JobDependencyCombineBuffer;
         int                    m_JobDependencyCombineBufferCount;
-        
+
         // Indexed by TypeIndex
         ushort*                m_TypeArrayIndices;
         DependencyHandle*      m_DependencyHandles;
@@ -47,7 +47,6 @@ namespace Unity.Entities
         const ushort           NullTypeIndex = 0xFFFF;
 
         JobHandle              m_ExclusiveTransactionDependency;
-
         bool                   _IsInTransaction;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -63,7 +62,7 @@ namespace Unity.Entities
                 return arrayIndex;
 
             Assert.IsFalse(TypeManager.IsZeroSized(typeIndex));
-            
+
             arrayIndex = m_DependencyHandlesCount++;
             m_TypeArrayIndices[withoutFlags] = arrayIndex;
             m_DependencyHandles[arrayIndex].TypeIndex = typeIndex;
@@ -73,9 +72,9 @@ namespace Unity.Entities
             return arrayIndex;
         }
 
-        void ClearAllTypeArrayIndices()
+        void ClearDependencies()
         {
-            for(int i=0;i<m_DependencyHandlesCount;++i)
+            for (int i = 0; i < m_DependencyHandlesCount; ++i)
                 m_TypeArrayIndices[m_DependencyHandles[i].TypeIndex & TypeManager.ClearFlagsMask] = NullTypeIndex;
             m_DependencyHandlesCount = 0;
         }
@@ -83,16 +82,16 @@ namespace Unity.Entities
         public void OnCreate()
         {
             m_TypeArrayIndices = (ushort*)UnsafeUtility.Malloc(sizeof(ushort) * kMaxTypes, 16, Allocator.Persistent);
-            UnsafeUtility.MemSet(m_TypeArrayIndices, 0xFF, sizeof(ushort)*kMaxTypes);
+            UnsafeUtility.MemSet(m_TypeArrayIndices, 0xFF, sizeof(ushort) * kMaxTypes);
 
-            m_ReadJobFences = (JobHandle*) UnsafeUtility.Malloc(sizeof(JobHandle) * kMaxReadJobHandles * kMaxTypes, 16, Allocator.Persistent);
+            m_ReadJobFences = (JobHandle*)UnsafeUtility.Malloc(sizeof(JobHandle) * kMaxReadJobHandles * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_ReadJobFences, sizeof(JobHandle) * kMaxReadJobHandles * kMaxTypes);
 
-            m_DependencyHandles = (DependencyHandle*) UnsafeUtility.Malloc(sizeof(DependencyHandle) * kMaxTypes, 16, Allocator.Persistent);
+            m_DependencyHandles = (DependencyHandle*)UnsafeUtility.Malloc(sizeof(DependencyHandle) * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_DependencyHandles, sizeof(DependencyHandle) * kMaxTypes);
 
             m_JobDependencyCombineBufferCount = 4 * 1024;
-            m_JobDependencyCombineBuffer = (JobHandle*) UnsafeUtility.Malloc(sizeof(DependencyHandle) * m_JobDependencyCombineBufferCount, 16, Allocator.Persistent);
+            m_JobDependencyCombineBuffer = (JobHandle*)UnsafeUtility.Malloc(sizeof(DependencyHandle) * m_JobDependencyCombineBufferCount, 16, Allocator.Persistent);
 
             m_DependencyHandlesCount = 0;
             _IsInTransaction = false;
@@ -102,13 +101,22 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.OnCreate();
 #endif
-
         }
 
         public void CompleteAllJobsAndInvalidateArrays()
         {
             if (m_DependencyHandlesCount != 0)
             {
+#if NET_DOTS
+                if (JobsUtility.IsExecutingJob())
+#else
+                if (JobsUtility.IsExecutingJob)
+#endif
+                {
+                    throw new InvalidOperationException(
+                        "Jobs accessing the entity manager must issue a complete sync point");
+                }
+
                 Profiler.BeginSample("CompleteAllJobs");
                 for (int t = 0; t < m_DependencyHandlesCount; ++t)
                 {
@@ -120,7 +128,7 @@ namespace Unity.Entities
                         readFences[r].Complete();
                     m_DependencyHandles[t].NumReadFences = 0;
                 }
-                ClearAllTypeArrayIndices();
+                ClearDependencies();
                 Profiler.EndSample();
             }
 
@@ -145,7 +153,7 @@ namespace Unity.Entities
 
             UnsafeUtility.Free(m_ReadJobFences, Allocator.Persistent);
             m_ReadJobFences = null;
-            
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.Dispose();
 #endif
@@ -163,7 +171,6 @@ namespace Unity.Entities
             Safety.PreDisposeCheck();
 #endif
         }
-
 
         public void CompleteDependenciesNoChecks(int* readerTypes, int readerTypesCount, int* writerTypes, int writerTypesCount)
         {
@@ -206,7 +213,7 @@ namespace Unity.Entities
             for (var i = 0; i != readerTypesCount; i++)
             {
                 var typeArrayIndex = m_TypeArrayIndices[readerTypes[i] & TypeManager.ClearFlagsMask];
-                if(typeArrayIndex != NullTypeIndex)
+                if (typeArrayIndex != NullTypeIndex)
                     m_JobDependencyCombineBuffer[count++] = m_DependencyHandles[typeArrayIndex].WriteFence;
             }
 
@@ -342,33 +349,6 @@ namespace Unity.Entities
             return combined;
         }
 
-        public void BeginExclusiveTransaction()
-        {
-            if (_IsInTransaction)
-                return;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Safety.BeginExclusiveTransaction();
-#endif
-
-            _IsInTransaction = true;
-            m_ExclusiveTransactionDependency = GetAllDependencies();
-            ClearAllTypeArrayIndices();
-        }
-
-        public void EndExclusiveTransaction()
-        {
-            if (!_IsInTransaction)
-                return;
-
-            m_ExclusiveTransactionDependency.Complete();
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Safety.EndExclusiveTransaction();
-#endif
-            _IsInTransaction = false;
-        }
-
         JobHandle GetAllDependencies()
         {
             var jobHandles = new NativeArray<JobHandle>(m_DependencyHandlesCount * (kMaxReadJobHandles + 1), Allocator.Temp);
@@ -424,13 +404,12 @@ namespace Unity.Entities
         public void Dispose()
         {
             m_Dependency.Complete();
-            
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.Dispose();
 #endif
         }
 
-        
         public void PreDisposeCheck()
         {
             m_Dependency.Complete();
@@ -482,35 +461,15 @@ namespace Unity.Entities
             m_Dependency.Complete();
         }
 
-        public void BeginExclusiveTransaction()
+        void ClearDependencies()
         {
-            if (_IsInTransaction)
-                return;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Safety.BeginExclusiveTransaction();
-#endif
-
-            _IsInTransaction = true;
-            m_ExclusiveTransactionDependency = m_Dependency;
             m_Dependency = default;
         }
 
-        public void EndExclusiveTransaction()
-        {
-            if (!_IsInTransaction)
-                return;
-
-            m_ExclusiveTransactionDependency.Complete();
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Safety.EndExclusiveTransaction();
-#endif
-            _IsInTransaction = false;
-        }
+        JobHandle GetAllDependencies() => m_Dependency;
     }
 #endif
-    
+
     // Shared code of the above two different implementation
     partial struct ComponentDependencyManager
     {
@@ -532,6 +491,39 @@ namespace Unity.Entities
 #endif
                 m_ExclusiveTransactionDependency = value;
             }
+        }
+
+        public void PreEndExclusiveTransaction()
+        {
+            if (_IsInTransaction)
+            {
+                m_ExclusiveTransactionDependency.Complete();
+            }
+        }
+
+        public void EndExclusiveTransaction()
+        {
+            if (!_IsInTransaction)
+                return;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            Safety.EndExclusiveTransaction();
+#endif
+            _IsInTransaction = false;
+        }
+
+        public void BeginExclusiveTransaction()
+        {
+            if (_IsInTransaction)
+                return;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            Safety.BeginExclusiveTransaction();
+#endif
+
+            _IsInTransaction = true;
+            m_ExclusiveTransactionDependency = GetAllDependencies();
+            ClearDependencies();
         }
     }
 }

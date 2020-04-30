@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
@@ -10,8 +10,8 @@ namespace Unity.Entities.Editor
         {
             property.isExpanded = true;
             return EditorGUI.GetPropertyHeight(property)
-                   - EditorGUIUtility.standardVerticalSpacing
-                   - EditorGUIUtility.singleLineHeight;
+                - EditorGUIUtility.standardVerticalSpacing
+                - EditorGUIUtility.singleLineHeight;
         }
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)

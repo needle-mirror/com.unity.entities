@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
@@ -15,22 +15,22 @@ namespace Unity.Entities.Hybrid.CodeGen
  *
  * using System;
  * using Unity.Entities;
- *     
+ *
  * [GenerateAuthoringComponent]
  * public struct BasicComponent : IComponentData
  * {
  *     public float RadiansPerSecond;
  * }
- * 
+ *
  * This code defines a standard Component, the difference being that it also informs the IL post processor that we
  * want a corresponding authoring component generated for us.  Currently, this component must live in its own C# file
  * (due to a limitation with how Unity processes MonoScripts during asset import).  With GenerateAuthoringComponent attribute
  * Unity will generate the following MonoBehaviour with a Convert method:
- * 
+ *
  * internal class BasicComponentAuthoring : MonoBehaviour, IConvertGameObjectToEntity
  * {
  *      public float RadiansPerSecond;
- * 
+ *
  *      public sealed override void Convert(Entity entity, EntityManager destinationManager, GameObjectConversionSystem conversionSystem)
  *      {
  *          BasicComponent componentData = default(BasicComponent);
@@ -38,8 +38,8 @@ namespace Unity.Entities.Hybrid.CodeGen
  *      destinationManager.AddComponentData(entity, componentData);
  *      }
  * }
- * 
- * 
+ *
+ *
  * This process occurs through the following steps:
  * 1. Find all types that inherit from IComponentData and have the GenerateAuthoringComponent attribute.
  * 2. For each type found:
@@ -58,15 +58,15 @@ namespace Unity.Entities.Hybrid.CodeGen
     internal partial class AuthoringComponentPostProcessor
     {
         static (FieldDefinition authoringFieldDefinition, bool referencesPrefabs)
-            CreateAuthoringFieldDefinitionForComponentDataField(TypeDefinition componentDataType, FieldDefinition componentDataField)
+        CreateAuthoringFieldDefinitionForComponentDataField(TypeDefinition componentDataType, FieldDefinition componentDataField)
         {
             var moduleDefinition = componentDataType.Module;
             var entityTypeReference = moduleDefinition.ImportReference(typeof(Entity));
             var gameObjectTypeReference = moduleDefinition.ImportReference(typeof(GameObject));
-           
+
             FieldDefinition authoringFieldDefinition;
             bool referencesPrefabs = false;
-                    
+
             // If we have an entity reference we should expose this as a GameObject and add it to referenced prefabs
             if (componentDataField.FieldType.TypeReferenceEquals(entityTypeReference))
             {
@@ -75,20 +75,20 @@ namespace Unity.Entities.Hybrid.CodeGen
                 referencesPrefabs = true;
             }
             // Do the same thing for arrays of entities
-            else if (componentDataField.FieldType.IsArray 
+            else if (componentDataField.FieldType.IsArray
                      && componentDataField.FieldType.GetElementType().TypeReferenceEquals(entityTypeReference))
             {
-                authoringFieldDefinition = 
+                authoringFieldDefinition =
                     new FieldDefinition(
                         componentDataField.Name,
                         componentDataField.Attributes,
                         moduleDefinition.ImportReference(gameObjectTypeReference.MakeArrayType()));
-                
+
                 referencesPrefabs = true;
             }
             else
             {
-                authoringFieldDefinition = 
+                authoringFieldDefinition =
                     new FieldDefinition(componentDataField.Name, componentDataField.Attributes, componentDataField.FieldType);
             }
 
@@ -99,7 +99,7 @@ namespace Unity.Entities.Hybrid.CodeGen
                     authoringFieldDefinition.CustomAttributes.Add(attribute);
                 }
             }
-            
+
             return (authoringFieldDefinition, referencesPrefabs);
         }
 
@@ -107,36 +107,36 @@ namespace Unity.Entities.Hybrid.CodeGen
         {
             ModuleDefinition moduleDefinition = componentDataType.Module;
             string authoringTypeNameSpace = componentDataType.Namespace;
-            
+
             var authoringType =
                 new TypeDefinition(
                     authoringTypeNameSpace,
                     componentDataType.Name + "Authoring",
                     TypeAttributes.Class)
-                {
-                    Scope = componentDataType.Scope,
-                    BaseType = moduleDefinition.ImportReference(typeof(UnityEngine.MonoBehaviour))
-                };
-            
+            {
+                Scope = componentDataType.Scope,
+                BaseType = moduleDefinition.ImportReference(typeof(UnityEngine.MonoBehaviour))
+            };
+
             authoringType.Interfaces.Add(new InterfaceImplementation(moduleDefinition.ImportReference(typeof(IConvertGameObjectToEntity))));
 
-            var dotsCompilerGeneratedAttribute = 
+            var dotsCompilerGeneratedAttribute =
                 moduleDefinition.ImportReference(typeof(DOTSCompilerGeneratedAttribute).GetConstructors().Single());
             authoringType.CustomAttributes.Add(new CustomAttribute(dotsCompilerGeneratedAttribute));
-            
-            var DisallowMultipleComponentsAttribute = 
-                moduleDefinition.ImportReference(typeof(UnityEngine.DisallowMultipleComponent).GetConstructors().Single(c=>!c.GetParameters().Any()));
+
+            var DisallowMultipleComponentsAttribute =
+                moduleDefinition.ImportReference(typeof(UnityEngine.DisallowMultipleComponent).GetConstructors().Single(c => !c.GetParameters().Any()));
             authoringType.CustomAttributes.Add(new CustomAttribute(DisallowMultipleComponentsAttribute));
 
             var dataFieldsToAuthoringFields = new Dictionary<FieldDefinition, FieldDefinition>();
 
             bool hasReferencedPrefabs = false;
-            
+
             foreach (var field in componentDataType.Fields.Where(f => !f.IsStatic && f.IsPublic && !f.IsPrivate))
             {
-                var (authoringFieldDefinition, referencesPrefabs) =
+                var(authoringFieldDefinition, referencesPrefabs) =
                     CreateAuthoringFieldDefinitionForComponentDataField(componentDataType, field);
-                
+
                 authoringType.Fields.Add(authoringFieldDefinition);
 
                 if (referencesPrefabs)
@@ -147,7 +147,7 @@ namespace Unity.Entities.Hybrid.CodeGen
             }
 
             CreateConvertMethodForComponentDataTypes(authoringType, componentDataType);
-            
+
             if (hasReferencedPrefabs)
             {
                 authoringType.Interfaces.Add(
@@ -155,7 +155,7 @@ namespace Unity.Entities.Hybrid.CodeGen
                 CreateDeclareReferencedPrefabsMethod(authoringType, componentDataType);
             }
             componentDataType.Module.Types.Add(authoringType);
-            
+
             return authoringType;
         }
 
@@ -164,11 +164,11 @@ namespace Unity.Entities.Hybrid.CodeGen
             var interfaceMethodInfo = typeof(IDeclareReferencedPrefabs).GetMethod(nameof(IDeclareReferencedPrefabs.DeclareReferencedPrefabs));
             var declareMethod = CecilHelpers.AddMethodImplementingInterfaceMethod(componentDataType.Module, authoringType, interfaceMethodInfo);
             var gameObjectTypeReference = componentDataType.Module.ImportReference(typeof(UnityEngine.GameObject));
-            
+
             var ilProcessor = declareMethod.Body.GetILProcessor();
             var addGameObjectToListMethod = componentDataType.Module.ImportReference(typeof(GeneratedAuthoringComponentImplementation).GetMethod("AddReferencedPrefab"));
             var addRangeOfGameObjectsToListMethod = componentDataType.Module.ImportReference(typeof(GeneratedAuthoringComponentImplementation).GetMethod("AddReferencedPrefabs"));
-            
+
             void EmitILToAddGameObjectFieldToReferencedPrefabsList(FieldDefinition field, bool isFieldArray)
             {
                 ilProcessor.Emit(OpCodes.Ldarg_1);                             // referencedPrefabs (List<GameObject>)
@@ -180,7 +180,7 @@ namespace Unity.Entities.Hybrid.CodeGen
             // Let's add every element that is a GameObject
             foreach (var field in authoringType.Fields.Where(f => f.FieldType.TypeReferenceEquals(gameObjectTypeReference)))
                 EmitILToAddGameObjectFieldToReferencedPrefabsList(field, false);
-            
+
             // Also add elements that are an array of GameObject (use helper method for this)
             foreach (var field in authoringType.Fields.Where(f => f.FieldType.IsArray && f.FieldType.GetElementType().TypeReferenceEquals(gameObjectTypeReference)))
                 EmitILToAddGameObjectFieldToReferencedPrefabsList(field, true);
@@ -194,7 +194,7 @@ namespace Unity.Entities.Hybrid.CodeGen
             var entityTypeReference = moduleDefinition.ImportReference(typeof(Unity.Entities.Entity));
             var entityManagerTypeReference = moduleDefinition.ImportReference(typeof(Unity.Entities.EntityManager));
             var gameObjectTypeReference = moduleDefinition.ImportReference(typeof(UnityEngine.GameObject));
-            
+
             MethodDefinition convertMethod = CreateEmptyConvertMethod(moduleDefinition, authoringType);
 
             // Make a local variable which we'll populate with the values stored in the MonoBehaviour
@@ -264,16 +264,21 @@ namespace Unity.Entities.Hybrid.CodeGen
                         ilProcessor.Emit(OpCodes.Ldarg_0);
                         ilProcessor.Emit(OpCodes.Ldfld, field);
                     }
-                    
+
                     // Store it to the IComponentData we already placed on the stack
                     ilProcessor.Emit(OpCodes.Stfld, destinationField);
                 }
             }
 
             // Now that our local IComponentData is properly setup, the only thing left for us is to call:
-            // entityManager.AddComponentData(entity, myPopulatedIComponentData). 
+            // entityManager.AddComponentData(entity, myPopulatedIComponentData).
             // IL method arguments go on the stack from first to last so:
-            ilProcessor.Emit(OpCodes.Ldarg_2); //entityManager
+
+            if (typeof(EntityManager).IsClass || !componentDataType.IsValueType())
+                ilProcessor.Emit(OpCodes.Ldarg_2); //entityManager class
+            else
+                ilProcessor.Emit(OpCodes.Ldarga, 2); //entityManager struct
+
             ilProcessor.Emit(OpCodes.Ldarg_1); //entity
             ilProcessor.Emit(OpCodes.Ldloc_0); //myPopulatedIComponentData
 
@@ -286,14 +291,14 @@ namespace Unity.Entities.Hybrid.CodeGen
             {
                 addComponentDataMethodReference =
                     new MethodReference("AddComponentData", moduleDefinition.TypeSystem.Void, entityManagerManagedComponentExtensionsTypeReference)
+                {
+                    Parameters =
                     {
-                        Parameters =
-                        {
-                            new ParameterDefinition("manager", ParameterAttributes.None, entityManagerTypeReference),
-                            new ParameterDefinition("entity", ParameterAttributes.None, entityTypeReference),
-                        },
-                        ReturnType = moduleDefinition.TypeSystem.Void
-                    };
+                        new ParameterDefinition("manager", ParameterAttributes.None, entityManagerTypeReference),
+                        new ParameterDefinition("entity", ParameterAttributes.None, entityTypeReference),
+                    },
+                    ReturnType = moduleDefinition.TypeSystem.Void
+                };
             }
 #endif
             // For non-managed components this is EntityManager.AddComponentData<T>(Entity target, T payload);
@@ -301,40 +306,46 @@ namespace Unity.Entities.Hybrid.CodeGen
             {
                 addComponentDataMethodReference =
                     new MethodReference("AddComponentData", moduleDefinition.TypeSystem.Void, entityManagerTypeReference)
-                    {   
-                        HasThis = true,
-                        Parameters =
-                        {
-                            new ParameterDefinition("entity", ParameterAttributes.None, entityTypeReference),
-                        },
-                        ReturnType = moduleDefinition.TypeSystem.Boolean
-                    };
+                {
+                    HasThis = true,
+                    Parameters =
+                    {
+                        new ParameterDefinition("entity", ParameterAttributes.None, entityTypeReference),
+                    },
+                    ReturnType = moduleDefinition.TypeSystem.Boolean
+                };
             }
 
             var genericParameter = new GenericParameter("T", addComponentDataMethodReference);
             addComponentDataMethodReference.GenericParameters.Add(genericParameter);
             addComponentDataMethodReference.Parameters.Add(new ParameterDefinition("payload", ParameterAttributes.None, genericParameter));
 
-            // Since AddComponentData<T> is a generic method, we cannot call it super easily.  
-            // We have to wrap the generic method reference into a GenericInstanceMethod, 
-            // which let's us specify what we want to use for T for this specific invocation. 
+            // Since AddComponentData<T> is a generic method, we cannot call it super easily.
+            // We have to wrap the generic method reference into a GenericInstanceMethod,
+            // which let's us specify what we want to use for T for this specific invocation.
             // In our case T is the IComponentData we're operating on
             var genericInstanceMethod = new GenericInstanceMethod(addComponentDataMethodReference)
             {
                 GenericArguments = {componentDataType},
             };
-            ilProcessor.Emit(OpCodes.Callvirt, genericInstanceMethod);
-            
+
+            ilProcessor.Emit(typeof(EntityManager).IsClass ? OpCodes.Callvirt : OpCodes.Call, genericInstanceMethod);
+
             // Pop off return value since AddComponentData returns a bool (managed AddComponentData strangely does not however)
             if (componentDataType.IsValueType())
                 ilProcessor.Emit(OpCodes.Pop);
 
             // We're done already!  Easy peasy.
             ilProcessor.Emit(OpCodes.Ret);
-            
+
             // Cecil has a bug where it will not emit a method debug information table if no methods have debug information.
             // This causes a crash in Mono in the rare case where the only methods emitted into a module are from Cecil.
             convertMethod.DebugInformation.Scope = new ScopeDebugInformation(convertMethod.Body.Instructions.First(), convertMethod.Body.Instructions.Last());
+        }
+
+        protected override bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes)
+        {
+            return false;
         }
     }
 }

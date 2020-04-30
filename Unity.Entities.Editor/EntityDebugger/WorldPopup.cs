@@ -1,15 +1,15 @@
-﻿using System;
+using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Editor
 {
-    
     internal delegate void WorldSelectionSetter(World world);
 
     internal delegate bool ShowInactiveSystemsGetter();
-    
+
     internal class WorldPopup
     {
         public const string kNoWorldName = "\n\n\n";
@@ -57,7 +57,7 @@ namespace Unity.Entities.Editor
 
         private readonly WorldSelectionGetter getWorldSelection;
         private readonly WorldSelectionSetter setWorldSelection;
-        
+
         private readonly ShowInactiveSystemsGetter getShowInactiveSystems;
         private readonly GenericMenu.MenuFunction setShowInactiveSystems;
 
@@ -75,7 +75,7 @@ namespace Unity.Entities.Editor
             this.getShowAllWorlds = getShowAllWorlds;
             this.setShowAllWorlds = setShowAllWorlds;
         }
-        
+
         public void OnGUI(bool showingPlayerLoop, string lastSelectedWorldName, GUIStyle style = null)
         {
             TryRestorePreviousSelection(showingPlayerLoop, lastSelectedWorldName);
@@ -89,7 +89,7 @@ namespace Unity.Entities.Editor
 
         internal void TryRestorePreviousSelection(bool showingPlayerLoop, string lastSelectedWorldName)
         {
-            if (!showingPlayerLoop && ScriptBehaviourUpdateOrder.CurrentPlayerLoop.subSystemList != null)
+            if (!showingPlayerLoop && PlayerLoop.GetCurrentPlayerLoop().subSystemList != null)
             {
                 if (lastSelectedWorldName == kNoWorldName)
                 {

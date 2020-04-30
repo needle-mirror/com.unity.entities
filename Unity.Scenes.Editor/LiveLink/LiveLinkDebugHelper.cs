@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace Unity.Scenes.Editor {
+namespace Unity.Scenes.Editor
+{
     static class LiveLinkDebugHelper
     {
         static Dictionary<Guid, string> s_MessageNames;
@@ -35,7 +36,7 @@ namespace Unity.Scenes.Editor {
                     s_UnknownMessages.Add(guid);
             }
         }
-        
+
         public static IReadOnlyList<Guid> EditorMessages
         {
             get
@@ -62,7 +63,7 @@ namespace Unity.Scenes.Editor {
                 return s_UnknownMessages;
             }
         }
-        
+
         public static string GetMessageName(Guid guid)
         {
             InitMessageData();

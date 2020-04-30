@@ -88,12 +88,16 @@ namespace Unity.Entities
 
         public static ulong CalculateStableTypeHash(Type type)
         {
-
             ulong asmNameHash = FNV1A64(type.AssemblyQualifiedName);
-            ulong typeHash = HashType(type);
             ulong versionHash = HashVersionAttribute(type);
 
-            return CombineFNV1A64(asmNameHash, typeHash, versionHash);
+            if (TypeManager.UnityEngineObjectType?.IsAssignableFrom(type) != true)
+            {
+                ulong typeHash = HashType(type);
+                return CombineFNV1A64(asmNameHash, typeHash, versionHash);
+            }
+
+            return CombineFNV1A64(asmNameHash, versionHash);
         }
 
         public static ulong CalculateMemoryOrdering(Type type)

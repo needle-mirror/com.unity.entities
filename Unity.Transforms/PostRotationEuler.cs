@@ -122,7 +122,7 @@ namespace Unity.Transforms
                 {
                     if (!chunk.DidChange(PostRotationEulerXZYType, LastSystemVersion))
                         return;
-                        
+
                     var chunkRotations = chunk.GetNativeArray(PostRotationType);
                     var chunkPostRotationEulerXZYs = chunk.GetNativeArray(PostRotationEulerXZYType);
                     for (var i = 0; i < chunk.Count; i++)

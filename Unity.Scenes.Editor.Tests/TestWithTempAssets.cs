@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.IO;
 using UnityEditor;
 
-namespace Unity.Scenes.Editor.Tests {
+namespace Unity.Scenes.Editor.Tests
+{
     [Serializable]
     struct TestWithTempAssets
     {
@@ -15,7 +16,8 @@ namespace Unity.Scenes.Editor.Tests {
             do
             {
                 path = Path.GetRandomFileName();
-            } while (AssetDatabase.IsValidFolder(Path.Combine("Assets", path)));
+            }
+            while (AssetDatabase.IsValidFolder(Path.Combine("Assets", path)));
 
             var guid = AssetDatabase.CreateFolder("Assets", path);
             TempAssetDir = AssetDatabase.GUIDToAssetPath(guid);

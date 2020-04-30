@@ -23,8 +23,11 @@ namespace Unity.Scenes.Editor
         NativeList<Hash128>        _UnloadScenes;
         NativeList<Hash128>        _LoadScenes;
 
+
 #if UNITY_2020_1_OR_NEWER
         ulong m_GizmoSceneCullingMask = 1UL << 59;
+#else
+        private HashSet<Camera> _ModifiedCameras;
 #endif
 
         protected override void OnUpdate()
@@ -40,7 +43,7 @@ namespace Unity.Scenes.Editor
                     _EditorLiveLink.ApplyLiveLinkSceneMsg(msg);
                     msg.Dispose();
                 }
-                    
+
                 _EditorLiveLink.Update(_ChangeSets, _LoadScenes, _UnloadScenes, SubSceneInspectorUtility.LiveLinkMode);
 
                 // Unload scenes that are no longer being edited / need to be reloaded etc
@@ -78,12 +81,12 @@ namespace Unity.Scenes.Editor
                     if (_EditorLiveLink.HasScene(sceneGUID))
                     {
 #if UNITY_2020_1_OR_NEWER
-                    if (SubSceneInspectorUtility.LiveLinkMode == LiveLinkMode.LiveConvertGameView)
-                        EditorSceneManager.SetSceneCullingMask(scene, SceneCullingMasks.MainStageSceneViewObjects);
-                    else if (SubSceneInspectorUtility.LiveLinkMode == LiveLinkMode.LiveConvertSceneView)
-                        EditorSceneManager.SetSceneCullingMask(scene, m_GizmoSceneCullingMask);
-                    else
-                        EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask);
+                        if (SubSceneInspectorUtility.LiveLinkMode == LiveLinkMode.LiveConvertGameView)
+                            EditorSceneManager.SetSceneCullingMask(scene, SceneCullingMasks.MainStageSceneViewObjects);
+                        else if (SubSceneInspectorUtility.LiveLinkMode == LiveLinkMode.LiveConvertSceneView)
+                            EditorSceneManager.SetSceneCullingMask(scene, m_GizmoSceneCullingMask);
+                        else
+                            EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask);
 #else
                         if (liveLinkEnabled)
                             EditorSceneManager.SetSceneCullingMask(scene, EditorRenderData.LiveLinkEditSceneViewMask);
@@ -101,6 +104,10 @@ namespace Unity.Scenes.Editor
             RenderPipelineManager.beginCameraRendering += OnPreCull;
             SceneView.duringSceneGui += SceneViewOnBeforeSceneGui;
 
+#if !UNITY_2020_1_OR_NEWER
+            _ModifiedCameras = new HashSet<Camera>();
+#endif
+
             _SceneChangeTracker = new LiveLinkSceneChangeTracker(EntityManager);
 
             _Patcher = new LiveLinkPatcher(World);
@@ -108,12 +115,25 @@ namespace Unity.Scenes.Editor
             _LoadScenes = new NativeList<Hash128>(Allocator.Persistent);
             _ChangeSets = new List<LiveLinkChangeSet>();
         }
-        
+
         protected override void OnDestroy()
         {
             Camera.onPreCull -= OnPreCull;
             RenderPipelineManager.beginCameraRendering -= OnPreCull;
             SceneView.duringSceneGui -= SceneViewOnBeforeSceneGui;
+
+#if !UNITY_2020_1_OR_NEWER
+            // So that if you're not using subscene conversion, we clean up after playmode
+            foreach (var camera in _ModifiedCameras)
+            {
+                if (camera == null)
+                    continue;
+                ulong newmask = camera.overrideSceneCullingMask;
+                newmask &= ~(EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask | EditorRenderData.LiveLinkEditSceneViewMask);
+                camera.overrideSceneCullingMask = newmask;
+            }
+            _ModifiedCameras.Clear();
+#endif
 
             if (_EditorLiveLink != null)
                 _EditorLiveLink.Dispose();
@@ -150,7 +170,7 @@ namespace Unity.Scenes.Editor
             {
                 // Ensure to remove our gizmo hack bit before rendering
                 ulong newmask = camera.overrideSceneCullingMask & ~m_GizmoSceneCullingMask;
-                camera.overrideSceneCullingMask = newmask; 
+                camera.overrideSceneCullingMask = newmask;
             }
         }
 
@@ -176,28 +196,36 @@ namespace Unity.Scenes.Editor
 
         void ConfigureCamera(Camera camera, bool sceneViewLiveLink)
         {
+            ulong mask = camera.overrideSceneCullingMask;
             if (camera.cameraType == CameraType.Game)
             {
-                //Debug.Log("Configure game view");
-                camera.overrideSceneCullingMask = EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask;
+                mask |= (EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask);
             }
             else if (camera.cameraType == CameraType.SceneView)
             {
                 if (camera.scene.IsValid())
                 {
-                    // Debug.Log("Prefab view" + camera.GetInstanceID());
-                    camera.overrideSceneCullingMask = 0;
+                    mask &= ~(EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask | EditorRenderData.LiveLinkEditSceneViewMask);
                 }
                 else
                 {
-                    // Debug.Log("Scene view" + camera.GetInstanceID());
                     if (sceneViewLiveLink)
-                        camera.overrideSceneCullingMask = EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask;
+                    {
+                        mask |= (EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditGameViewMask);
+                        mask &= ~EditorRenderData.LiveLinkEditSceneViewMask;
+                    }
                     else
-                        camera.overrideSceneCullingMask = EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditSceneViewMask;
+                    {
+                        mask |= (EditorSceneManager.DefaultSceneCullingMask | EditorRenderData.LiveLinkEditSceneViewMask);
+                        mask &= ~EditorRenderData.LiveLinkEditGameViewMask;
+                    }
                 }
             }
+
+            camera.overrideSceneCullingMask = mask;
+            _ModifiedCameras.Add(camera);
         }
+
 #endif
     }
 }

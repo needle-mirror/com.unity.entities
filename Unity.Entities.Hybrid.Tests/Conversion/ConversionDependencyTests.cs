@@ -5,7 +5,8 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Conversion;
 using UnityEngine;
 
-namespace Unity.Entities.Tests.Conversion {
+namespace Unity.Entities.Tests.Conversion
+{
     class ConversionDependencyTests : ConversionTestFixtureBase
     {
         ConversionDependencies m_Dependencies;
@@ -35,7 +36,7 @@ namespace Unity.Entities.Tests.Conversion {
         }
 
         [Test]
-        public void GameObjectDependencies_AreCollected_WhenLiveLinked([Values]bool isLiveLink)
+        public void GameObjectDependencies_AreCollected_WhenLiveLinked([Values] bool isLiveLink)
         {
             var goA = CreateGameObject("A");
             var goB = CreateGameObject("B");

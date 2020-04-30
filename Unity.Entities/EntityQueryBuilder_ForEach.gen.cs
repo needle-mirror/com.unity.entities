@@ -26,17 +26,19 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
-
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     query = ResolveEntityQuery(null, 0);
                 }
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -65,7 +67,7 @@ namespace Unity.Entities
                 var typeIndex0 = TypeManager.GetTypeIndex<T0>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
@@ -73,21 +75,24 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         action(entity, ref c0);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -111,7 +116,7 @@ namespace Unity.Entities
                 var typeIndex0 = TypeManager.GetTypeIndex<T0>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
@@ -119,21 +124,24 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         action(ref c0);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -157,7 +165,7 @@ namespace Unity.Entities
                 var typeIndex0 = TypeManager.GetTypeIndex<T0>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
@@ -165,8 +173,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -196,7 +207,7 @@ namespace Unity.Entities
                 var typeIndex0 = TypeManager.GetTypeIndex<T0>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
@@ -204,8 +215,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -235,7 +249,7 @@ namespace Unity.Entities
                 var typeIndex0 = TypeManager.GetTypeIndex<T0>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
@@ -243,8 +257,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -274,7 +291,7 @@ namespace Unity.Entities
                 var typeIndex0 = TypeManager.GetTypeIndex<T0>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
@@ -282,8 +299,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -313,7 +333,7 @@ namespace Unity.Entities
                 var typeIndex0 = TypeManager.GetTypeIndex<T0>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
@@ -321,8 +341,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -352,7 +375,7 @@ namespace Unity.Entities
                 var typeIndex0 = TypeManager.GetTypeIndex<T0>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0 };
                     query = ResolveEntityQuery(delegateTypes, 1);
@@ -360,8 +383,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -394,7 +420,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -402,29 +428,32 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
                         action(entity, ref c0, ref c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -451,7 +480,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -459,29 +488,32 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
                         action(ref c0, ref c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -511,7 +543,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -519,37 +551,40 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
                         action(entity, ref c0, ref c1, ref c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -579,7 +614,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -587,37 +622,40 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
                         action(ref c0, ref c1, ref c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -650,7 +688,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -658,45 +696,48 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
                         action(entity, ref c0, ref c1, ref c2, ref c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -729,7 +770,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -737,45 +778,48 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
                         action(ref c0, ref c1, ref c2, ref c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -811,7 +855,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -819,53 +863,56 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
                         action(entity, ref c0, ref c1, ref c2, ref c3, ref c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -901,7 +948,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -909,53 +956,56 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
                         action(ref c0, ref c1, ref c2, ref c3, ref c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -994,7 +1044,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -1002,61 +1052,64 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
                         var copy5 = c5;
                         action(entity, ref c0, ref c1, ref c2, ref c3, ref c4, ref c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                            ecs->HasComponent(entity, typeIndex5))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c5, ecs->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1095,7 +1148,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -1103,61 +1156,64 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
                         var copy5 = c5;
                         action(ref c0, ref c1, ref c2, ref c3, ref c4, ref c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                            ecs->HasComponent(entity, typeIndex5))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c5, ecs->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1184,7 +1240,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -1192,22 +1248,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
                         action(entity, c0, ref c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1234,7 +1293,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -1242,22 +1301,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
                         action(c0, ref c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1287,7 +1349,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -1295,30 +1357,33 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
                         action(entity, c0, ref c1, ref c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1348,7 +1413,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -1356,30 +1421,33 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
                         action(c0, ref c1, ref c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1412,7 +1480,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -1420,38 +1488,41 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
                         action(entity, c0, ref c1, ref c2, ref c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1484,7 +1555,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -1492,38 +1563,41 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
                         action(c0, ref c1, ref c2, ref c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1559,7 +1633,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -1567,46 +1641,49 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
                         action(entity, c0, ref c1, ref c2, ref c3, ref c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1642,7 +1719,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -1650,46 +1727,49 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
                         action(c0, ref c1, ref c2, ref c3, ref c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1728,7 +1808,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -1736,54 +1816,57 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
                         var copy5 = c5;
                         action(entity, c0, ref c1, ref c2, ref c3, ref c4, ref c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                            ecs->HasComponent(entity, typeIndex5))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c5, ecs->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1822,7 +1905,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -1830,54 +1913,57 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetComponentObject<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
                         var copy5 = c5;
                         action(c0, ref c1, ref c2, ref c3, ref c4, ref c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                            ecs->HasComponent(entity, typeIndex5))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c5, ecs->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1904,7 +1990,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -1912,22 +1998,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
                         action(entity, c0, ref c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -1954,7 +2043,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -1962,22 +2051,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
                         action(c0, ref c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2007,7 +2099,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -2015,30 +2107,33 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
                         action(entity, c0, ref c1, ref c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2068,7 +2163,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -2076,30 +2171,33 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
                         action(c0, ref c1, ref c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2132,7 +2230,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -2140,38 +2238,41 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
                         action(entity, c0, ref c1, ref c2, ref c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2204,7 +2305,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -2212,38 +2313,41 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
                         action(c0, ref c1, ref c2, ref c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2279,7 +2383,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -2287,46 +2391,49 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
                         action(entity, c0, ref c1, ref c2, ref c3, ref c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2362,7 +2469,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -2370,46 +2477,49 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
                         action(c0, ref c1, ref c2, ref c3, ref c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2448,7 +2558,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -2456,54 +2566,57 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
                         var copy5 = c5;
                         action(entity, c0, ref c1, ref c2, ref c3, ref c4, ref c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                            ecs->HasComponent(entity, typeIndex5))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c5, ecs->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2542,7 +2655,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -2550,54 +2663,57 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetBuffer<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
                         var copy5 = c5;
                         action(c0, ref c1, ref c2, ref c3, ref c4, ref c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                            ecs->HasComponent(entity, typeIndex5))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c5, ecs->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2624,7 +2740,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -2632,22 +2748,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
                         action(entity, c0, ref c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2674,7 +2793,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -2682,22 +2801,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
                         action(c0, ref c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2727,7 +2849,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -2735,30 +2857,33 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
                         action(entity, c0, ref c1, ref c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2788,7 +2913,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -2796,30 +2921,33 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
                         action(c0, ref c1, ref c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2852,7 +2980,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -2860,38 +2988,41 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
                         action(entity, c0, ref c1, ref c2, ref c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2924,7 +3055,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -2932,38 +3063,41 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
                         action(c0, ref c1, ref c2, ref c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -2999,7 +3133,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -3007,46 +3141,49 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
                         action(entity, c0, ref c1, ref c2, ref c3, ref c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3082,7 +3219,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -3090,46 +3227,49 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
                         action(c0, ref c1, ref c2, ref c3, ref c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3168,7 +3308,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -3176,54 +3316,57 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
                         var copy5 = c5;
                         action(entity, c0, ref c1, ref c2, ref c3, ref c4, ref c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                            ecs->HasComponent(entity, typeIndex5))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c5, ecs->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3262,7 +3405,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -3270,54 +3413,57 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
                         var c0 = m_System.EntityManager.GetSharedComponentData<T0>(entity);
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex1), out T1 c1);
                         var copy1 = c1;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex2), out T2 c2);
                         var copy2 = c2;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex3), out T3 c3);
                         var copy3 = c3;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex4), out T4 c4);
                         var copy4 = c4;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex5), out T5 c5);
                         var copy5 = c5;
                         action(c0, ref c1, ref c2, ref c3, ref c4, ref c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy1), UnsafeUtility.AddressOf(ref c1), UnsafeUtility.SizeOf<T1>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex1))
+                            ecs->HasComponent(entity, typeIndex1))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c1, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex1,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c1, ecs->GetComponentDataWithTypeRW(entity, typeIndex1,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy2), UnsafeUtility.AddressOf(ref c2), UnsafeUtility.SizeOf<T2>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex2))
+                            ecs->HasComponent(entity, typeIndex2))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c2, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex2,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c2, ecs->GetComponentDataWithTypeRW(entity, typeIndex2,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy3), UnsafeUtility.AddressOf(ref c3), UnsafeUtility.SizeOf<T3>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex3))
+                            ecs->HasComponent(entity, typeIndex3))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c3, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex3,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c3, ecs->GetComponentDataWithTypeRW(entity, typeIndex3,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy4), UnsafeUtility.AddressOf(ref c4), UnsafeUtility.SizeOf<T4>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex4))
+                            ecs->HasComponent(entity, typeIndex4))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c4, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex4,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c4, ecs->GetComponentDataWithTypeRW(entity, typeIndex4,
+                                ecs->GlobalSystemVersion));
                         }
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy5), UnsafeUtility.AddressOf(ref c5), UnsafeUtility.SizeOf<T5>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex5))
+                            ecs->HasComponent(entity, typeIndex5))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c5, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex5,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c5, ecs->GetComponentDataWithTypeRW(entity, typeIndex5,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3344,7 +3490,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -3352,22 +3498,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         action(entity, ref c0, c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3394,7 +3543,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -3402,22 +3551,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         action(ref c0, c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3447,7 +3599,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -3455,23 +3607,26 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         action(entity, ref c0, c1, c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3501,7 +3656,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -3509,23 +3664,26 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         action(ref c0, c1, c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3558,7 +3716,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -3566,24 +3724,27 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
                         action(entity, ref c0, c1, c2, c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3616,7 +3777,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -3624,24 +3785,27 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
                         var c3 = m_System.EntityManager.GetComponentObject<T3>(entity);
                         action(ref c0, c1, c2, c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3677,7 +3841,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -3685,14 +3849,17 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
@@ -3700,10 +3867,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
                         action(entity, ref c0, c1, c2, c3, c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3739,7 +3906,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -3747,14 +3914,17 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
@@ -3762,10 +3932,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetComponentObject<T4>(entity);
                         action(ref c0, c1, c2, c3, c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3804,7 +3974,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -3812,14 +3982,17 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
@@ -3828,10 +4001,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
                         action(entity, ref c0, c1, c2, c3, c4, c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3870,7 +4043,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -3878,14 +4051,17 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetComponentObject<T1>(entity);
                         var c2 = m_System.EntityManager.GetComponentObject<T2>(entity);
@@ -3894,10 +4070,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetComponentObject<T5>(entity);
                         action(ref c0, c1, c2, c3, c4, c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -3924,7 +4100,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -3932,8 +4108,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -3967,7 +4146,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -3975,8 +4154,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4013,7 +4195,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -4021,8 +4203,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4060,7 +4245,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -4068,8 +4253,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4110,7 +4298,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -4118,8 +4306,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4161,7 +4352,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -4169,8 +4360,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4215,7 +4409,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -4223,8 +4417,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4270,7 +4467,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -4278,8 +4475,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4328,7 +4528,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -4336,8 +4536,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4387,7 +4590,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -4395,8 +4598,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4434,7 +4640,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -4442,8 +4648,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4477,7 +4686,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -4485,8 +4694,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4523,7 +4735,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -4531,8 +4743,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4570,7 +4785,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -4578,8 +4793,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4620,7 +4838,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -4628,8 +4846,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4671,7 +4892,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -4679,8 +4900,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4725,7 +4949,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -4733,8 +4957,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4780,7 +5007,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -4788,8 +5015,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4838,7 +5068,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -4846,8 +5076,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4897,7 +5130,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -4905,8 +5138,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4944,7 +5180,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -4952,8 +5188,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -4987,7 +5226,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -4995,8 +5234,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5033,7 +5275,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -5041,8 +5283,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5080,7 +5325,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -5088,8 +5333,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5130,7 +5378,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -5138,8 +5386,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5181,7 +5432,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -5189,8 +5440,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5235,7 +5489,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -5243,8 +5497,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5290,7 +5547,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -5298,8 +5555,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5348,7 +5608,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -5356,8 +5616,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5407,7 +5670,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -5415,8 +5678,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -5454,7 +5720,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -5462,22 +5728,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         action(entity, ref c0, c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5504,7 +5773,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -5512,22 +5781,25 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         action(ref c0, c1);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5557,7 +5829,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -5565,23 +5837,26 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         action(entity, ref c0, c1, c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5611,7 +5886,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -5619,23 +5894,26 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         action(ref c0, c1, c2);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5668,7 +5946,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -5676,24 +5954,27 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
                         action(entity, ref c0, c1, c2, c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5726,7 +6007,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -5734,24 +6015,27 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
                         var c3 = m_System.EntityManager.GetBuffer<T3>(entity);
                         action(ref c0, c1, c2, c3);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5787,7 +6071,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -5795,14 +6079,17 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
@@ -5810,10 +6097,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
                         action(entity, ref c0, c1, c2, c3, c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5849,7 +6136,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -5857,14 +6144,17 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
@@ -5872,10 +6162,10 @@ namespace Unity.Entities
                         var c4 = m_System.EntityManager.GetBuffer<T4>(entity);
                         action(ref c0, c1, c2, c3, c4);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5914,7 +6204,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -5922,14 +6212,17 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
@@ -5938,10 +6231,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
                         action(entity, ref c0, c1, c2, c3, c4, c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -5980,7 +6273,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -5988,14 +6281,17 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
                         if (!m_System.EntityManager.Exists(entity))
                             continue;
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex0), out T0 c0);
                         var copy0 = c0;
                         var c1 = m_System.EntityManager.GetBuffer<T1>(entity);
                         var c2 = m_System.EntityManager.GetBuffer<T2>(entity);
@@ -6004,10 +6300,10 @@ namespace Unity.Entities
                         var c5 = m_System.EntityManager.GetBuffer<T5>(entity);
                         action(ref c0, c1, c2, c3, c4, c5);
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy0), UnsafeUtility.AddressOf(ref c0), UnsafeUtility.SizeOf<T0>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex0))
+                            ecs->HasComponent(entity, typeIndex0))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c0, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex0,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c0, ecs->GetComponentDataWithTypeRW(entity, typeIndex0,
+                                ecs->GlobalSystemVersion));
                         }
                     }
                 }
@@ -6034,7 +6330,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -6042,8 +6338,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6077,7 +6376,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -6085,8 +6384,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6123,7 +6425,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -6131,8 +6433,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6170,7 +6475,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -6178,8 +6483,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6220,7 +6528,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -6228,8 +6536,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6271,7 +6582,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -6279,8 +6590,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6325,7 +6639,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -6333,8 +6647,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6380,7 +6697,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -6388,8 +6705,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6438,7 +6758,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -6446,8 +6766,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6497,7 +6820,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -6505,8 +6828,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6544,7 +6870,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -6552,8 +6878,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6587,7 +6916,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -6595,8 +6924,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6633,7 +6965,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -6641,8 +6973,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6680,7 +7015,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -6688,8 +7023,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6730,7 +7068,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -6738,8 +7076,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6781,7 +7122,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -6789,8 +7130,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6835,7 +7179,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -6843,8 +7187,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6890,7 +7237,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -6898,8 +7245,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -6948,7 +7298,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -6956,8 +7306,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7007,7 +7360,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -7015,8 +7368,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7054,7 +7410,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -7062,8 +7418,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7097,7 +7456,7 @@ namespace Unity.Entities
                 var typeIndex1 = TypeManager.GetTypeIndex<T1>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1 };
                     query = ResolveEntityQuery(delegateTypes, 2);
@@ -7105,8 +7464,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7143,7 +7505,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -7151,8 +7513,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7190,7 +7555,7 @@ namespace Unity.Entities
                 var typeIndex2 = TypeManager.GetTypeIndex<T2>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2 };
                     query = ResolveEntityQuery(delegateTypes, 3);
@@ -7198,8 +7563,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7240,7 +7608,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -7248,8 +7616,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7291,7 +7662,7 @@ namespace Unity.Entities
                 var typeIndex3 = TypeManager.GetTypeIndex<T3>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3 };
                     query = ResolveEntityQuery(delegateTypes, 4);
@@ -7299,8 +7670,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7345,7 +7719,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -7353,8 +7727,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7400,7 +7777,7 @@ namespace Unity.Entities
                 var typeIndex4 = TypeManager.GetTypeIndex<T4>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4 };
                     query = ResolveEntityQuery(delegateTypes, 5);
@@ -7408,8 +7785,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7458,7 +7838,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -7466,8 +7846,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7517,7 +7900,7 @@ namespace Unity.Entities
                 var typeIndex5 = TypeManager.GetTypeIndex<T5>();
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
                     var delegateTypes = stackalloc[] { typeIndex0, typeIndex1, typeIndex2, typeIndex3, typeIndex4, typeIndex5 };
                     query = ResolveEntityQuery(delegateTypes, 6);
@@ -7525,8 +7908,11 @@ namespace Unity.Entities
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -7547,8 +7933,5 @@ namespace Unity.Entities
                 }
             }
         }
-
     }
-
 } // namespace Unity.Entities
-

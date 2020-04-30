@@ -1,11 +1,10 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
     internal class RepaintLimiter
     {
-        
         private float lastUpdate;
         private int lastFrame;
         public const float defaultUpdateFrequency = 0.2f;
@@ -18,7 +17,7 @@ namespace Unity.Entities.Editor
 
         public bool SimulationAdvanced()
         {
-            if (EditorApplication.isPlaying) 
+            if (EditorApplication.isPlaying)
             {
                 var playUpdate = !EditorApplication.isPaused && Time.unscaledTime > lastUpdate + playingRepaintFrequency;
                 var stepUpdate = EditorApplication.isPaused && Time.frameCount != lastFrame;

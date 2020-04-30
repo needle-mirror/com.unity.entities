@@ -1,10 +1,10 @@
-﻿using Unity.Entities;
+using Unity.Entities;
 using UnityEngine;
 using UnityEngine.Serialization;
 
 [RequiresEntityConversion]
 public class SceneSectionComponent : MonoBehaviour
 {
-    [FormerlySerializedAs("SectionId")] 
+    [FormerlySerializedAs("SectionId")]
     public int         SectionIndex;
 }

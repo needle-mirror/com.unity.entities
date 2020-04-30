@@ -17,27 +17,26 @@ namespace Unity.Entities.Tests
             SrcEntityManager.AddComponentData(entity, new EcsTestData(value));
             SrcEntityManager.AddSharedComponentData(entity, new EcsTestSharedComp(6));
             SrcEntityManager.AddChunkComponentData(SrcEntityManager.UniversalQuery, new EcsTestData2(7));
-            
-            metaEntity = SrcEntityManager.GetChunk(entity).m_Chunk->metaChunkEntity; 
+
+            metaEntity = SrcEntityManager.GetChunk(entity).m_Chunk->metaChunkEntity;
 
             Assert.AreEqual(7, SrcEntityManager.GetComponentData<EcsTestData2>(metaEntity).value0);
         }
-        
+
         unsafe void TestValues(Entity entity, Entity  metaEntity, int componentDataValue, int componentChunkValue)
         {
             Assert.AreEqual(componentDataValue, DstEntityManager.GetComponentData<EcsTestData>(entity).value);
             Assert.AreEqual(6, DstEntityManager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
             Assert.AreEqual(componentChunkValue, DstEntityManager.GetChunkComponentData<EcsTestData2>(entity).value0);
-            
+
             Assert.AreEqual(metaEntity, DstEntityManager.GetChunk(entity).m_Chunk->metaChunkEntity);
-            
+
             SrcEntityManager.Debug.CheckInternalConsistency();
             DstEntityManager.Debug.CheckInternalConsistency();
         }
-        
-        
+
         [Test]
-        public void ReplaceEntityManagerContents([Values]bool createToReplaceEntity)
+        public void ReplaceEntityManagerContents([Values] bool createToReplaceEntity)
         {
             CreateTestData(out var entity, out var metaEntity, 5, 7);
 
@@ -48,7 +47,7 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(1, SrcEntityManager.UniversalQuery.CalculateEntityCount());
             Assert.AreEqual(1, DstEntityManager.UniversalQuery.CalculateEntityCount());
-            
+
             TestValues(entity, metaEntity, 5, 7);
         }
 
@@ -57,24 +56,24 @@ namespace Unity.Entities.Tests
         {
             CreateTestData(out var entity, out var metaEntity, 5, 7);
             DstEntityManager.CopyAndReplaceEntitiesFrom(SrcEntityManager);
-            
+
             SrcEntityManager.SetComponentData(entity, new EcsTestData(11));
             DstEntityManager.CopyAndReplaceEntitiesFrom(SrcEntityManager);
             TestValues(entity, metaEntity, 11, 7);
         }
-        
+
         [Test]
         public void ReplaceChangedChunkComponent()
         {
             CreateTestData(out var entity, out var metaEntity, 5, 7);
             DstEntityManager.CopyAndReplaceEntitiesFrom(SrcEntityManager);
-            
+
             SrcEntityManager.SetComponentData(metaEntity, new EcsTestData2(11));
             DstEntityManager.CopyAndReplaceEntitiesFrom(SrcEntityManager);
 
             TestValues(entity, metaEntity, 5, 11);
         }
-        
+
         [Test]
         public void ReplaceChangedNothing()
         {

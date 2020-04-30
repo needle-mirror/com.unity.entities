@@ -17,7 +17,7 @@ namespace Unity.Entities
             Entities.WithNone<RetainBlobAssetBatchPtr>().ForEach((Entity e, BlobAssetOwner blobOwner, ref RetainBlobAssets retain) =>
             {
                 BlobAssetBatch.Retain(blobOwner.BlobAssetBatchPtr);
-                EntityManager.AddComponentData(e, new RetainBlobAssetBatchPtr{ BlobAssetBatchPtr = blobOwner.BlobAssetBatchPtr});
+                EntityManager.AddComponentData(e, new RetainBlobAssetBatchPtr { BlobAssetBatchPtr = blobOwner.BlobAssetBatchPtr});
             });
 
             Entities.WithNone<BlobAssetOwner>().ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetBatchPtr retainPtr) =>
@@ -53,7 +53,7 @@ namespace Unity.Entities
             Entities.WithNone<RetainBlobAssetBatchPtr>().WithoutBurst().WithStructuralChanges().ForEach((Entity e, BlobAssetOwner blobOwner, ref RetainBlobAssets retain) =>
             {
                 BlobAssetBatch.Retain(blobOwner.BlobAssetBatchPtr);
-                EntityManager.AddComponentData(e, new RetainBlobAssetBatchPtr{ BlobAssetBatchPtr = blobOwner.BlobAssetBatchPtr});
+                EntityManager.AddComponentData(e, new RetainBlobAssetBatchPtr { BlobAssetBatchPtr = blobOwner.BlobAssetBatchPtr});
             }).Run();
 
             Entities.WithNone<BlobAssetOwner>().WithoutBurst().WithStructuralChanges().ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetBatchPtr retainPtr) =>
@@ -76,7 +76,7 @@ namespace Unity.Entities
                     EntityManager.RemoveComponent<RetainBlobAssetPtr>(e);
                 }
             }).Run();
-            
+
             return inputDeps;
         }
     }

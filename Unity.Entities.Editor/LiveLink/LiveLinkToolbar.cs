@@ -9,7 +9,7 @@ namespace Unity.Entities.Editor
     class LiveLinkToolbar
     {
         static readonly LiveLinkConnectionsDropdown s_LinkConnectionsDropdown = new LiveLinkConnectionsDropdown();
-        static readonly GUIContent[] s_PlayIcons = s_PlayIcons = new []
+        static readonly GUIContent[] s_PlayIcons = s_PlayIcons = new[]
         {
             EditorGUIUtility.TrIconContent("PlayButton", "Play"),
             EditorGUIUtility.TrIconContent("PauseButton", "Pause"),
@@ -26,7 +26,7 @@ namespace Unity.Entities.Editor
         {
             var toolbarRepaintMethod = Type.GetType("UnityEditor.Toolbar, UnityEditor")?.GetMethod("RepaintToolbar", BindingFlags.NonPublic | BindingFlags.Static);
             if (toolbarRepaintMethod != null && toolbarRepaintMethod.GetParameters().Length == 0)
-                return (Action) Delegate.CreateDelegate(typeof(Action), toolbarRepaintMethod);
+                return (Action)Delegate.CreateDelegate(typeof(Action), toolbarRepaintMethod);
 
             return null;
         }

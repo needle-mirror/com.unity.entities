@@ -1,15 +1,15 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using System.Collections.Generic;
 
 namespace Unity.Entities.Tests
 {
-	class IterationTests : ECSTestsFixture
-	{
-		[Test]
-		public void CreateEntityQuery()
-		{
+    class IterationTests : ECSTestsFixture
+    {
+        [Test]
+        public void CreateEntityQuery()
+        {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
@@ -26,28 +26,30 @@ namespace Unity.Entities.Tests
         }
 
         struct TempComponentNeverInstantiated : IComponentData
-	    {
-	        private int m_Internal;
-	    }
-	    
-		[Test]
-		public void IterateEmptyArchetype()
-		{
-			var group = m_Manager.CreateEntityQuery(typeof(TempComponentNeverInstantiated));
-			Assert.AreEqual(0, group.CalculateEntityCount());
-
-			var archetype = m_Manager.CreateArchetype(typeof(TempComponentNeverInstantiated));
-			Assert.AreEqual(0, group.CalculateEntityCount());
-
-			Entity ent = m_Manager.CreateEntity(archetype);
-			Assert.AreEqual(1, group.CalculateEntityCount());
-			m_Manager.DestroyEntity(ent);
-			Assert.AreEqual(0, group.CalculateEntityCount());
-		}
+        {
+            private int m_Internal;
+        }
 
         [Test]
-		public void IterateChunkedEntityQuery()
-		{
+        public void IterateEmptyArchetype()
+        {
+            var group = m_Manager.CreateEntityQuery(typeof(TempComponentNeverInstantiated));
+            Assert.AreEqual(0, group.CalculateEntityCount());
+
+            var archetype = m_Manager.CreateArchetype(typeof(TempComponentNeverInstantiated));
+            Assert.AreEqual(0, group.CalculateEntityCount());
+
+            Entity ent = m_Manager.CreateEntity(archetype);
+            Assert.AreEqual(1, group.CalculateEntityCount());
+            m_Manager.DestroyEntity(ent);
+            Assert.AreEqual(0, group.CalculateEntityCount());
+        }
+
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
+        [Test]
+        public void IterateChunkedEntityQuery()
+        {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
@@ -84,8 +86,8 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-		public void IterateChunkedEntityQueryBackwards()
-		{
+        public void IterateChunkedEntityQueryBackwards()
+        {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
@@ -122,8 +124,8 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-		public void IterateChunkedEntityQueryAfterDestroy()
-		{
+        public void IterateChunkedEntityQueryAfterDestroy()
+        {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
@@ -189,6 +191,8 @@ namespace Unity.Entities.Tests
             arr.Dispose();
         }
 
+#endif // UNITY_DOTSPLAYER_IL2CPP
+
         [Test]
         public void GroupCopyFromNativeArray()
         {
@@ -207,7 +211,6 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < dataToCopyB.Length; ++i)
             {
                 dataToCopyA[i] = new EcsTestData { value = 3 };
-
             }
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
@@ -238,12 +241,12 @@ namespace Unity.Entities.Tests
             var entity2A = m_Manager.CreateEntity(archetypeA);
             var entityB  = m_Manager.CreateEntity(archetypeB);
 
-            m_Manager.SetSharedComponentData(entity1A, new EcsTestSharedComp{ value = 1});
-            m_Manager.SetSharedComponentData(entity2A, new EcsTestSharedComp{ value = 2});
+            m_Manager.SetSharedComponentData(entity1A, new EcsTestSharedComp { value = 1});
+            m_Manager.SetSharedComponentData(entity2A, new EcsTestSharedComp { value = 2});
 
-            m_Manager.SetSharedComponentData(entityB, new EcsTestSharedComp{ value = 1});
+            m_Manager.SetSharedComponentData(entityB, new EcsTestSharedComp { value = 1});
 
-            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 1});
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = 1});
 
             var iterator = group.GetArchetypeChunkIterator();
             iterator.MoveNext();
@@ -255,7 +258,7 @@ namespace Unity.Entities.Tests
 
             group.Dispose();
         }
-        
+
         [Test]
         public void EntityQueryFilteredChunkCount()
         {
@@ -266,13 +269,13 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < archetypeA.ChunkCapacity * 2; ++i)
             {
                 var entityA = m_Manager.CreateEntity(archetypeA);
-                m_Manager.SetSharedComponentData(entityA, new EcsTestSharedComp{ value = 1});
+                m_Manager.SetSharedComponentData(entityA, new EcsTestSharedComp { value = 1});
             }
 
             var entityB  = m_Manager.CreateEntity(archetypeA);
-            m_Manager.SetSharedComponentData(entityB, new EcsTestSharedComp{ value = 2});
-            
-            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 1});
+            m_Manager.SetSharedComponentData(entityB, new EcsTestSharedComp { value = 2});
+
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = 1});
 
             {
                 var iterator = group.GetArchetypeChunkIterator();
@@ -286,10 +289,9 @@ namespace Unity.Entities.Tests
 
                 iterator.MoveNext();
                 Assert.Throws<InvalidOperationException>(() => { begin = iterator.CurrentChunkFirstEntityIndex; });
-
             }
 
-            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 2});
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = 2});
             {
                 var iterator = group.GetArchetypeChunkIterator();
                 iterator.MoveNext();
@@ -328,6 +330,8 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
         }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void IterateChunkedEntityQuery_ManagedComponents()
         {
@@ -515,6 +519,8 @@ namespace Unity.Entities.Tests
             arr.Dispose();
         }
 
+#endif // !UNITY_DOTSPLAYER_IL2CPP
+
         [Test]
         public void EntityQueryFilteredChunkCount_ManagedComponents()
         {
@@ -531,7 +537,7 @@ namespace Unity.Entities.Tests
             var entityB = m_Manager.CreateEntity(archetypeA);
             m_Manager.SetSharedComponentData(entityB, new EcsTestSharedComp { value = 2 });
 
-            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 1});
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = 1});
             {
                 var iterator = group.GetArchetypeChunkIterator();
                 iterator.MoveNext();
@@ -544,10 +550,9 @@ namespace Unity.Entities.Tests
 
                 iterator.MoveNext();
                 Assert.Throws<InvalidOperationException>(() => { begin = iterator.CurrentChunkFirstEntityIndex; });
-
             }
 
-            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 2});
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = 2});
             {
                 var iterator = group.GetArchetypeChunkIterator();
                 iterator.MoveNext();
@@ -560,6 +565,7 @@ namespace Unity.Entities.Tests
 
             group.Dispose();
         }
+
 #endif
     }
 }

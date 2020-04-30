@@ -1,4 +1,4 @@
-﻿using UnityEditor.IMGUI.Controls;
+using UnityEditor.IMGUI.Controls;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -33,7 +33,7 @@ namespace Unity.Entities.Editor
             {
                 if (frameCount > 0)
                 {
-                    lastReading = (totalNanoseconds/1e6f) / frameCount;
+                    lastReading = (totalNanoseconds / 1e6f) / frameCount;
                     frameCount = totalNanoseconds = 0;
                 }
 
@@ -217,7 +217,6 @@ namespace Unity.Entities.Editor
                         }
                     }
                     return Item;
-
                 }
                 else
                 {
@@ -303,7 +302,7 @@ namespace Unity.Entities.Editor
                         return CreateNodeForSystem(currentId++, system);
                     }
                 }
-                    break;
+                break;
             }
 
             return null;
@@ -318,10 +317,10 @@ namespace Unity.Entities.Editor
 
             var currentID = kAllEntitiesItemId + 1;
 
-            lastPlayerLoop = ScriptBehaviourUpdateOrder.CurrentPlayerLoop;
+            lastPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
 
-            rootNode = BuildNodesForPlayerLoopSystem(ScriptBehaviourUpdateOrder.CurrentPlayerLoop, ref currentID)
-                       ?? new HideNode(new TreeViewItem {id = currentID, displayName = "Root"});
+            rootNode = BuildNodesForPlayerLoopSystem(lastPlayerLoop, ref currentID)
+                ?? new HideNode(new TreeViewItem {id = currentID, displayName = "Root"});
 
             if (EntityDebugger.extraSystems != null)
             {
@@ -398,7 +397,7 @@ namespace Unity.Entities.Editor
             base.BeforeRowsGUI();
         }
 
-        protected override void RowGUI (RowGUIArgs args)
+        protected override void RowGUI(RowGUIArgs args)
         {
             if (args.item.depth == -1)
                 return;
@@ -435,7 +434,6 @@ namespace Unity.Entities.Editor
             }
             else if (args.item.id == kAllEntitiesItemId)
             {
-
             }
             else
             {
@@ -504,7 +502,7 @@ namespace Unity.Entities.Editor
         {
             get
             {
-                if (!PlayerLoopsMatch(lastPlayerLoop, ScriptBehaviourUpdateOrder.CurrentPlayerLoop))
+                if (!PlayerLoopsMatch(lastPlayerLoop, PlayerLoop.GetCurrentPlayerLoop()))
                     return true;
 
                 foreach (var world in worldsById.Values)

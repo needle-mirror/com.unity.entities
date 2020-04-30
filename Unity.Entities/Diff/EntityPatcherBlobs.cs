@@ -76,9 +76,9 @@ namespace Unity.Entities
             }
         }
 
-        protected override void OnUpdate() { }
+        protected override void OnUpdate() {}
     }
-    
+
     public static unsafe partial class EntityPatcher
     {
         static void ApplyBlobAssetChanges(
@@ -93,18 +93,18 @@ namespace Unity.Entities
         {
             if (createdBlobAssets.Length == 0 && blobAssetReferenceChanges.Length == 0)
                 return;
-            
+            s_ApplyBlobAssetChangesProfilerMarker.Begin();
             var patcherBlobAssetSystem = entityManager.World.GetOrCreateSystem<EntityPatcherBlobAssetSystem>();
 
-            var blobAssetDataPtr = (byte*) createdBlobAssetData.GetUnsafePtr();
-            
+            var blobAssetDataPtr = (byte*)createdBlobAssetData.GetUnsafePtr();
+
             for (var i = 0; i < createdBlobAssets.Length; i++)
             {
-                if (!patcherBlobAssetSystem.TryGetBlobAsset(createdBlobAssets[i].Hash, out _)) 
+                if (!patcherBlobAssetSystem.TryGetBlobAsset(createdBlobAssets[i].Hash, out _))
                 {
                     patcherBlobAssetSystem.AllocateBlobAsset(blobAssetDataPtr, createdBlobAssets[i].Length, createdBlobAssets[i].Hash);
                 }
-                
+
                 blobAssetDataPtr += createdBlobAssets[i].Length;
             }
 
@@ -112,7 +112,7 @@ namespace Unity.Entities
             {
                 patcherBlobAssetSystem.ReleaseBlobAsset(entityManager, destroyedBlobAssets[i]);
             }
-            
+
             for (var i = 0; i < blobAssetReferenceChanges.Length; i++)
             {
                 var packedComponent = blobAssetReferenceChanges[i].Component;
@@ -122,7 +122,7 @@ namespace Unity.Entities
                 BlobAssetReferenceData targetBlobAssetReferenceData;
                 if (patcherBlobAssetSystem.TryGetBlobAsset(blobAssetReferenceChanges[i].Value, out var blobAssetPtr))
                 {
-                    targetBlobAssetReferenceData = new BlobAssetReferenceData {m_Ptr = (byte*) blobAssetPtr.Data};
+                    targetBlobAssetReferenceData = new BlobAssetReferenceData {m_Ptr = (byte*)blobAssetPtr.Data};
                 }
 
                 if (packedEntities.TryGetFirstValue(packedComponent.PackedEntityIndex, out var entity, out var iterator))
@@ -141,14 +141,14 @@ namespace Unity.Entities
                         {
                             if (component.IsBuffer)
                             {
-                                var pointer = (byte*) entityManager.GetBufferRawRW(entity, component.TypeIndex);
+                                var pointer = (byte*)entityManager.GetBufferRawRW(entity, component.TypeIndex);
                                 UnsafeUtility.MemCpy(pointer + targetOffset, &targetBlobAssetReferenceData, sizeof(BlobAssetReferenceData));
                             }
 #if !NET_DOTS
                             else if (component.IsManagedComponent)
                             {
                                 var obj = entityManager.GetComponentObject<object>(entity, component);
-                                var pointer = (byte*) UnsafeUtility.PinGCObjectAndGetAddress(obj, out ulong handle);
+                                var pointer = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(obj, out ulong handle);
                                 pointer += TypeManager.ObjectOffset;
                                 UnsafeUtility.MemCpy(pointer + targetOffset, &targetBlobAssetReferenceData, sizeof(BlobAssetReferenceData));
                                 UnsafeUtility.ReleaseGCObject(handle);
@@ -156,15 +156,16 @@ namespace Unity.Entities
 #endif
                             else
                             {
-                                var pointer = (byte*) entityManager.GetComponentDataRawRW(entity, component.TypeIndex);
+                                var pointer = (byte*)entityManager.GetComponentDataRawRW(entity, component.TypeIndex);
                                 UnsafeUtility.MemCpy(pointer + targetOffset, &targetBlobAssetReferenceData, sizeof(BlobAssetReferenceData));
                             }
                         }
-                    } 
+                    }
                     while (packedEntities.TryGetNextValue(out entity, ref iterator));
                 }
+                s_ApplyBlobAssetChangesProfilerMarker.End();
             }
-            
+
             // Workaround to catch some special cases where the memory is never released. (e.g. reloading a scene, toggling live-link on/off).
             patcherBlobAssetSystem.ReleaseUnusedBlobAssets();
         }

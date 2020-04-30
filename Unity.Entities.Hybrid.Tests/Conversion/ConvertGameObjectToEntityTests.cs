@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
@@ -39,7 +39,7 @@ namespace Unity.Entities.Tests.Conversion
     {
         static void AwakeConversion(Transform root, MethodInfo methodInfo)
         {
-            foreach(Transform child in root)
+            foreach (Transform child in root)
                 AwakeConversion(child, methodInfo);
 
             var convert = root.GetComponent<ConvertToEntity>();
@@ -51,7 +51,7 @@ namespace Unity.Entities.Tests.Conversion
         {
             var methodInfo = typeof(ConvertToEntity).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic);
 
-            foreach(var go in gameObjects)
+            foreach (var go in gameObjects)
                 AwakeConversion(go.transform, methodInfo);
 
             return World.GetOrCreateSystem<ConvertToEntitySystem>();

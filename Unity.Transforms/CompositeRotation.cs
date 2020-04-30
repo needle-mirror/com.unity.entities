@@ -14,21 +14,21 @@ namespace Unity.Transforms
     {
         public float4x4 Value;
     }
-    
+
     [Serializable]
     [WriteGroup(typeof(CompositeRotation))]
     public struct PostRotation : IComponentData
     {
         public quaternion Value;
     }
-    
+
     [Serializable]
     [WriteGroup(typeof(CompositeRotation))]
     public struct RotationPivot : IComponentData
     {
         public float3 Value;
     }
-    
+
     [Serializable]
     [WriteGroup(typeof(CompositeRotation))]
     public struct RotationPivotTranslation : IComponentData
@@ -68,7 +68,7 @@ namespace Unity.Transforms
                 var hasAnyRotation = hasRotation || hasPostRotation;
 
                 // 000 - Invalid. Must have at least one.
-                // 001 
+                // 001
                 if (!hasAnyRotation && !hasRotationPivotTranslation && hasRotationPivot)
                 {
                     var didChange = chunk.DidChange(RotationPivotType, LastSystemVersion);
@@ -91,7 +91,7 @@ namespace Unity.Transforms
                         var translation = chunkRotationPivotTranslations[i].Value;
 
                         chunkCompositeRotations[i] = new CompositeRotation
-                            {Value = float4x4.Translate(translation)};
+                        {Value = float4x4.Translate(translation)};
                     }
                 }
                 // 011
@@ -107,7 +107,7 @@ namespace Unity.Transforms
                         var translation = chunkRotationPivotTranslations[i].Value;
 
                         chunkCompositeRotations[i] = new CompositeRotation
-                            {Value = float4x4.Translate(translation)};
+                        {Value = float4x4.Translate(translation)};
                     }
                 }
                 // 100
@@ -126,7 +126,7 @@ namespace Unity.Transforms
                             var rotation = chunkRotations[i].Value;
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = new float4x4(rotation, float3.zero)};
+                            {Value = new float4x4(rotation, float3.zero)};
                         }
                     }
                     // 10
@@ -141,14 +141,14 @@ namespace Unity.Transforms
                             var rotation = chunkPostRotation[i].Value;
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = new float4x4(rotation, float3.zero)};
+                            {Value = new float4x4(rotation, float3.zero)};
                         }
                     }
                     // 11
                     else if (hasPostRotation && hasRotation)
                     {
                         var didChange = chunk.DidChange(PostRotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationType, LastSystemVersion);
+                            chunk.DidChange(RotationType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -157,7 +157,7 @@ namespace Unity.Transforms
                             var rotation = math.mul(chunkRotations[i].Value, chunkPostRotation[i].Value);
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = new float4x4(rotation, float3.zero)};
+                            {Value = new float4x4(rotation, float3.zero)};
                         }
                     }
                 }
@@ -169,7 +169,7 @@ namespace Unity.Transforms
                     if (!hasPostRotation && hasRotation)
                     {
                         var didChange = chunk.DidChange(RotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotType, LastSystemVersion);
+                            chunk.DidChange(RotationPivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -180,14 +180,14 @@ namespace Unity.Transforms
                             var inversePivot = -1.0f * pivot;
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = math.mul(new float4x4(rotation, pivot), float4x4.Translate(inversePivot))};
+                            {Value = math.mul(new float4x4(rotation, pivot), float4x4.Translate(inversePivot))};
                         }
                     }
                     // 10
                     else if (hasPostRotation && !hasRotation)
                     {
                         var didChange = chunk.DidChange(PostRotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotType, LastSystemVersion);
+                            chunk.DidChange(RotationPivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -198,15 +198,15 @@ namespace Unity.Transforms
                             var inversePivot = -1.0f * pivot;
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = math.mul(new float4x4(rotation, pivot), float4x4.Translate(inversePivot))};
+                            {Value = math.mul(new float4x4(rotation, pivot), float4x4.Translate(inversePivot))};
                         }
                     }
                     // 11
                     else if (hasPostRotation && hasRotation)
                     {
                         var didChange = chunk.DidChange(PostRotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotType, LastSystemVersion);
+                            chunk.DidChange(RotationType, LastSystemVersion) ||
+                            chunk.DidChange(RotationPivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -217,11 +217,10 @@ namespace Unity.Transforms
                             var inversePivot = -1.0f * pivot;
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = math.mul(new float4x4(rotation, pivot), float4x4.Translate(inversePivot))};
+                            {Value = math.mul(new float4x4(rotation, pivot), float4x4.Translate(inversePivot))};
                         }
                     }
                 }
-
                 // 110
                 else if (hasAnyRotation && hasRotationPivotTranslation && !hasRotationPivot)
                 {
@@ -230,7 +229,7 @@ namespace Unity.Transforms
                     if (!hasPostRotation && hasRotation)
                     {
                         var didChange = chunk.DidChange(RotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotTranslationType, LastSystemVersion);
+                            chunk.DidChange(RotationPivotTranslationType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -240,14 +239,14 @@ namespace Unity.Transforms
                             var rotation = chunkRotations[i].Value;
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = new float4x4(rotation, translation)};
+                            {Value = new float4x4(rotation, translation)};
                         }
                     }
                     // 10
                     else if (hasPostRotation && !hasRotation)
                     {
                         var didChange = chunk.DidChange(PostRotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotTranslationType, LastSystemVersion);
+                            chunk.DidChange(RotationPivotTranslationType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -257,15 +256,15 @@ namespace Unity.Transforms
                             var rotation = chunkRotations[i].Value;
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = new float4x4(rotation, translation)};
+                            {Value = new float4x4(rotation, translation)};
                         }
                     }
                     // 11
                     else if (hasPostRotation && hasRotation)
                     {
                         var didChange = chunk.DidChange(PostRotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotTranslationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationType, LastSystemVersion);
+                            chunk.DidChange(RotationPivotTranslationType, LastSystemVersion) ||
+                            chunk.DidChange(RotationType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -275,7 +274,7 @@ namespace Unity.Transforms
                             var rotation = math.mul(chunkRotations[i].Value, chunkPostRotation[i].Value);
 
                             chunkCompositeRotations[i] = new CompositeRotation
-                                {Value = new float4x4(rotation, translation)};
+                            {Value = new float4x4(rotation, translation)};
                         }
                     }
                 }
@@ -287,8 +286,8 @@ namespace Unity.Transforms
                     if (!hasPostRotation && hasRotation)
                     {
                         var didChange = chunk.DidChange(RotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotTranslationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotType, LastSystemVersion);
+                            chunk.DidChange(RotationPivotTranslationType, LastSystemVersion) ||
+                            chunk.DidChange(RotationPivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -310,8 +309,8 @@ namespace Unity.Transforms
                     else if (hasPostRotation && !hasRotation)
                     {
                         var didChange = chunk.DidChange(PostRotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotTranslationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotType, LastSystemVersion);
+                            chunk.DidChange(RotationPivotTranslationType, LastSystemVersion) ||
+                            chunk.DidChange(RotationPivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -333,9 +332,9 @@ namespace Unity.Transforms
                     else if (hasPostRotation && hasRotation)
                     {
                         var didChange = chunk.DidChange(PostRotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotTranslationType, LastSystemVersion) ||
-                                        chunk.DidChange(RotationPivotType, LastSystemVersion);
+                            chunk.DidChange(RotationType, LastSystemVersion) ||
+                            chunk.DidChange(RotationPivotTranslationType, LastSystemVersion) ||
+                            chunk.DidChange(RotationPivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 

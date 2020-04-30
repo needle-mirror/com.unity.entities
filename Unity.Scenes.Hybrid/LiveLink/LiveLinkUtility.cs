@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using Unity.Entities.Hybrid;
 using Unity.Entities.Serialization;
 using UnityEditor;
@@ -23,8 +23,9 @@ namespace Unity.Scenes
         {
             return Application.dataPath.GetHashCode();
         }
+
         #endif
-        
+
         public const string LiveLinkBootstrapFileName = "livelink-bootstrap";
         // Used to verify the connection between a LiveLink Player and Editor is valid.
         // In this case we use the Application's data path (hashed) and store it in the bootstrap file.
@@ -48,7 +49,7 @@ namespace Unity.Scenes
 
             liveLinkBooted = true;
             bootstrapPath = Path.Combine(Application.streamingAssetsPath, LiveLinkBootstrapFileName);
-            
+
             LiveLinkEnabled = FileUtilityHybrid.FileExists(bootstrapPath);
 
             if (LiveLinkEnabled)
@@ -68,7 +69,7 @@ namespace Unity.Scenes
             {
                 Entities.Hash128 guid = default;
                 long id = 0;
-                
+
                 rdr.ReadBytes(&guid, sizeof(Entities.Hash128));
                 rdr.ReadBytes(&id, sizeof(long));
 

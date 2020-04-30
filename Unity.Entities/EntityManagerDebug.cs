@@ -6,7 +6,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
@@ -21,7 +21,7 @@ namespace Unity.Entities
         /// <returns>The entity name.</returns>
         public string GetName(Entity entity)
         {
-            return EntityComponentStore->GetName(entity);
+            return GetCheckedEntityDataAccess()->EntityComponentStore->GetName(entity);
         }
 
         /// <summary>
@@ -32,8 +32,9 @@ namespace Unity.Entities
         /// <param name="name">The name to assign.</param>
         public void SetName(Entity entity, string name)
         {
-            EntityComponentStore->SetName(entity, name);
+            GetCheckedEntityDataAccess()->EntityComponentStore->SetName(entity, name);
         }
+
 #endif
 
         /// <summary>
@@ -61,7 +62,7 @@ namespace Unity.Entities
             {
                 var chunk = chunks[i];
                 var entities = chunk.GetNativeArray(entityType);
-                array.Slice(offset, entities.Length).CopyFrom(entities);    
+                array.Slice(offset, entities.Length).CopyFrom(entities);
                 offset += entities.Length;
             }
 
@@ -84,7 +85,7 @@ namespace Unity.Entities
 
             public void PoisonUnusedDataInAllChunks(EntityArchetype archetype, byte value)
             {
-                Unity.Entities.EntityComponentStore.AssertValidArchetype(m_Manager.EntityComponentStore, archetype);
+                Unity.Entities.EntityComponentStore.AssertValidArchetype(m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore, archetype);
 
                 for (var i = 0; i < archetype.Archetype->Chunks.Count; ++i)
                 {
@@ -95,12 +96,12 @@ namespace Unity.Entities
 
             public void SetGlobalSystemVersion(uint version)
             {
-                m_Manager.EntityComponentStore->SetGlobalSystemVersion(version);
+                m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->SetGlobalSystemVersion(version);
             }
 
             public bool IsSharedComponentManagerEmpty()
             {
-                return m_Manager.m_ManagedComponentStore.IsEmpty();
+                return m_Manager.GetCheckedEntityDataAccess()->ManagedComponentStore.IsEmpty();
             }
 
 #if !NET_DOTS
@@ -120,6 +121,7 @@ namespace Unity.Entities
                 buf.Append(")");
                 return buf.ToString();
             }
+
 #endif
 
             public int EntityCount
@@ -135,14 +137,14 @@ namespace Unity.Entities
 
             public bool UseMemoryInitPattern
             {
-                get => m_Manager.EntityComponentStore->useMemoryInitPattern != 0;
-                set => m_Manager.EntityComponentStore->useMemoryInitPattern = value ? (byte)1 : (byte)0;
+                get => m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->useMemoryInitPattern != 0;
+                set => m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->useMemoryInitPattern = value ? (byte)1 : (byte)0;
             }
 
             public byte MemoryInitPattern
             {
-                get => m_Manager.EntityComponentStore->memoryInitPattern;
-                set => m_Manager.EntityComponentStore->memoryInitPattern = value;
+                get => m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->memoryInitPattern;
+                set => m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->memoryInitPattern = value;
             }
 
             internal Entity GetMetaChunkEntity(Entity entity)
@@ -157,7 +159,7 @@ namespace Unity.Entities
 
             public string GetEntityInfo(Entity entity)
             {
-                var archetype = m_Manager.EntityComponentStore->GetArchetype(entity);
+                var archetype = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->GetArchetype(entity);
 #if !NET_DOTS
                 var str = new System.Text.StringBuilder();
                 str.Append(entity.ToString());
@@ -176,22 +178,22 @@ namespace Unity.Entities
 
                 return str.ToString();
 #else
-                    // @TODO Tiny really needs a proper string/stringutils implementation
-                    string str = $"Entity {entity.Index}.{entity.Version}";
-                    for (var i = 0; i < archetype->TypesCount; i++)
-                    {
-                        var componentTypeInArchetype = archetype->Types[i];
-                        str += "  - {0}" + componentTypeInArchetype.ToString();
-                    }
+                // @TODO Tiny really needs a proper string/stringutils implementation
+                string str = $"Entity {entity.Index}.{entity.Version}";
+                for (var i = 0; i < archetype->TypesCount; i++)
+                {
+                    var componentTypeInArchetype = archetype->Types[i];
+                    str += "  - {0}" + componentTypeInArchetype.ToString();
+                }
 
-                    return str;
+                return str;
 #endif
             }
 
 #if !NET_DOTS
             public object GetComponentBoxed(Entity entity, ComponentType type)
             {
-                m_Manager.EntityComponentStore->AssertEntityHasComponent(entity, type);
+                m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->AssertEntityHasComponent(entity, type);
 
                 var typeInfo = TypeManager.GetTypeInfo(type.TypeIndex);
                 if (typeInfo.Category == TypeManager.TypeCategory.ComponentData)
@@ -207,7 +209,7 @@ namespace Unity.Entities
                         ulong handle;
                         var ptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(obj, out handle);
                         ptr += TypeManager.ObjectOffset;
-                        var src = m_Manager.EntityComponentStore->GetComponentDataWithTypeRO(entity, type.TypeIndex);
+                        var src = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->GetComponentDataWithTypeRO(entity, type.TypeIndex);
                         UnsafeUtility.MemCpy(ptr, src, TypeManager.GetTypeInfo(type.TypeIndex).SizeInChunk);
 
                         UnsafeUtility.ReleaseGCObject(handle);
@@ -231,9 +233,11 @@ namespace Unity.Entities
 
             public object GetComponentBoxed(Entity entity, Type type)
             {
-                m_Manager.EntityComponentStore->AssertEntitiesExist(&entity, 1);
+                var access = m_Manager.GetCheckedEntityDataAccess();
 
-                var archetype = m_Manager.m_EntityComponentStore->GetArchetype(entity);
+                access->EntityComponentStore->AssertEntitiesExist(&entity, 1);
+
+                var archetype = access->EntityComponentStore->GetArchetype(entity);
                 var typeIndex = ChunkDataUtility.GetTypeIndexFromType(archetype, type);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (typeIndex == -1)
@@ -242,6 +246,7 @@ namespace Unity.Entities
 
                 return GetComponentBoxed(entity, ComponentType.FromTypeIndex(typeIndex));
             }
+
 #else
             public object GetComponentBoxed(Entity entity, Type type)
             {
@@ -252,22 +257,34 @@ namespace Unity.Entities
             {
                 throw new System.NotImplementedException();
             }
+
 #endif
 
             [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
             public void CheckInternalConsistency()
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                // Note that this is awkwardly written to avoid all safety checks except "we were created".
+                // This is so unit tests can run out of the test body with jobs running and exclusive transactions still opened.
+                AtomicSafetyHandle.CheckExistsAndThrow(m_Manager.m_Safety);
+
+                var eda = m_Manager.m_EntityDataAccess;
+                var mcs = eda->ManagedComponentStore;
+
                 //@TODO: Validate from perspective of chunkquery...
-                m_Manager.EntityComponentStore->CheckInternalConsistency(m_Manager.ManagedComponentStore.m_ManagedComponentData);
+                eda->EntityComponentStore->CheckInternalConsistency(mcs.m_ManagedComponentData);
 
-                Assert.IsTrue(m_Manager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(m_Manager.EntityComponentStore));
-                m_Manager.ManagedComponentStore.CheckInternalConsistency();
+                Assert.IsTrue(mcs.AllSharedComponentReferencesAreFromChunks(eda->EntityComponentStore));
+                mcs.CheckInternalConsistency();
 
-                var chunkQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
-                    {All = new ComponentType[] {typeof(ChunkHeader)}});
-                int totalEntitiesFromQuery = m_Manager.UniversalQuery.CalculateEntityCount() + chunkQuery.CalculateEntityCount();
-                Assert.AreEqual(m_Manager.EntityComponentStore->CountEntities(), totalEntitiesFromQuery);
+                var chunkHeaderType = new ComponentType(typeof(ChunkHeader));
+                var chunkQuery = eda->EntityQueryManager->CreateEntityQuery(eda, &chunkHeaderType, 1);
+
+                int totalEntitiesFromQuery = eda->ManagedEntityDataAccess.m_UniversalQuery.CalculateEntityCount() + chunkQuery.CalculateEntityCount();
+                Assert.AreEqual(eda->EntityComponentStore->CountEntities(), totalEntitiesFromQuery);
+
                 chunkQuery.Dispose();
+#endif
             }
         }
 

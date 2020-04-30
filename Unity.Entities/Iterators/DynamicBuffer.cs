@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,17 +9,17 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-	/// <summary>
-	/// An array-like data structure that can be used as a component.
-	/// </summary>
+    /// <summary>
+    /// An array-like data structure that can be used as a component.
+    /// </summary>
     /// <example>
     /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.class"/>
     /// </example>
     /// <typeparam name="T">The data type stored in the buffer. Must be a value type.</typeparam>
-	[StructLayout(LayoutKind.Sequential)]
-	[NativeContainer]
+    [StructLayout(LayoutKind.Sequential)]
+    [NativeContainer]
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
-    [DebuggerTypeProxy(typeof(DynamicBufferDebugView < >))]
+    [DebuggerTypeProxy(typeof(DynamicBufferDebugView<>))]
     public unsafe struct DynamicBuffer<T> : IEnumerable<T> where T : struct
     {
         [NativeDisableUnsafePtrRestriction]
@@ -29,8 +29,8 @@ namespace Unity.Entities
         private int m_InternalCapacity;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-	    internal AtomicSafetyHandle m_Safety0;
-	    internal AtomicSafetyHandle m_Safety1;
+        internal AtomicSafetyHandle m_Safety0;
+        internal AtomicSafetyHandle m_Safety1;
         internal int m_SafetyReadOnlyCount;
         internal int m_SafetyReadWriteCount;
         internal bool m_IsReadOnly;
@@ -51,12 +51,14 @@ namespace Unity.Entities
             m_useMemoryInitPattern = useMemoryInitPattern;
             m_memoryInitPattern = memoryInitPattern;
         }
+
 #else
         internal DynamicBuffer(BufferHeader* header, int internalCapacity)
         {
             m_Buffer = header;
             m_InternalCapacity = internalCapacity;
         }
+
 #endif
 
         /// <summary>
@@ -94,7 +96,7 @@ namespace Unity.Entities
             set
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if(value < Length)
+                if (value < Length)
                     throw new InvalidOperationException($"Capacity {value} can't be set smaller than Length {Length}");
 #endif
                 CheckWriteAccessAndInvalidateArrayAliases();
@@ -160,7 +162,7 @@ namespace Unity.Entities
         /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.indexoperator"/>
         /// </example>
         /// <param name="index">The zero-based index.</param>
-        public T this [int index]
+        public T this[int index]
         {
             get
             {
@@ -260,12 +262,12 @@ namespace Unity.Entities
             // If the size fits in the internal buffer, prefer to move the elements back there.
             if (length <= m_InternalCapacity)
             {
-                newPtr = (byte*) (m_Buffer + 1);
+                newPtr = (byte*)(m_Buffer + 1);
                 isInternal = true;
             }
             else
             {
-                newPtr = (byte*) UnsafeUtility.Malloc((long) elemSize * length, elemAlign, Allocator.Persistent);
+                newPtr = (byte*)UnsafeUtility.Malloc((long)elemSize * length, elemAlign, Allocator.Persistent);
                 isInternal = false;
             }
 
@@ -371,13 +373,24 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets an <see langword="unsafe"/> pointer to the contents of the buffer.
+        /// Gets an <see langword="unsafe"/> read/write pointer to the contents of the buffer.
         /// </summary>
         /// <remarks>This function can only be called in unsafe code contexts.</remarks>
         /// <returns>A typed, unsafe pointer to the first element in the buffer.</returns>
         public void* GetUnsafePtr()
         {
             CheckWriteAccess();
+            return BufferHeader.GetElementPointer(m_Buffer);
+        }
+
+        /// <summary>
+        /// Gets an <see langword="unsafe"/> read-only pointer to the contents of the buffer.
+        /// </summary>
+        /// <remarks>This function can only be called in unsafe code contexts.</remarks>
+        /// <returns>A typed, unsafe pointer to the first element in the buffer.</returns>
+        public void* GetUnsafeReadOnlyPtr()
+        {
+            CheckReadAccess();
             return BufferHeader.GetElementPointer(m_Buffer);
         }
 
@@ -393,7 +406,7 @@ namespace Unity.Entities
         /// <returns>A dynamic buffer of the reinterpreted type.</returns>
         /// <exception cref="InvalidOperationException">If the reinterpreted type is a different
         /// size than the original.</exception>
-        public DynamicBuffer<U> Reinterpret<U>() where U: struct
+        public DynamicBuffer<U> Reinterpret<U>() where U : struct
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (UnsafeUtility.SizeOf<U>() != UnsafeUtility.SizeOf<T>())
@@ -471,8 +484,23 @@ namespace Unity.Entities
         /// <param name="v">The native array containing the elements to copy.</param>
         public void CopyFrom(NativeArray<T> v)
         {
+            //todo remove workaround: See https://unity3d.atlassian.net/browse/DOTS-1454
             ResizeUninitialized(v.Length);
-            AsNativeArray().CopyFrom(v);
+            NativeSlice<T> vs = new NativeSlice<T>(v);
+            vs.CopyTo(AsNativeArray());
+        }
+
+        /// <summary>
+        /// Copies all the elements from the specified native slice into this dynamic buffer.
+        /// </summary>
+        /// <example>
+        /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.copyfrom.nativeslice"/>
+        /// </example>
+        /// <param name="v">The native slice containing the elements to copy.</param>
+        public void CopyFrom(NativeSlice<T> v)
+        {
+            ResizeUninitialized(v.Length);
+            v.CopyTo(AsNativeArray());
         }
 
         /// <summary>
@@ -503,7 +531,7 @@ namespace Unity.Entities
         /// <exception cref="ArgumentNullException"></exception>
         public void CopyFrom(T[] v)
         {
-            if(v == null)
+            if (v == null)
                 throw new ArgumentNullException(nameof(v));
 
 #if NET_DOTS
@@ -516,7 +544,7 @@ namespace Unity.Entities
             ResizeUninitialized(v.Length);
             CheckWriteAccess();
 
-            GCHandle gcHandle = GCHandle.Alloc((object) v, GCHandleType.Pinned);
+            GCHandle gcHandle = GCHandle.Alloc((object)v, GCHandleType.Pinned);
             IntPtr num = gcHandle.AddrOfPinnedObject();
 
             UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(m_Buffer),

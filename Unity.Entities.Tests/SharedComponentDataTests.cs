@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -18,49 +18,49 @@ namespace Unity.Entities.Tests
 
         public SharedData2(int val) { value = val; }
     }
-    
+
     struct SharedData3 : ISharedComponentData
     {
         public int value;
 
         public SharedData3(int val) { value = val; }
     }
-    
+
     struct SharedData4 : ISharedComponentData
     {
         public int value;
 
         public SharedData4(int val) { value = val; }
     }
-    
+
     struct SharedData5 : ISharedComponentData
     {
         public int value;
 
         public SharedData5(int val) { value = val; }
     }
-    
+
     struct SharedData6 : ISharedComponentData
     {
         public int value;
 
         public SharedData6(int val) { value = val; }
     }
-    
+
     struct SharedData7 : ISharedComponentData
     {
         public int value;
 
         public SharedData7(int val) { value = val; }
     }
-    
+
     struct SharedData8 : ISharedComponentData
     {
         public int value;
 
         public SharedData8(int val) { value = val; }
     }
-    
+
     struct SharedData9 : ISharedComponentData
     {
         public int value;
@@ -109,7 +109,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(243, group1_filter0_data[1].value);
 
             m_Manager.SetSharedComponentData(e1, new SharedData1(20));
-            
+
             group1_filter0_data.Dispose();
             group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             var group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
@@ -120,7 +120,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(243, group1_filter0_data[0].value);
 
             m_Manager.SetSharedComponentData(e2, new SharedData1(20));
-            
+
             group1_filter20_data.Dispose();
             group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
 
@@ -134,7 +134,7 @@ namespace Unity.Entities.Tests
             group12.Dispose();
             group1_filter_0.Dispose();
             group1_filter_20.Dispose();
-            
+
             group1_filter0_data.Dispose();
             group1_filter20_data.Dispose();
         }
@@ -424,12 +424,12 @@ namespace Unity.Entities.Tests
             postChunks0.Dispose();
             postChunks1.Dispose();
         }
-        
+
         [Test]
         public void SCG_SetSharedComponentDataWithQuery()
         {
             var noShared = m_Manager.CreateEntity(typeof(EcsTestData));
-            
+
             var e0 = m_Manager.CreateEntity(typeof(SharedData1), typeof(EcsTestData));
             var e1 = m_Manager.CreateEntity(typeof(SharedData1));
             var e2 = m_Manager.CreateEntity(typeof(SharedData1), typeof(EcsTestData));
@@ -443,12 +443,12 @@ namespace Unity.Entities.Tests
             var c2 = m_Manager.GetChunk(e2);
             var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<SharedData1>(), ComponentType.ReadWrite<EcsTestData>());
             m_Manager.SetSharedComponentData(query, new SharedData1 {value = 10});
-            
+
             Assert.AreEqual(10, m_Manager.GetSharedComponentData<SharedData1>(e0).value);
             Assert.AreEqual(1, m_Manager.GetSharedComponentData<SharedData1>(e1).value);
             Assert.AreEqual(10, m_Manager.GetSharedComponentData<SharedData1>(e2).value);
             Assert.IsFalse(m_Manager.HasComponent<SharedData1>(noShared));
-            
+
             // This is not required but describes current behaviour,
             // Query based shared component does not reorder or merge chunks. (Even though in this case e0 & e2 could be in the same chunk)
             Assert.AreEqual(c0, m_Manager.GetChunk(e0));
@@ -472,11 +472,11 @@ namespace Unity.Entities.Tests
                 typeof(SharedData6),
                 typeof(SharedData7),
                 typeof(SharedData8));
-            
+
             Entity e = m_Manager.CreateEntity(archetype);
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(e) );
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(e));
         }
-        
+
         [Test]
         public void TooManySharedComponentsQuery()
         {
@@ -490,13 +490,13 @@ namespace Unity.Entities.Tests
                 typeof(SharedData6),
                 typeof(SharedData7),
                 typeof(SharedData8));
-            
+
             Entity e = m_Manager.CreateEntity(archetype);
             EntityQuery q = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(q) );
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(q));
             q.Dispose();
         }
-        
+
         [Test]
         public void TooManySharedComponentsEntityArray()
         {
@@ -510,10 +510,10 @@ namespace Unity.Entities.Tests
                 typeof(SharedData6),
                 typeof(SharedData7),
                 typeof(SharedData8));
-            
+
             var entities = new NativeArray<Entity>(1024, Allocator.Persistent);
-            m_Manager.CreateEntity(archetype, entities); 
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(entities) );
+            m_Manager.CreateEntity(archetype, entities);
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(entities));
             entities.Dispose();
         }
 
@@ -601,6 +601,7 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(2, uniques.Count);
         }
+
 #endif
     }
 }

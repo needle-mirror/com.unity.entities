@@ -46,7 +46,7 @@ namespace Unity.Transforms
                 if (hasCompositeScale)
                 {
                     var didChange = chunk.DidChange(CompositeScaleType, LastSystemVersion) ||
-                                    chunk.DidChange(ChildType, LastSystemVersion);
+                        chunk.DidChange(ChildType, LastSystemVersion);
                     if (!didChange)
                         return;
 
@@ -69,7 +69,7 @@ namespace Unity.Transforms
                 else if (hasScale)
                 {
                     var didChange = chunk.DidChange(ScaleType, LastSystemVersion) ||
-                                    chunk.DidChange(ChildType, LastSystemVersion);
+                        chunk.DidChange(ChildType, LastSystemVersion);
                     if (!didChange)
                         return;
 
@@ -92,7 +92,7 @@ namespace Unity.Transforms
                 else // if (hasNonUniformScale)
                 {
                     var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
-                                    chunk.DidChange(ChildType, LastSystemVersion);
+                        chunk.DidChange(ChildType, LastSystemVersion);
                     if (!didChange)
                         return;
 
@@ -128,7 +128,7 @@ namespace Unity.Transforms
                     ComponentType.ReadOnly<Scale>(),
                     ComponentType.ReadOnly<NonUniformScale>(),
                     ComponentType.ReadOnly<CompositeScale>(),
-                },                
+                },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
         }

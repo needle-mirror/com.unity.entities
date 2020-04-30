@@ -1,4 +1,4 @@
-﻿using Unity.Collections;
+using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 
@@ -11,7 +11,7 @@ namespace Unity.Mathematics
             public float Radius;
             public float3 Center;
             public NativeArray<float3> Points;
-            
+
             public void Execute()
             {
                 var radiusSquared = Radius * Radius;
@@ -49,7 +49,7 @@ namespace Unity.Mathematics
             var randomPointsInSphereJobHandle = RandomPointsInSphere(center, radius, points, new JobHandle());
             randomPointsInSphereJobHandle.Complete();
         }
-        
+
         public static void RandomPointsInUnitSphere(NativeArray<float3> points)
         {
             var randomPointsInSphereJobHandle = RandomPointsInSphere(0.0f, 1.0f, points, new JobHandle());
@@ -63,10 +63,10 @@ namespace Unity.Mathematics
             {
                 float3 randomPosition = random.NextFloat3();
                 var doubled = randomPosition * new float3(2);
-                var offset = doubled - new float3(1,1,1);
+                var offset = doubled - new float3(1, 1, 1);
                 if (math.lengthsq(offset) > 1)
                     continue;
-                
+
                 return offset;
             }
         }

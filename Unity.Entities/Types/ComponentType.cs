@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 
 namespace Unity.Entities
@@ -80,7 +80,6 @@ namespace Unity.Entities
             return ReadOnly(typeIndex);
         }
 
-
         public static ComponentType Exclude(Type type)
         {
             ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));
@@ -111,7 +110,7 @@ namespace Unity.Entities
             return new ComponentType(type, AccessMode.ReadWrite);
         }
 
-        public static bool operator <(ComponentType lhs, ComponentType rhs)
+        public static bool operator<(ComponentType lhs, ComponentType rhs)
         {
             if (lhs.TypeIndex == rhs.TypeIndex)
                 return lhs.AccessModeType < rhs.AccessModeType;
@@ -119,17 +118,17 @@ namespace Unity.Entities
             return lhs.TypeIndex < rhs.TypeIndex;
         }
 
-        public static bool operator >(ComponentType lhs, ComponentType rhs)
+        public static bool operator>(ComponentType lhs, ComponentType rhs)
         {
             return rhs < lhs;
         }
 
-        public static bool operator ==(ComponentType lhs, ComponentType rhs)
+        public static bool operator==(ComponentType lhs, ComponentType rhs)
         {
             return lhs.TypeIndex == rhs.TypeIndex && lhs.AccessModeType == rhs.AccessModeType;
         }
 
-        public static bool operator !=(ComponentType lhs, ComponentType rhs)
+        public static bool operator!=(ComponentType lhs, ComponentType rhs)
         {
             return lhs.TypeIndex != rhs.TypeIndex || lhs.AccessModeType != rhs.AccessModeType;
         }
@@ -144,7 +143,6 @@ namespace Unity.Entities
                     return false;
             return true;
         }
-
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public override string ToString()
@@ -164,6 +162,7 @@ namespace Unity.Entities
 #endif
             return name;
         }
+
 #endif
 
         public bool Equals(ComponentType other)
@@ -173,7 +172,7 @@ namespace Unity.Entities
 
         public override bool Equals(object obj)
         {
-            return obj is ComponentType && (ComponentType) obj == this;
+            return obj is ComponentType && (ComponentType)obj == this;
         }
 
         public override int GetHashCode()

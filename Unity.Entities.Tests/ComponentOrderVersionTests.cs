@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
@@ -117,7 +117,7 @@ namespace Unity.Entities.Tests
         {
             AddEvenOddTestData();
 
-            ActionEvenOdd((version, group) => { }, ChangeGroupOrder);
+            ActionEvenOdd((version, group) => {}, ChangeGroupOrder);
             ActionEvenOdd((version, group) => { Assert.Greater(version, 1); },
                 (version, group) => { Assert.Greater(version, 1); });
         }
@@ -127,8 +127,8 @@ namespace Unity.Entities.Tests
         {
             AddEvenOddTestData();
 
-            ActionEvenOdd((version, group) => { }, ChangeGroupOrder);
-            ActionEvenOdd(TestSourceEvenValues, (version, group) => { });
+            ActionEvenOdd((version, group) => {}, ChangeGroupOrder);
+            ActionEvenOdd(TestSourceEvenValues, (version, group) => {});
         }
 
         void DestroyAllButOneEntityInGroup(int version, EntityQuery group)
@@ -149,8 +149,39 @@ namespace Unity.Entities.Tests
         {
             AddEvenOddTestData();
 
-            ActionEvenOdd((version, group) => { }, DestroyAllButOneEntityInGroup);
-            ActionEvenOdd(TestSourceEvenValues, (version, group) => { });
+            ActionEvenOdd((version, group) => {}, DestroyAllButOneEntityInGroup);
+            ActionEvenOdd(TestSourceEvenValues, (version, group) => {});
+        }
+
+        [Test]
+        public void UnrelatedChunkOrderUnchanged()
+        {
+            AddEvenOddTestData();
+
+            ActionEvenOdd((version, group) =>
+            {
+                var entityType = m_Manager.GetArchetypeChunkEntityType();
+                var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+                var firstEntity = chunks[0].GetNativeArray(entityType);
+                m_Manager.DestroyEntity(firstEntity);
+                chunks.Dispose();
+            }, (version, group) => {});
+
+            ActionEvenOdd(
+                (version, group) =>
+                {
+                    var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+                    for (int i = 0; i < chunks.Length; i++)
+                        Assert.Greater(1, chunks[i].GetOrderVersion());
+                    chunks.Dispose();
+                },
+                (version, group) =>
+                {
+                    var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+                    for (int i = 0; i < chunks.Length; i++)
+                        Assert.AreEqual(1, chunks[i].GetOrderVersion());
+                    chunks.Dispose();
+                });
         }
 
         [Test]
@@ -220,7 +251,7 @@ namespace Unity.Entities.Tests
             var sharedData = new SharedData1(1);
 
             var destroyEntity = m_Manager.CreateEntity(typeof(SharedData1));
-            m_Manager.SetSharedComponentData(destroyEntity, sharedData );
+            m_Manager.SetSharedComponentData(destroyEntity, sharedData);
             /*var dontDestroyEntity = */ m_Manager.Instantiate(destroyEntity);
 
             Assert.LessOrEqual(2, m_Manager.GetSharedComponentOrderVersion(sharedData));

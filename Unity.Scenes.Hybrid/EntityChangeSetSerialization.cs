@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -19,7 +20,7 @@ namespace Unity.Scenes
 
             public ResourcePacket(byte[] buffer)
             {
-                fixed (byte* ptr = buffer)
+                fixed(byte* ptr = buffer)
                 {
                     var bufferReader = new UnsafeAppendBuffer.Reader(ptr, buffer.Length);
 
@@ -43,13 +44,14 @@ namespace Unity.Scenes
             {
                 var changeSetBuffer = new UnsafeAppendBuffer(1024, 16, Allocator.TempJob);
                 Serialize(entityChangeSet, &changeSetBuffer, out var globalObjectIds);
-                
+
                 buffer.Add(globalObjectIds);
                 buffer.Add(changeSetBuffer.Ptr, changeSetBuffer.Length);
-                
+
                 changeSetBuffer.Dispose();
                 globalObjectIds.Dispose();
             }
+
 #endif
         }
 
@@ -67,7 +69,7 @@ namespace Unity.Scenes
                     throw new ArgumentException("The LiveLink Patch Type Layout doesn't match the Data Layout of the Components. Please Rebuild the Player.");
                 }
             }
-            
+
             var createdEntityCount = bufferReader->ReadNext<int>();
             var destroyedEntityCount = bufferReader->ReadNext<int>();
             bufferReader->ReadNext<EntityGuid>(out var entities, Allocator.Persistent);
@@ -83,64 +85,90 @@ namespace Unity.Scenes
             bufferReader->ReadNext<BlobAssetChange>(out var createdBlobAssets, Allocator.Persistent);
             bufferReader->ReadNext<ulong>(out var destroyedBlobAssets, Allocator.Persistent);
             bufferReader->ReadNext<byte>(out var blobAssetData, Allocator.Persistent);
-            bufferReader->ReadNext<PackedComponent>(out var setSharedComponentPackedComponents, Allocator.Persistent);
-
 
             var resolvedObjects = new UnityEngine.Object[globalObjectIDs.Length];
             resolver.ResolveObjects(globalObjectIDs, resolvedObjects);
             var reader = new ManagedObjectBinaryReader(bufferReader, resolvedObjects);
-            var setSharedComponents = new PackedSharedComponentDataChange[setSharedComponentPackedComponents.Length];
-            for (int i = 0; i < setSharedComponentPackedComponents.Length; i++)
-            {
-                object componentValue;
-                if (bufferReader->ReadNext<int>() == 1)
-                {
-                    var packedTypeIndex = setSharedComponentPackedComponents[i].PackedTypeIndex;
-                    var stableTypeHash = typeHashes[packedTypeIndex].StableTypeHash;
-                    var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(stableTypeHash);
-                    var type = TypeManager.GetType(typeIndex);
-                    componentValue = reader.ReadObject(type);
-                }
-                else
-                    componentValue = null;
 
-                setSharedComponents[i].Component = setSharedComponentPackedComponents[i];
-                setSharedComponents[i].BoxedSharedValue = componentValue;
-            }
-            setSharedComponentPackedComponents.Dispose();
-
-            //@TODO: Support managed components
-            // -----@TODO: SUPPORT THIS
-            var setManagedComponents = new PackedManagedComponentDataChange[0];
+            var setSharedComponents = ReadSharedComponentDataChanges(bufferReader, reader, typeHashes);
+            var setManagedComponents = ReadManagedComponentDataChanges(bufferReader, reader, typeHashes);
 
             //if (!bufferReader->EndOfBuffer)
             //    throw new Exception("Underflow in EntityChangeSet buffer");
 
             return new EntityChangeSet(
-                createdEntityCount, 
-                destroyedEntityCount, 
+                createdEntityCount,
+                destroyedEntityCount,
                 entities,
-                typeHashes, 
+                typeHashes,
                 names,
-                addComponents, 
-                removeComponents, 
-                setComponents, 
-                componentData, 
-                entityReferenceChanges, 
+                addComponents,
+                removeComponents,
+                setComponents,
+                componentData,
+                entityReferenceChanges,
                 blobAssetReferenceChanges,
-                setManagedComponents, 
+                setManagedComponents,
                 setSharedComponents,
-                linkedEntityGroupAdditions, 
+                linkedEntityGroupAdditions,
                 linkedEntityGroupRemovals,
                 createdBlobAssets,
                 destroyedBlobAssets,
                 blobAssetData);
         }
 
+        static PackedSharedComponentDataChange[] ReadSharedComponentDataChanges(UnsafeAppendBuffer.Reader* buffer, ManagedObjectBinaryReader reader, NativeArray<ComponentTypeHash> typeHashes)
+        {
+            buffer->ReadNext<PackedComponent>(out var packedComponents, Allocator.Temp);
+            var setSharedComponentDataChanges = new PackedSharedComponentDataChange[packedComponents.Length];
+            for (var i = 0; i < packedComponents.Length; i++)
+            {
+                var packedTypeIndex = packedComponents[i].PackedTypeIndex;
+                var stableTypeHash = typeHashes[packedTypeIndex].StableTypeHash;
+                var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(stableTypeHash);
+                var type = TypeManager.GetType(typeIndex);
+                var componentValue = reader.ReadObject(type);
+                setSharedComponentDataChanges[i].Component = packedComponents[i];
+                setSharedComponentDataChanges[i].BoxedSharedValue = componentValue;
+            }
+            packedComponents.Dispose();
+            return setSharedComponentDataChanges;
+        }
+
+        static PackedManagedComponentDataChange[] ReadManagedComponentDataChanges(UnsafeAppendBuffer.Reader* buffer, ManagedObjectBinaryReader reader, NativeArray<ComponentTypeHash> typeHashes)
+        {
+            buffer->ReadNext<PackedComponent>(out var packedComponents, Allocator.Temp);
+            var setManagedComponentDataChanges = new PackedManagedComponentDataChange[packedComponents.Length];
+            for (var i = 0; i < packedComponents.Length; i++)
+            {
+                var packedTypeIndex = packedComponents[i].PackedTypeIndex;
+                var stableTypeHash = typeHashes[packedTypeIndex].StableTypeHash;
+                var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(stableTypeHash);
+                var type = TypeManager.GetType(typeIndex);
+                var componentValue = reader.ReadObject(type);
+                setManagedComponentDataChanges[i].Component = packedComponents[i];
+                setManagedComponentDataChanges[i].BoxedValue = componentValue;
+            }
+            packedComponents.Dispose();
+            return setManagedComponentDataChanges;
+        }
+
 #if UNITY_EDITOR
 
         public static void Serialize(EntityChangeSet entityChangeSet, UnsafeAppendBuffer* buffer, out NativeArray<RuntimeGlobalObjectId> outAssets)
         {
+            // @FIXME Workaround to solve an issue with hybrid components, LiveLink player builds do NOT support hybrid components.
+            //
+            // An implementation detail of hybrid components is the `CompanionLink` component.
+            // This component is used to link an entity to a GameObject which hosts all of the hybrid components.
+            // This companion GameObject lives in the scene and is NOT being serialized across to the player yet.
+            //
+            // In order to avoid crashing the companion link system in the player build we strip this component during serialization.
+            //
+            var companionLinkPackedTypeIndex = GetCompanionLinkPackedTypeIndex(entityChangeSet.TypeHashes);
+            var addComponentsWithoutCompanionLinks = GetPackedComponentsWithoutCompanionLinks(entityChangeSet.AddComponents, companionLinkPackedTypeIndex, Allocator.Temp);
+            var removeComponentWithoutCompanionLinks = GetPackedComponentsWithoutCompanionLinks(entityChangeSet.RemoveComponents, companionLinkPackedTypeIndex, Allocator.Temp);
+            var setManagedComponentWithoutCompanionLinks = GetPackedManagedComponentChangesWithoutCompanionLinks(entityChangeSet.SetManagedComponents, companionLinkPackedTypeIndex);
 
             // Write EntityChangeSet
             buffer->Add(entityChangeSet.TypeHashes);
@@ -148,8 +176,8 @@ namespace Unity.Scenes
             buffer->Add(entityChangeSet.DestroyedEntityCount);
             buffer->Add(entityChangeSet.Entities);
             buffer->Add(entityChangeSet.Names);
-            buffer->Add(entityChangeSet.AddComponents);
-            buffer->Add(entityChangeSet.RemoveComponents);
+            buffer->Add(addComponentsWithoutCompanionLinks.AsArray());
+            buffer->Add(removeComponentWithoutCompanionLinks.AsArray());
             buffer->Add(entityChangeSet.SetComponents);
             buffer->Add(entityChangeSet.ComponentData);
             buffer->Add(entityChangeSet.EntityReferenceChanges);
@@ -160,34 +188,17 @@ namespace Unity.Scenes
             buffer->Add(entityChangeSet.DestroyedBlobAssets);
             buffer->Add(entityChangeSet.BlobAssetData);
 
-            var setSharedComponentCount = entityChangeSet.SetSharedComponents.Length;
-            buffer->Add(setSharedComponentCount);
-            for (int i = 0; i < setSharedComponentCount; i++)
-                buffer->Add(entityChangeSet.SetSharedComponents[i].Component);
-
-            // Write shared components
             var writer = new ManagedObjectBinaryWriter(buffer);
-            for (int i = 0; i < setSharedComponentCount; i++)
-            {
-                var srcData = entityChangeSet.SetSharedComponents[i].BoxedSharedValue;
 
-                if (srcData != null)
-                {
-                    buffer->Add(1);
-                    writer.WriteObject(srcData);
-                }
-                else
-                {
-                    buffer->Add(0);
-                }
-            }
-            
+            WriteSharedComponentDataChanges(buffer, writer, entityChangeSet.SetSharedComponents);
+            WriteManagedComponentDataChanges(buffer, writer, setManagedComponentWithoutCompanionLinks);
+
             var objectTable = writer.GetObjectTable();
-            var globalObjectIds = new GlobalObjectId[objectTable.Length];  
+            var globalObjectIds = new GlobalObjectId[objectTable.Length];
             GlobalObjectId.GetGlobalObjectIdsSlow(objectTable, globalObjectIds);
-            
+
             outAssets = new NativeArray<RuntimeGlobalObjectId>(globalObjectIds.Length, Allocator.Persistent);
-            for (int i = 0; i != globalObjectIds.Length;i++)
+            for (int i = 0; i != globalObjectIds.Length; i++)
             {
                 var globalObjectId = globalObjectIds[i];
 
@@ -207,8 +218,68 @@ namespace Unity.Scenes
 
                 outAssets[i] = Unsafe.AsRef<RuntimeGlobalObjectId>(&globalObjectId);
             }
-        }
-#endif
 
+            addComponentsWithoutCompanionLinks.Dispose();
+            removeComponentWithoutCompanionLinks.Dispose();
+        }
+
+        static void WriteSharedComponentDataChanges(UnsafeAppendBuffer* buffer, ManagedObjectBinaryWriter writer, PackedSharedComponentDataChange[] changes)
+        {
+            buffer->Add(changes.Length);
+
+            for (var i = 0; i < changes.Length; i++)
+                buffer->Add(changes[i].Component);
+
+            for (var i = 0; i < changes.Length; i++)
+                writer.WriteObject(changes[i].BoxedSharedValue);
+        }
+
+        static void WriteManagedComponentDataChanges(UnsafeAppendBuffer* buffer, ManagedObjectBinaryWriter writer, PackedManagedComponentDataChange[] changes)
+        {
+            buffer->Add(changes.Length);
+
+            for (var i = 0; i < changes.Length; i++)
+                buffer->Add(changes[i].Component);
+
+            for (var i = 0; i < changes.Length; i++)
+                writer.WriteObject(changes[i].BoxedValue);
+        }
+
+        static NativeList<PackedComponent> GetPackedComponentsWithoutCompanionLinks(NativeArray<PackedComponent> components, int companionLinkPackedTypeIndex, Allocator allocator)
+        {
+            var list = new NativeList<PackedComponent>(components.Length, allocator);
+
+            for (var i = 0; i < components.Length; i++)
+            {
+                if (components[i].PackedTypeIndex == companionLinkPackedTypeIndex)
+                    continue;
+
+                list.AddNoResize(components[i]);
+            }
+
+            return list;
+        }
+
+        static PackedManagedComponentDataChange[] GetPackedManagedComponentChangesWithoutCompanionLinks(PackedManagedComponentDataChange[] changes, int companionLinkPackedTypeIndex)
+        {
+            return companionLinkPackedTypeIndex == -1
+                ? changes
+                : changes.Where(x => x.Component.PackedTypeIndex != companionLinkPackedTypeIndex).ToArray();
+        }
+
+        static int GetCompanionLinkPackedTypeIndex(NativeArray<ComponentTypeHash> typeHashes)
+        {
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            var companionLinkTypeInfo = TypeManager.GetTypeInfo<CompanionLink>();
+            for (var i = 0; i < typeHashes.Length; i++)
+            {
+                if (typeHashes[i].StableTypeHash == companionLinkTypeInfo.StableTypeHash)
+                    return i;
+            }
+#endif
+            return -1;
+        }
+
+#endif
     }
 }

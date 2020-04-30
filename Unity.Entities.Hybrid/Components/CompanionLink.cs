@@ -1,4 +1,4 @@
-﻿#if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
 
 using System;
 using System.Diagnostics;

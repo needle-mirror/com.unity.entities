@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Scenes.Editor
@@ -25,7 +25,7 @@ namespace Unity.Scenes.Editor
             {
                 SceneImporterData.SetAtPath(path, new SceneImporterData() { DisableLiveLink = !liveLinkEnabled });
                 var scene = UnityEditor.SceneManagement.EditorSceneManager.GetSceneByPath(path);
-                if(scene.isLoaded)
+                if (scene.isLoaded)
                     UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
                 else
                     AssetDatabase.ImportAsset(path);

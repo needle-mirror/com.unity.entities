@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -17,7 +17,7 @@ public class BurstSafetyTests
             throw new System.ArgumentException("Blah");
         }
     }
-    
+
     [Test]
     [Ignore("JOE FIXES IN PROGRESS")]
     public void ThrowExceptionParallelForStress()
@@ -27,7 +27,7 @@ public class BurstSafetyTests
         var jobData = new ThrowExceptionJob();
         jobData.Schedule(100, 1).Complete();
     }
-    
+
     [BurstCompile(CompileSynchronously = true)]
     struct WriteToReadOnlyArrayJob : IJob
     {
@@ -38,7 +38,7 @@ public class BurstSafetyTests
             test[0] = 5;
         }
     }
-    
+
     [Test]
     [Ignore("JOE FIXES IN PROGRESS")]
     public void WriteToReadOnlyArray()
@@ -52,7 +52,7 @@ public class BurstSafetyTests
 
         jobData.test.Dispose();
     }
-    
+
     [BurstCompile(CompileSynchronously = true)]
     struct ParallelForIndexChecksJob : IJobParallelFor
     {
@@ -63,7 +63,7 @@ public class BurstSafetyTests
             test[0] = 5;
         }
     }
-    
+
     [Test]
     [Ignore("JOE FIXES IN PROGRESS")]
     public void ParallelForMinMaxChecks()
@@ -109,8 +109,8 @@ public class BurstSafetyTests
             myArray[0] = 5;
         }
     }
-    
-#if !UNITY_DOTSPLAYER    
+
+#if !UNITY_DOTSPLAYER
     [Test]
     [Ignore("Crashes Unity - No user is supposed to write code like this, so not very important")]
     public void AccessNullUnsafePtr()
@@ -119,5 +119,6 @@ public class BurstSafetyTests
 
         new AccessNullUnsafePtrJob().Run();
     }
+
 #endif
 }

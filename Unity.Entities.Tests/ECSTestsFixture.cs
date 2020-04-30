@@ -1,9 +1,13 @@
 using System;
-using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine.Profiling;
+
+#if !UNITY_DOTSPLAYER_IL2CPP
+using System.Linq;
+#endif
 
 namespace Unity.Entities.Tests
 {
@@ -12,8 +16,8 @@ namespace Unity.Entities.Tests
     {
         protected override void OnUpdate()
         {
-
         }
+
         public new EntityQuery GetEntityQuery(params EntityQueryDesc[] queriesDesc)
         {
             return base.GetEntityQuery(queriesDesc);
@@ -23,10 +27,12 @@ namespace Unity.Entities.Tests
         {
             return base.GetEntityQuery(componentTypes);
         }
+
         public new EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
         {
             return base.GetEntityQuery(componentTypes);
         }
+
         public new BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
         {
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
@@ -48,14 +54,15 @@ namespace Unity.Entities.Tests
         {
             return base.GetEntityQuery(componentTypes);
         }
+
         new public EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
         {
             return base.GetEntityQuery(componentTypes);
         }
     }
-    
+
 #endif
-    
+
     public abstract class ECSTestsFixture
     {
         protected World m_PreviousWorld;
@@ -64,7 +71,9 @@ namespace Unity.Entities.Tests
         protected EntityManager.EntityManagerDebug m_ManagerDebug;
 
         protected int StressTestEntityCount = 1000;
-
+#if !UNITY_DOTSPLAYER
+        private bool JobsDebuggerWasEnabled;
+#endif
         [SetUp]
         public virtual void Setup()
         {
@@ -72,12 +81,18 @@ namespace Unity.Entities.Tests
             World = World.DefaultGameObjectInjectionWorld = new World("Test World");
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
+#if !UNITY_DOTSPLAYER
+            // Many ECS tests will only pass if the Jobs Debugger enabled;
+            // force it enabled for all tests, and restore the original value at teardown.
+            JobsDebuggerWasEnabled = JobsUtility.JobDebuggerEnabled;
+            JobsUtility.JobDebuggerEnabled = true;
+#endif
         }
 
         [TearDown]
         public virtual void TearDown()
         {
-            if (m_Manager != null && m_Manager.IsCreated)
+            if (m_Manager.IsCreated)
             {
                 // Clean up systems before calling CheckInternalConsistency because we might have filters etc
                 // holding on SharedComponentData making checks fail
@@ -93,8 +108,11 @@ namespace Unity.Entities.Tests
 
                 World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
                 m_PreviousWorld = null;
-                m_Manager = null;
+                m_Manager = default;
             }
+#if !UNITY_DOTSPLAYER
+            JobsUtility.JobDebuggerEnabled = JobsDebuggerWasEnabled;
+#endif
         }
 
         public void AssertDoesNotExist(Entity entity)
@@ -146,40 +164,46 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(m_Manager.GetChunk(e0), m_Manager.GetChunk(e1));
         }
 
-        public void AssertHasVersion<T>(Entity e, uint version) where T :
+        public void AssetHasChangeVersion<T>(Entity e, uint version) where T :
 #if UNITY_DISABLE_MANAGED_COMPONENTS
-            struct, 
+        struct,
 #endif
-            IComponentData
+        IComponentData
         {
             var type = m_Manager.GetArchetypeChunkComponentType<T>(true);
             var chunk = m_Manager.GetChunk(e);
-            Assert.AreEqual(version, chunk.GetComponentVersion(type));
+            Assert.AreEqual(version, chunk.GetChangeVersion(type));
             Assert.IsFalse(chunk.DidChange(type, version));
-            Assert.IsTrue(chunk.DidChange(type, version-1));
+            Assert.IsTrue(chunk.DidChange(type, version - 1));
         }
-        
-        public void AssertHasBufferVersion<T>(Entity e, uint version) where T : struct, IBufferElementData
+
+        public void AssetHasChunkOrderVersion(Entity e, uint version)
+        {
+            var chunk = m_Manager.GetChunk(e);
+            Assert.AreEqual(version, chunk.GetOrderVersion());
+        }
+
+        public void AssetHasBufferChangeVersion<T>(Entity e, uint version) where T : struct, IBufferElementData
         {
             var type = m_Manager.GetArchetypeChunkBufferType<T>(true);
             var chunk = m_Manager.GetChunk(e);
-            Assert.AreEqual(version, chunk.GetComponentVersion(type));
+            Assert.AreEqual(version, chunk.GetChangeVersion(type));
             Assert.IsFalse(chunk.DidChange(type, version));
-            Assert.IsTrue(chunk.DidChange(type, version-1));
+            Assert.IsTrue(chunk.DidChange(type, version - 1));
         }
 
-        public void AssertHasSharedVersion<T>(Entity e, uint version) where T : struct, ISharedComponentData
+        public void AssetHasSharedChangeVersion<T>(Entity e, uint version) where T : struct, ISharedComponentData
         {
             var type = m_Manager.GetArchetypeChunkSharedComponentType<T>();
             var chunk = m_Manager.GetChunk(e);
-            Assert.AreEqual(version, chunk.GetComponentVersion(type));
+            Assert.AreEqual(version, chunk.GetChangeVersion(type));
             Assert.IsFalse(chunk.DidChange(type, version));
-            Assert.IsTrue(chunk.DidChange(type, version-1));
+            Assert.IsTrue(chunk.DidChange(type, version - 1));
         }
 
         class EntityForEachSystem : ComponentSystem
         {
-            protected override void OnUpdate() {  }
+            protected override void OnUpdate() {}
         }
         protected EntityQueryBuilder Entities
         {

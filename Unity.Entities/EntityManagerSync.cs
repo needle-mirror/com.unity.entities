@@ -3,12 +3,12 @@ using Unity.Assertions;
 
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
-        
+
         //@TODO: Not clear to me what this method is really for...
         /// <summary>
         /// Waits for all Jobs to complete.
@@ -16,7 +16,7 @@ namespace Unity.Entities
         /// <remarks>Calling CompleteAllJobs() blocks the main thread until all currently running Jobs finish.</remarks>
         public void CompleteAllJobs()
         {
-            DependencyManager->CompleteAllJobsAndInvalidateArrays();
+            GetCheckedEntityDataAccess()->DependencyManager->CompleteAllJobsAndInvalidateArrays();
         }
 
         // ----------------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ namespace Unity.Entities
 
         internal void BeforeStructuralChange()
         {
-            m_EntityDataAccess.BeforeStructuralChange();
+            GetCheckedEntityDataAccess()->BeforeStructuralChange();
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using NUnit.Framework;
 using Unity.Burst;
@@ -22,8 +22,6 @@ public unsafe class BurstDelegateTest
         value++;
     }
 
-    
-    
     [Test]
     public void ManagedDelegateTest()
     {
@@ -32,7 +30,7 @@ public unsafe class BurstDelegateTest
         // NOTE: funcPtr.Invoke allocates GC memory,
         // so in real world use cases we want to cache the managed delegate, not the FunctionPointer
         DoThingDelegate cachableDelegate = funcPtr.Invoke;
-        
+
         int value = 5;
         cachableDelegate(ref value);
         Assert.AreEqual(6, value);
@@ -47,12 +45,12 @@ public unsafe class BurstDelegateTest
         int value = 5;
         job.Blah = &value;
         job.FunctionPointer = funcPtr;
-        
+
         job.Schedule().Complete();
-        
+
         Assert.AreEqual(6, value);
     }
-    
+
     [BurstCompile]
     struct MyJob : IJob
     {
@@ -65,10 +63,10 @@ public unsafe class BurstDelegateTest
             FunctionPointer.Invoke(ref *Blah);
         }
     }
-    
+
     [Test]
     public void CompileMissingBurstCompile()
     {
-        Assert.Throws<InvalidOperationException>(()=>BurstCompiler.CompileFunctionPointer<DoThingDelegate>(DoThingMissingBurstCompile));
+        Assert.Throws<InvalidOperationException>(() => BurstCompiler.CompileFunctionPointer<DoThingDelegate>(DoThingMissingBurstCompile));
     }
 }

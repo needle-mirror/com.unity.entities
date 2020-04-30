@@ -46,7 +46,7 @@ namespace Unity.Entities.Editor
 
         static Texture2D LoadIconTexture(string path)
         {
-            var texture = (Texture2D) AssetDatabase.LoadAssetAtPath(path, typeof(Texture2D));
+            var texture = (Texture2D)AssetDatabase.LoadAssetAtPath(path, typeof(Texture2D));
 
             if (texture != null
                 && !Mathf.Approximately(texture.GetPixelsPerPoint(), EditorGUIUtility.pixelsPerPoint)

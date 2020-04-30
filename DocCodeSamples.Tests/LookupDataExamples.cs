@@ -1,4 +1,4 @@
-﻿using Unity.Burst;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -10,7 +10,6 @@ using NUnit.Framework;
 // The files in this namespace are used to compile/test the code samples in the documentation.
 namespace Doc.CodeSamples.Tests
 {
-
     #region lookup-foreach
     public class TrackingSystem : SystemBase
     {
@@ -20,8 +19,8 @@ namespace Doc.CodeSamples.Tests
 
             Entities
                 .ForEach((ref Rotation orientation,
-                          in LocalToWorld transform,
-                          in Target target) =>
+                in LocalToWorld transform,
+                in Target target) =>
                 {
                     // Check to make sure the target Entity still exists and has
                     // the needed component
@@ -60,8 +59,8 @@ namespace Doc.CodeSamples.Tests
 
             Entities
                 .ForEach((ref Rotation orientation,
-                          in LocalToWorld transform,
-                          in Target target) =>
+                in LocalToWorld transform,
+                in Target target) =>
                 {
                     // Check to make sure the target Entity still exists
                     if (!buffersOfAllEntities.Exists(target.entity))
@@ -98,7 +97,7 @@ namespace Doc.CodeSamples.Tests
             // Read-only data in the current chunk
             [ReadOnly]
             public ArchetypeChunkComponentType<Target> TargetTypeAccessor;
-            
+
             // Read-only data stored (potentially) in other chunks
             [ReadOnly]
             public ComponentDataFromEntity<LocalToWorld> EntityPositions;
@@ -107,8 +106,8 @@ namespace Doc.CodeSamples.Tests
             public float deltaTime;
 
             public void Execute(ArchetypeChunk chunk,
-                                int chunkIndex,
-                                int firstEntityIndex)
+                int chunkIndex,
+                int firstEntityIndex)
             {
                 // Get arrays of the components in chunk
                 NativeArray<Translation> positions
@@ -125,7 +124,7 @@ namespace Doc.CodeSamples.Tests
                     if (!EntityPositions.Exists(targetEntity))
                         continue;
 
-                    // Update translation to move the chasing enitity toward the target 
+                    // Update translation to move the chasing enitity toward the target
                     float3 targetPosition = EntityPositions[targetEntity].Position;
                     float3 chaserPosition = positions[i].Value;
 
@@ -142,10 +141,10 @@ namespace Doc.CodeSamples.Tests
         {
             // Select all entities that have Translation and Target Componentx
             query = this.GetEntityQuery
-                    (
-                        typeof(Translation),
-                        ComponentType.ReadOnly<Target>()
-                    );
+                (
+                    typeof(Translation),
+                    ComponentType.ReadOnly<Target>()
+                );
         }
 
         protected override void OnUpdate()

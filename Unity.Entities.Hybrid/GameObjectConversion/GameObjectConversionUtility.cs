@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
@@ -42,7 +42,8 @@ namespace Unity.Entities
                 var gameObjectWorld = new World($"GameObject -> Entity Conversion '{settings.DebugConversionName}'", WorldFlags.Live | WorldFlags.Conversion | WorldFlags.Staging);
                 gameObjectWorld.AddSystem(new GameObjectConversionMappingSystem(settings));
 
-                var systemTypes = settings.Systems ?? DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.GameObjectConversion);
+                var systemTypes = settings.Systems ?? DefaultWorldInitialization.GetAllSystems(settings.FilterFlags);
+
                 var includeExport = settings.GetType() != typeof(GameObjectConversionSettings);
                 AddConversionSystems(gameObjectWorld, systemTypes.Concat(settings.ExtraSystems), includeExport);
 
@@ -52,7 +53,7 @@ namespace Unity.Entities
             }
         }
 
-        struct DeclaredReferenceObjectsTag : IComponentData { }
+        struct DeclaredReferenceObjectsTag : IComponentData {}
 
         static void DeclareReferencedObjects(World gameObjectWorld, GameObjectConversionMappingSystem mappingSystem)
         {
@@ -339,15 +340,15 @@ namespace Unity.Entities
                 Debug.LogException(e);
             }
         }
-        
+
         // USED FOR IL-POSTPROCESSING AUTHORING COMPONENTS
         public static void ConvertGameObjectsToEntitiesField(GameObjectConversionSystem conversionSystem, GameObject[] gameObjects, out Entity[] entities)
         {
             entities = new Entity[gameObjects.Length];
-            for (var i=0; i<entities.Length; ++i)
+            for (var i = 0; i < entities.Length; ++i)
                 entities[i] = conversionSystem.GetPrimaryEntity(gameObjects[i]);
         }
-        
+
         // MIGRATE
 
         //@TODO(scobi): publish this method from UnityEngineExtensions

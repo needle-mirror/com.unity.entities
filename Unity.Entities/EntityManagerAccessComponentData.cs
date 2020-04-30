@@ -5,7 +5,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
@@ -17,7 +17,8 @@ namespace Unity.Entities
         /// <returns>The shared component count</returns>
         public int GetSharedComponentCount()
         {
-            return m_ManagedComponentStore.GetSharedComponentCount();
+            var ecs = GetCheckedEntityDataAccess();
+            return ecs->ManagedComponentStore.GetSharedComponentCount();
         }
 
         /// <summary>
@@ -29,7 +30,8 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         public T GetComponentData<T>(Entity entity) where T : struct, IComponentData
         {
-            return m_EntityDataAccess.GetComponentData<T>(entity);
+            var ecs = GetCheckedEntityDataAccess();
+            return ecs->GetComponentData<T>(entity);
         }
 
         /// <summary>
@@ -41,7 +43,8 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         public void SetComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
-            m_EntityDataAccess.SetComponentData(entity, componentData);
+            var ecs = GetCheckedEntityDataAccess();
+            ecs->SetComponentData(entity, componentData);
         }
 
         /// <summary>
@@ -78,10 +81,12 @@ namespace Unity.Entities
         /// <returns>A struct of type T containing the component value.</returns>
         public T GetChunkComponentData<T>(Entity entity) where T : struct, IComponentData
         {
-            EntityComponentStore->AssertEntitiesExist(&entity, 1);
-            var chunk = EntityComponentStore->GetChunk(entity);
+            var ecs = GetCheckedEntityDataAccess();
+            var store = ecs->EntityComponentStore;
+            store->AssertEntitiesExist(&entity, 1);
+            var chunk = store->GetChunk(entity);
             var metaChunkEntity = chunk->metaChunkEntity;
-            return GetComponentData<T>(metaChunkEntity);
+            return ecs->GetComponentData<T>(metaChunkEntity);
         }
 
         /// <summary>
@@ -116,12 +121,16 @@ namespace Unity.Entities
         /// <returns>The managed object, cast to type T.</returns>
         public T GetComponentObject<T>(Entity entity)
         {
-            return m_EntityDataAccess.GetComponentObject<T>(entity, ComponentType.ReadWrite<T>(), m_ManagedComponentStore);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            return ecs->GetComponentObject<T>(entity, ComponentType.ReadWrite<T>(), mcs);
         }
-        
+
         public T GetComponentObject<T>(Entity entity, ComponentType componentType)
         {
-            return m_EntityDataAccess.GetComponentObject<T>(entity, componentType, m_ManagedComponentStore);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            return ecs->GetComponentObject<T>(entity, componentType, mcs);
         }
 
         /// <summary>
@@ -143,7 +152,9 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
-            m_EntityDataAccess.SetSharedComponentData(entity, componentData, m_ManagedComponentStore);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            ecs->SetSharedComponentData(entity, componentData, mcs);
         }
 
         /// <summary>
@@ -168,17 +179,20 @@ namespace Unity.Entities
                 if (chunks.Length == 0)
                     return;
 
-                BeforeStructuralChange();
+                var ecs = GetCheckedEntityDataAccess();
+                var mcs = ecs->ManagedComponentStore;
+
+                ecs->BeforeStructuralChange();
 
                 var type = ComponentType.ReadWrite<T>();
-                m_EntityDataAccess.RemoveComponent(chunks, type);
+                ecs->RemoveComponent(chunks, type);
 
-                int sharedComponentIndex = ManagedComponentStore.InsertSharedComponent(componentData);
-                m_EntityDataAccess.AddSharedComponentData(chunks, sharedComponentIndex, type);
-                ManagedComponentStore.RemoveReference(sharedComponentIndex);
+                int sharedComponentIndex = mcs.InsertSharedComponent(componentData);
+                ecs->AddSharedComponentData(chunks, sharedComponentIndex, type);
+                mcs.RemoveReference(sharedComponentIndex);
             }
         }
-        
+
         /// <summary>
         /// Gets a shared component from an entity.
         /// </summary>
@@ -187,15 +201,17 @@ namespace Unity.Entities
         /// <returns>A copy of the shared component.</returns>
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
-            return m_EntityDataAccess.GetSharedComponentData<T>(entity, m_ManagedComponentStore);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            return ecs->GetSharedComponentData<T>(entity, mcs);
         }
 
         public int GetSharedComponentDataIndex<T>(Entity entity) where T : struct, ISharedComponentData
         {
+            var ecs = GetCheckedEntityDataAccess()->EntityComponentStore;
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-
-            return EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
+            ecs->AssertEntityHasComponent(entity, typeIndex);
+            return ecs->GetSharedComponentDataIndex(entity, typeIndex);
         }
 
         /// <summary>
@@ -214,9 +230,11 @@ namespace Unity.Entities
         /// <returns>A copy of the shared component.</returns>
         public T GetSharedComponentData<T>(int sharedComponentIndex) where T : struct, ISharedComponentData
         {
-            return m_ManagedComponentStore.GetSharedComponentData<T>(sharedComponentIndex);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            return mcs.GetSharedComponentData<T>(sharedComponentIndex);
         }
-        
+
         /// <summary>
         /// Gets a list of all the unique instances of a shared component type.
         /// </summary>
@@ -231,7 +249,9 @@ namespace Unity.Entities
         public void GetAllUniqueSharedComponentData<T>(List<T> sharedComponentValues)
             where T : struct, ISharedComponentData
         {
-            m_ManagedComponentStore.GetAllUniqueSharedComponents(sharedComponentValues);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            mcs.GetAllUniqueSharedComponents(sharedComponentValues);
         }
 
         /// <summary>
@@ -253,7 +273,9 @@ namespace Unity.Entities
         public void GetAllUniqueSharedComponentData<T>(List<T> sharedComponentValues, List<int> sharedComponentIndices)
             where T : struct, ISharedComponentData
         {
-            m_ManagedComponentStore.GetAllUniqueSharedComponents(sharedComponentValues, sharedComponentIndices);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            mcs.GetAllUniqueSharedComponents(sharedComponentValues, sharedComponentIndices);
         }
 
         /// <summary>
@@ -266,10 +288,16 @@ namespace Unity.Entities
         public DynamicBuffer<T> GetBuffer<T>(Entity entity) where T : struct, IBufferElementData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            return m_EntityDataAccess.GetBuffer<T>(entity
+            var ecs = GetCheckedEntityDataAccess();
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                , SafetyHandles->GetSafetyHandle(typeIndex, false),
-                SafetyHandles->GetBufferSafetyHandle(typeIndex)
+            var safetyHandles = &ecs->DependencyManager->Safety;
+#endif
+
+            return ecs->GetBuffer<T>(entity
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                , safetyHandles->GetSafetyHandle(typeIndex, false),
+                safetyHandles->GetBufferSafetyHandle(typeIndex)
 #endif
             );
         }
@@ -294,7 +322,8 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void SwapComponents(ArchetypeChunk leftChunk, int leftIndex, ArchetypeChunk rightChunk, int rightIndex)
         {
-            m_EntityDataAccess.SwapComponents(leftChunk, leftIndex, rightChunk, rightIndex);
+            var ecs = GetCheckedEntityDataAccess();
+            ecs->SwapComponents(leftChunk, leftIndex, rightChunk, rightIndex);
         }
 
         /// <summary>
@@ -304,8 +333,9 @@ namespace Unity.Entities
         /// <returns>The chunk containing the entity.</returns>
         public ArchetypeChunk GetChunk(Entity entity)
         {
-            var chunk = EntityComponentStore->GetChunk(entity);
-            return new ArchetypeChunk(chunk, EntityComponentStore);
+            var ecs = GetCheckedEntityDataAccess()->EntityComponentStore;
+            var chunk = ecs->GetChunk(entity);
+            return new ArchetypeChunk(chunk, ecs);
         }
 
         /// <summary>
@@ -315,8 +345,9 @@ namespace Unity.Entities
         /// <returns>The number of components.</returns>
         public int GetComponentCount(Entity entity)
         {
-            EntityComponentStore->AssertEntitiesExist(&entity, 1);
-            var archetype = EntityComponentStore->GetArchetype(entity);
+            var ecs = GetCheckedEntityDataAccess()->EntityComponentStore;
+            ecs->AssertEntitiesExist(&entity, 1);
+            var archetype = ecs->GetArchetype(entity);
             return archetype->TypesCount - 1;
         }
 
@@ -329,18 +360,22 @@ namespace Unity.Entities
             var hashCode = 0;
             if (componentData != null)
                 hashCode = TypeManager.GetHashCode(componentData, typeIndex);
-            
+
             SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
         }
 
         void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
         {
-            m_EntityDataAccess.SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData, m_ManagedComponentStore);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            ecs->SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData, mcs);
         }
 
         internal void SetComponentObject(Entity entity, ComponentType componentType, object componentObject)
         {
-            m_EntityDataAccess.SetComponentObject(entity, componentType, componentObject, m_ManagedComponentStore);
+            var ecs = GetCheckedEntityDataAccess();
+            var mcs = ecs->ManagedComponentStore;
+            ecs->SetComponentObject(entity, componentType, componentObject, mcs);
         }
 
         internal ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
@@ -353,11 +388,17 @@ namespace Unity.Entities
         internal ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(int typeIndex, bool isReadOnly)
             where T : struct, IComponentData
         {
+            var ecs = GetCheckedEntityDataAccess();
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new ComponentDataFromEntity<T>(typeIndex, EntityComponentStore,
-                SafetyHandles->GetSafetyHandle(typeIndex, isReadOnly));
+            var safetyHandles = &ecs->DependencyManager->Safety;
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new ComponentDataFromEntity<T>(typeIndex, ecs->EntityComponentStore,
+                safetyHandles->GetSafetyHandleForComponentDataFromEntity(typeIndex, isReadOnly));
 #else
-            return new ComponentDataFromEntity<T>(typeIndex, EntityComponentStore);
+            return new ComponentDataFromEntity<T>(typeIndex, ecs->EntityComponentStore);
 #endif
         }
 
@@ -370,35 +411,50 @@ namespace Unity.Entities
         internal BufferFromEntity<T> GetBufferFromEntity<T>(int typeIndex, bool isReadOnly = false)
             where T : struct, IBufferElementData
         {
+            var ecs = GetCheckedEntityDataAccess();
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new BufferFromEntity<T>(typeIndex, EntityComponentStore, isReadOnly,
-                SafetyHandles->GetSafetyHandle(typeIndex, isReadOnly),
-                SafetyHandles->GetBufferSafetyHandle(typeIndex));
+            var safetyHandles = &ecs->DependencyManager->Safety;
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new BufferFromEntity<T>(typeIndex, ecs->EntityComponentStore, isReadOnly,
+                safetyHandles->GetSafetyHandleForComponentDataFromEntity(typeIndex, isReadOnly),
+                safetyHandles->GetBufferHandleForBufferFromEntity(typeIndex));
 #else
-            return new BufferFromEntity<T>(typeIndex, EntityComponentStore, isReadOnly);
+            return new BufferFromEntity<T>(typeIndex, ecs->EntityComponentStore, isReadOnly);
 #endif
         }
 
         internal void SetComponentDataRaw(Entity entity, int typeIndex, void* data, int size)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var deps = access->DependencyManager;
 
-            EntityComponentStore->SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
+            ecs->AssertEntityHasComponent(entity, typeIndex);
+            deps->CompleteReadAndWriteDependency(typeIndex);
+            ecs->SetComponentDataRawEntityHasComponent(entity, typeIndex, data, size);
         }
 
         internal void* GetComponentDataRawRW(Entity entity, int typeIndex)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var deps = access->DependencyManager;
+            ecs->AssertEntityHasComponent(entity, typeIndex);
+            deps->CompleteReadAndWriteDependency(typeIndex);
 
-            return m_EntityDataAccess.GetComponentDataRawRWEntityHasComponent(entity, typeIndex);
+            return access->GetComponentDataRawRWEntityHasComponent(entity, typeIndex);
         }
 
         internal void* GetComponentDataRawRO(Entity entity, int typeIndex)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
-            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var deps = access->DependencyManager;
+            ecs->AssertEntityHasComponent(entity, typeIndex);
+            deps->CompleteReadAndWriteDependency(typeIndex);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
@@ -407,49 +463,60 @@ namespace Unity.Entities
 #endif
 
 
-            var ptr = EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex);
+            var ptr = ecs->GetComponentDataWithTypeRO(entity, typeIndex);
             return ptr;
         }
 
         internal object GetSharedComponentData(Entity entity, int typeIndex)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
 
-            var sharedComponentIndex = EntityComponentStore->GetSharedComponentDataIndex(entity, typeIndex);
-            return ManagedComponentStore.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
+            ecs->AssertEntityHasComponent(entity, typeIndex);
+
+            var sharedComponentIndex = ecs->GetSharedComponentDataIndex(entity, typeIndex);
+            return mcs.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
         }
 
         internal void* GetBufferRawRW(Entity entity, int typeIndex)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
 
-            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+            ecs->AssertEntityHasComponent(entity, typeIndex);
 
-            BufferHeader* header =
-                (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex,
-                    EntityComponentStore->GlobalSystemVersion);
+            access->DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+
+            BufferHeader* header = (BufferHeader*)ecs->GetComponentDataWithTypeRW(entity, typeIndex, ecs->GlobalSystemVersion);
 
             return BufferHeader.GetElementPointer(header);
         }
 
         internal void* GetBufferRawRO(Entity entity, int typeIndex)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
 
-            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+            ecs->AssertEntityHasComponent(entity, typeIndex);
 
-            BufferHeader* header = (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex);
+            access->DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+
+            BufferHeader* header = (BufferHeader*)ecs->GetComponentDataWithTypeRO(entity, typeIndex);
 
             return BufferHeader.GetElementPointer(header);
         }
 
         internal int GetBufferLength(Entity entity, int typeIndex)
         {
-            EntityComponentStore->AssertEntityHasComponent(entity, typeIndex);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
 
-            DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+            ecs->AssertEntityHasComponent(entity, typeIndex);
 
-            BufferHeader* header = (BufferHeader*) EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex);
+            access->DependencyManager->CompleteReadAndWriteDependency(typeIndex);
+
+            BufferHeader* header = (BufferHeader*)ecs->GetComponentDataWithTypeRO(entity, typeIndex);
 
             return header->Length;
         }
@@ -467,7 +534,8 @@ namespace Unity.Entities
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         public static T GetComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData
         {
-            return manager.EntityDataAccess.GetComponentData<T>(entity, manager.ManagedComponentStore);
+            var ecs = manager.GetCheckedEntityDataAccess();
+            return ecs->GetComponentData<T>(entity, ecs->ManagedComponentStore);
         }
 
         /// <summary>
@@ -517,10 +585,11 @@ namespace Unity.Entities
         /// <returns>A struct of type T containing the component value.</returns>
         public static T GetChunkComponentData<T>(this EntityManager manager, Entity entity) where T : class, IComponentData
         {
-            manager.EntityComponentStore->AssertEntitiesExist(&entity, 1);
-            var chunk = manager.EntityComponentStore->GetChunk(entity);
+            var ecs = manager.GetCheckedEntityDataAccess();
+            ecs->EntityComponentStore->AssertEntitiesExist(&entity, 1);
+            var chunk = ecs->EntityComponentStore->GetChunk(entity);
             var metaChunkEntity = chunk->metaChunkEntity;
-            return manager.GetComponentData<T>(metaChunkEntity);
+            return ecs->GetComponentData<T>(metaChunkEntity, ecs->ManagedComponentStore);
         }
 
         /// <summary>

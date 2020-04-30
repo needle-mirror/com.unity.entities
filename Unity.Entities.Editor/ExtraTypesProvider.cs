@@ -6,7 +6,7 @@ using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Build.Player;
 using Unity.Jobs.LowLevel.Unsafe;
-    
+
 namespace Unity.Entities.Editor
 {
     [InitializeOnLoad]
@@ -21,7 +21,7 @@ namespace Unity.Entities.Editor
                     var genericArgumentList = new List<Type> { type };
                     genericArgumentList.AddRange(typeInterface.GetGenericArguments());
 
-                    var producerAttribute = (JobProducerTypeAttribute) typeInterface.GetCustomAttribute(typeof(JobProducerTypeAttribute), true);
+                    var producerAttribute = (JobProducerTypeAttribute)typeInterface.GetCustomAttribute(typeof(JobProducerTypeAttribute), true);
 
                     if (producerAttribute == null)
                         throw new System.ArgumentException("IJobForEach interface must have [JobProducerType]");
@@ -96,7 +96,7 @@ namespace Unity.Entities.Editor
         {
             var genericParameters = nestedType.GetGenericArguments();
             if (genericParameters.Length == 0)
-            { 
+            {
                 // Nested type isn't generic
                 return nestedType;
             }

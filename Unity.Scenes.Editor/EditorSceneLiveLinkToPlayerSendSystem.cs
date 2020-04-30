@@ -24,7 +24,7 @@ namespace Unity.Scenes.Editor
 
         internal void SetConnection(IEditorConnection connection)
         {
-            var newConnection = connection ?? throw new ArgumentNullException(nameof(connection)); 
+            var newConnection = connection ?? throw new ArgumentNullException(nameof(connection));
             TearDownConnection();
             m_Connection = newConnection;
             SetupConnection();
@@ -90,7 +90,6 @@ namespace Unity.Scenes.Editor
                 _Connections.Remove(playerID);
                 LiveLinkPlayerDisconnected?.Invoke(playerID);
             }
-
         }
 
         internal void DisableSendForPlayer(int playerId)
@@ -105,7 +104,7 @@ namespace Unity.Scenes.Editor
             LiveLinkMsg.LogSend($"EntityChangeSet patch: '{buffer.Length}' bytes, scene '{entityChangeSet.SceneGUID}'");
             m_Connection.Send(LiveLinkMsg.EditorReceiveEntityChangeSet, buffer, playerID);
         }
-        
+
         void SendUnloadScenes(NativeArray<Hash128> unloadScenes, int playerID)
         {
             if (unloadScenes.Length == 0)
@@ -144,14 +143,13 @@ namespace Unity.Scenes.Editor
 
                 try
                 {
-
                     connection.Update(_ChangeSets, _LoadScenes, _UnloadScenes, LiveLinkMode.LiveConvertGameView);
 
                     // Load scenes that are not being edited live
                     SendLoadScenes(_LoadScenes.AsArray(), c.Key);
                     // Unload scenes that are no longer being edited / need to be reloaded etc
                     SendUnloadScenes(_UnloadScenes.AsArray(), c.Key);
-                    
+
                     // Apply changes to scenes that are being edited
                     foreach (var change in _ChangeSets)
                     {
@@ -178,13 +176,13 @@ namespace Unity.Scenes.Editor
             m_Connection.Register(LiveLinkMsg.PlayerSetLoadedScenes, SetLoadedScenes);
             m_Connection.RegisterConnection(OnPlayerConnected);
             m_Connection.RegisterDisconnection(OnPlayerDisconnected);
-            
+
             // After domain reload we need to reconnect all data to the player.
             // Optimally we would keep all state alive across domain reload...
             LiveLinkMsg.LogSend("ResetGame");
             m_Connection.Send(LiveLinkMsg.EditorResetGame, new byte[0]);
         }
-        
+
         void OnEnable()
         {
             _UnloadScenes = new NativeList<Hash128>(Allocator.Persistent);

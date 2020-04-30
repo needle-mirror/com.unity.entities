@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -94,10 +94,10 @@ namespace Unity.Scenes.Editor
         // This allows us to check if the GUID unpacks into k_UnityBuiltinExtraResources (0000000000000000f000000000000000) and if so, output the fileIdent for building the AssetBundle.
         // Ideally this will be removed with future improvements, where we stop having builtins packed into a single asset.
         //
-        // Example packed builtin_extra GUID: 0000000000000000f000000004820000 
+        // Example packed builtin_extra GUID: 0000000000000000f000000004820000
         public static unsafe bool TryRemapBuiltinExtraGuid(ref GUID guid, out long fileIdent)
         {
-            fixed (void* ptr = &guid)
+            fixed(void* ptr = &guid)
             {
                 var asHash = (Entities.Hash128*)ptr;
                 var temp = asHash->Value.w;
@@ -118,7 +118,7 @@ namespace Unity.Scenes.Editor
 
         public static unsafe void PackBuiltinExtraWithFileIdent(ref GUID guid, long fileIdent)
         {
-            fixed (void* ptr = &guid)
+            fixed(void* ptr = &guid)
             {
                 var asHash = (Entities.Hash128*)ptr;
                 asHash->Value.w = (uint)fileIdent;
@@ -219,11 +219,15 @@ namespace Unity.Scenes.Editor
                     sceneBundleInfo = new SceneBundleInfo
                     {
                         bundleName = scene,
-                        bundleScenes = new List<SceneLoadInfo> { new SceneLoadInfo {
-                        asset = sceneGuid,
-                        address = scenePath,
-                        internalName = generator.GenerateInternalFileName(scenePath)
-                    } }
+                        bundleScenes = new List<SceneLoadInfo>
+                        {
+                            new SceneLoadInfo
+                            {
+                                asset = sceneGuid,
+                                address = scenePath,
+                                internalName = generator.GenerateInternalFileName(scenePath)
+                            }
+                        }
                     }
                 };
 
@@ -253,9 +257,9 @@ namespace Unity.Scenes.Editor
                     {
                         GUID convGUID = obj.guid;
                         PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
-                        
+
                         writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(convGUID.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
-                        
+
                         dependencies?.Add(convGUID);
                     }
                     else if (!obj.guid.Empty())
@@ -266,7 +270,7 @@ namespace Unity.Scenes.Editor
                     {
                         dependencies?.Add(obj.guid);
                     }
-                    
+
                     if (type != null)
                         types?.Add(type);
                 }
@@ -293,7 +297,7 @@ namespace Unity.Scenes.Editor
             using (new BuildInterfacesWrapper())
             {
                 Directory.CreateDirectory(k_TempBuildPath);
-                
+
                 // Deterministic ID Generator
                 var generator = new Unity5PackedIdentifiers();
 
@@ -309,13 +313,13 @@ namespace Unity.Scenes.Editor
 #if UNITY_2020_1_OR_NEWER
                 // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
                 var manifestObjects =
- ContentBuildInterface.GetPlayerObjectIdentifiersInSerializedFile(manifestPath, buildSettings.target);
+                    ContentBuildInterface.GetPlayerObjectIdentifiersInSerializedFile(manifestPath, buildSettings.target);
 #else
                 var method = typeof(ContentBuildInterface).GetMethod("GetPlayerObjectIdentifiersInSerializedFile",
                     System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                 // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
                 var manifestObjects =
-                    (ObjectIdentifier[]) method.Invoke(null, new object[] {manifestPath, buildSettings.target});
+                    (ObjectIdentifier[])method.Invoke(null, new object[] {manifestPath, buildSettings.target});
 #endif
                 // Collect all the objects we need to reference for this asset (returned array order is deterministic)
                 var manifestDependencies =
@@ -407,7 +411,7 @@ namespace Unity.Scenes.Editor
                         writeParams.referenceMap.AddMapping(
                             generator.GenerateAssetBundleInternalFileName(obj.guid.ToString()),
                             generator.SerializationIndexFromObjectIdentifier(obj), obj);
-                    
+
                     // This will be solvable after we move SBP into the asset pipeline as importers.
                     if (!obj.guid.Empty() && type != typeof(MonoScript))
                     {
@@ -416,7 +420,7 @@ namespace Unity.Scenes.Editor
                         {
                             PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
                         }
-                        
+
                         dependencies?.Add(convGUID);
                     }
                 }
@@ -523,16 +527,16 @@ namespace Unity.Scenes.Editor
                         bundleName = asset,
                         // What is loadable from this bundle
                         bundleAssets = new List<AssetLoadInfo>
-                    {
-                        // The manifest object and it's dependencies
-                        new AssetLoadInfo
                         {
-                            address = asset,
-                            asset = assetGuid, // TODO: Remove this as it is unused in C++
-                            includedObjects = manifestObjects.ToList(), // TODO: In our effort to modernize the public API design we over complicated it trying to take List or return ReadOnlyLists. Should have just stuck with Arrays[] in all places
-                            referencedObjects = manifestDependencies.ToList()
+                            // The manifest object and it's dependencies
+                            new AssetLoadInfo
+                            {
+                                address = asset,
+                                asset = assetGuid, // TODO: Remove this as it is unused in C++
+                                includedObjects = manifestObjects.ToList(), // TODO: In our effort to modernize the public API design we over complicated it trying to take List or return ReadOnlyLists. Should have just stuck with Arrays[] in all places
+                                referencedObjects = manifestDependencies.ToList()
+                            }
                         }
-                    }
                     }
                 };
 
@@ -568,7 +572,7 @@ namespace Unity.Scenes.Editor
                         // If we are a specific built-in asset, only add the built-in asset
                         if (fileIdent != -1 && obj.localIdentifierInFile != fileIdent)
                             continue;
-                        
+
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
                     }
@@ -576,9 +580,9 @@ namespace Unity.Scenes.Editor
                     {
                         GUID convGUID = obj.guid;
                         PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
-                        
+
                         writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(convGUID.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
-                        
+
                         dependencies?.Add(convGUID);
                     }
                     else if (!obj.guid.Empty())

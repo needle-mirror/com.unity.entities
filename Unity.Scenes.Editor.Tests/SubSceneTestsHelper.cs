@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -6,7 +6,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Unity.Scenes.Editor.Tests {
+namespace Unity.Scenes.Editor.Tests
+{
     static class SubSceneTestsHelper
     {
         public static SubScene CreateSubSceneInSceneFromObjects(string name, bool keepOpen, Scene parentScene, Func<List<GameObject>> createObjects = null)
@@ -45,7 +46,7 @@ namespace Unity.Scenes.Editor.Tests {
             EditorSceneManager.SaveScene(scene, scenePath);
             return scene;
         }
-        
+
         public static Scene CreateTmpScene(ref TestWithTempAssets testAssets)
         {
             var parentScenePath = testAssets.GetNextPath() + ".unity";

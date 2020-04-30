@@ -27,6 +27,7 @@ namespace Unity.Scenes.Editor
                 this.parentScene = target != null ? target.scene : parentScene;
                 newSubSceneMode = mode;
             }
+
             public GameObject target;
             public Scene parentScene;
             public NewSubSceneMode newSubSceneMode;
@@ -91,7 +92,7 @@ namespace Unity.Scenes.Editor
             var parentScene = target != null ? target.scene : GetLastRootScene();
             var validForEmptyScene = validTarget || !string.IsNullOrEmpty(parentScene.path);
             if (!EditorApplication.isPlaying && validForEmptyScene)
-                menu.AddItem(newEmptySubScene, false, OnMenuItemForNewSubScene, new NewSubSceneArgs (target, parentScene, NewSubSceneMode.EmptyScene));
+                menu.AddItem(newEmptySubScene, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(target, parentScene, NewSubSceneMode.EmptyScene));
             else
                 menu.AddDisabledItem(newEmptySubScene);
 
@@ -127,7 +128,7 @@ namespace Unity.Scenes.Editor
                     isParent = true;
                     break;
                 }
-                else 
+                else
                     childDir = childDir.Parent;
             }
 
@@ -166,7 +167,7 @@ namespace Unity.Scenes.Editor
                     return;
                 }
             }
-            
+
             var parentScene = args.parentScene.isLoaded ? args.parentScene : args.target.scene;
             var parentSceneName = Path.GetFileNameWithoutExtension(parentScene.path);
             var startFolder = Path.Combine(Path.GetDirectoryName(parentScene.path), parentSceneName);
@@ -359,7 +360,7 @@ namespace Unity.Scenes.Editor
                         }
                         break;
                     default:
-                        Debug.LogError("Enum not handled"); 
+                        Debug.LogError("Enum not handled");
                         break;
                 }
                 EditorSceneManager.SaveScene(scene, dstPath);

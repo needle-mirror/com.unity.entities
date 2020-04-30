@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace Unity.Entities
@@ -8,7 +8,7 @@ namespace Unity.Entities
 #if !UNITY_2020_1_OR_NEWER
         public const UInt64 LiveLinkEditSceneViewMask = 1UL << 60;
         public const UInt64 LiveLinkEditGameViewMask = 1UL << 59;
-#endif       
+#endif
         public ulong      SceneCullingMask;
         public GameObject PickableObject;
 

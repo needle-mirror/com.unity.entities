@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using System;
 
 //@TODO: We should really design systems / jobs / exceptions / errors
@@ -10,15 +10,14 @@ using System;
 namespace Unity.Entities.Tests
 {
     class SafetyTests : ECSTestsFixture
-	{
-
-		[Test]
-		public void RemoveEntityComponentThrows()
-		{
-			var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-			Assert.Throws<ArgumentException>(() => { m_Manager.RemoveComponent(entity, typeof(Entity)); });
-			Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
-		}
+    {
+        [Test]
+        public void RemoveEntityComponentThrows()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            Assert.Throws<ArgumentException>(() => { m_Manager.RemoveComponent(entity, typeof(Entity)); });
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+        }
 
         [Test]
         public void GetSetComponentThrowsIfNotExist()
@@ -62,6 +61,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(testData.value, 2);
         }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
+// EntitiesAssert isn't currently supported
+
         [Test]
         public void RemoveComponentTwiceIgnored()
         {
@@ -74,11 +77,13 @@ namespace Unity.Entities.Tests
             EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(entity));
             var removed1 = m_Manager.RemoveComponent<EcsTestData>(entity);
             EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(entity));
-            
+
             Assert.That(removed0, Is.True);
             Assert.That(removed1, Is.False);
         }
-        
+
+#endif
+
         [Test]
         public void RemoveSharedComponentTwiceIgnored()
         {
@@ -88,11 +93,11 @@ namespace Unity.Entities.Tests
 
             var removed0 = m_Manager.RemoveComponent<EcsTestSharedComp>(entity);
             var removed1 = m_Manager.RemoveComponent<EcsTestSharedComp>(entity);
-            
+
             Assert.That(removed0, Is.True);
             Assert.That(removed1, Is.False);
         }
-        
+
         [Test]
         public void RemoveChunkComponentTwiceIgnored()
         {
@@ -102,11 +107,11 @@ namespace Unity.Entities.Tests
 
             var removed0 = m_Manager.RemoveChunkComponent<EcsTestData>(entity);
             var removed1 = m_Manager.RemoveChunkComponent<EcsTestData>(entity);
-            
+
             Assert.That(removed0, Is.True);
             Assert.That(removed1, Is.False);
         }
-        
+
         [Test]
         public void AddComponentOnDestroyedEntityThrows()
         {
@@ -115,13 +120,13 @@ namespace Unity.Entities.Tests
             Assert.Throws<System.InvalidOperationException>(() => { m_Manager.AddComponentData(destroyedEntity, new EcsTestData(1)); });
         }
 
-	    [Test]
-	    public void RemoveComponentOnDestroyedEntityIsIgnored()
-	    {
-	        var destroyedEntity = m_Manager.CreateEntity(typeof(EcsTestData));
-	        m_Manager.DestroyEntity(destroyedEntity);
-	        m_Manager.RemoveComponent<EcsTestData>(destroyedEntity);
-	    }
+        [Test]
+        public void RemoveComponentOnDestroyedEntityIsIgnored()
+        {
+            var destroyedEntity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.DestroyEntity(destroyedEntity);
+            m_Manager.RemoveComponent<EcsTestData>(destroyedEntity);
+        }
 
         [Test]
         public void RemoveComponentOnEntityIsIgnored()
@@ -146,25 +151,25 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.Exists(entity));
         }
 
-	    [Test]
-	    public void NotYetCreatedEntityWithSameVersionThrows()
-	    {
-	        var notYetCreatedEntitySameVersion = new Entity() {Index = 0, Version = 1};
-	        Assert.IsFalse(m_Manager.Exists(notYetCreatedEntitySameVersion));
-	        Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponentData(notYetCreatedEntitySameVersion , new EcsTestData()));
-	    }
+        [Test]
+        public void NotYetCreatedEntityWithSameVersionThrows()
+        {
+            var notYetCreatedEntitySameVersion = new Entity() {Index = 0, Version = 1};
+            Assert.IsFalse(m_Manager.Exists(notYetCreatedEntitySameVersion));
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponentData(notYetCreatedEntitySameVersion , new EcsTestData()));
+        }
 
-	    [Test]
-	    public void CreateEntityWithNullTypeThrows()
-	    {
-	        Assert.Throws<System.NullReferenceException>(() => m_Manager.CreateEntity(null));
-	    }
+        [Test]
+        public void CreateEntityWithNullTypeThrows()
+        {
+            Assert.Throws<System.NullReferenceException>(() => m_Manager.CreateEntity(null));
+        }
 
-	    [Test]
-	    public void CreateEntityWithOneNullTypeThrows()
-	    {
-	        Assert.Throws<System.ArgumentException>(() => m_Manager.CreateEntity(null, typeof(EcsTestData)));
-	    }
+        [Test]
+        public void CreateEntityWithOneNullTypeThrows()
+        {
+            Assert.Throws<System.ArgumentException>(() => m_Manager.CreateEntity(null, typeof(EcsTestData)));
+        }
 
         unsafe struct BigComponentData1 : IComponentData
         {
@@ -176,13 +181,13 @@ namespace Unity.Entities.Tests
             public fixed float BigArray[10000];
         }
 
-	    [Test]
-	    public void CreateTooBigArchetypeThrows()
-	    {
-	        Assert.Throws<System.ArgumentException>(() =>
-	        {
+        [Test]
+        public void CreateTooBigArchetypeThrows()
+        {
+            Assert.Throws<System.ArgumentException>(() =>
+            {
                 m_Manager.CreateArchetype(typeof(BigComponentData1), typeof(BigComponentData2));
-	        });
-	    }
+            });
+        }
     }
 }

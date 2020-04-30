@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -18,7 +18,7 @@ namespace Unity.Entities.CodeGen
     internal class LambdaParameterValueInformations
     {
         private LambdaParamaterValueProviderInformation[] _providers;
-            
+
         Dictionary<string, LambdaParamaterValueProviderInformation> _parameterTypeNameToProvider;
         readonly Dictionary<LambdaParamaterValueProviderInformation, (FieldDefinition elementField, FieldDefinition runtimeField)> _elementProviderToFields = new Dictionary<LambdaParamaterValueProviderInformation, (FieldDefinition elementField, FieldDefinition runtimeField)>();
         TypeDefinition _jobChunkType;
@@ -40,12 +40,12 @@ namespace Unity.Entities.CodeGen
         {
             _lambdaParameterValueProvidersType = new TypeDefinition("", "LambdaParameterValueProviders", TypeAttributes.NestedPrivate | TypeAttributes.SequentialLayout | TypeAttributes.Sealed, _jobChunkType.Module.ImportReference(typeof(ValueType))) {DeclaringType = _jobChunkType};
             _jobChunkType.NestedTypes.Add(_lambdaParameterValueProvidersType);
-             
+
             _elementsField = new FieldDefinition("_lambdaParameterValueProviders", FieldAttributes.Private, _lambdaParameterValueProvidersType);
             _jobChunkType.Fields.Add(_elementsField);
-            
+
             RuntimesType = new TypeDefinition("", "Runtimes", TypeAttributes.NestedPublic | TypeAttributes.SequentialLayout | TypeAttributes.Sealed, _jobChunkType.Module.ImportReference(typeof(ValueType))) { DeclaringType = _lambdaParameterValueProvidersType};
-            if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias) 
+            if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias)
                 RuntimesType.AddNoAliasAttribute();
             _lambdaParameterValueProvidersType.NestedTypes.Add(RuntimesType);
 
@@ -58,7 +58,7 @@ namespace Unity.Entities.CodeGen
                 }
             };
             _jobChunkType.Fields.Add(_runtimesField);
-            
+
             if (_withStructuralChanges)
             {
                 // We need an entity provider to handle iterating through entities during structural changes
@@ -75,25 +75,25 @@ namespace Unity.Entities.CodeGen
                     var readOnlyAttributeConstructor = JobStructForLambdaJob.AttributeConstructorReferenceFor(typeof(ReadOnlyAttribute), _jobChunkType.Module);
                     parameterFieldDefinition.CustomAttributes.Add(new CustomAttribute(readOnlyAttributeConstructor));
                 }
-                
+
                 _lambdaParameterValueProvidersType.Fields.Add(parameterFieldDefinition);
                 bool applyBurstAliasAttribute = _lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias;
                 if (applyBurstAliasAttribute)
                     parameterFieldDefinition.AddNoAliasAttribute();
-                    
+
                 var runtimeFieldDefinition = new FieldDefinition($"runtime_{provider.Name}", FieldAttributes.Public, provider.ProviderRuntime);
                 RuntimesType.Fields.Add(runtimeFieldDefinition);
                 if (_lambdaJobDescriptionConstruction.UsesBurst && LambdaJobDescriptionConstruction.UsesNoAlias)
                     runtimeFieldDefinition.AddNoAliasAttribute();
 
                 _elementProviderToFields.Add(provider, (parameterFieldDefinition, runtimeFieldDefinition));
-                    
+
                 counter++;
             }
-            
+
 
             MakeScheduleTimeInitializeMethod();
-            
+
             if (_withStructuralChanges)
                 MakePrepareForStructuralChangesMethod();
             else
@@ -103,10 +103,10 @@ namespace Unity.Entities.CodeGen
         void MakePrepareForStructuralChangesMethod()
         {
             MethodReference mimickParametersFrom = ModuleDefinition.ImportReference(
-                    typeof(StructuralChangeEntityProvider).GetMethod(nameof(StructuralChangeEntityProvider.PrepareToExecuteWithStructuralChanges), 
-                        BindingFlags.Public | BindingFlags.Instance));
-            
-            _prepareToExecute = new MethodDefinition("PrepareToExecuteWithStructuralChanges", MethodAttributes.Public,RuntimesType)
+                typeof(StructuralChangeEntityProvider).GetMethod(nameof(StructuralChangeEntityProvider.PrepareToExecuteWithStructuralChanges),
+                    BindingFlags.Public | BindingFlags.Instance));
+
+            _prepareToExecute = new MethodDefinition("PrepareToExecuteWithStructuralChanges", MethodAttributes.Public, RuntimesType)
             {
                 HasThis = true,
             };
@@ -124,16 +124,16 @@ namespace Unity.Entities.CodeGen
             // Initialize the result object.
             il.Emit(OpCodes.Ldloca, resultVariable);
             il.Emit(OpCodes.Initobj, RuntimesType);
-            
-            // Prepare our StructuralChangeEntityProvider instance 
+
+            // Prepare our StructuralChangeEntityProvider instance
             il.Emit(OpCodes.Ldloca, resultVariable);
             il.Emit(OpCodes.Ldflda, _entityProviderField);
             il.Emit(OpCodes.Ldarg_1);
             il.Emit(OpCodes.Ldarg_2);
-            il.Emit(OpCodes.Call, 
+            il.Emit(OpCodes.Call,
                 ModuleDefinition.ImportReference(typeof(StructuralChangeEntityProvider).GetMethod(nameof(StructuralChangeEntityProvider.PrepareToExecuteWithStructuralChanges))));
-            
-            // Prepare all parameter providers    
+
+            // Prepare all parameter providers
             foreach (var providerInformation in _providers)
             {
                 il.Emit(OpCodes.Ldloca, resultVariable);
@@ -147,7 +147,7 @@ namespace Unity.Entities.CodeGen
                 // Store in the runtime struct that was already on the stack
                 il.Emit(OpCodes.Stfld, _elementProviderToFields[providerInformation].runtimeField);
             }
-            
+
             il.Emit(OpCodes.Ldloc, resultVariable);
             il.Emit(OpCodes.Ret);
         }
@@ -159,7 +159,7 @@ namespace Unity.Entities.CodeGen
                     nameof(LambdaParameterValueProvider_EntityInQueryIndex.PrepareToExecuteOnEntitiesIn),
                     BindingFlags.Public | BindingFlags.Instance));
 
-            _prepareToExecute = new MethodDefinition("PrepareToExecuteOnEntitiesInMethod", MethodAttributes.Public,RuntimesType)
+            _prepareToExecute = new MethodDefinition("PrepareToExecuteOnEntitiesInMethod", MethodAttributes.Public, RuntimesType)
             {
                 HasThis = true,
             };
@@ -177,14 +177,14 @@ namespace Unity.Entities.CodeGen
             //initialize the result object.
             il.Emit(OpCodes.Ldloca, resultVariable);
             il.Emit(OpCodes.Initobj, RuntimesType);
-                
+
             foreach (var providerInformation in _providers)
             {
                 il.Emit(OpCodes.Ldloca, resultVariable);
                 il.Emit(OpCodes.Ldarg_0);
                 il.Emit(OpCodes.Ldflda, _elementProviderToFields[providerInformation].elementField);
                 il.Emit(OpCodes.Ldarg_1);
-                    
+
                 //most PrepareToExecuteOnEntitiesIn take just the chunk, but some take the chunkIndex and firstEntityIndex as well.
                 if (!providerInformation.PrepareToExecuteOnEntitiesTakesJustAChunkParameter)
                 {
@@ -197,11 +197,11 @@ namespace Unity.Entities.CodeGen
                 //store in the runtime struct that was already on the stack
                 il.Emit(OpCodes.Stfld, _elementProviderToFields[providerInformation].runtimeField);
             }
-            
+
             il.Emit(OpCodes.Ldloc, resultVariable);
             il.Emit(OpCodes.Ret);
         }
-            
+
         private void MakeScheduleTimeInitializeMethod()
         {
             _scheduleTimeInitializeMethod = new MethodDefinition("ScheduleTimeInitialize", MethodAttributes.Public, ModuleDefinition.TypeSystem.Void)
@@ -209,7 +209,7 @@ namespace Unity.Entities.CodeGen
                 HasThis = true,
                 Parameters =
                 {
-                    new ParameterDefinition("componentSystem", ParameterAttributes.None,_lambdaJobDescriptionConstruction.ContainingMethod.DeclaringType),
+                    new ParameterDefinition("componentSystem", ParameterAttributes.None, _lambdaJobDescriptionConstruction.ContainingMethod.DeclaringType),
                 }
             };
             _lambdaParameterValueProvidersType.Methods.Add(_scheduleTimeInitializeMethod);
@@ -233,12 +233,12 @@ namespace Unity.Entities.CodeGen
         public static LambdaParameterValueInformations For(JobStructForLambdaJob generatedJobStruct, bool withStructuralChanges)
         {
             var lambdaJobDescriptionConstruction = generatedJobStruct.LambdaJobDescriptionConstruction;
-            
+
             var parameterDefinitions = lambdaJobDescriptionConstruction.MethodLambdaWasEmittedAs.Parameters.ToArray();
-            
-            var providerInformations = parameterDefinitions.Select(p => 
+
+            var providerInformations = parameterDefinitions.Select(p =>
                 LambdaParamaterValueProviderInformation.ElementProviderInformationFor(lambdaJobDescriptionConstruction, p, withStructuralChanges)).ToList();
-                
+
             var parameterTypeNameToProvider = new Dictionary<string, LambdaParamaterValueProviderInformation>();
             for (int left = 0; left != providerInformations.Count; left++)
             {
@@ -250,7 +250,7 @@ namespace Unity.Entities.CodeGen
                     if (leftObject == rightObject)
                         continue;
 
-                    if (leftObject.Provider.FullName != rightObject.Provider.FullName) 
+                    if (leftObject.Provider.FullName != rightObject.Provider.FullName)
                         continue;
 
                     if (!rightObject.IsReadOnly)
@@ -258,7 +258,7 @@ namespace Unity.Entities.CodeGen
                     else
                         providerInformations[right] = leftObject;
                 }
-                parameterTypeNameToProvider[parameterDefinitions[left].ParameterType.FullName] = providerInformations[left];    
+                parameterTypeNameToProvider[parameterDefinitions[left].ParameterType.FullName] = providerInformations[left];
             }
 
             var result = new LambdaParameterValueInformations()
@@ -281,21 +281,21 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Ldarg_0); //<-- for the stdfld at the end
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldflda, _elementsField);
-            
+
             if (_withStructuralChanges)
             {
-                il.Emit(OpCodes.Ldarg,1); // ComponentSystem
-                il.Emit(OpCodes.Ldarg,2); // EntityQuery
+                il.Emit(OpCodes.Ldarg, 1); // ComponentSystem
+                il.Emit(OpCodes.Ldarg, 2); // EntityQuery
             }
             else
             {
-                il.Emit(OpCodes.Ldarga,1); // <- the chunk goes by ref
-                il.Emit(OpCodes.Ldarg,2);
-                il.Emit(OpCodes.Ldarg,3);   
+                il.Emit(OpCodes.Ldarga, 1); // <- the chunk goes by ref
+                il.Emit(OpCodes.Ldarg, 2);
+                il.Emit(OpCodes.Ldarg, 3);
             }
-            
+
             il.Emit(OpCodes.Call, _prepareToExecute);
-            
+
             var runtimesVariable = new VariableDefinition(RuntimesType);
             il.Body.Variables.Add(runtimesVariable);
             executeMethod.Body.InitLocals = true; // initlocals must be set for verifiable methods with one or more local variables
@@ -307,29 +307,29 @@ namespace Unity.Entities.CodeGen
 
             return runtimesVariable;
         }
-        
+
         public void EmitInvocationToScheduleTimeInitializeIntoJobChunkScheduleTimeInitialize(MethodDefinition jobChunkScheduleTimeInitialize)
         {
             var il = jobChunkScheduleTimeInitialize.Body.GetILProcessor();
-            
+
             il.Emit(OpCodes.Ldarg_0);
             il.Emit(OpCodes.Ldflda, _elementsField);
-            
-            il.Emit(OpCodes.Ldarg,1);
+
+            il.Emit(OpCodes.Ldarg, 1);
             il.Emit(OpCodes.Call, _scheduleTimeInitializeMethod);
         }
 
-        public void EmitILToLoadValueForParameterOnStack(ParameterDefinition parameterDefinition,ILProcessor ilProcessor, VariableDefinition loopCounter)
+        public void EmitILToLoadValueForParameterOnStack(ParameterDefinition parameterDefinition, ILProcessor ilProcessor, VariableDefinition loopCounter)
         {
             var provider = _parameterTypeNameToProvider[parameterDefinition.ParameterType.FullName];
 
             ilProcessor.Emit(OpCodes.Ldarg_2);
-            
+
             ilProcessor.Emit(OpCodes.Ldflda, _elementProviderToFields[provider].runtimeField);
-           
+
             ilProcessor.Emit(OpCodes.Ldloc, loopCounter);
             ilProcessor.Emit(OpCodes.Call, provider.RuntimeForMethod);
-                
+
             if (provider.RuntimeForMethod.ReturnType.IsByReference &&
                 !parameterDefinition.ParameterType.IsByReference)
                 ilProcessor.Emit(OpCodes.Ldobj, parameterDefinition.ParameterType);
@@ -348,14 +348,14 @@ namespace Unity.Entities.CodeGen
             ParameterDefinition parameterDefinition, ILProcessor ilProcessor)
         {
             VariableDefinition addressVariable = null;
-                
+
             var provider = _parameterTypeNameToProvider[parameterDefinition.ParameterType.FullName];
 
             ilProcessor.Emit(OpCodes.Ldloc, runtimesVariable);
             ilProcessor.Emit(OpCodes.Ldflda, _elementProviderToFields[provider].runtimeField);
 
             ilProcessor.Emit(OpCodes.Ldarg_2);
-            
+
             // In the case where we are getting an IComponentData, we also need to store a copy of the address (to check for changes)
             if (provider.RuntimeForMethod.Parameters.Count == 2)
             {
@@ -378,7 +378,7 @@ namespace Unity.Entities.CodeGen
             VariableDefinition parameterCopyVariableDefinition, VariableDefinition parameterAddressVariableDefinition)
         {
             var provider = _parameterTypeNameToProvider[parameterDefinition.ParameterType.FullName];
-            
+
             // Only write-back providers that are setup for structural changes
             // and are not ReadOnly
             if (!provider.WithStructuralChanges || provider.RuntimeWriteBackMethod == null || provider.IsReadOnly)
@@ -390,7 +390,7 @@ namespace Unity.Entities.CodeGen
             ilProcessor.Emit(OpCodes.Ldarg_2);
 
             ilProcessor.Emit(OpCodes.Ldloca, parameterCopyVariableDefinition);
-            
+
             if (parameterAddressVariableDefinition != null)
                 ilProcessor.Emit(OpCodes.Ldloca, parameterAddressVariableDefinition);
 

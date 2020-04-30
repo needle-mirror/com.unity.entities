@@ -1,4 +1,5 @@
-﻿using Unity.Entities;
+using System;
+using Unity.Entities;
 
 namespace Unity.Transforms
 {
@@ -6,8 +7,9 @@ namespace Unity.Transforms
     /// Copy Transform from GameObject associated with Entity to TransformMatrix.
     /// </summary>
     [WriteGroup(typeof(LocalToWorld))]
-    public struct CopyTransformFromGameObject : IComponentData { }
+    public struct CopyTransformFromGameObject : IComponentData {}
 
     [UnityEngine.DisallowMultipleComponent]
-    public class CopyTransformFromGameObjectProxy : ComponentDataProxy<CopyTransformFromGameObject> { } 
+    [Obsolete("CopyTransformFromGameObjectProxy has been deprecated. Please use the new GameObject-to-entity conversion workflows instead. (RemovedAfter 2020-07-03).")]
+    public class CopyTransformFromGameObjectProxy : ComponentDataProxy<CopyTransformFromGameObject> {}
 }

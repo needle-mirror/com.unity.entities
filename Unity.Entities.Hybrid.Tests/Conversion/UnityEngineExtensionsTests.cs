@@ -8,8 +8,8 @@ namespace Unity.Entities.Tests.Conversion
 {
     class UnityEngineExtensionsTests : ConversionTestFixtureBase
     {
-        class TestScriptableObject : ScriptableObject { }
-        class TestUnityComponent : MonoBehaviour { }
+        class TestScriptableObject : ScriptableObject {}
+        class TestUnityComponent : MonoBehaviour {}
 
         [Test]
         public void IsAssetOrPrefab_MatchesWhatIsCreated()
@@ -17,13 +17,13 @@ namespace Unity.Entities.Tests.Conversion
             var prefab = LoadPrefab("Prefab");
             var instantiated = InstantiateGameObject(prefab);
             var asset = CreateScriptableObject<TestScriptableObject>();
-            
+
             Assert.That(prefab.IsPrefab(), Is.True);
             Assert.That(prefab.IsAsset, Is.False);
-            
+
             Assert.That(instantiated.IsPrefab(), Is.False);
             Assert.That(instantiated.IsAsset, Is.False);
-            
+
             Assert.That(asset.IsAsset, Is.True);
         }
 
@@ -75,7 +75,7 @@ namespace Unity.Entities.Tests.Conversion
         {
             var go = CreateGameObject();
             var component = go.AddComponent<TestUnityComponent>();
-            
+
             Assert.That(go.ComputeInstanceHash(), Is.EqualTo(component.ComputeInstanceHash()));
             Assert.That(go.ComputeEntityGuid(0, 0), Is.EqualTo(component.ComputeEntityGuid(0, 0)));
         }

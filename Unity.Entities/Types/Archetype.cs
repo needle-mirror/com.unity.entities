@@ -18,7 +18,7 @@ namespace Unity.Entities
         HasBufferComponents = 128,
         HasManagedComponents = 256
     }
-    
+
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct Archetype
     {
@@ -30,14 +30,14 @@ namespace Unity.Entities
 
         public int EntityCount;
         public int ChunkCapacity;
-        
+
         public int TypesCount;
         public int InstanceSize;
         public int InstanceSizeWithOverhead;
         public int ManagedEntityPatchCount;
         public int ScalarEntityPatchCount;
         public int BufferEntityPatchCount;
-        
+
         // Index matches archetype types
         public int* Offsets;
         public int* SizeOfs;
@@ -58,14 +58,19 @@ namespace Unity.Entities
         public ArchetypeFlags Flags;
 
         public Archetype* CopyArchetype; // Removes system state components
-        public Archetype* InstantiateArchetype; // Removes system state components & prefabs 
+        public Archetype* InstantiateArchetype; // Removes system state components & prefabs
         public Archetype* SystemStateResidueArchetype;
         public Archetype* MetaChunkArchetype;
 
         public EntityRemapUtility.EntityPatchInfo* ScalarEntityPatches;
         public EntityRemapUtility.BufferEntityPatchInfo* BufferEntityPatches;
         public EntityRemapUtility.ManagedEntityPatchInfo* ManagedEntityPatches;
-		
+
+        // @macton Temporarily store back reference to EntityComponentStore.
+        // - In order to remove this we need to sever the connection to ManagedChangesTracker
+        //   when structural changes occur.
+        public EntityComponentStore* EntityComponentStore;
+
         public fixed byte QueryMaskArray[128];
 
         public bool SystemStateCleanupComplete => (Flags & ArchetypeFlags.SystemStateCleanupComplete) != 0;
@@ -92,7 +97,7 @@ namespace Unity.Entities
         public int TagComponentsEnd => FirstSharedComponent;
         public int SharedComponentsEnd => FirstChunkComponent;
         public int ChunkComponentsEnd => TypesCount;
-        
+
         public bool HasChunkComponents => FirstChunkComponent != TypesCount;
 
         public bool IsManaged(int typeIndexInArchetype) => Types[typeIndexInArchetype].IsManagedComponent;
@@ -114,25 +119,25 @@ namespace Unity.Entities
             chunk->ListIndex = Chunks.Count;
             if (Chunks.Count == Chunks.Capacity)
             {
-                int newCapacity = Chunks.Capacity == 0 ? 1 : Chunks.Capacity * 2;
-                if (Chunks.data <= sharedComponentIndices.firstIndex &&
-                    sharedComponentIndices.firstIndex < Chunks.data + Chunks.Count)
+                var newCapacity = (Chunks.Capacity == 0) ? 1 : (Chunks.Capacity * 2);
+
+                // The shared component indices we are inserting belong to the same archetype so they need to be adjusted after reallocation
+                if (Chunks.InsideAllocation((ulong)sharedComponentIndices.firstIndex))
                 {
-                    int sourceChunk = (int)(sharedComponentIndices.firstIndex - Chunks.data);
-                    // The shared component indices we are inserting belong to the same archetype so they need to be adjusted after reallocation
+                    int chunkIndex = (int)(sharedComponentIndices.firstIndex - Chunks.GetSharedComponentValueArrayForType(0));
                     Chunks.Grow(newCapacity);
-                    sharedComponentIndices = Chunks.GetSharedComponentValues(sourceChunk);
+                    sharedComponentIndices = Chunks.GetSharedComponentValues(chunkIndex);
                 }
                 else
+                {
                     Chunks.Grow(newCapacity);
+                }
             }
 
             Chunks.Add(chunk, sharedComponentIndices, changeVersion);
         }
-        
-        
 
-        public void RemoveFromChunkList(Chunk *chunk)
+        public void RemoveFromChunkList(Chunk* chunk)
         {
             Chunks.RemoveAtSwapBack(chunk->ListIndex);
             var chunkThatMoved = Chunks.p[chunk->ListIndex];

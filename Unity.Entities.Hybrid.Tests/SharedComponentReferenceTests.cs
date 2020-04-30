@@ -14,6 +14,7 @@ namespace Unity.Entities.Tests
             {
                 return Target == other.Target;
             }
+
             public override int GetHashCode()
             {
                 return ReferenceEquals(Target, null) ? 0 : Target.GetHashCode();
@@ -47,7 +48,7 @@ namespace Unity.Entities.Tests
             UnityEngine.Object.DestroyImmediate(obj);
             m_Manager.DestroyEntity(e);
         }
-        
+
         [Test]
         public void IncorrectlyImplementedHashWorksWithDestroy()
         {
@@ -58,10 +59,10 @@ namespace Unity.Entities.Tests
 
             m_Manager.DestroyEntity(e);
             m_Manager.Debug.CheckInternalConsistency();
-            
+
             Assert.IsTrue(m_Manager.Debug.IsSharedComponentManagerEmpty());
         }
-        
+
         [Test]
         public void CorrectlyImplementedHashCodeWorksWithFilters()
         {
@@ -72,11 +73,11 @@ namespace Unity.Entities.Tests
             UnityEngine.Object.DestroyImmediate(obj);
 
             var query = m_Manager.CreateEntityQuery(typeof(CorrectHashCode));
-            
+
             query.SetSharedComponentFilter(sharedComponent);
             Assert.AreEqual(0, query.CalculateEntityCount());
         }
-        
+
         [Test]
         public void IncorrectlyImplementedHashCodeDoesntWorksWithFilters()
         {
@@ -87,11 +88,11 @@ namespace Unity.Entities.Tests
             UnityEngine.Object.DestroyImmediate(obj);
 
             var query = m_Manager.CreateEntityQuery(typeof(IncorrectHashCode));
-            
+
             query.SetSharedComponentFilter(sharedComponent);
             Assert.AreEqual(0, query.CalculateEntityCount());
         }
-        
+
         //@TODO: Adding two entities with both broken object reference. removes right one...s
     }
 }

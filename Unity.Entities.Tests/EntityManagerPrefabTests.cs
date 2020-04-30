@@ -124,9 +124,9 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
             Assert.IsFalse(m_Manager.Exists(entity));
         }
-        
+
         [Test]
-        public void InstantiateExplicitEntitySet([Values]bool instantiate)
+        public void InstantiateExplicitEntitySet([Values] bool instantiate)
         {
             var external = m_Manager.CreateEntity();
             var a = m_Manager.CreateEntity();
@@ -157,7 +157,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(4, m_Manager.CreateEntityQuery(
                 new EntityQueryDesc
                 {
-                    All = new [] { ComponentType.ReadWrite<EcsTestDataEntity>() },
+                    All = new[] { ComponentType.ReadWrite<EcsTestDataEntity>() },
                     Options = EntityQueryOptions.IncludePrefab
                 }).CalculateEntityCount());
         }

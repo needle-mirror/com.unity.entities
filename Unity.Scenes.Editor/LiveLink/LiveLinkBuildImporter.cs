@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -144,6 +144,7 @@ namespace Unity.Scenes.Editor
 
         public override void OnImportAsset(AssetImportContext ctx)
         {
+            ctx.DependsOnCustomDependency(EditorUserBuildSettings.activeBuildTarget.ToString());
             if (ctx.assetPath.ToLower().EndsWith(k_SceneExtension))
                 ImportSceneBundle(ctx);
             else
@@ -182,7 +183,7 @@ namespace Unity.Scenes.Editor
 
                 if (LiveLinkBuildPipeline.TryRemapBuiltinExtraGuid(ref dependencyGuid, out _))
                     continue;
-                
+
                 var path = AssetDatabase.GUIDToAssetPath(dependencyGuid.ToString());
                 ctx.DependsOnSourceAsset(path);
             }

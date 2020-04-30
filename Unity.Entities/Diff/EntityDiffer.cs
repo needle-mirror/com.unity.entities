@@ -63,6 +63,7 @@ namespace Unity.Entities
 
             return sb.ToString();
         }
+
         public override string ToString() => ToString(DuplicateEntityGuids);
         #endif
     }
@@ -94,7 +95,7 @@ namespace Unity.Entities
 
         /// <summary>
         /// If set; all references to destroyed or missing entities will be set to Entity.Null before computing changes.
-        /// 
+        ///
         /// When applying a change this is needed to patch references to restored entities (they were destroyed but are being brought back by the change set).
         /// </summary>
         /// <remarks>
@@ -113,13 +114,13 @@ namespace Unity.Entities
         /// <summary>
         /// The default set of options used by the <see cref="EntityDiffer"/>
         /// </summary>
-        Default = IncludeForwardChangeSet | 
-                  IncludeReverseChangeSet | 
-                  FastForwardShadowWorld | 
-                  ClearMissingReferences |
-                  ValidateUniqueEntityGuid
+        Default = IncludeForwardChangeSet |
+            IncludeReverseChangeSet |
+            FastForwardShadowWorld |
+            ClearMissingReferences |
+            ValidateUniqueEntityGuid
     }
-    
+
     /// <summary>
     /// The <see cref="EntityDiffer"/> is used to build a set of changes between two worlds.
     /// </summary>
@@ -134,10 +135,13 @@ namespace Unity.Entities
     /// </remarks>
     unsafe partial class EntityDiffer
     {
-#if ENABLE_PROFILER || UNITY_EDITOR
         static Profiling.ProfilerMarker s_GetChangesProfilerMarker = new Profiling.ProfilerMarker("GetChanges");
-#endif
-        
+        static Profiling.ProfilerMarker s_CreateEntityChangeSetProfilerMarker = new Profiling.ProfilerMarker(nameof(CreateEntityChangeSet));
+        static Profiling.ProfilerMarker s_GetEntityNamesProfilerMarker = new Profiling.ProfilerMarker(nameof(GetEntityNames));
+        static Profiling.ProfilerMarker s_GetChangedManagedComponentsProfilerMarker = new Profiling.ProfilerMarker(nameof(GetChangedManagedComponents));
+        static Profiling.ProfilerMarker s_GetChangedSharedComponentsProfilerMarker = new Profiling.ProfilerMarker(nameof(GetChangedSharedComponents));
+        static Profiling.ProfilerMarker s_CopyAndReplaceChunksProfilerMarker = new Profiling.ProfilerMarker(nameof(CopyAndReplaceChunks));
+
         /// <summary>
         /// Generates a detailed change set between <see cref="srcEntityManager"/> and <see cref="dstEntityManager"/>.
         /// All entities to be considered must have the <see cref="EntityGuid"/> component with a unique value.
@@ -155,16 +159,14 @@ namespace Unity.Entities
             BlobAssetCache blobAssetCache,
             Allocator allocator)
         {
-#if ENABLE_PROFILER || UNITY_EDITOR
             s_GetChangesProfilerMarker.Begin();
-#endif
             CheckEntityGuidComponent(entityQueryDesc);
-            
+
             var changes = default(EntityChanges);
-            
+
             if (options == EntityManagerDifferOptions.None)
                 return changes;
-            
+
             srcEntityManager.CompleteAllJobs();
             dstEntityManager.CompleteAllJobs();
 
@@ -176,7 +178,7 @@ namespace Unity.Entities
             using (var dstChunks = dstEntityQuery.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var dstChunksJob))
             {
                 JobHandle clearMissingReferencesJob = default;
-                
+
                 if (CheckOption(options, EntityManagerDifferOptions.ClearMissingReferences))
                 {
                     // Opt-in feature.
@@ -186,34 +188,34 @@ namespace Unity.Entities
                     // will force it to be picked up in the change set.
                     ClearMissingReferences(srcEntityManager, srcChunks, out clearMissingReferencesJob, srcChunksJob);
                 }
-                
+
                 // @TODO NET_DOTS does not support JobHandle.CombineDependencies with 3 arguments.
 #if NET_DOTS
                 var archetypeChunkChangesJobDependencies = CombineDependencies(srcChunksJob, dstChunksJob, clearMissingReferencesJob);
 #else
                 var archetypeChunkChangesJobDependencies = JobHandle.CombineDependencies(srcChunksJob, dstChunksJob, clearMissingReferencesJob);
 #endif
-                
+
                 // Broad phased chunk comparison.
                 using (var archetypeChunkChanges = GetArchetypeChunkChanges(
-                    srcChunks: srcChunks,                                  
-                    dstChunks: dstChunks, 
-                    allocator: Allocator.TempJob, 
-                    jobHandle: out var archetypeChunkChangesJob, 
+                    srcChunks: srcChunks,
+                    dstChunks: dstChunks,
+                    allocator: Allocator.TempJob,
+                    jobHandle: out var archetypeChunkChangesJob,
                     dependsOn: archetypeChunkChangesJobDependencies))
                 {
                     // Explicitly sync at this point to parallelize subsequent jobs by chunk.
                     archetypeChunkChangesJob.Complete();
-                    
+
                     // Gather a sorted set of entities based on which chunks have changes.
                     using (var srcEntities = GetSortedEntitiesInChunk(
-                        archetypeChunkChanges.CreatedSrcChunks, Allocator.TempJob, 
+                        archetypeChunkChanges.CreatedSrcChunks, Allocator.TempJob,
                         jobHandle: out var srcEntitiesJob))
                     using (var dstEntities = GetSortedEntitiesInChunk(
-                        archetypeChunkChanges.DestroyedDstChunks, Allocator.TempJob, 
+                        archetypeChunkChanges.DestroyedDstChunks, Allocator.TempJob,
                         jobHandle: out var dstEntitiesJob))
                     using (var srcBlobAssets = GetReferencedBlobAssets(
-                        srcChunks, Allocator.TempJob, 
+                        srcChunks, Allocator.TempJob,
                         jobHandle: out var srcBlobAssetsJob))
                     using (var dstBlobAssets = blobAssetCache.BlobAssetBatch->ToNativeList(Allocator.TempJob))
                     {
@@ -224,7 +226,7 @@ namespace Unity.Entities
                         var reverseComponentChanges = default(ComponentChanges);
                         var forwardBlobAssetChanges = default(BlobAssetChanges);
                         var reverseBlobAssetChanges = default(BlobAssetChanges);
-                        
+
                         try
                         {
                             JobHandle getDuplicateEntityGuidsJob = default;
@@ -235,8 +237,8 @@ namespace Unity.Entities
                             {
                                 // Guid validation will happen incrementally and only consider changed entities in the source world.
                                 duplicateEntityGuids = GetDuplicateEntityGuids(
-                                    srcEntities, Allocator.TempJob, 
-                                    jobHandle: out getDuplicateEntityGuidsJob, 
+                                    srcEntities, Allocator.TempJob,
+                                    jobHandle: out getDuplicateEntityGuidsJob,
                                     dependsOn: srcEntitiesJob);
                             }
 
@@ -250,25 +252,25 @@ namespace Unity.Entities
                                     Allocator.TempJob,
                                     jobHandle: out var forwardEntityChangesJob,
                                     dependsOn: JobHandle.CombineDependencies(srcEntitiesJob, dstEntitiesJob));
-                                
+
                                 forwardComponentChanges = GetComponentChanges(
-                                    forwardEntityChanges, 
+                                    forwardEntityChanges,
                                     default,
                                     blobAssetCache.BlobAssetRemap,
                                     Allocator.TempJob,
                                     jobHandle: out var forwardComponentChangesJob,
                                     dependsOn: forwardEntityChangesJob);
-                                
+
                                 forwardBlobAssetChanges = GetBlobAssetChanges(
                                     srcBlobAssets,
                                     dstBlobAssets,
-                                    Allocator.TempJob, 
-                                    jobHandle: out var forwardBlobAssetsChangesJob, 
+                                    Allocator.TempJob,
+                                    jobHandle: out var forwardBlobAssetsChangesJob,
                                     dependsOn: srcBlobAssetsJob);
-                                
+
                                 forwardChangesJob = JobHandle.CombineDependencies(forwardComponentChangesJob, forwardBlobAssetsChangesJob);
                             }
-                            
+
                             if (CheckOption(options, EntityManagerDifferOptions.IncludeReverseChangeSet))
                             {
                                 reverseEntityChanges = GetEntityInChunkChanges(
@@ -279,32 +281,32 @@ namespace Unity.Entities
                                     Allocator.TempJob,
                                     jobHandle: out var reverseEntityChangesJob,
                                     dependsOn: JobHandle.CombineDependencies(srcEntitiesJob, dstEntitiesJob));
-                                
+
                                 reverseComponentChanges = GetComponentChanges(
-                                    reverseEntityChanges, 
+                                    reverseEntityChanges,
                                     blobAssetCache.BlobAssetRemap,
                                     default,
                                     Allocator.TempJob,
                                     jobHandle: out var reverseComponentChangesJob,
                                     dependsOn: reverseEntityChangesJob);
-                                
+
                                 reverseBlobAssetChanges = GetBlobAssetChanges(
                                     dstBlobAssets,
                                     srcBlobAssets,
-                                    Allocator.TempJob, 
-                                    jobHandle: out var reverseBlobAssetsChangesJob, 
+                                    Allocator.TempJob,
+                                    jobHandle: out var reverseBlobAssetsChangesJob,
                                     dependsOn: srcBlobAssetsJob);
 
                                 reverseChangesJob = JobHandle.CombineDependencies(reverseComponentChangesJob, reverseBlobAssetsChangesJob);
                             }
-                                
+
                             JobHandle jobHandle;
-                            
+
                             using (var jobs = new NativeList<JobHandle>(5, Allocator.Temp))
                             {
                                 jobs.Add(clearMissingReferencesJob);
                                 jobs.Add(getDuplicateEntityGuidsJob);
-                                
+
                                 if (CheckOption(options, EntityManagerDifferOptions.IncludeForwardChangeSet) ||
                                     CheckOption(options, EntityManagerDifferOptions.IncludeReverseChangeSet))
                                 {
@@ -317,10 +319,10 @@ namespace Unity.Entities
                                     jobs.Add(dstEntitiesJob);
                                     jobs.Add(srcBlobAssetsJob);
                                 }
-                                
+
                                 jobHandle = JobHandle.CombineDependencies(jobs);
                             }
-                        
+
                             jobHandle.Complete();
 
                             if (duplicateEntityGuids.IsCreated && duplicateEntityGuids.Length > 0)
@@ -328,16 +330,16 @@ namespace Unity.Entities
 
                             var forwardChangeSet = CreateEntityChangeSet(forwardEntityChanges, forwardComponentChanges, forwardBlobAssetChanges, allocator);
                             var reverseChangeSet = CreateEntityChangeSet(reverseEntityChanges, reverseComponentChanges, reverseBlobAssetChanges, allocator);
-                            
+
                             changes = new EntityChanges(forwardChangeSet, reverseChangeSet);
-                            
+
                             if (CheckOption(options, EntityManagerDifferOptions.FastForwardShadowWorld))
                             {
                                 CopyAndReplaceChunks(srcEntityManager, dstEntityManager, dstEntityQuery, archetypeChunkChanges);
 
                                 var batch = blobAssetCache.BlobAssetBatch;
                                 var remap = blobAssetCache.BlobAssetRemap;
-                                
+
                                 using (var createdBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
                                 using (var destroyedBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
                                 {
@@ -351,21 +353,21 @@ namespace Unity.Entities
 
                                     for (var i = 0; i < destroyedBlobAssets.Length; i++)
                                     {
-                                        if (!batch->TryGetBlobAsset(destroyedBlobAssets[i].Hash, out _)) 
+                                        if (!batch->TryGetBlobAsset(destroyedBlobAssets[i].Hash, out _))
                                         {
                                             throw new Exception($"Failed to destroy a BlobAsset to the shadow world. A BlobAsset with the Hash=[{createdBlobAssets[i].Header->Hash}] does not exists.");
                                         }
-                                        
+
                                         batch->ReleaseBlobAssetImmediately(destroyedBlobAssets[i].Hash);
-                                        
+
                                         using (var keys = remap.GetKeyArray(Allocator.Temp))
                                         using (var values = remap.GetValueArray(Allocator.Temp))
                                         {
                                             for (var remapIndex = 0; remapIndex < values.Length; remapIndex++)
                                             {
-                                                if (destroyedBlobAssets[i].Data != values[remapIndex].Data) 
+                                                if (destroyedBlobAssets[i].Data != values[remapIndex].Data)
                                                     continue;
-                                                
+
                                                 remap.Remove(keys[remapIndex]);
                                                 break;
                                             }
@@ -374,11 +376,11 @@ namespace Unity.Entities
 
                                     for (var i = 0; i < createdBlobAssets.Length; i++)
                                     {
-                                        if (batch->TryGetBlobAsset(createdBlobAssets[i].Header->Hash, out _)) 
+                                        if (batch->TryGetBlobAsset(createdBlobAssets[i].Header->Hash, out _))
                                         {
                                             throw new Exception($"Failed to copy a BlobAsset to the shadow world. A BlobAsset with the Hash=[{createdBlobAssets[i].Header->Hash}] already exists.");
                                         }
-                                        
+
                                         var blobAssetPtr = batch->AllocateBlobAsset(createdBlobAssets[i].Data, createdBlobAssets[i].Length, createdBlobAssets[i].Header->Hash);
                                         remap.TryAdd(new BlobAssetReferencePtr(createdBlobAssets[i].Data), blobAssetPtr);
                                     }
@@ -403,13 +405,11 @@ namespace Unity.Entities
                     }
                 }
             }
-            
-#if ENABLE_PROFILER || UNITY_EDITOR
+
             s_GetChangesProfilerMarker.End();
-#endif
             return changes;
         }
-        
+
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         static void CheckEntityGuidComponent(EntityQueryDesc entityQueryDesc)
         {
@@ -420,7 +420,7 @@ namespace Unity.Entities
                     return;
                 }
             }
-            
+
             throw new ArgumentException($"{nameof(EntityDiffer)} custom query requires an {nameof(EntityGuid)} component in the All filter.");
         }
 
@@ -431,31 +431,19 @@ namespace Unity.Entities
         {
             var array = new NativeArray<JobHandle>(3, Allocator.Temp)
             {
-                [0] = job1, 
-                [1] = job2, 
+                [0] = job1,
+                [1] = job2,
                 [2] = job2
             };
 
             var jobHandle = JobHandle.CombineDependencies(array);
-            
+
             array.Dispose();
-            
+
             return jobHandle;
         }
 
         static bool CheckOption(EntityManagerDifferOptions options, EntityManagerDifferOptions option)
             => (options & option) == option;
-        
-        /// <summary>
-        /// @TODO NET_DOTS fixed byte Buffer[4] fails to compile when used as a ptr.
-        /// </summary>
-        static byte* GetChunkBuffer(Chunk* chunk)
-        {
-#if !NET_DOTS
-            return chunk->Buffer;
-#else
-            return (byte*) chunk + Chunk.kBufferOffset;
-#endif
-        }
     }
 }

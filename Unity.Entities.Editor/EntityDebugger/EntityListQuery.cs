@@ -1,10 +1,7 @@
-﻿
 namespace Unity.Entities.Editor
 {
-    
     internal class EntityListQuery
     {
-
         public EntityQuery Group { get; }
 
         public EntityQueryDesc QueryDesc { get; }
@@ -19,6 +16,4 @@ namespace Unity.Entities.Editor
             this.QueryDesc = queryDesc;
         }
     }
-
 }
-

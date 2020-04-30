@@ -2,7 +2,7 @@ using Unity.Assertions;
 
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
@@ -21,13 +21,12 @@ namespace Unity.Entities
                     throw new System.ArgumentException($"PrepareForDeserialize requires the world to be completely empty, but there are {allEntities.Length}.\nFor example: {Debug.GetEntityInfo(allEntities[0])}");
                 }
             }
-            
-            m_ManagedComponentStore.PrepareForDeserialize();
+
+            GetCheckedEntityDataAccess()->ManagedComponentStore.PrepareForDeserialize();
         }
-        
+
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
-   
     }
 }

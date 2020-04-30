@@ -100,7 +100,7 @@ namespace Unity.Entities.Editor
             EditorSceneLiveLinkToPlayerSendSystem.instance.DisableSendForPlayer(connection.PlayerId);
         }
 
-        public override void OnGUI(Rect rect) { }
+        public override void OnGUI(Rect rect) {}
 
         public void Dispose()
         {
@@ -214,13 +214,13 @@ namespace Unity.Entities.Editor
             {
                 if (e.Action == NotifyCollectionChangedAction.Add)
                 {
-                    foreach (var connection in e.NewItems) Subscribe((LiveLinkConnection) connection);
+                    foreach (var connection in e.NewItems) Subscribe((LiveLinkConnection)connection);
                 }
                 else if (e.Action == NotifyCollectionChangedAction.Remove
                          || e.Action == NotifyCollectionChangedAction.Replace
                          || e.Action == NotifyCollectionChangedAction.Reset)
                 {
-                    foreach (var connection in e.OldItems) Unsubscribe((LiveLinkConnection) connection);
+                    foreach (var connection in e.OldItems) Unsubscribe((LiveLinkConnection)connection);
                 }
             }
 
@@ -297,7 +297,7 @@ namespace Unity.Entities.Editor
                     LiveLinkToolbar.RepaintPlaybar();
                 }
 
-                ((VisualElement) evt.target).visible = true;
+                ((VisualElement)evt.target).visible = true;
             }
 
             void BuildConnectionListUI()

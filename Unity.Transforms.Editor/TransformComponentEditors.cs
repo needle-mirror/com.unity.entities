@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Unity.Transforms.Editor
 {
+#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
     abstract class BaseTransformComponentEditor : ComponentDataProxyBaseEditor
     {
         string m_DrivenMessage;
@@ -22,7 +23,7 @@ namespace Unity.Transforms.Editor
             m_InitializedMessage = string.Format(
                 L10n.Tr("Initial value will be determined by {0}"),
                 ObjectNames.NicifyVariableName(typeof(CopyInitialTransformFromGameObject).Name)
-                );
+            );
             base.OnEnable();
         }
 
@@ -41,12 +42,11 @@ namespace Unity.Transforms.Editor
     [CustomEditor(typeof(TranslationProxy), true), CanEditMultipleObjects]
     class PositionComponentEditor : BaseTransformComponentEditor
     {
-
     }
 
     [CustomEditor(typeof(RotationProxy), true), CanEditMultipleObjects]
     class RotationComponentEditor : BaseTransformComponentEditor
     {
-
     }
+#pragma warning restore 618 // remove once ComponentDataProxyBase is removed
 }

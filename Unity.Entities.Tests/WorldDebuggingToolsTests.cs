@@ -7,7 +7,6 @@ namespace Unity.Entities.Tests
 {
     class WorldDebuggingToolsTests : ECSTestsFixture
     {
-
         class RegularSystem : ComponentSystem
         {
             public EntityQuery entities;
@@ -69,7 +68,6 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(0, matchList.Count);
         }
-
     }
 }
 #endif

@@ -1,15 +1,16 @@
-﻿#if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Transforms;
-using UnityEngine;
 using UnityEngine.Jobs;
 
-struct CompanionGameObjectUpdateTransformSystemState : ISystemStateComponentData { }
+struct CompanionGameObjectUpdateTransformSystemState : ISystemStateComponentData
+{
+}
 
-[ExecuteAlways]
+[UnityEngine.ExecuteAlways]
 [UpdateAfter(typeof(TransformSystemGroup))]
 public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
 {
@@ -28,23 +29,27 @@ public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
         m_NewQuery = GetEntityQuery(
             new EntityQueryDesc
             {
-                All = new[] { ComponentType.ReadOnly<CompanionLink>() },
-                None = new[] { ComponentType.ReadOnly<CompanionGameObjectUpdateTransformSystemState>() }
+                All = new[] {ComponentType.ReadOnly<CompanionLink>()},
+                None = new[] {ComponentType.ReadOnly<CompanionGameObjectUpdateTransformSystemState>()}
             }
         );
 
         m_ExistingQuery = GetEntityQuery(
             new EntityQueryDesc
             {
-                All = new[] { ComponentType.ReadOnly<CompanionLink>(), ComponentType.ReadOnly<CompanionGameObjectUpdateTransformSystemState>() }
+                All = new[]
+                {
+                    ComponentType.ReadOnly<CompanionLink>(),
+                    ComponentType.ReadOnly<CompanionGameObjectUpdateTransformSystemState>()
+                }
             }
         );
 
         m_DestroyedQuery = GetEntityQuery(
             new EntityQueryDesc
             {
-                All = new[] { ComponentType.ReadOnly<CompanionGameObjectUpdateTransformSystemState>() },
-                None = new[] { ComponentType.ReadOnly<CompanionLink>() }
+                All = new[] {ComponentType.ReadOnly<CompanionGameObjectUpdateTransformSystemState>()},
+                None = new[] {ComponentType.ReadOnly<CompanionLink>()}
             }
         );
     }
@@ -55,7 +60,7 @@ public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
         m_TransformAccessArray.Dispose();
     }
 
-    protected override JobHandle OnUpdate(JobHandle inputDeps)
+    protected unsafe override JobHandle OnUpdate(JobHandle inputDeps)
     {
         if (!m_DestroyedQuery.IsEmptyIgnoreFilter || !m_NewQuery.IsEmptyIgnoreFilter)
         {
@@ -65,7 +70,7 @@ public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
             m_Entities.Dispose();
             m_Entities = m_ExistingQuery.ToEntityArray(Allocator.Persistent);
 
-            var transforms = new Transform[m_Entities.Length];
+            var transforms = new UnityEngine.Transform[m_Entities.Length];
             for (int i = 0; i < m_Entities.Length; i++)
             {
                 var link = EntityManager.GetComponentData<CompanionLink>(m_Entities[i]);
@@ -80,13 +85,16 @@ public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
             var iterator = m_ExistingQuery.GetArchetypeChunkIterator();
             var indexInEntityQuery = m_ExistingQuery.GetIndexInEntityQuery(TypeManager.GetTypeIndex<CompanionLink>());
 
+            var access = EntityManager.GetCheckedEntityDataAccess();
+            var mcs = access->ManagedComponentStore;
+
             var entityCounter = 0;
             while (iterator.MoveNext())
             {
                 var chunk = iterator.CurrentArchetypeChunk;
                 for (int entityIndex = 0; entityIndex < chunk.Count; ++entityIndex)
                 {
-                    var link = (CompanionLink) iterator.GetManagedObject(EntityManager.ManagedComponentStore, indexInEntityQuery, entityIndex);
+                    var link = (CompanionLink)iterator.GetManagedObject(mcs, indexInEntityQuery, entityIndex);
                     m_TransformAccessArray[entityCounter++] = link.Companion.transform;
                 }
             }
@@ -103,16 +111,16 @@ public class CompanionGameObjectUpdateTransformSystem : JobComponentSystem
     [BurstCompile]
     struct CopyTransformJob : IJobParallelForTransform
     {
-        [NativeDisableParallelForRestriction]
-        public ComponentDataFromEntity<LocalToWorld> localToWorld;
-        [ReadOnly]
-        public NativeArray<Entity> entities;
+        [NativeDisableParallelForRestriction] public ComponentDataFromEntity<LocalToWorld> localToWorld;
+        [ReadOnly] public NativeArray<Entity> entities;
 
-        public void Execute(int index, TransformAccess transform)
+        public unsafe void Execute(int index, TransformAccess transform)
         {
             var ltw = localToWorld[entities[index]];
-            transform.position = ltw.Position;
-            transform.rotation = ltw.Rotation;
+            var mat = *(UnityEngine.Matrix4x4*) & ltw;
+            transform.localPosition = ltw.Position;
+            transform.localRotation = mat.rotation;
+            transform.localScale = mat.lossyScale;
         }
     }
 }

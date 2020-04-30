@@ -1,12 +1,16 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Jobs;
+
+#if !UNITY_DOTSPLAYER_IL2CPP
+using System.Reflection;
+using System.Linq;
+#endif
+
 
 namespace Unity.Entities.Tests
 {
@@ -97,11 +101,11 @@ namespace Unity.Entities.Tests
         {
             public AddWorldDuringConstructorThrowsSystem()
             {
-                Assert.AreEqual(null, World);
+                Assert.IsNull(World);
                 World.DefaultGameObjectInjectionWorld.AddSystem(this);
             }
 
-            protected override void OnUpdate() { }
+            protected override void OnUpdate() {}
         }
 
         class SystemThrowingInOnCreateIsRemovedSystem : ComponentSystem
@@ -111,7 +115,7 @@ namespace Unity.Entities.Tests
                 throw new AssertionException("");
             }
 
-            protected override void OnUpdate() { }
+            protected override void OnUpdate() {}
         }
         [Test]
         public void SystemThrowingInOnCreateIsRemoved()
@@ -134,10 +138,12 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(this, World.GetOrCreateSystem<SystemIsAccessibleDuringOnCreateManagerSystem>());
             }
 
-            protected override void OnUpdate() { }
+            protected override void OnUpdate() {}
         }
+
         [Test]
-        public void SystemIsAccessibleDuringOnCreateManager ()
+        [IgnoreInPortableTests("There is an Assert.AreEqual(object, object) which in the SystemIsAccessibleDuringOnCreateManagerSystem.OnCreate, which the runner doesn't find.")]
+        public void SystemIsAccessibleDuringOnCreateManager()
         {
             var world = new World("WorldX");
             Assert.AreEqual(0, world.Systems.Count);
@@ -172,7 +178,7 @@ namespace Unity.Entities.Tests
                     var sequenceNumberDiff = chunkA->SequenceNumber - chunkB->SequenceNumber;
 
                     // Any chunk sequence numbers in different worlds should be separated by at least 32 bits
-                    Assert.IsTrue(sequenceNumberDiff > 1<<32 );
+                    Assert.IsTrue(sequenceNumberDiff > 1 << 32);
                 }
             }
 
@@ -204,7 +210,7 @@ namespace Unity.Entities.Tests
                 var chunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
 
                 // Sequence numbers should be increasing and should not be reused when chunk is re-used (after zero count)
-                Assert.IsTrue(chunkSequenceNumber > lastChunkSequenceNumber );
+                Assert.IsTrue(chunkSequenceNumber > lastChunkSequenceNumber);
                 lastChunkSequenceNumber = chunkSequenceNumber;
 
                 worldA.EntityManager.DestroyEntity(entity);
@@ -231,7 +237,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void WorldSimulationFixedStep()
         {
-            using (var world = new World("World A")) {
+            using (var world = new World("World A"))
+            {
                 var sim = world.GetOrCreateSystem<SimulationSystemGroup>();
                 var uc = world.GetOrCreateSystem<UpdateCountSystem>();
                 sim.AddSystemToUpdateList(uc);
@@ -284,6 +291,8 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void DisposeAllWorlds()
         {
@@ -295,13 +304,12 @@ namespace Unity.Entities.Tests
                 foreach (var world in World.All)
                 {
                     Assert.That(world.IsCreated, Is.True);
-
                 }
 
                 World.DisposeAllWorlds();
 
                 Assert.That(World.All.Count, Is.EqualTo(0));
-                Assert.That(createdWorlds.All(w => w.IsCreated), Is.False);
+                Assert.IsFalse(createdWorlds.All(w => w.IsCreated));
             }
             finally
             {
@@ -309,17 +317,23 @@ namespace Unity.Entities.Tests
             }
         }
 
+#endif
+
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void IteratingOverBoxedNoAllocReadOnlyCollectionThrows()
         {
             var sourceList = Enumerable.Range(1, 10).ToList();
             var readOnlyCollection = new World.NoAllocReadOnlyCollection<int>(sourceList);
 
-            var ex = Assert.Throws<NotSupportedException>(() => ((IEnumerable<int>) readOnlyCollection).GetEnumerator());
-            var ex2 = Assert.Throws<NotSupportedException>(() => ((IEnumerable) readOnlyCollection).GetEnumerator());
+            var ex = Assert.Throws<NotSupportedException>(() => ((IEnumerable<int>)readOnlyCollection).GetEnumerator());
+            var ex2 = Assert.Throws<NotSupportedException>(() => ((IEnumerable)readOnlyCollection).GetEnumerator());
             Assert.That(ex.Message, Is.EqualTo($"To avoid boxing, do not cast {nameof(World.NoAllocReadOnlyCollection<int>)} to IEnumerable<T>."));
             Assert.That(ex2.Message, Is.EqualTo($"To avoid boxing, do not cast {nameof(World.NoAllocReadOnlyCollection<int>)} to IEnumerable."));
         }
+
+#endif
 
 #if UNITY_EDITOR
         [Test]
@@ -336,6 +350,7 @@ namespace Unity.Entities.Tests
                 Assert.That(world.EntityManager.GetName(timeSingleton), Is.EqualTo("WorldTime"));
             }
         }
+
 #endif
 
         public class ContainerOwnerSystem : JobComponentSystem
@@ -345,10 +360,12 @@ namespace Unity.Entities.Tests
             {
                 Container = new NativeArray<int>(1, Allocator.Persistent);
             }
+
             protected override void OnDestroy()
             {
                 Container.Dispose();
             }
+
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
                 return inputDeps;
@@ -365,7 +382,7 @@ namespace Unity.Entities.Tests
             }
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
-                var job = new ContainerJob{Container = World.GetExistingSystem<ContainerOwnerSystem>().Container};
+                var job = new ContainerJob {Container = World.GetExistingSystem<ContainerOwnerSystem>().Container};
                 return job.Schedule(inputDeps);
             }
         }
@@ -420,9 +437,10 @@ namespace Unity.Entities.Tests
                 {
                     Assert.AreEqual(system.World, World); // stand-in for "has system.OnAfterDestroyInternal been called"
                 }
-                
+
                 IsRunning = false;
             }
+
             protected override void OnDestroy()
             {
                 base.OnDestroy();
@@ -431,10 +449,11 @@ namespace Unity.Entities.Tests
                 // Systems should all be stopped and disabled, but not yet destroyed
                 foreach (var system in World.Systems)
                 {
-                    Assert.IsFalse( (system as MultiPhaseTestSystem)?.IsRunning);
+                    Assert.IsFalse((system as MultiPhaseTestSystem)?.IsRunning ?? false);
                     Assert.AreEqual(system.World, World); // stand-in for "has system.OnAfterDestroyInternal been called"
                 }
             }
+
             protected override void OnUpdate()
             {
                 TotalSystemCount = World.Systems.Count;
@@ -451,6 +470,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [IgnoreInPortableTests("There is an Assert.AreEqual(object, object) which in the OnStopRunning, which the runner doesn't find.")]
         public void World_Dispose_MultiPhaseSystemDestroy()
         {
             World world = new World("WorldX");

@@ -1,6 +1,10 @@
 using System;
 using NUnit.Framework;
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
+// EntitiesAssert aren't currently supported.
+
 namespace Unity.Entities.Tests
 {
     public class DebugEntityTests : ECSTestsFixture
@@ -9,7 +13,7 @@ namespace Unity.Entities.Tests
         public void GetAllEntities_WithEmptyEcs()
         {
             var debugEntities = DebugEntity.GetAllEntities(m_Manager);
-            
+
             CollectionAssert.IsEmpty(debugEntities);
         }
 
@@ -24,18 +28,22 @@ namespace Unity.Entities.Tests
                 new[] { new DebugEntity(entity) },
                 debugEntities);
         }
-        
+
         [Test]
         public void GetAllEntities_WithTaggedEntity()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestTag));
 
             var debugEntities = DebugEntity.GetAllEntities(m_Manager);
-            
+
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity, new DebugComponent { Type = typeof(EcsTestTag), Data = new EcsTestTag() }) },
                 debugEntities);
         }
+
+#if !UNITY_PORTABLE_TEST_RUNNER
+        // https://unity3d.atlassian.net/browse/DOTSR-1432
+        // TODO: IL2CPP_TEST_RUNNER can't handle Is.Instance() and With() chains
 
         [Test]
         public void GetAllEntities_WithSharedTagEntity()
@@ -62,6 +70,8 @@ namespace Unity.Entities.Tests
             #endif
         }
 
+#endif
+
         [Test]
         public void GetAllEntities_WithComponentData()
         {
@@ -69,12 +79,12 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponentData(entity, new EcsTestData(5));
 
             var debugEntities = DebugEntity.GetAllEntities(m_Manager);
-            
+
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
                     new DebugComponent { Type = typeof(EcsTestData), Data = new EcsTestData(5)}) },
                 debugEntities);
-            
+
             EntitiesAssert.AreNotEqual(
                 new[] { new DebugEntity(entity,
                     new DebugComponent { Type = typeof(EcsTestData), Data = new EcsTestData(6)}) },
@@ -108,9 +118,9 @@ namespace Unity.Entities.Tests
             buffer.Add(1);
             buffer.Add(5);
             buffer.Add(9);
-            
+
             var debugEntities = DebugEntity.GetAllEntities(m_Manager);
-            
+
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
                     new DebugComponent { Type = typeof(EcsIntElement), Data = new EcsIntElement[] { 1, 5, 9 } }) },
@@ -118,7 +128,7 @@ namespace Unity.Entities.Tests
         }
 
 #if !UNITY_DOTSPLAYER
-        class TestClassComponent : UnityEngine.Object 
+        class TestClassComponent : UnityEngine.Object
         {
             public int Value;
 
@@ -134,7 +144,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponentObject(entity, component);
 
             var debugEntities = DebugEntity.GetAllEntities(m_Manager);
-            
+
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
                     new DebugComponent { Type = typeof(TestClassComponent), Data = component }) },
@@ -150,6 +160,7 @@ namespace Unity.Entities.Tests
                     new DebugComponent { Type = typeof(TestClassComponent), Data = new TestClassComponent { Value = 6 } }) },
                 debugEntities);
         }
+
 #endif // !UNITY_DOTSPLAYER
     }
 
@@ -159,7 +170,7 @@ namespace Unity.Entities.Tests
         public void ToString_WithSmallMaxLen_TruncatesWithoutEllipsis()
         {
             Assert.AreEqual("String=",       new DebugComponent { Data = ""        }.ToString(0));
-            
+
             Assert.AreEqual("String=",       new DebugComponent { Data = "abc"     }.ToString(0));
             Assert.AreEqual("String=a",      new DebugComponent { Data = "abc"     }.ToString(1));
             Assert.AreEqual("String=ab",     new DebugComponent { Data = "abc"     }.ToString(2));
@@ -181,16 +192,18 @@ namespace Unity.Entities.Tests
         [Test]
         public void ToString_WithGreaterOrEqualOrDefaultMaxLen_DoesNotTruncate()
         {
-            Assert.AreEqual("String=",        new DebugComponent { Data = ""        }.ToString());            
+            Assert.AreEqual("String=",        new DebugComponent { Data = ""        }.ToString());
             Assert.AreEqual("String=",        new DebugComponent { Data = ""        }.ToString(1));
 
-            Assert.AreEqual("String=abc",     new DebugComponent { Data = "abc"     }.ToString());            
+            Assert.AreEqual("String=abc",     new DebugComponent { Data = "abc"     }.ToString());
             Assert.AreEqual("String=abc",     new DebugComponent { Data = "abc"     }.ToString(3));
             Assert.AreEqual("String=abc",     new DebugComponent { Data = "abc"     }.ToString(4));
 
-            Assert.AreEqual("String=abcdefg", new DebugComponent { Data = "abcdefg" }.ToString());            
+            Assert.AreEqual("String=abcdefg", new DebugComponent { Data = "abcdefg" }.ToString());
             Assert.AreEqual("String=abcdefg", new DebugComponent { Data = "abcdefg" }.ToString(7));
             Assert.AreEqual("String=abcdefg", new DebugComponent { Data = "abcdefg" }.ToString(8));
         }
     }
 }
+
+#endif // !UNITY_DOTSPLAYER_IL2CPP

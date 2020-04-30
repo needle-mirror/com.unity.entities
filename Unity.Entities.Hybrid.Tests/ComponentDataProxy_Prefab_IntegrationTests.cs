@@ -9,6 +9,7 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
+#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
     class ComponentDataProxy_Prefab_IntegrationTests
     {
         static readonly TestCaseData[] proxyTypeTestCases =
@@ -59,4 +60,5 @@ namespace Unity.Entities.Tests
             Assert.That(valueFromEntityManager, Is.EqualTo(expected), $"{proxy} is no longer synchronizing with EntityManager");
         }
     }
+#pragma warning restore 618
 }

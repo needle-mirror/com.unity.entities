@@ -9,6 +9,7 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
     class ComponentDataProxy_EntityManager_IntegrationTests
     {
         GameObjectEntity m_GameObjectEntity;
@@ -184,4 +185,5 @@ namespace Unity.Entities.Tests
             Assert.That(Manager.HasComponent(Entity, typeof(MockData)), Is.True, "No data after re-enabling proxy.");
         }
     }
+#pragma warning restore 618
 }

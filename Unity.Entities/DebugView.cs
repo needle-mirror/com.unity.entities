@@ -29,7 +29,7 @@ namespace Unity.Entities
     }
 
     sealed class UnsafeMatchingArchetypePtrListDebugView
-        {
+    {
         private UnsafeMatchingArchetypePtrList m_MatchingArchetypeList;
 
         public UnsafeMatchingArchetypePtrListDebugView(UnsafeMatchingArchetypePtrList MatchingArchetypeList)
@@ -62,7 +62,7 @@ namespace Unity.Entities
             [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
             public List<object> components;
         }
-        
+
         public static object GetComponent(void* pointer, Type type)
         {
             if (typeof(IBufferElementData).IsAssignableFrom(type))
@@ -71,22 +71,22 @@ namespace Unity.Entities
                 var constructedListType = listType.MakeGenericType(type);
                 var instance = (IList)Activator.CreateInstance(constructedListType);
                 var size = Marshal.SizeOf(type);
-                BufferHeader* header = (BufferHeader*) pointer;
+                BufferHeader* header = (BufferHeader*)pointer;
                 var begin = BufferHeader.GetElementPointer(header);
                 for (var i = 0; i < header->Length; ++i)
                 {
                     var item = begin + (size * i);
-                    instance.Add(Marshal.PtrToStructure((IntPtr) item, type));
+                    instance.Add(Marshal.PtrToStructure((IntPtr)item, type));
                 }
                 return instance;
             }
-            if(typeof(IComponentData).IsAssignableFrom(type) || typeof(Entity).IsAssignableFrom(type))
+            if (typeof(IComponentData).IsAssignableFrom(type) || typeof(Entity).IsAssignableFrom(type))
             {
-                return Marshal.PtrToStructure((IntPtr) pointer, type);
+                return Marshal.PtrToStructure((IntPtr)pointer, type);
             }
             return null;
-        }        
-        
+        }
+
         public static Components GetComponents(EntityManager m, Entity e)
         {
             Components components = new Components();
@@ -94,11 +94,14 @@ namespace Unity.Entities
             components.components = new List<object>();
             if (!m.Exists(e))
                 return components;
-#if UNITY_EDITOR                
-            components.name = m.GetName(e);            
-            components.components.Add(components.name);  
+#if UNITY_EDITOR
+            components.name = m.GetName(e);
+            components.components.Add(components.name);
 #endif
-            m.EntityComponentStore->GetChunk(e, out var chunk, out var chunkIndex);
+            var access = m.GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+
+            ecs->GetChunk(e, out var chunk, out var chunkIndex);
             if (chunk == null)
                 return components;
             var archetype = chunk->Archetype;
@@ -117,10 +120,9 @@ namespace Unity.Entities
             }
             return components;
         }
-        
     }
 #endif
-    
+
 #if !NET_DOTS
     sealed class EntityManagerDebugView
     {
@@ -145,14 +147,14 @@ namespace Unity.Entities
                 return 0;
             }
         }
-        
+
         unsafe public List<DebugViewUtility.Components> Entities
         {
             get
             {
                 var entities = m_target.GetAllEntities();
                 entities.Sort(new Comparer());
-                using(entities)
+                using (entities)
                 {
                     var result = new List<DebugViewUtility.Components>();
                     for (var i = 0; i < entities.Length; ++i)
@@ -198,8 +200,8 @@ namespace Unity.Entities
                     var instance = (IList)Activator.CreateInstance(constructedListType);
                     for (var j = 0; j < entities; ++j)
                     {
-                       var pointer = chunk->Buffer + (offset + size * j);
-                       instance.Add(DebugViewUtility.GetComponent(pointer, type));
+                        var pointer = chunk->Buffer + (offset + size * j);
+                        instance.Add(DebugViewUtility.GetComponent(pointer, type));
                     }
                     result[i] = instance;
                 }
@@ -232,7 +234,7 @@ namespace Unity.Entities
                         var offset = archetype->Offsets[i];
                         var size = archetype->SizeOfs[i];
                         var pointer = chunk->Buffer + (offset + size * j);
-                        instance.Add(DebugViewUtility.GetComponent(pointer,type));
+                        instance.Add(DebugViewUtility.GetComponent(pointer, type));
                     }
                     result[j] = instance;
                 }
@@ -270,7 +272,6 @@ namespace Unity.Entities
                 return result;
             }
         }
-
     }
 #else
     sealed class EntityManagerDebugView
@@ -302,11 +303,11 @@ namespace Unity.Entities
                 List<ChunkPtr> result = new List<ChunkPtr>();
                 var archetype = m_EntityArchetype.Archetype;
                 for (var i = 0; i < archetype->Chunks.Count; ++i)
-                    result.Add(new ChunkPtr{m_Chunk = archetype->Chunks.p[i]});
+                    result.Add(new ChunkPtr {m_Chunk = archetype->Chunks.p[i]});
                 return result;
             }
         }
-        
+
         public unsafe Type[] Types
         {
             get
@@ -369,5 +370,4 @@ namespace Unity.Entities
     {
     }
 #endif
-    
 }

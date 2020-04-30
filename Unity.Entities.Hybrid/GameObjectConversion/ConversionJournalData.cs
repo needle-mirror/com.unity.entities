@@ -7,7 +7,7 @@ using GameObject = UnityEngine.GameObject;
 
 namespace Unity.Entities.Conversion
 {
-    interface IConversionEventData { }
+    interface IConversionEventData {}
 
     struct LogEventData : IConversionEventData
     {
@@ -114,7 +114,7 @@ namespace Unity.Entities.Conversion
         // requires existing sublist, walks to end and adds, returns count (can be slow with large count)
         (int id, int serial) AddTail<T>(int objectInstanceId, ref MultiList<T> store) =>
             m_HeadIdIndices.TryGetValue(objectInstanceId, out var headIdIndex)
-                ? store.AddTail(headIdIndex) : (-1, 0);
+            ? store.AddTail(headIdIndex) : (-1, 0);
 
         int GetHeadId<T>(int objectInstanceId, ref MultiList<T> store)
         {

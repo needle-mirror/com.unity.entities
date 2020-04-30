@@ -22,6 +22,9 @@ namespace Unity.Scenes
         public string ResourcesPathObjRefs;
         public string ScenePath;
         public bool BlockUntilFullyLoaded;
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        public PostLoadCommandBuffer PostLoadCommandBuffer;
+#endif
     }
 
     unsafe class AsyncLoadSceneOperation
@@ -70,6 +73,9 @@ namespace Unity.Scenes
             }
 
             _SceneBundleHandle?.Release();
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            _Data.PostLoadCommandBuffer?.Dispose();
+#endif
         }
 
         struct AsyncLoadSceneJob : IJob
@@ -87,7 +93,7 @@ namespace Unity.Scenes
                 var loadingOperation = (AsyncLoadSceneOperation)LoadingOperationHandle.Target;
                 LoadingOperationHandle.Free();
 
-                var objectReferences = (UnityEngine.Object[]) ObjectReferencesHandle.Target;
+                var objectReferences = (UnityEngine.Object[])ObjectReferencesHandle.Target;
                 ObjectReferencesHandle.Free();
 
                 try
@@ -111,7 +117,7 @@ namespace Unity.Scenes
         int                     _SceneSize => _Data.SceneSize;
         int                     _ExpectedObjectReferenceCount => _Data.ExpectedObjectReferenceCount;
         string                  _ResourcesPathObjRefs => _Data.ResourcesPathObjRefs;
-        EntityManager           _EntityManager => _Data.EntityManager;
+        ref EntityManager           _EntityManager => ref _Data.EntityManager;
         bool                    _BlockUntilFullyLoaded => _Data.BlockUntilFullyLoaded;
 
         ReferencedUnityObjects  _ResourceObjRefs;
@@ -126,7 +132,7 @@ namespace Unity.Scenes
         ReadHandle               _ReadHandle;
 
         private double _StartTime;
-        
+
         public AsyncLoadSceneOperation(AsyncLoadSceneData asyncLoadSceneData)
         {
             _Data = asyncLoadSceneData;
@@ -188,9 +194,10 @@ namespace Unity.Scenes
                     _ResourceObjRefs = _SceneBundleHandle.AssetBundle.LoadAsset<ReferencedUnityObjects>(Path.GetFileName(_ResourcesPathObjRefs));
 #endif
                 }
-                
+
                 ScheduleSceneRead(_ResourceObjRefs);
-                _EntityManager.ExclusiveEntityTransactionDependency.Complete();
+                _EntityManager.EndExclusiveEntityTransaction();
+                PostProcessScene();
             }
             catch (Exception e)
             {
@@ -259,7 +266,7 @@ namespace Unity.Scenes
                 }
 
                 var fileName = Path.GetFileName(_ResourcesPathObjRefs);
-                
+
                 _AssetRequest = _SceneBundleHandle.AssetBundle.LoadAssetAsync(fileName);
                 _LoadingStatus = LoadingStatus.WaitingForAssetLoad;
             }
@@ -326,8 +333,8 @@ namespace Unity.Scenes
             {
                 if (_EntityManager.ExclusiveEntityTransactionDependency.IsCompleted)
                 {
-                    _EntityManager.ExclusiveEntityTransactionDependency.Complete();
-
+                    _EntityManager.EndExclusiveEntityTransaction();
+                    PostProcessScene();
                     _LoadingStatus = LoadingStatus.Completed;
                     var currentTime = Time.realtimeSinceStartup;
                     var totalTime = currentTime - _StartTime;
@@ -335,7 +342,6 @@ namespace Unity.Scenes
                 }
             }
         }
-        
 
         public void Update()
         {
@@ -364,6 +370,19 @@ namespace Unity.Scenes
 
             _EntityManager.ExclusiveEntityTransactionDependency = loadJob.Schedule(JobHandle.CombineDependencies(_EntityManager.ExclusiveEntityTransactionDependency, _ReadHandle.JobHandle));
         }
-    }
 
+        void PostProcessScene()
+        {
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            if (_Data.PostLoadCommandBuffer != null)
+            {
+                _Data.PostLoadCommandBuffer.CommandBuffer.Playback(_EntityManager);
+                _Data.PostLoadCommandBuffer.Dispose();
+                _Data.PostLoadCommandBuffer = null;
+            }
+#endif
+            var group = _EntityManager.World.GetOrCreateSystem<ProcessAfterLoadGroup>();
+            group.Update();
+        }
+    }
 }

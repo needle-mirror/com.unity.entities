@@ -12,7 +12,7 @@ namespace Unity.Scenes
     {
         Disabled = 0,
         LiveConvertGameView,
-        LiveConvertSceneView,        
+        LiveConvertSceneView,
     }
 
     struct LiveLinkChangeSet : IDisposable
@@ -34,7 +34,7 @@ namespace Unity.Scenes
             var buffer = new UnsafeAppendBuffer(1024, 16, Allocator.Persistent);
 
             EntityChangeSetSerialization.ResourcePacket.SerializeResourcePacket(Changes, ref buffer);
-            
+
             buffer.Add(SceneGUID);
             buffer.Add(SceneName);
             buffer.Add(UnloadAllPreviousEntities);
@@ -42,6 +42,7 @@ namespace Unity.Scenes
 
             return buffer.ToBytes();
         }
+
         #endif
 
         unsafe public static LiveLinkChangeSet Deserialize(EntityChangeSetSerialization.ResourcePacket resource, GlobalAssetObjectResolver resolver)
@@ -70,20 +71,21 @@ namespace Unity.Scenes
             {
                 return Scene.Equals(other.Scene);
             }
+
             public override int GetHashCode()
             {
                 return Scene.GetHashCode();
             }
         }
 
-        
+
         private World _DstWorld;
         EntityQuery _AddedScenesQuery;
         private EntityQuery _RemovedScenesQuery;
         public LiveLinkPatcher(World destinationWorld)
         {
             _DstWorld = destinationWorld;
-            
+
             _AddedScenesQuery = _DstWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[] {typeof(SceneTag)},
@@ -132,7 +134,7 @@ namespace Unity.Scenes
             var sceneSystem = _DstWorld.GetExistingSystem<SceneSystem>();
 
             var sceneEntity = sceneSystem.GetSceneEntity(sceneGUID);
-            
+
             dstEntities.RemoveComponent<DisableSceneResolveAndLoad>(sceneEntity);
             dstEntities.RemoveComponent<LiveLinkedSceneState>(sceneEntity);
             sceneSystem.UnloadScene(sceneEntity, SceneSystem.UnloadParameters.DestroySectionProxyEntities | SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded);
@@ -176,14 +178,14 @@ namespace Unity.Scenes
                 // Create section
                 sectionEntity = dstEntities.CreateEntity();
                 dstEntities.AddComponentData(sectionEntity, new SceneSectionStreamingSystem.StreamingState { Status = SceneSectionStreamingSystem.StreamingStatus.Loaded});
-                dstEntities.AddComponentData(sectionEntity, new DisableSceneResolveAndLoad( ));
+                dstEntities.AddComponentData(sectionEntity, new DisableSceneResolveAndLoad());
 
                 // Configure scene
-                dstEntities.AddComponentData(sceneEntity, new DisableSceneResolveAndLoad( ));
+                dstEntities.AddComponentData(sceneEntity, new DisableSceneResolveAndLoad());
                 dstEntities.AddComponentData(sceneEntity, new LiveLinkedSceneState { Scene = changeSet.SceneGUID });
 
-                dstEntities.AddBuffer<ResolvedSectionEntity>(sceneEntity).Add(new ResolvedSectionEntity { SectionEntity = sectionEntity} );
-                
+                dstEntities.AddBuffer<ResolvedSectionEntity>(sceneEntity).Add(new ResolvedSectionEntity { SectionEntity = sectionEntity});
+
 #if UNITY_EDITOR
                 dstEntities.SetName(sectionEntity, "SceneSection (LiveLink): " + changeSet.SceneName);
                 dstEntities.SetName(sceneEntity, "Scene (LiveLink): " + changeSet.SceneName);
@@ -193,16 +195,16 @@ namespace Unity.Scenes
             {
                 sectionEntity = dstEntities.GetBuffer<ResolvedSectionEntity>(sceneEntity)[0].SectionEntity;
             }
-            
+
             // SceneTag.SceneEntity == Entity.Null is reserved for new entities added via live link.
             if (_AddedScenesQuery.CalculateChunkCount() != 0)
             {
                 Debug.LogWarning("SceneTag.SceneEntity must not reference Entity.Null. Destroying Entities.");
                 dstEntities.DestroyEntity(_AddedScenesQuery);
             }
-            
+
             EntityPatcher.ApplyChangeSet(_DstWorld.EntityManager, changeSet.Changes);
-            
+
             //liveLink.ConvertedShadowWorld.EntityManager.Debug.CheckInternalConsistency();
 
             dstEntities.SetSharedComponentData(_AddedScenesQuery, new SceneTag { SceneEntity = sectionEntity });

@@ -31,8 +31,8 @@ namespace Unity.Entities.Tests.ForEach
             if (cache != null)
             {
                 foreach (var field in cache
-                    .GetFields(BindingFlags.Static | BindingFlags.Public)
-                    .Where(f => typeof(MulticastDelegate).IsAssignableFrom(f.FieldType)))
+                         .GetFields(BindingFlags.Static | BindingFlags.Public)
+                         .Where(f => typeof(MulticastDelegate).IsAssignableFrom(f.FieldType)))
                 {
                     field.SetValue(null, null);
                 }

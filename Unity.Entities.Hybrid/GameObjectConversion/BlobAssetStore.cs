@@ -58,12 +58,12 @@ namespace Unity.Entities
         public bool TryGet<T>(Hash128 key, out BlobAssetReference<T> blobAssetReference) where T : struct
         {
             var typedHash = ComputeTypedHash(key, typeof(T));
-            
+
             var res = m_BlobAssets.TryGetValue(typedHash, out var blobData);
             if (res)
             {
                 m_CacheHit++;
-                
+
                 blobAssetReference = BlobAssetReference<T>.Create(blobData);
                 return true;
             }
@@ -114,7 +114,7 @@ namespace Unity.Entities
         public bool Remove<T>(Hash128 key, bool releaseBlobAsset)
         {
             var typedHash = ComputeTypedHash(key, typeof(T));
-            
+
             if (releaseBlobAsset && m_BlobAssets.TryGetValue(typedHash, out var blobData))
             {
                 blobData.Dispose();
@@ -132,7 +132,7 @@ namespace Unity.Entities
         {
             return m_RefCounterPerBlobHash.TryGetValue(hash, out var counter) ? counter : 0;
         }
-        
+
         /// <summary>
         /// Calling dispose will reset the cache content and release all the BlobAssetReference that were stored
         /// </summary>
@@ -168,35 +168,29 @@ namespace Unity.Entities
         NativeHashMap<Hash128, BlobAssetReferenceData> m_BlobAssets;
         NativeHashMap<Hash128, int> m_RefCounterPerBlobHash;
         NativeMultiHashMap<int, Hash128> m_HashByOwner;
-        
+
         int m_CacheHit;
         int m_CacheMiss;
-
-        [Obsolete("BlobAssetStore.UpdateBlobAssetForGameObject<TB>(int, NativeArray<Hash128>) is deprecated, use BlobAssetStore.UpdateBlobAssetForUnityObject<TB>(int, NativeArray<Hash128>) instead. (RemovedAfter 2020-04-08)")]
-        internal void UpdateBlobAssetForGameObject<TB>(int ownerId, NativeArray<Hash128> newBlobHashes) where TB : struct
-        {
-            UpdateBlobAssetForUnityObject<TB>(ownerId, newBlobHashes);
-        }
 
         internal void UpdateBlobAssetForUnityObject<TB>(int ownerId, NativeArray<Hash128> newBlobHashes) where TB : struct
         {
             var leftLength = newBlobHashes.Length;
             var toInc = new NativeArray<Hash128>(leftLength, Allocator.Temp);
             var toDec = new NativeArray<Hash128>(m_HashByOwner.CountValuesForKey(ownerId), Allocator.Temp);
-            
+
             var curLeftIndex = 0;
             var curIncIndex = 0;
             var curDecIndex = 0;
-            
+
             var leftRes = curLeftIndex < leftLength;
             var rightRes = m_HashByOwner.TryGetFirstValue(ownerId, out var rightHash, out var it);
 
             var maxHash = new Hash128(UInt32.MaxValue, UInt32.MaxValue, UInt32.MaxValue, UInt32.MaxValue);
-            
+
             // We will parse newBlobHashes, considered the left part and the store hashes for this ownerId, considered the right part
             //  in order to build a list of BlobAssets to increment (the ones only present in left part) and the ones to decrement
             //  (only present in the right part). If a hash is present on both side, we do not change its RefCounter
-            do 
+            do
             {
                 var leftHash = leftRes ? newBlobHashes[curLeftIndex] : maxHash;
                 rightHash = rightRes ? rightHash : maxHash;
@@ -222,9 +216,9 @@ namespace Unity.Entities
 
                         // Check if there's more left item
                         leftRes = curLeftIndex < leftLength;
-                    } while (leftRes && (leftHash < rightHash));
+                    }
+                    while (leftRes && (leftHash < rightHash));
                 }
-
                 // More items on the right, add them to the "toRemove" list
                 else
                 {
@@ -235,10 +229,11 @@ namespace Unity.Entities
 
                         // Get next right item
                         rightRes = m_HashByOwner.TryGetNextValue(out rightHash, ref it);
-
-                    } while (rightRes && leftHash > rightHash);
+                    }
+                    while (rightRes && leftHash > rightHash);
                 }
-            } while (leftRes || rightRes);
+            }
+            while (leftRes || rightRes);
 
             // Increment each hash in "toInc" if they exist, add them to the RefCounter hash if they are new
             for (int i = 0; i < curIncIndex; i++)
@@ -260,13 +255,13 @@ namespace Unity.Entities
                 // Decrement the hash of the previously assigned Blob Asset
                 var hash = toDec[i];
                 var oldHashCount = --m_RefCounterPerBlobHash[hash];
-                    
+
                 // If it reaches 0, we dispose the Blob Asset and remove the counter
                 if (oldHashCount == 0)
                 {
                     Remove<TB>(hash, true);
                     m_RefCounterPerBlobHash.Remove(hash);
-                }                
+                }
             }
 
             // Clear the former list of BlobAsset hashes and replace by the new one
@@ -282,7 +277,7 @@ namespace Unity.Entities
         {
             return GetBlobAssetsOfUnityObject(gameObject, allocator, out result);
         }
-        
+
         internal bool GetBlobAssetsOfUnityObject(UnityObject unityObject, Allocator allocator, out NativeArray<Hash128> result)
         {
             var key = unityObject.GetInstanceID();
@@ -291,7 +286,7 @@ namespace Unity.Entities
                 result = default;
                 return false;
             }
-            
+
             var count = m_HashByOwner.CountValuesForKey(key);
             result = new NativeArray<Hash128>(count, allocator);
 

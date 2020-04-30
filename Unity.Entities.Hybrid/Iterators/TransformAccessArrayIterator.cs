@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reflection;
 
@@ -9,7 +9,7 @@ using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
-    struct TransformAccessArrayState : IDisposable
+    class TransformAccessArrayState : IDisposable
     {
         public TransformAccessArray Data;
         public int OrderVersion;
@@ -25,8 +25,12 @@ namespace Unity.Entities
     {
         public static unsafe TransformAccessArray GetTransformAccessArray(this EntityQuery group)
         {
-            var state = (TransformAccessArrayState?)group._CachedState ?? new TransformAccessArrayState();
-            var orderVersion = group._EntityComponentStore->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Transform>());
+            var state = (TransformAccessArrayState)group._CachedState;
+
+            if (state == null)
+                state = new TransformAccessArrayState();
+
+            var orderVersion = group._GetImpl()->_Access->EntityComponentStore->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<Transform>());
 
             if (state.Data.isCreated && orderVersion == state.OrderVersion)
                 return state.Data;

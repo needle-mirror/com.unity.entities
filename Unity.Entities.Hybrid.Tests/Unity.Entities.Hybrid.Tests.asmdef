@@ -13,7 +13,8 @@
         "Unity.Build",
         "Unity.Build.Classic",
         "Unity.Build.Common",
-        "Unity.Burst"
+        "Unity.Burst",
+        "Unity.Entities.Hybrid.EndToEnd.Tests"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

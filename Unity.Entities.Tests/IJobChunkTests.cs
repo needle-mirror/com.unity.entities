@@ -1,11 +1,11 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 
 
 namespace Unity.Entities.Tests
 {
-    class IJobChunkTests :ECSTestsFixture
+    class IJobChunkTests : ECSTestsFixture
     {
         struct ProcessChunks : IJobChunk
         {
@@ -186,7 +186,7 @@ namespace Unity.Entities.Tests
 
             group.Dispose();
         }
-        
+
         [Test]
         public void IJobChunkProcessChunkIndexWithFilterRun()
         {
@@ -241,11 +241,12 @@ namespace Unity.Entities.Tests
             // ScheduleSingle forces all chunks to run on a single thread, so the for loop in IJobChunk.ExecuteInternal() has >1 iteration.
             job.ScheduleSingle(group).Complete();
 
-            int[] values = {
+            int[] values =
+            {
                 m_Manager.GetComponentData<EcsTestData>(entity1).value,
                 m_Manager.GetComponentData<EcsTestData>(entity2).value,
             };
-            CollectionAssert.AreEquivalent(values, new int[] {0,1});
+            CollectionAssert.AreEquivalent(values, new int[] {0, 1});
 
             group.Dispose();
         }
@@ -386,6 +387,7 @@ namespace Unity.Entities.Tests
             componentArrayB.Dispose();
             group.Dispose();
         }
+
 #endif // !UNITY_DOTSPLAYER
 
         struct InitializedAsSingleAndParallelJob : IJobChunk
@@ -397,7 +399,7 @@ namespace Unity.Entities.Tests
         {
             var jobReflectionDataParallel = JobChunkExtensions.JobChunkProducer<InitializedAsSingleAndParallelJob>.InitializeParallel();
             var jobReflectionDataSingle = JobChunkExtensions.JobChunkProducer<InitializedAsSingleAndParallelJob>.InitializeSingle();
-            
+
             Assert.AreNotEqual(jobReflectionDataParallel, jobReflectionDataSingle);
         }
     }

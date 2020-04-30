@@ -38,12 +38,12 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        public static void WriteArray<T>(this BinaryWriter writer, NativeArray<T> data) where T: struct
+        public static void WriteArray<T>(this BinaryWriter writer, NativeArray<T> data) where T : struct
         {
             writer.WriteBytes(data.GetUnsafeReadOnlyPtr(), data.Length * UnsafeUtility.SizeOf<T>());
         }
 
-        public static void WriteList<T>(this BinaryWriter writer, NativeList<T> data) where T: struct
+        public static void WriteList<T>(this BinaryWriter writer, NativeList<T> data) where T : struct
         {
             writer.WriteBytes(data.GetUnsafePtr(), data.Length * UnsafeUtility.SizeOf<T>());
         }
@@ -83,7 +83,7 @@ namespace Unity.Entities.Serialization
             writer.ReadBytes(destination, count);
         }
 
-        public static void ReadArray<T>(this BinaryReader reader, NativeArray<T> elements, int count) where T: struct
+        public static void ReadArray<T>(this BinaryReader reader, NativeArray<T> elements, int count) where T : struct
         {
             reader.ReadBytes((byte*)elements.GetUnsafePtr(), count * UnsafeUtility.SizeOf<T>());
         }
@@ -98,7 +98,6 @@ namespace Unity.Entities.Serialization
         [Obsolete("bufferSize parameter is no longer required. Use the single argument constructor for StreamBinaryReader instead. (RemovedAfter 2020-06-09)", false)]
         public StreamBinaryReader(string filePath, long bufferSize = 65536) : this(filePath)
         {
-            
         }
 
         public StreamBinaryReader(string filePath)
@@ -149,14 +148,14 @@ namespace Unity.Entities.Serialization
             int remaining = bytes;
             int bufferSize = buffer.Length;
 
-            fixed (byte* fixedBuffer = buffer)
+            fixed(byte* fixedBuffer = buffer)
             {
                 while (remaining != 0)
                 {
                     int bytesToWrite = Math.Min(remaining, bufferSize);
                     UnsafeUtility.MemCpy(fixedBuffer, data, bytesToWrite);
                     stream.Write(buffer, 0, bytesToWrite);
-                    data = (byte*) data + bytesToWrite;
+                    data = (byte*)data + bytesToWrite;
                     remaining -= bytesToWrite;
                 }
             }
@@ -185,7 +184,6 @@ namespace Unity.Entities.Serialization
             content.ResizeUninitialized(length + bytes);
             UnsafeUtility.MemCpy((byte*)content.GetUnsafePtr() + length, data, bytes);
         }
-
     }
 
     public unsafe class MemoryBinaryReader : BinaryReader
@@ -208,4 +206,3 @@ namespace Unity.Entities.Serialization
         }
     }
 }
-

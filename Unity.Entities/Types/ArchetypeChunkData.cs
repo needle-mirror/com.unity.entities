@@ -10,90 +10,164 @@ namespace Unity.Entities
     internal unsafe struct ArchetypeChunkData
     {
         public Chunk** p;
-        public int* data;
         public int Capacity;
         public int Count;
-        public readonly int SharedComponentCount;
-        public readonly int EntityCountIndex;
-        public readonly int Channels;
 
-        public ArchetypeChunkData(int componentTypeCount, int sharedComponentCount)
+        readonly int SharedComponentCount;
+        readonly int ComponentCount;
+
+        // ChangeVersions and SharedComponentValues stored like:
+        //    type0: chunk0 chunk1 chunk2 ...
+        //    type1: chunk0 chunk1 chunk2 ...
+        //    type2: chunk0 chunk1 chunk2 ...
+        //    ...
+
+        ulong ChunkPtrSize => (ulong)(sizeof(Chunk*) * Capacity);
+        ulong ChangeVersionSize  => (ulong)(sizeof(uint) * ComponentCount * Capacity);
+        ulong EntityCountSize => (ulong)(sizeof(int) * Capacity);
+        ulong SharedComponentValuesSize => (ulong)(sizeof(int) * SharedComponentCount * Capacity);
+        ulong BufferSize => ChunkPtrSize + ChangeVersionSize + EntityCountSize + SharedComponentValuesSize;
+
+        // ChangeVersions[ComponentCount * Capacity]
+        //   - Order version is ChangeVersion[0] which is ChangeVersion[Entity]
+        uint* ChangeVersions => (uint*)(((ulong)p) + ChunkPtrSize);
+
+        // EntityCount[Capacity]
+        int* EntityCount => (int*)(((ulong)ChangeVersions) + ChangeVersionSize);
+
+        // SharedComponentValues[SharedComponentCount * Capacity]
+        int* SharedComponentValues => (int*)(((ulong)EntityCount) + EntityCountSize);
+
+        public ArchetypeChunkData(int componentCount, int sharedComponentCount)
         {
-            data = null;
             p = null;
             Capacity = 0;
             Count = 0;
             SharedComponentCount = sharedComponentCount;
-            EntityCountIndex = componentTypeCount + sharedComponentCount;
-            Channels = componentTypeCount + sharedComponentCount + 1; // +1 for entity count per-chunk
+            ComponentCount = componentCount;
         }
 
-        public void Grow(int newCapacity)
+        public void Grow(int nextCapacity)
         {
-            Assert.IsTrue(newCapacity > Capacity);
-            Chunk** newChunkData = (Chunk**)UnsafeUtility.Malloc(newCapacity*(Channels*sizeof(int) + sizeof(Chunk*)), 16, Allocator.Persistent);
-            var newData = (int*) (newChunkData + newCapacity);
+            Assert.IsTrue(nextCapacity > Capacity);
 
-            UnsafeUtility.MemCpy(newChunkData, p, sizeof(Chunk*)*Count);
+            ulong nextChunkPtrSize = (ulong)(sizeof(Chunk*) * nextCapacity);
+            ulong nextChangeVersionSize  = (ulong)(sizeof(uint) * ComponentCount * nextCapacity);
+            ulong nextEntityCountSize = (ulong)(sizeof(int) * nextCapacity);
+            ulong nextSharedComponentValuesSize = (ulong)(sizeof(int) * SharedComponentCount * nextCapacity);
+            ulong nextBufferSize = nextChunkPtrSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize;
+            ulong nextBufferPtr = (ulong)UnsafeUtility.Malloc((long)nextBufferSize, 16, Allocator.Persistent);
 
-            for(int i=0;i<Channels;++i)
-                UnsafeUtility.MemCpy(newData + i*newCapacity, data + i*Capacity, sizeof(int)*Count);
+            Chunk** nextChunkData = (Chunk**)nextBufferPtr;
+            nextBufferPtr += nextChunkPtrSize;
+            uint* nextChangeVersions = (uint*)nextBufferPtr;
+            nextBufferPtr += nextChangeVersionSize;
+            int* nextEntityCount = (int*)nextBufferPtr;
+            nextBufferPtr += nextEntityCountSize;
+            int* nextSharedComponentValues = (int*)nextBufferPtr;
+            nextBufferPtr += nextSharedComponentValuesSize;
+
+            int prevCount = Count;
+            int prevCapacity = Capacity;
+            Chunk** prevChunkData = p;
+            uint* prevChangeVersions = ChangeVersions;
+            int* prevEntityCount = EntityCount;
+            int* prevSharedComponentValues = SharedComponentValues;
+
+            UnsafeUtility.MemCpy(nextChunkData, prevChunkData, (sizeof(Chunk*) * prevCount));
+
+            for (int i = 0; i < ComponentCount; i++)
+                UnsafeUtility.MemCpy(nextChangeVersions + (i * nextCapacity), prevChangeVersions + (i * prevCapacity), sizeof(uint) * Count);
+
+            for (int i = 0; i < SharedComponentCount; i++)
+                UnsafeUtility.MemCpy(nextSharedComponentValues + (i * nextCapacity), prevSharedComponentValues + (i * prevCapacity), sizeof(uint) * Count);
+
+            UnsafeUtility.MemCpy(nextEntityCount, prevEntityCount, sizeof(int) * Count);
 
             UnsafeUtility.Free(p, Allocator.Persistent);
-            data = newData;
-            p = newChunkData;
-            Capacity = newCapacity;
+
+            p = nextChunkData;
+            Capacity = nextCapacity;
         }
 
-        // typeOffset 0 is first shared component
-        public int GetSharedComponentValue(int typeOffset, int chunkIndex)
+        public bool InsideAllocation(ulong addr)
         {
-            return data[typeOffset*Capacity+chunkIndex];
+            ulong startAddr = (ulong)p;
+            return (addr >= startAddr) && (addr <= (startAddr + BufferSize));
         }
 
-        public int* GetSharedComponentValueArrayForType(int typeOffset)
+        public int* GetSharedComponentValueArrayForType(int sharedComponentIndexInArchetype)
         {
-            return data + typeOffset*Capacity;
+            return SharedComponentValues + (sharedComponentIndexInArchetype * Capacity);
         }
 
-        public void SetSharedComponentValue(int typeOffset, int chunkIndex, int value)
+        public int GetSharedComponentValue(int sharedComponentIndexInArchetype, int chunkIndex)
         {
-            data[typeOffset*Capacity+chunkIndex] = value;
+            var sharedValues = GetSharedComponentValueArrayForType(sharedComponentIndexInArchetype);
+            return sharedValues[chunkIndex];
         }
 
-        public SharedComponentValues GetSharedComponentValues(int iChunk)
+        public void SetSharedComponentValue(int sharedComponentIndexInArchetype, int chunkIndex, int value)
+        {
+            var sharedValues = GetSharedComponentValueArrayForType(sharedComponentIndexInArchetype);
+            sharedValues[chunkIndex] = value;
+        }
+
+        public SharedComponentValues GetSharedComponentValues(int chunkIndex)
         {
             return new SharedComponentValues
             {
-                firstIndex = data + iChunk,
-                stride = Capacity*sizeof(int)
+                firstIndex = SharedComponentValues + chunkIndex,
+                stride = Capacity * sizeof(int)
             };
         }
 
-        public uint GetChangeVersion(int typeOffset, int chunkIndex)
+        public uint* GetChangeVersionArrayForType(int indexInArchetype)
         {
-            return (uint)data[(typeOffset+SharedComponentCount)*Capacity+chunkIndex];
+            return ChangeVersions + (indexInArchetype * Capacity);
         }
-        public void SetChangeVersion(int typeOffset, int chunkIndex, uint version)
+
+        public uint GetChangeVersion(int indexInArchetype, int chunkIndex)
         {
-            data[(typeOffset+SharedComponentCount)*Capacity+chunkIndex] = (int)version;
+            var changeVersions = GetChangeVersionArrayForType(indexInArchetype);
+            return changeVersions[chunkIndex];
         }
-        public uint* GetChangeVersionArrayForType(int typeOffset)
+
+        public uint GetOrderVersion(int chunkIndex)
         {
-            return (uint*)data + (typeOffset+SharedComponentCount)*Capacity;
+            return GetChangeVersion(0, chunkIndex);
+        }
+
+        public void SetChangeVersion(int indexInArchetype, int chunkIndex, uint version)
+        {
+            var changeVersions = GetChangeVersionArrayForType(indexInArchetype);
+            changeVersions[chunkIndex] = version;
+        }
+
+        public void SetAllChangeVersion(int chunkIndex, uint version)
+        {
+            for (int i = 1; i < ComponentCount; ++i)
+                ChangeVersions[(i * Capacity) + chunkIndex] = version;
+        }
+
+        public void SetOrderVersion(int chunkIndex, uint changeVersion)
+        {
+            SetChangeVersion(0, chunkIndex, changeVersion);
+        }
+
+        public int* GetChunkEntityCountArray()
+        {
+            return EntityCount;
         }
 
         public int GetChunkEntityCount(int chunkIndex)
         {
-            return data[(EntityCountIndex)*Capacity+chunkIndex];
+            return EntityCount[chunkIndex];
         }
+
         public void SetChunkEntityCount(int chunkIndex, int count)
         {
-            data[(EntityCountIndex)*Capacity+chunkIndex] = (int)count;
-        }
-        public int* GetChunkEntityCountArray()
-        {
-            return data + (EntityCountIndex)*Capacity;
+            EntityCount[chunkIndex] = count;
         }
 
         public void Add(Chunk* chunk, SharedComponentValues sharedComponentIndices, uint changeVersion)
@@ -102,55 +176,41 @@ namespace Unity.Entities
 
             p[chunkIndex] = chunk;
 
-            int* dst = data + chunkIndex;
-            int i = 0;
-            for (; i < SharedComponentCount; ++i)
-            {
-                *dst = sharedComponentIndices[i];
-                dst += Capacity;
-            }
+            for (int i = 0; i < SharedComponentCount; i++)
+                SharedComponentValues[(i * Capacity) + chunkIndex] = sharedComponentIndices[i];
 
-            for (; i < EntityCountIndex; ++i)
-            {
-                *(uint*)dst = changeVersion;
-                dst += Capacity;
-            }
+            // New chunk, so all versions are reset.
+            for (int i = 0; i < ComponentCount; i++)
+                ChangeVersions[(i * Capacity) + chunkIndex] = changeVersion;
 
-            *dst = chunk->Count;
+            EntityCount[chunkIndex] = chunk->Count;
         }
 
-        public void RemoveAtSwapBack(int iChunk)
+        public void RemoveAtSwapBack(int chunkIndex)
         {
-            if (iChunk == --Count)
+            Count--;
+
+            if (chunkIndex == Count)
                 return;
 
-            p[iChunk] = p[Count];
+            p[chunkIndex] = p[Count];
 
-            int* dst = data + iChunk;
-            int* src = data + Count;
+            for (int i = 0; i < SharedComponentCount; i++)
+                SharedComponentValues[(i * Capacity) + chunkIndex] = SharedComponentValues[(i * Capacity) + Count];
 
-            for (int i = 0; i < Channels; ++i)
-            {
-                *dst = *src;
-                dst += Capacity;
-                src += Capacity;
-            }
+            // On *chunk order* change, no versions changed, just moved to new location.
+            for (int i = 0; i < ComponentCount; i++)
+                ChangeVersions[(i * Capacity) + chunkIndex] = ChangeVersions[(i * Capacity) + Count];
+
+            EntityCount[chunkIndex] = EntityCount[Count];
         }
 
         public void Dispose()
         {
             UnsafeUtility.Free(p, Allocator.Persistent);
             p = null;
-            data = null;
             Capacity = 0;
             Count = 0;
         }
-
-        public void SetAllChangeVersion(int chunkIndex, uint version)
-        {
-            for (int i = SharedComponentCount; i < EntityCountIndex; ++i)
-                data[i * Capacity + chunkIndex] = (int)version;
-        }
     }
-
 }

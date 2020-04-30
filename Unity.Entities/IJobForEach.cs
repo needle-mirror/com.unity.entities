@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
@@ -147,7 +147,7 @@ namespace Unity.Entities
 
             object[] parameters = {isIJobParallelFor ? JobType.ParallelFor : JobType.Single};
             var reflectionDataRes = resolvedWrapperJobType.GetMethod("Initialize").Invoke(null, parameters);
-            return (IntPtr) reflectionDataRes;
+            return (IntPtr)reflectionDataRes;
         }
 
         static Type GetIJobForEachInterface(Type jobType)
@@ -169,15 +169,16 @@ namespace Unity.Entities
             var types = GetComponentTypes(jobType, iType, out processTypesCount, out filterChanged);
             system.GetEntityQueryInternal(types);
         }
+
 #endif
         static unsafe void Initialize<T>(ComponentSystemBase system, EntityQuery entityQuery, Type jobType, Type wrapperJobType,
             bool isParallelFor, ref JobForEachCache cache, out ProcessIterationData iterator, ref T jobData)
             where T : struct
 #if UNITY_DOTSPLAYER
-                    , IBaseJobForEach
+        , IBaseJobForEach
 #endif
         {
-        // Get the job reflection data and cache it if we don't already have it cached.
+            // Get the job reflection data and cache it if we don't already have it cached.
             if (isParallelFor && cache.JobReflectionDataParallelFor == IntPtr.Zero ||
                 !isParallelFor && cache.JobReflectionData == IntPtr.Zero)
             {
@@ -219,7 +220,7 @@ namespace Unity.Entities
                     cache.ComponentSystem = system;
                 }
             }
-            else if (entityQuery != null)
+            else if (entityQuery != default)
             {
                 if (cache.EntityQuery != entityQuery)
                 {
@@ -231,15 +232,15 @@ namespace Unity.Entities
 
             var query = cache.EntityQuery;
 
-            iterator.IsReadOnly0 = iterator.IsReadOnly1 = iterator.IsReadOnly2 = iterator.IsReadOnly3 = iterator.IsReadOnly4 = iterator.IsReadOnly5= 0;
-            fixed (int* isReadOnly = &iterator.IsReadOnly0)
+            iterator.IsReadOnly0 = iterator.IsReadOnly1 = iterator.IsReadOnly2 = iterator.IsReadOnly3 = iterator.IsReadOnly4 = iterator.IsReadOnly5 = 0;
+            fixed(int* isReadOnly = &iterator.IsReadOnly0)
             {
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
                     isReadOnly[i] = cache.Types[i].AccessModeType == ComponentType.AccessMode.ReadOnly ? 1 : 0;
             }
 
             iterator.TypeIndex0 = iterator.TypeIndex1 = iterator.TypeIndex2 = iterator.TypeIndex3 = iterator.TypeIndex4 = iterator.TypeIndex5 = -1;
-            fixed (int* typeIndices = &iterator.TypeIndex0)
+            fixed(int* typeIndices = &iterator.TypeIndex0)
             {
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
                     typeIndices[i] = cache.Types[i].TypeIndex;
@@ -248,18 +249,18 @@ namespace Unity.Entities
             iterator.m_IsParallelFor = isParallelFor;
             iterator.m_Length = query.CalculateChunkCountWithoutFiltering();
 
-            iterator.GlobalSystemVersion = query._EntityComponentStore->GlobalSystemVersion;
+            iterator.GlobalSystemVersion = query._GetImpl()->_Access->EntityComponentStore->GlobalSystemVersion;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             iterator.m_MaxIndex = iterator.m_Length - 1;
             iterator.m_MinIndex = 0;
 
-            iterator.m_Safety0 = iterator.m_Safety1 = iterator.m_Safety2 = iterator.m_Safety3 = iterator.m_Safety4 = iterator.m_Safety5 = 
+            iterator.m_Safety0 = iterator.m_Safety1 = iterator.m_Safety2 = iterator.m_Safety3 = iterator.m_Safety4 = iterator.m_Safety5 =
                 iterator.m_Safety6 = iterator.m_Safety7 = iterator.m_Safety8 = iterator.m_Safety9 = iterator.m_Safety10 = iterator.m_Safety11 = default(AtomicSafetyHandle);
 
             var bufferTypeCount = 0;
             iterator.m_SafetyReadOnlyCount = 0;
-            fixed (AtomicSafetyHandle* safety = &iterator.m_Safety0)
+            fixed(AtomicSafetyHandle* safety = &iterator.m_Safety0)
             {
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
                 {
@@ -278,7 +279,7 @@ namespace Unity.Entities
             }
 
             iterator.m_SafetyReadWriteCount = 0;
-            fixed (AtomicSafetyHandle* safety = &iterator.m_Safety0)
+            fixed(AtomicSafetyHandle* safety = &iterator.m_Safety0)
             {
                 for (var i = 0; i != cache.ProcessTypesCount; i++)
                 {
@@ -370,7 +371,7 @@ namespace Unity.Entities
             if (types != null)
                 return system.GetEntityQueryInternal(types);
             else
-                return null;
+                return default;
         }
 
         //NOTE: It would be much better if C# could resolve the branch with generic resolving,
@@ -397,7 +398,7 @@ namespace Unity.Entities
             if (isParallelFor)
             {
                 var scheduleParams = new JobsUtility.JobScheduleParameters(fullData, cache.JobReflectionDataParallelFor, dependsOn, mode);
-                if(isFiltered)
+                if (isFiltered)
                     return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, innerloopBatchCount, deferredCountData, null);
                 else
                     return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredLength, innerloopBatchCount);
@@ -408,12 +409,13 @@ namespace Unity.Entities
                 return JobsUtility.Schedule(ref scheduleParams);
             }
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            }
-            catch (InvalidOperationException e)
-            {
-                prefilterData.Dispose();
-                throw e;
-            }
+        }
+
+        catch (InvalidOperationException e)
+        {
+            prefilterData.Dispose();
+            throw e;
+        }
 #endif
         }
 #endif

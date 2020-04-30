@@ -11,7 +11,7 @@ namespace Unity.Transforms
     public struct WorldToLocal : IComponentData
     {
         public float4x4 Value;
-        
+
         public float3 Right => new float3(Value.c0.x, Value.c0.y, Value.c0.z);
         public float3 Up => new float3(Value.c1.x, Value.c1.y, Value.c1.z);
         public float3 Forward => new float3(Value.c2.x, Value.c2.y, Value.c2.z);
@@ -28,7 +28,7 @@ namespace Unity.Transforms
             [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> LocalToWorldType;
             public ArchetypeChunkComponentType<WorldToLocal> WorldToLocalType;
             public uint LastSystemVersion;
-            
+
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
                 if (!chunk.DidChange(LocalToWorldType, LastSystemVersion))
@@ -36,7 +36,7 @@ namespace Unity.Transforms
 
                 var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldType);
                 var chunkWorldToLocal = chunk.GetNativeArray(WorldToLocalType);
-                
+
                 for (int i = 0; i < chunk.Count; i++)
                 {
                     var localToWorld = chunkLocalToWorld[i].Value;

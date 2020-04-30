@@ -11,7 +11,7 @@ namespace Doc.CodeSamples.Tests
     {
         public byte Value;
     }
-    
+
     class LifetimeSystem : SystemBase
     {
         EndSimulationEntityCommandBufferSystem m_EndSimulationEcbSystem;
@@ -30,22 +30,22 @@ namespace Doc.CodeSamples.Tests
             var ecb = m_EndSimulationEcbSystem.CreateCommandBuffer().ToConcurrent();
             Entities
                 .ForEach((Entity entity, int entityInQueryIndex, ref Lifetime lifetime) =>
+            {
+                // Track the lifetime of an entity and destroy it once
+                // the lifetime reaches zero
+                if (lifetime.Value == 0)
                 {
-                    // Track the lifetime of an entity and destroy it once
-                    // the lifetime reaches zero
-                    if (lifetime.Value == 0)
-                    {
-                        // pass the entityInQueryIndex to the operation so
-                        // the ECB can play back the commands in the right
-                        // order
-                        ecb.DestroyEntity(entityInQueryIndex, entity);
-                    }
-                    else
-                    {
-                        lifetime.Value -= 1;
-                    }
-                }).ScheduleParallel();
-            
+                    // pass the entityInQueryIndex to the operation so
+                    // the ECB can play back the commands in the right
+                    // order
+                    ecb.DestroyEntity(entityInQueryIndex, entity);
+                }
+                else
+                {
+                    lifetime.Value -= 1;
+                }
+            }).ScheduleParallel();
+
             // Make sure that the ECB system knows about our job
             m_EndSimulationEcbSystem.AddJobHandleForProducer(this.Dependency);
         }

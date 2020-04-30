@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Linq;
 using System.Reflection;
@@ -9,6 +9,7 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
     [CustomEditor(typeof(ComponentDataProxyBase), true), CanEditMultipleObjects]
+    [Obsolete("ComponentDataProxyBaseEditor has been deprecated. Please use the new GameObject-to-entity conversion workflows instead. (RemovedAfter 2020-07-03).")]
     public class ComponentDataProxyBaseEditor : UnityEditor.Editor
     {
         string m_SerializableError;

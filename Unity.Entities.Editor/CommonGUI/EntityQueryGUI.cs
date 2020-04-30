@@ -1,4 +1,3 @@
-﻿
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -8,7 +7,6 @@ namespace Unity.Entities.Editor
 {
     internal static class EntityQueryGUI
     {
-
         internal static int CompareTypes(ComponentType x, ComponentType y)
         {
             var accessModeOrder = SortOrderFromAccessMode(x.AccessModeType).CompareTo(SortOrderFromAccessMode(y.AccessModeType));

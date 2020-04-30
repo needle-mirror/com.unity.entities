@@ -1,12 +1,14 @@
 using System;
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+#if !UNITY_DOTSPLAYER_IL2CPP
+using System.Text.RegularExpressions;
+#endif
 
 namespace Unity.Entities.Tests
 {
-    unsafe class EntityQueryCacheTests
+    unsafe class EntityQueryCacheTests : ECSTestsFixture
     {
         [Test]
         public void Ctor_WithCacheSize0_Throws()
@@ -86,19 +88,20 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, found);
         }
 
-        readonly Regex k_ResizeError = new Regex(".*is too small to hold the current number of queries.*");
-        readonly EntityQuery k_DummyGroup = new EntityQuery(null, null, null, null);
+        private EntityQuery k_DummyGroup => m_Manager.UniversalQuery;
 
         [Test]
         public void CreateCachedQuery_WithNullGroup_Throws()
         {
             var cache = new EntityQueryCache(1);
 
-            Assert.Throws<ArgumentNullException>(() => SimpleWrapCreateCachedQuery(cache, 2, null));
+            Assert.Throws<ArgumentNullException>(() => SimpleWrapCreateCachedQuery(cache, 2, default));
         }
 
 // TEMPORARY HACK
-#if !UNITY_DOTSPLAYER
+#if !NET_DOTS
+        readonly Regex k_ResizeError = new Regex(".*is too small to hold the current number of queries.*");
+
         [Test]
         public void CreateCachedQuery_OverflowWithCacheSize1_ResizesAndWarns()
         {
@@ -124,7 +127,8 @@ namespace Unity.Entities.Tests
             // this should not error
             SimpleWrapCreateCachedQuery(cache, 5, k_DummyGroup);
         }
-#endif // !UNITY_DOTSPLAYER
+
+#endif // !NET_DOTS
 
         [Test]
         public void CreateCachedQuery_WithExistingHash_Throws()
@@ -153,7 +157,7 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<IndexOutOfRangeException>(() => cache.GetCachedQuery(1));
         }
-        
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 
         [Test]
@@ -161,7 +165,7 @@ namespace Unity.Entities.Tests
         {
             var cache = new EntityQueryCache(1);
             int index;
-            fixed (int* delegateTypes = new[] { TypeManager.GetTypeIndex<EcsTestData>() })
+            fixed(int* delegateTypes = new[] { TypeManager.GetTypeIndex<EcsTestData>() })
             {
                 var builder = new EntityQueryBuilder().WithAll<EcsTestTag>();
                 index = cache.CreateCachedQuery(0, k_DummyGroup, ref builder, delegateTypes, 1);
@@ -171,8 +175,8 @@ namespace Unity.Entities.Tests
 
             var testBuilder = new EntityQueryBuilder().WithAll<EcsTestTag>();
 
-            fixed (int* testDelegateTypes = new[] { TypeManager.GetTypeIndex<EcsTestData>() })
-                cache.ValidateMatchesCache(index, ref testBuilder, testDelegateTypes, 1);
+            fixed(int* testDelegateTypes = new[] { TypeManager.GetTypeIndex<EcsTestData>() })
+            cache.ValidateMatchesCache(index, ref testBuilder, testDelegateTypes, 1);
         }
 
         [Test]
@@ -194,8 +198,8 @@ namespace Unity.Entities.Tests
             var cache = new EntityQueryCache(1);
             var builder = new EntityQueryBuilder().WithAll<EcsTestTag>();
             int index;
-            fixed (int* delegateTypes = new[] { TypeManager.GetTypeIndex<EcsTestData>() })
-                index = cache.CreateCachedQuery(0, k_DummyGroup, ref builder, delegateTypes, 1);
+            fixed(int* delegateTypes = new[] { TypeManager.GetTypeIndex<EcsTestData>() })
+            index = cache.CreateCachedQuery(0, k_DummyGroup, ref builder, delegateTypes, 1);
 
             Assert.Throws<InvalidOperationException>(() => cache.ValidateMatchesCache(index, ref builder, null, 0));
 
@@ -204,8 +208,8 @@ namespace Unity.Entities.Tests
             InvalidOperationException testException0 = null;
             try
             {
-                fixed (int* anotherDelegateTypes0 = new[] { TypeManager.GetTypeIndex<EcsTestData2>() })
-                    cache.ValidateMatchesCache(index, ref builder, anotherDelegateTypes0, 1);
+                fixed(int* anotherDelegateTypes0 = new[] { TypeManager.GetTypeIndex<EcsTestData2>() })
+                cache.ValidateMatchesCache(index, ref builder, anotherDelegateTypes0, 1);
             }
             catch (InvalidOperationException x) { testException0 = x; }
             Assert.NotNull(testException0);
@@ -213,8 +217,8 @@ namespace Unity.Entities.Tests
             InvalidOperationException testException1 = null;
             try
             {
-                fixed (int* anotherDelegateTypes1 = new[] { TypeManager.GetTypeIndex<EcsTestData>(), TypeManager.GetTypeIndex<EcsTestData2>() })
-                    cache.ValidateMatchesCache(index, ref builder, anotherDelegateTypes1, 2);
+                fixed(int* anotherDelegateTypes1 = new[] { TypeManager.GetTypeIndex<EcsTestData>(), TypeManager.GetTypeIndex<EcsTestData2>() })
+                cache.ValidateMatchesCache(index, ref builder, anotherDelegateTypes1, 2);
             }
             catch (InvalidOperationException x) { testException1 = x; }
             Assert.NotNull(testException1);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
@@ -19,7 +19,7 @@ namespace Unity.Entities.CodeGen.Tests
         class StoreBlobAssetReferenceValueInLocal_Class
         {
             static BlobAssetReference<MyBlob> _blobAssetReference;
-            
+
             void Method()
             {
                 MyBlob blob = _blobAssetReference.Value;
@@ -31,14 +31,14 @@ namespace Unity.Entities.CodeGen.Tests
         public void StoreBlobAssetReferenceValueInLocal()
         {
             AssertProducesError(
-                typeof(StoreBlobAssetReferenceValueInLocal_Class), 
+                typeof(StoreBlobAssetReferenceValueInLocal_Class),
                 "error MayOnlyLiveInBlobStorageViolation: MyBlob may only live in blob storage. Access it by (non-readonly) ref instead: `ref MyBlob yourVariable = ref");
         }
 
         class LoadFieldFromBlobAssetReference_Class
         {
             static BlobAssetReference<MyBlob> _blobAssetReference;
-            
+
             void Method()
             {
                 BlobArray<float> myFloats = _blobAssetReference.Value.myfloats;
@@ -50,11 +50,11 @@ namespace Unity.Entities.CodeGen.Tests
         public void LoadFieldFromBlobAssetReference()
         {
             AssertProducesError(
-                typeof(LoadFieldFromBlobAssetReference_Class), 
+                typeof(LoadFieldFromBlobAssetReference_Class),
                 " error MayOnlyLiveInBlobStorageViolation: You may only access .myfloats by (non-readonly) ref, as it may only live in blob storage. try `ref BlobArray<Single> yourVariable = ref");
         }
-        
-        class StoreBlobAssetReferenceValue_IntoReadonlyReference_Class 
+
+        class StoreBlobAssetReferenceValue_IntoReadonlyReference_Class
         {
             BlobAssetReference<MyBlob> _blobAssetReference;
             void Method()
@@ -63,12 +63,12 @@ namespace Unity.Entities.CodeGen.Tests
                 EnsureNotOptimizedAway(readonlyBlob.myfloats.Length);
             }
         }
-        
+
         [Test]
         public void StoreBlobAssetReferenceValue_IntoReadonlyReference()
         {
             AssertProducesError(
-                typeof(StoreBlobAssetReferenceValue_IntoReadonlyReference_Class), 
+                typeof(StoreBlobAssetReferenceValue_IntoReadonlyReference_Class),
                 "error MayOnlyLiveInBlobStorageViolation: You may only access .myfloats by (non-readonly) ref, as it may only live in blob storage. try `ref BlobArray<Single> yourVariable = ref");
         }
 
@@ -81,7 +81,7 @@ namespace Unity.Entities.CodeGen.Tests
                 EnsureNotOptimizedAway(myReadOnlyFloats.Length);
             }
         }
-        
+
         [Test]
         public void LoadFieldFromBlobAssetReference_IntoReadonlyReference()
         {
@@ -89,7 +89,6 @@ namespace Unity.Entities.CodeGen.Tests
                 typeof(LoadFieldFromBlobAssetReference_IntoReadonlyReference_Class),
                 "error MayOnlyLiveInBlobStorageViolation: BlobArray`1 may only live in blob storage. Access it by (non-readonly) ref instead: `ref BlobArray`1 yourVariable = ref");
         }
-
 
         class WithReferenceToValidType_Class
         {
@@ -100,7 +99,7 @@ namespace Unity.Entities.CodeGen.Tests
                 EnsureNotOptimizedAway(this.someField);
             }
         }
-        
+
         [Test]
         public void FailResolveWithWarning()
         {
@@ -108,19 +107,19 @@ namespace Unity.Entities.CodeGen.Tests
                 failResolve: true,
                 "ResolveFailureWarning: Unable to resolve type Unity.Entities.CodeGen.Tests.TestTypes.BoidInAnotherAssembly for verification");
         }
-        
+
         // Yield statements generate a state machine with unsafe use of blob assets
         // https://sharplab.io/#v2:EYLgxg9gTgpgtADwGwBYA0ATEBqAPgAQCYBGAWACh8AGAAn2JQG4KL8BmOwmgYRoG8KNITQCuAOwDOAQwBmMOhwkAXKCLBKaAIQA2EYAEEoUKQE8APABUAfDQDuACxiwaFmiBrLV6wcL4BfH2FhQI8VNQ0dPW4IMSUpAEsxRIBzAGUw9QB1eKV7AFkYXIgMbNyATXiYbQwAfXSvJRCBciCgyIMjUzNEpRt2w2MTZnIQoPY6YjZu2JsKqowACgBKUd9V1oniOgB2GiphjaEAluFjoJDx/BQaPOX+EOO/IA===
         struct BlobContainingStructWithMethodWithYield_Struct
         {
             BlobArray<int> BlobArray;
- 
+
             public IEnumerable<int> Method()
             {
                 yield return 0;
             }
         }
-        
+
         [Test]
         public void BlobContainingStructWithMethodWithYield_GeneratesError()
         {
@@ -139,24 +138,24 @@ namespace Unity.Entities.CodeGen.Tests
             GenericTypeWithVolatile<int> _intGeneric;
             BoidInAnotherAssembly _someField;
             BlobAssetReference<MyBlob> _blobAssetReference;
-            
+
             void Method()
             {
                 _intGeneric = new GenericTypeWithVolatile<int>();
                 _intGeneric.buffer = new[] {32, 12, 41};
                 EnsureNotOptimizedAway(_intGeneric.buffer);
-                
+
                 _someField = new BoidInAnotherAssembly();
                 EnsureNotOptimizedAway(_someField);
-                
+
                 ref BlobArray<float> myFloats = ref _blobAssetReference.Value.myfloats;
                 EnsureNotOptimizedAway(myFloats.Length);
-                
+
                 ref MyBlob blob = ref _blobAssetReference.Value;
                 EnsureNotOptimizedAway(blob.myfloats.Length);
             }
         }
-        
+
         [Test]
         public void ValidBlobReferenceUsageSucceeds()
         {
@@ -169,7 +168,7 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 var methodToAnalyze = MethodDefinitionForOnlyMethodOf(typeWithCodeUnderTest);
                 var diagnosticMessages = new List<DiagnosticMessage>();
-                
+
                 try
                 {
                     var verifyDiagnosticMessages = BlobAssetSafetyVerifier.VerifyMethod(methodToAnalyze, new HashSet<TypeReference>());
@@ -179,14 +178,14 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     diagnosticMessages.AddRange(exc.DiagnosticMessages);
                 }
-                
+
                 Assert.AreEqual(0, diagnosticMessages.Count);
             });
         }
 
         protected override void AssertProducesInternal(
-            Type typeWithCodeUnderTest, 
-            DiagnosticType diagnosticType, 
+            Type typeWithCodeUnderTest,
+            DiagnosticType diagnosticType,
             string[] shouldContains,
             bool failResolve = false)
         {
@@ -207,7 +206,7 @@ namespace Unity.Entities.CodeGen.Tests
             Assert.AreEqual(diagnosticType, diagnosticMessages.Single().DiagnosticType);
 
             StringAssert.Contains(shouldContains.Single(), diagnosticMessages.Single().MessageData);
-            
+
             // Currently BlobAsset errors can be generated by yield statements in a method.
             // In that case the method can contain no sequence points (and thus have no file info).
             //AssertDiagnosticHasSufficientFileAndLineInfo(diagnosticMessages);

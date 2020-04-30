@@ -24,8 +24,8 @@ namespace Unity.Entities.CodeGen
         {
             return systems.Select(s => s.FullName).ToList();
         }
-        
-         public MethodDefinition InjectGetSystemAttributes(List<TypeReference> systems)
+
+        public MethodDefinition InjectGetSystemAttributes(List<TypeReference> systems)
         {
             var createSystemsFunction = new MethodDefinition(
                 "GetSystemAttributes",
@@ -34,8 +34,8 @@ namespace Unity.Entities.CodeGen
 
             createSystemsFunction.Parameters.Add(
                 new ParameterDefinition("systemType",
-                ParameterAttributes.None,
-                AssemblyDefinition.MainModule.ImportReference(typeof(Type))));
+                    ParameterAttributes.None,
+                    AssemblyDefinition.MainModule.ImportReference(typeof(Type))));
 
             createSystemsFunction.Body.InitLocals = true;
             createSystemsFunction.Body.SimplifyMacros();
@@ -100,7 +100,6 @@ namespace Unity.Entities.CodeGen
                         var arg = attr.ConstructorArguments[0].Value as TypeReference;
                         bc.Add(Instruction.Create(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference(arg)));
                         bc.Add(Instruction.Create(OpCodes.Call, m_GetTypeFromHandleFnRef));
-                        
                     }
 
                     // Stack: array[] array[] array-index type-param OR
@@ -127,7 +126,7 @@ namespace Unity.Entities.CodeGen
             }
             bc.Add(Instruction.Create(OpCodes.Ldstr, "FATAL: GetSystemAttributes asked to create an unknown Type."));
             var arguementExceptionCtor = AssemblyDefinition.MainModule.ImportReference(typeof(ArgumentException)).Resolve().GetConstructors()
-                                            .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
+                .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
             bc.Add(Instruction.Create(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(arguementExceptionCtor)));
             bc.Add(Instruction.Create(OpCodes.Throw));
 
@@ -145,8 +144,8 @@ namespace Unity.Entities.CodeGen
 
             createSystemsFunction.Parameters.Add(
                 new ParameterDefinition("systemType",
-                ParameterAttributes.None,
-                AssemblyDefinition.MainModule.ImportReference(typeof(Type))));
+                    ParameterAttributes.None,
+                    AssemblyDefinition.MainModule.ImportReference(typeof(Type))));
 
             createSystemsFunction.Body.InitLocals = true;
             var bc = createSystemsFunction.Body.Instructions;
@@ -155,7 +154,7 @@ namespace Unity.Entities.CodeGen
             {
                 var sysDef = sysRef.Resolve();
                 var constructor = AssemblyDefinition.MainModule.ImportReference(sysDef.GetConstructors()
-                        .FirstOrDefault(param => param.HasParameters == false));
+                    .FirstOrDefault(param => param.HasParameters == false));
 
                 bc.Add(Instruction.Create(OpCodes.Ldarg_0));
                 bc.Add(Instruction.Create(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference(sysRef)));
@@ -174,7 +173,7 @@ namespace Unity.Entities.CodeGen
 
             bc.Add(Instruction.Create(OpCodes.Ldstr, "FATAL: CreateSystem asked to create an unknown type. Only subclasses of ComponentSystemBase can be constructed."));
             var argumentExceptionCtor = AssemblyDefinition.MainModule.ImportReference(typeof(ArgumentException)).Resolve().GetConstructors()
-                                            .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
+                .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
             bc.Add(Instruction.Create(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(argumentExceptionCtor)));
             bc.Add(Instruction.Create(OpCodes.Throw));
 

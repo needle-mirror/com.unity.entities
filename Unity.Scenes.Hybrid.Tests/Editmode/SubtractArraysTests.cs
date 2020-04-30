@@ -22,7 +22,7 @@ namespace Unity.Scenes.Tests
         // duplicates
         [TestCase(new[] {3, 2, 1, 0, 1, 2, 3}, new[] {0, 3}, new[] {2, 2, 1, 3, 1}, TestName = "ArrayDifference_WillReturnAllDuplicateDeltaItems")]
         [TestCase(new[] {1, 2, 3}, new[] {3, 2, 1, 1, 2, 3}, new int[0], TestName = "ArrayDifference_WhenSubtrahendIsMinuendWithDuplicates_IsEmptyArray")]
-        [TestCase(new[] {3, 2, 1, 1, 2, 3}, new[] {1, 2, 3}, new int[]{1, 2, 3}, TestName = "ArrayDifference_WhenMinuendIsSubtrahendWithDuplicates_ReturnsDuplicates")]
+        [TestCase(new[] {3, 2, 1, 1, 2, 3}, new[] {1, 2, 3}, new int[] {1, 2, 3}, TestName = "ArrayDifference_WhenMinuendIsSubtrahendWithDuplicates_ReturnsDuplicates")]
         public void SubtractArrayProducesExpectedDelta(int[] array, int[] toExclude, int[] expected)
         {
             var minuend = new NativeArray<int>(array, Allocator.TempJob);

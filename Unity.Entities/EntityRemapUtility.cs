@@ -143,13 +143,13 @@ namespace Unity.Entities
                 {
                     if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive)
                         CalculateEntityOffsetsRecurse(ref offsets, field.FieldType, baseOffset + UnsafeUtility.GetFieldOffset(field));
-                    else if(field.FieldType.IsClass && field.FieldType.IsGenericType)
+                    else if (field.FieldType.IsClass && field.FieldType.IsGenericType)
                     {
-                        foreach(var ga in field.FieldType.GetGenericArguments())
+                        foreach (var ga in field.FieldType.GetGenericArguments())
                         {
                             if (ga == typeof(Entity))
                             {
-                                offsets.Add(new EntityOffsetInfo { Offset = baseOffset }); 
+                                offsets.Add(new EntityOffsetInfo { Offset = baseOffset });
                                 break;
                             }
                         }
@@ -319,7 +319,7 @@ namespace Unity.Entities
             {
                 _EntityRemapInfo = entityRemapInfo;
             }
-            
+
             public VisitStatus Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
             {
                 value = RemapEntity(_EntityRemapInfo, value);
@@ -339,7 +339,7 @@ namespace Unity.Entities
                 _RemapDst = remapDst;
                 _RemapInfoCount = remapInfoCount;
             }
-            
+
             public VisitStatus Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
             {
                 value = RemapEntityForPrefab(_RemapSrc, _RemapDst, _RemapInfoCount, value);

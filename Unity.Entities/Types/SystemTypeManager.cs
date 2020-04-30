@@ -46,7 +46,7 @@ namespace Unity.Entities
 #if !NET_DOTS
             if (!typeof(ComponentSystemBase).IsAssignableFrom(systemType))
                 throw new ArgumentException($"'{systemType.FullName}' cannot be constructed as it does not inherit from ComponentSystemBase");
-            return (ComponentSystemBase) Activator.CreateInstance(systemType);
+            return (ComponentSystemBase)Activator.CreateInstance(systemType);
 #else
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
 
@@ -114,7 +114,7 @@ namespace Unity.Entities
             return isGroup;
 #endif
         }
-        
+
         /// <summary>
         /// Get all the attribute objects of Type attributeType for a System.
         /// </summary>
@@ -157,7 +157,7 @@ namespace Unity.Entities
         static object CreateSystem(Type systemType)
         {
             int systemIndex = 0;
-            for(; systemIndex < s_SystemTypes.Count; ++systemIndex)
+            for (; systemIndex < s_SystemTypes.Count; ++systemIndex)
             {
                 if (s_SystemTypes[systemIndex] == systemType)
                     break;
@@ -171,7 +171,7 @@ namespace Unity.Entities
 
             throw new ArgumentException("No function was generated for the provided type.");
         }
-        
+
         internal static Attribute[] GetSystemAttributes(Type system)
         {
             int typeIndexNoFlags = 0;
@@ -216,7 +216,7 @@ namespace Unity.Entities
                 s_AssemblyGetSystemAttributesFn.Add(typeRegistry.GetSystemAttributes);
             }
         }
-#endif
-    }    
-}
 
+#endif
+    }
+}

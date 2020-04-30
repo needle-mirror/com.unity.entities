@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -21,7 +21,7 @@ namespace Unity.Entities
             m_All    = new FixedListInt64();
             m_AnyWritableBitField = m_AllWritableBitField = 0;
             m_Options = EntityQueryOptions.Default;
-            m_Query  = null;
+            m_Query  = default;
         }
 
         // this is a specialized function intended only for validation that builders are hashing and getting cached
@@ -41,7 +41,7 @@ namespace Unity.Entities
                 m_AnyWritableBitField == other.m_AnyWritableBitField &&
                 m_AllWritableBitField == other.m_AllWritableBitField &&
                 m_Options == other.m_Options &&
-                ReferenceEquals(m_Query, other.m_Query);
+                m_Query == other.m_Query;
         }
 
         public override int GetHashCode() =>
@@ -50,13 +50,13 @@ namespace Unity.Entities
             throw new InvalidOperationException("Calling this function is a sign of inadvertent boxing");
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        void ValidateHasNoQuery() => ThrowIfInvalidMixing(m_Query != null);
+        void ValidateHasNoQuery() => ThrowIfInvalidMixing(m_Query != default);
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void ValidateHasNoSpec() => ThrowIfInvalidMixing(
-            m_Any           .Length    != 0 ||
-            m_None          .Length    != 0 ||
-            m_All           .Length    != 0);
+            m_Any.Length    != 0 ||
+            m_None.Length    != 0 ||
+            m_All.Length    != 0);
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void ThrowIfInvalidMixing(bool throwIfTrue)
@@ -68,9 +68,9 @@ namespace Unity.Entities
         public EntityQueryBuilder With(EntityQuery entityQuery)
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (entityQuery == null)
+            if (entityQuery == default)
                 throw new ArgumentNullException(nameof(entityQuery));
-            if (m_Query != null)
+            if (m_Query != default)
                 throw new InvalidOperationException($"{nameof(EntityQuery)} has already been set");
             ValidateHasNoSpec();
             #endif
@@ -79,7 +79,7 @@ namespace Unity.Entities
             return this;
         }
 
-		public EntityQueryBuilder With(EntityQueryOptions options)
+        public EntityQueryBuilder With(EntityQueryOptions options)
         {
             ValidateHasNoQuery();
             m_Options = options;
@@ -105,8 +105,11 @@ namespace Unity.Entities
                 var types = new ComponentType[length];
 
                 for (var i = 0; i < typeIndices.Length; ++i)
-                    types[i] = new ComponentType { TypeIndex = typeIndices[i],
-                        AccessModeType = (writableBitField & (1 << i)) != 0 ? ComponentType.AccessMode.ReadWrite : ComponentType.AccessMode.ReadOnly };
+                    types[i] = new ComponentType
+                    {
+                        TypeIndex = typeIndices[i],
+                        AccessModeType = (writableBitField & (1 << i)) != 0 ? ComponentType.AccessMode.ReadWrite : ComponentType.AccessMode.ReadOnly
+                    };
 
                 return types;
             }
@@ -124,7 +127,7 @@ namespace Unity.Entities
             ToEntityQueryDesc(0);
 
         public EntityQuery ToEntityQuery() =>
-            m_Query ?? (m_Query = m_System.GetEntityQuery(ToEntityQueryDesc()));
+            m_Query == default ? (m_Query = m_System.GetEntityQuery(ToEntityQueryDesc())) : m_Query;
 
         // see EntityQueryBuilder.tt for the template that is converted into EntityQueryBuilder.gen.cs,
         // which contains ForEach and other generated methods.
@@ -169,8 +172,8 @@ namespace Unity.Entities
                 for (var iDelegateType = 0; iDelegateType < filteredDelegateTypeCount; ++iDelegateType)
                 {
                     for (var iSwapDelegateType = iDelegateType + 1;
-                        delegateTypeIndices[iDelegateType] == -1 && iSwapDelegateType < delegateTypeCount;
-                        ++iSwapDelegateType)
+                         delegateTypeIndices[iDelegateType] == -1 && iSwapDelegateType < delegateTypeCount;
+                         ++iSwapDelegateType)
                     {
                         if (delegateTypeIndices[iSwapDelegateType] != -1)
                         {
@@ -189,13 +192,13 @@ namespace Unity.Entities
             SanitizeTypes(delegateTypeIndices, ref delegateTypeCount);
 
             var hash
-                = (uint)m_Any 					.GetHashCode() * 0xEA928FF9
-                ^ (uint)m_None   				.GetHashCode() * 0x4B772F25
-                ^ (uint)m_All 					.GetHashCode() * 0xBAEE8991
-                ^ (uint)m_AnyWritableBitField   .GetHashCode() * 0x8F8BF1C7
-                ^ (uint)m_AllWritableBitField   .GetHashCode() * 0xB6D633F7
-                ^ (uint)m_Options               .GetHashCode() * 0xE0B7379B
-                ^ math.hash(delegateTypeIndices, sizeof(int) * delegateTypeCount);
+                = (uint)m_Any.GetHashCode() * 0xEA928FF9
+                    ^ (uint)m_None.GetHashCode() * 0x4B772F25
+                    ^ (uint)m_All.GetHashCode() * 0xBAEE8991
+                    ^ (uint)m_AnyWritableBitField.GetHashCode() * 0x8F8BF1C7
+                    ^ (uint)m_AllWritableBitField.GetHashCode() * 0xB6D633F7
+                    ^ (((uint)m_Options) + 7) * 0xE0B7379B
+                    ^ math.hash(delegateTypeIndices, sizeof(int) * delegateTypeCount);
 
             var cache = m_System.GetOrCreateEntityQueryCache();
             var found = cache.FindQueryInCache(hash);
@@ -206,7 +209,7 @@ namespace Unity.Entities
                 var eaq = ToEntityQueryDesc(delegateTypeCount);
 
                 // now fill out the extra types
-                for (var i = 0 ; i < delegateTypeCount; ++i)
+                for (var i = 0; i < delegateTypeCount; ++i)
                     eaq.All[i + m_All.Length] = ComponentType.FromTypeIndex(delegateTypeIndices[i]);
 
                 var query = m_System.GetEntityQuery(eaq);

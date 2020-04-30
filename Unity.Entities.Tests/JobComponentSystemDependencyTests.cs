@@ -1,4 +1,3 @@
-
 using System;
 #if !UNITY_DOTSPLAYER
 using NUnit.Framework;
@@ -17,7 +16,7 @@ namespace Unity.Entities.Tests
 
             struct ReadJob : IJobForEach<EcsTestData>
             {
-                public void Execute([ReadOnly]ref EcsTestData c0)
+                public void Execute([ReadOnly] ref EcsTestData c0)
                 {
                 }
             }
@@ -43,7 +42,7 @@ namespace Unity.Entities.Tests
 
             private struct ReadJob : IJobForEach<EcsTestData>
             {
-                public void Execute([ReadOnly]ref EcsTestData c0)
+                public void Execute([ReadOnly] ref EcsTestData c0)
                 {
                 }
             }
@@ -122,47 +121,47 @@ namespace Unity.Entities.Tests
         public class AlwaySynchronizeDependenciesSystem1 : JobComponentSystem
         {
             public EntityQuery m_Group;
-            
+
             private struct TestJob : IJobForEach<EcsTestData>
             {
                 public void Execute(ref EcsTestData c0)
                 {
                 }
             }
-            
+
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
                 return new TestJob().Schedule(m_Group, inputDeps);
             }
-            
+
             protected override void OnCreate()
             {
                 m_Group = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
             }
         }
-        
+
         [AlwaysSynchronizeSystem]
         public class AlwaySynchronizeDependenciesSystem2 : JobComponentSystem
         {
             public EntityQuery m_Group;
-            
+
             private struct TestJob : IJobForEach<EcsTestData>
             {
                 public void Execute(ref EcsTestData c0)
                 {
                 }
             }
-            
+
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
                 if (!inputDeps.Equals(new JobHandle()))//after completing all jobs an empty jobhandle is returned.
                 {
                     throw new Exception("InputDeps were not forced to completion earlier in frame.");
                 }
-                
+
                 return new TestJob().Schedule(m_Group, inputDeps);
             }
-            
+
             protected override void OnCreate()
             {
                 m_Group = GetEntityQuery(ComponentType.ReadWrite<EcsTestData>());
@@ -172,7 +171,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void ReturningWrongJobThrowsInCorrectSystemUpdate()
         {
-            var entity = m_Manager.CreateEntity (typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
             ReadSystem1 rs1 = World.GetOrCreateSystem<ReadSystem1>();
             ReadSystem2 rs2 = World.GetOrCreateSystem<ReadSystem2>();
@@ -186,7 +185,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void IgnoredInputDepsThrowsInCorrectSystemUpdate()
         {
-            var entity = m_Manager.CreateEntity (typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
             WriteSystem ws1 = World.GetOrCreateSystem<WriteSystem>();
             ReadSystem2 rs2 = World.GetOrCreateSystem<ReadSystem2>();
@@ -200,7 +199,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void NotSchedulingWriteJobIsHarmless()
         {
-            var entity = m_Manager.CreateEntity (typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
             WriteSystem ws1 = World.GetOrCreateSystem<WriteSystem>();
 
@@ -212,7 +211,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void NotUsingDataIsHarmless()
         {
-            var entity = m_Manager.CreateEntity (typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
             ReadSystem1 rs1 = World.GetOrCreateSystem<ReadSystem1>();
             ReadSystem3 rs3 = World.GetOrCreateSystem<ReadSystem3>();
@@ -224,7 +223,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void ReadAfterWrite_JobForEachGroup_Works()
         {
-            var entity = m_Manager.CreateEntity (typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
             var ws = World.GetOrCreateSystem<WriteSystem>();
             var rs = World.GetOrCreateSystem<ReadSystem2>();
@@ -233,7 +232,7 @@ namespace Unity.Entities.Tests
             rs.Update();
         }
 
-        class UseEcsTestDataFromEntity: JobComponentSystem
+        class UseEcsTestDataFromEntity : JobComponentSystem
         {
             public struct MutateEcsTestDataJob : IJob
             {
@@ -241,7 +240,6 @@ namespace Unity.Entities.Tests
 
                 public void Execute()
                 {
-
                 }
             }
 
@@ -264,7 +262,8 @@ namespace Unity.Entities.Tests
             systemA.Update();
             systemB.Update();
         }
-        class EmptyJobComponentSystem: JobComponentSystem
+
+        class EmptyJobComponentSystem : JobComponentSystem
         {
             protected override JobHandle OnUpdate(JobHandle dep)
             {
@@ -287,7 +286,7 @@ namespace Unity.Entities.Tests
                 var handle = new EmptyJob
                 {
                     TestDataType = GetArchetypeChunkComponentType<EcsTestData>()
-                }.Schedule(m_EntityManager.UniversalQuery, dep);
+                }.Schedule(EntityManager.UniversalQuery, dep);
                 return handle;
             }
         }
@@ -311,9 +310,9 @@ namespace Unity.Entities.Tests
 
             var systemA = World.CreateSystem<AlwaySynchronizeDependenciesSystem1>();
             var systemB = World.CreateSystem<AlwaySynchronizeDependenciesSystem2>();
-            
+
             systemA.Update();
-            Assert.DoesNotThrow(()=>
+            Assert.DoesNotThrow(() =>
             {
                 systemB.Update();
             });

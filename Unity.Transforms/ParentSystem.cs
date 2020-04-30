@@ -7,8 +7,8 @@ using Unity.Profiling;
 
 namespace Unity.Transforms
 {
-   public abstract class ParentSystem : JobComponentSystem
-   {
+    public abstract class ParentSystem : JobComponentSystem
+    {
         EntityQuery m_NewParentsGroup;
         EntityQuery m_RemovedParentsGroup;
         EntityQuery m_ExistingParentsGroup;
@@ -72,7 +72,7 @@ namespace Unity.Transforms
                             var parentEntity = chunkParents[j].Value;
                             var previousParentEntity = chunkPreviousParents[j].Value;
 
-                            ParentChildrenToAdd.Add(parentEntity,childEntity);
+                            ParentChildrenToAdd.Add(parentEntity, childEntity);
                             UniqueParents.TryAdd(parentEntity, 0);
 
                             if (previousParentEntity != Entity.Null)
@@ -140,10 +140,11 @@ namespace Unity.Transforms
                     {
                         var childIndex = FindChildIndex(children, child);
                         children.RemoveAt(childIndex);
-
-                    } while (ParentChildrenToRemove.TryGetNextValue(out child, ref it));
+                    }
+                    while (ParentChildrenToRemove.TryGetNextValue(out child, ref it));
                 }
             }
+
             void AddChildrenToParent(Entity parent, DynamicBuffer<Child> children)
             {
                 if (ParentChildrenToAdd.TryGetFirstValue(parent, out var child, out var it))
@@ -151,7 +152,8 @@ namespace Unity.Transforms
                     do
                     {
                         children.Add(new Child() { Value = child });
-                    } while (ParentChildrenToAdd.TryGetNextValue(out child, ref it));
+                    }
+                    while (ParentChildrenToAdd.TryGetNextValue(out child, ref it));
                 }
             }
 
@@ -257,7 +259,7 @@ namespace Unity.Transforms
             if (m_ExistingParentsGroup.IsEmptyIgnoreFilter)
                 return;
 
-            var count = m_ExistingParentsGroup.CalculateEntityCount() * 2; // Potentially 2x changed: current and previous 
+            var count = m_ExistingParentsGroup.CalculateEntityCount() * 2; // Potentially 2x changed: current and previous
             if (count == 0)
                 return;
 

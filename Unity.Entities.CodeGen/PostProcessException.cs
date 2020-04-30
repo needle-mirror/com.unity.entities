@@ -15,7 +15,7 @@ namespace Unity.Entities.CodeGen
             DiagnosticMessages = diagnosticMessages;
         }
 
-        public  override string ToString() => DiagnosticMessages.Select(dm=>dm.MessageData).SeparateByComma();
+        public  override string ToString() => DiagnosticMessages.Select(dm => dm.MessageData).SeparateByComma();
     }
 
     class PostProcessException : Exception
@@ -23,7 +23,7 @@ namespace Unity.Entities.CodeGen
         public string MessageWithoutLocation { get; }
         public MethodDefinition Method { get; }
         public Instruction Instruction { get; }
-            
+
         public PostProcessException(string messageWithoutLocation, MethodDefinition method = null, Instruction instruction = null)
         {
             MessageWithoutLocation = messageWithoutLocation;
@@ -53,7 +53,7 @@ namespace Unity.Entities.CodeGen
                 DiagnosticType = DiagnosticType.Error,
                 MessageData = MessageWithoutLocation,
             };
-            
+
             var seq = SequencePointFor(context);
             if (seq != null)
             {

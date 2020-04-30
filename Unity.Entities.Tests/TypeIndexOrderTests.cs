@@ -154,6 +154,7 @@ namespace Unity.Entities.Tests
             MatchesChunkTypes<Buffer1, Buffer2>(t[25], t[26]);
             MatchesChunkTypes<SystemBuffer1, SystemBuffer2>(t[27], t[28]);
         }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         class ManagedComponentData1 : IComponentData, IEquatable<ManagedComponentData1>
         {
@@ -229,6 +230,7 @@ namespace Unity.Entities.Tests
             MatchesChunkTypes<Buffer1, Buffer2>(t[27], t[28]);
             MatchesChunkTypes<SystemBuffer1, SystemBuffer2>(t[29], t[30]);
         }
+
 #endif
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(child, new Parent {Value = parent});
             m_Manager.SetComponentData(child, new LocalToParent
             {
-                Value = math.mul(float4x4.RotateY((float) math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
+                Value = math.mul(float4x4.RotateY((float)math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
             });
 
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
@@ -46,7 +46,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(child, new Parent {Value = parent});
             m_Manager.SetComponentData(child, new LocalToParent
             {
-                Value = math.mul(float4x4.RotateY((float) math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
+                Value = math.mul(float4x4.RotateY((float)math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
             });
 
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
@@ -59,7 +59,7 @@ namespace Unity.Entities.Tests
 
             m_Manager.SetComponentData(parent, new LocalToWorld
             {
-                Value = math.mul(float4x4.RotateY((float) math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
+                Value = math.mul(float4x4.RotateY((float)math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
             });
 
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
@@ -98,9 +98,9 @@ namespace Unity.Entities.Tests
 
                 rotations = new quaternion[]
                 {
-                    quaternion.EulerYZX(new float3(0.125f * (float) math.PI, 0.0f, 0.0f)),
-                    quaternion.EulerYZX(new float3(0.5f * (float) math.PI, 0.0f, 0.0f)),
-                    quaternion.EulerYZX(new float3((float) math.PI, 0.0f, 0.0f)),
+                    quaternion.EulerYZX(new float3(0.125f * (float)math.PI, 0.0f, 0.0f)),
+                    quaternion.EulerYZX(new float3(0.5f * (float)math.PI, 0.0f, 0.0f)),
+                    quaternion.EulerYZX(new float3((float)math.PI, 0.0f, 0.0f)),
                 };
                 translations = new float3[]
                 {
@@ -275,8 +275,8 @@ namespace Unity.Entities.Tests
 
             unsafe bool AssertCloseEnough(float4x4 a, float4x4 b)
             {
-                float* ap = (float*) &a.c0.x;
-                float* bp = (float*) &b.c0.x;
+                float* ap = (float*)&a.c0.x;
+                float* bp = (float*)&b.c0.x;
                 for (int i = 0; i < 16; i++)
                 {
                     Assert.That(bp[i], Is.EqualTo(ap[i]).Within(k_Tolerance));
@@ -361,7 +361,7 @@ namespace Unity.Entities.Tests
 
             public void DeleteSomeParents()
             {
-                // Effectively puts children of 0 at the root 
+                // Effectively puts children of 0 at the root
                 parentIndices[1] = -1;
                 parentIndices[8] = -1;
 
@@ -459,7 +459,6 @@ namespace Unity.Entities.Tests
 
             testHierarchy.Dispose();
         }
-
 
         [Test]
         public void TRS_TestHierarchyAfterParentChange()
@@ -577,7 +576,6 @@ namespace Unity.Entities.Tests
 
             testHierarchy.Dispose();
         }
-
 
         [Test]
         public void TRS_TestHierarchyAddExtraChildrenChangeArchetype()

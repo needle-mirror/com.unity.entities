@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.PerformanceTesting;
@@ -19,36 +19,36 @@ namespace Unity.Entities.PerformanceTests
             }
         }
 #pragma warning restore 618
-        
+
         [Test, Performance]
         public void Prefiltering_SingleArchetype_SingleChunk_Unfiltered()
         {
             const int kEntityCount = 10;
 
             var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>());
-            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(),ComponentType.ReadWrite<EcsTestData2>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>());
             var entities = new NativeArray<Entity>(kEntityCount, Allocator.TempJob);
             m_Manager.CreateEntity(archetype, entities);
 
             var dependsOn = new JobHandle();
 
             Measure.Method(
-                    () =>
-                    {
-                        dependsOn = new ProcessJob().Schedule(group, dependsOn);
-                    })
-                .Definition("Scheduling")
+                () =>
+                {
+                    dependsOn = new ProcessJob().Schedule(group, dependsOn);
+                })
+                .SampleGroup("Scheduling")
                 .Run();
 
             dependsOn.Complete();
 
             Measure.Method(
-                    () =>
-                    {
-                        var job = new ProcessJob().Schedule(group);
-                        job.Complete();
-                    })
-                .Definition("ScheduleAndRun")
+                () =>
+                {
+                    var job = new ProcessJob().Schedule(group);
+                    job.Complete();
+                })
+                .SampleGroup("ScheduleAndRun")
                 .Run();
 
             entities.Dispose();
@@ -73,29 +73,29 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.CreateEntity(archetype, entities);
             for (int i = kEntityCount / 2; i < kEntityCount; ++i)
             {
-                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp{value = 10});
+                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = 10});
             }
 
             var dependsOn = new JobHandle();
             group.SetSharedComponentFilter(new EcsTestSharedComp {value = 10});
 
             Measure.Method(
-                    () =>
-                    {
-                        dependsOn = new ProcessJob().Schedule(group, dependsOn);
-                    })
-                .Definition("Scheduling")
+                () =>
+                {
+                    dependsOn = new ProcessJob().Schedule(group, dependsOn);
+                })
+                .SampleGroup("Scheduling")
                 .Run();
 
             dependsOn.Complete();
 
             Measure.Method(
-                    () =>
-                    {
-                        var job = new ProcessJob().Schedule(group);
-                        job.Complete();
-                    })
-                .Definition("ScheduleAndRun")
+                () =>
+                {
+                    var job = new ProcessJob().Schedule(group);
+                    job.Complete();
+                })
+                .SampleGroup("ScheduleAndRun")
                 .Run();
 
             entities.Dispose();
@@ -121,29 +121,29 @@ namespace Unity.Entities.PerformanceTests
 
             for (int i = 0; i < kEntityCount; ++i)
             {
-                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = i % 10 } );
+                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = i % 10 });
             }
 
             var dependsOn = new JobHandle();
-            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 0});
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = 0});
 
             Measure.Method(
-                    () =>
-                    {
-                        dependsOn = new ProcessJob().Schedule(group, dependsOn);
-                    })
-                .Definition("Scheduling")
+                () =>
+                {
+                    dependsOn = new ProcessJob().Schedule(group, dependsOn);
+                })
+                .SampleGroup("Scheduling")
                 .Run();
 
             dependsOn.Complete();
 
             Measure.Method(
-                    () =>
-                    {
-                        var job = new ProcessJob().Schedule(group);
-                        job.Complete();
-                    })
-                .Definition("ScheduleAndRun")
+                () =>
+                {
+                    var job = new ProcessJob().Schedule(group);
+                    job.Complete();
+                })
+                .SampleGroup("ScheduleAndRun")
                 .Run();
 
             entities.Dispose();
@@ -177,7 +177,7 @@ namespace Unity.Entities.PerformanceTests
 
                 for (int j = 0; j < kEntityCountPerArchetype; ++j)
                 {
-                    m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = i % 10 } );
+                    m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = i % 10 });
                 }
 
                 entities.Dispose();
@@ -187,27 +187,26 @@ namespace Unity.Entities.PerformanceTests
             var group = m_Manager.CreateEntityQuery(
                 ComponentType.ReadWrite<EcsTestData>(),
                 ComponentType.ReadWrite<EcsTestSharedComp>());
-            group.SetSharedComponentFilter(new EcsTestSharedComp{value = 0});
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = 0});
 
             Measure.Method(
-                    () =>
-                    {
-                        dependsOn = new ProcessJob().Schedule(group, dependsOn);
-                    })
-                .Definition("Scheduling")
+                () =>
+                {
+                    dependsOn = new ProcessJob().Schedule(group, dependsOn);
+                })
+                .SampleGroup("Scheduling")
                 .Run();
 
             dependsOn.Complete();
 
             Measure.Method(
-                    () =>
-                    {
-                        var job = new ProcessJob().Schedule(group);
-                        job.Complete();
-                    })
-                .Definition("ScheduleAndRun")
+                () =>
+                {
+                    var job = new ProcessJob().Schedule(group);
+                    job.Complete();
+                })
+                .SampleGroup("ScheduleAndRun")
                 .Run();
-
         }
     }
 }

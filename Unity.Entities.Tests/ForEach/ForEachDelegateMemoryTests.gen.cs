@@ -73,7 +73,7 @@ namespace Unity.Entities.Tests.ForEach
     {
         int InvokeEmpty()
         {
-            TestInvoke(v => { });
+            TestInvoke(v => {});
             return 0;
         }
 
@@ -183,14 +183,13 @@ namespace Unity.Entities.Tests.ForEach
             Assert.AreEqual(6, firstCallTotal);
             Assert.AreEqual(16, loopedCallTotal);
         }
-
     }
 
     class ForEachLocalFunctionMemoryTests : ForEachMemoryTestFixtureBase
     {
         int InvokeEmpty()
         {
-            void Empty(int v) { }
+            void Empty(int v) {}
             TestInvoke(Empty);
             return 0;
         }
@@ -307,7 +306,6 @@ namespace Unity.Entities.Tests.ForEach
             Assert.AreEqual(6, firstCallTotal);
             Assert.AreEqual(16, loopedCallTotal);
         }
-
     }
 
     class ForEachLocalFunctionCachedMemoryTests : ForEachMemoryTestFixtureBase
@@ -315,7 +313,7 @@ namespace Unity.Entities.Tests.ForEach
         TestDelegate m_EmptyDelegate;
         int InvokeEmpty()
         {
-            void Empty(int v) { }
+            void Empty(int v) {}
             TestInvoke(m_EmptyDelegate = m_EmptyDelegate ?? Empty);
             return 0;
         }
@@ -401,12 +399,11 @@ namespace Unity.Entities.Tests.ForEach
             Assert.AreEqual(6, firstCallTotal);
             Assert.AreEqual(16, loopedCallTotal);
         }
-
     }
 
     class ForEachMethodMemoryTests : ForEachMemoryTestFixtureBase
     {
-        void MethodEmpty(int v) { }
+        void MethodEmpty(int v) {}
 
         int InvokeEmpty()
         {
@@ -495,13 +492,12 @@ namespace Unity.Entities.Tests.ForEach
             Assert.AreEqual(6, firstCallTotal);
             Assert.AreEqual(16, loopedCallTotal);
         }
-
     }
 
     class ForEachMethodCachedMemoryTests : ForEachMemoryTestFixtureBase
     {
         TestDelegate m_EmptyDelegate;
-        void MethodEmpty(int v) { }
+        void MethodEmpty(int v) {}
 
         int InvokeEmpty()
         {
@@ -592,12 +588,11 @@ namespace Unity.Entities.Tests.ForEach
             Assert.AreEqual(6, firstCallTotal);
             Assert.AreEqual(16, loopedCallTotal);
         }
-
     }
 
     class ForEachStaticMethodMemoryTests : ForEachMemoryTestFixtureBase
     {
-        static void StaticMethodEmpty(int v) { }
+        static void StaticMethodEmpty(int v) {}
 
         int InvokeEmpty()
         {
@@ -656,13 +651,12 @@ namespace Unity.Entities.Tests.ForEach
             Assert.AreEqual(6, firstCallTotal);
             Assert.AreEqual(16, loopedCallTotal);
         }
-
     }
 
     class ForEachStaticMethodCachedMemoryTests : ForEachMemoryTestFixtureBase
     {
         TestDelegate m_EmptyDelegate;
-        static void StaticMethodEmpty(int v) { }
+        static void StaticMethodEmpty(int v) {}
 
         int InvokeEmpty()
         {
@@ -722,8 +716,6 @@ namespace Unity.Entities.Tests.ForEach
             Assert.AreEqual(6, firstCallTotal);
             Assert.AreEqual(16, loopedCallTotal);
         }
-
     }
-
 }
 #endif // !UNITY_DOTSPLAYER

@@ -6,7 +6,7 @@ using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities.Conversion
 {
-    interface IJournalDataDebug { }
+    interface IJournalDataDebug {}
 
     static class JournalDataDebug
     {
@@ -62,10 +62,11 @@ namespace Unity.Entities.Conversion
                 }
             }
         }
+
         public IEnumerable<IJournalDataDebug> SelectJournalDataDebug(int objectInstanceId) =>
             m_HeadIdIndices.TryGetValue(objectInstanceId, out var headIdIndex)
-                ? SelectJournalDataDebug(objectInstanceId, headIdIndex)
-                : Enumerable.Empty<IJournalDataDebug>();
+            ? SelectJournalDataDebug(objectInstanceId, headIdIndex)
+            : Enumerable.Empty<IJournalDataDebug>();
     }
 
     static class JournalDataDebugExtensions

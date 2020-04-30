@@ -1,4 +1,4 @@
-﻿#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSPLAYER
 using System.Linq;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
@@ -276,8 +276,8 @@ namespace Unity.Entities.Tests
         public void CorrectEqualsIsUsed()
         {
             var typeInfo = FastEquality.CreateTypeInfo(typeof(DoubleEquals));
-            var a = new DoubleEquals { };
-            var b = new DoubleEquals { };
+            var a = new DoubleEquals {};
+            var b = new DoubleEquals {};
             bool iseq = FastEquality.Equals<DoubleEquals>(a, b, typeInfo);
 
             Assert.IsTrue(iseq);
@@ -408,6 +408,7 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(obj.GetHashCodeWasCalled);
             }
         }
+
 #endif
     }
 }

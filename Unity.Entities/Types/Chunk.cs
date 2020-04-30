@@ -10,8 +10,8 @@ namespace Unity.Entities
     internal enum ChunkFlags
     {
         None = 0,
-        Locked = 1 << 0,
-        Unused = 1 << 1,
+        Unused0 = 1 << 0,
+        Unused1 = 1 << 1,
         TempAssertWillDestroyAllInLinkedEntityGroup = 1 << 2
     }
 
@@ -36,7 +36,7 @@ namespace Unity.Entities
         public int ListIndex;
         [FieldOffset(28)]
         public int ListWithEmptySlotsIndex;
-        
+
         // Special chunk behaviors
         [FieldOffset(32)]
         public uint Flags;
@@ -58,14 +58,21 @@ namespace Unity.Entities
         public const int kBufferSize = kChunkSize - kBufferOffset;
         public const int kMaximumEntitiesPerChunk = kBufferSize / 8;
 
-        public uint GetChangeVersion(int typeIndex)
+        public int UnusedCount => Capacity - Count;
+
+        public uint GetChangeVersion(int indexInArchetype)
         {
-            return Archetype->Chunks.GetChangeVersion(typeIndex, ListIndex);
+            return Archetype->Chunks.GetChangeVersion(indexInArchetype, ListIndex);
         }
 
-        public void SetChangeVersion(int typeIndex, uint version)
+        public uint GetOrderVersion()
         {
-            Archetype->Chunks.SetChangeVersion(typeIndex, ListIndex, version);
+            return Archetype->Chunks.GetOrderVersion(ListIndex);
+        }
+
+        public void SetChangeVersion(int indexInArchetype, uint version)
+        {
+            Archetype->Chunks.SetChangeVersion(indexInArchetype, ListIndex, version);
         }
 
         public void SetAllChangeVersions(uint version)
@@ -73,9 +80,14 @@ namespace Unity.Entities
             Archetype->Chunks.SetAllChangeVersion(ListIndex, version);
         }
 
-        public int GetSharedComponentValue(int typeOffset)
+        public void SetOrderVersion(uint version)
         {
-            return Archetype->Chunks.GetSharedComponentValue(typeOffset, ListIndex);
+            Archetype->Chunks.SetOrderVersion(ListIndex, version);
+        }
+
+        public int GetSharedComponentValue(int sharedComponentIndexInArchetype)
+        {
+            return Archetype->Chunks.GetSharedComponentValue(sharedComponentIndexInArchetype, ListIndex);
         }
 
         public SharedComponentValues SharedComponentValues => Archetype->Chunks.GetSharedComponentValues(ListIndex);
@@ -102,14 +114,9 @@ namespace Unity.Entities
 
         public int GetSharedComponentIndex(MatchingArchetype* match, int indexInEntityQuery)
         {
-            var componentIndexInArcheType = match->IndexInArchetype[indexInEntityQuery];
-            var componentIndexInChunk = componentIndexInArcheType - match->Archetype->FirstSharedComponent;
-            return GetSharedComponentValue(componentIndexInChunk);
+            var sharedComponentIndexInArchetype = match->IndexInArchetype[indexInEntityQuery];
+            var sharedComponentIndexOffset = sharedComponentIndexInArchetype - match->Archetype->FirstSharedComponent;
+            return GetSharedComponentValue(sharedComponentIndexOffset);
         }
-
-        /// <summary>
-        /// Returns true if Chunk is Locked
-        /// </summary>
-        public bool Locked => (Flags & (uint) ChunkFlags.Locked) != 0;
     }
 }

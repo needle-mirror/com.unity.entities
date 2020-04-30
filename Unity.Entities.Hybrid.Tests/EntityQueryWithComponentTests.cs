@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace Unity.Entities.Tests {
+namespace Unity.Entities.Tests
+{
     class EntityQueryWithUnityComponentTests : ECSTestsFixture
     {
         [Test]
@@ -33,7 +34,7 @@ namespace Unity.Entities.Tests {
             finally
             {
                 Object.DestroyImmediate(go1);
-                Object.DestroyImmediate(go2);   
+                Object.DestroyImmediate(go2);
             }
         }
     }

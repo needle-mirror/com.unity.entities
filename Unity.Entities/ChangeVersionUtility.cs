@@ -1,4 +1,4 @@
-﻿namespace Unity.Entities
+namespace Unity.Entities
 {
     static public class ChangeVersionUtility
     {

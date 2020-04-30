@@ -30,7 +30,7 @@ namespace Unity.Entities
     public unsafe struct EntityArchetype : IEquatable<EntityArchetype>
     {
         [NativeDisableUnsafePtrRestriction] internal Archetype* Archetype;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS        
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [NativeDisableUnsafePtrRestriction] internal EntityComponentStore* _DebugComponentStore;
 #endif
 
@@ -46,7 +46,7 @@ namespace Unity.Entities
         /// <param name="lhs">A EntityArchetype object.</param>
         /// <param name="rhs">Another EntityArchetype object.</param>
         /// <returns>True, if these EntityArchetype instances reference the same archetype.</returns>
-        public static bool operator ==(EntityArchetype lhs, EntityArchetype rhs)
+        public static bool operator==(EntityArchetype lhs, EntityArchetype rhs)
         {
             return lhs.Archetype == rhs.Archetype;
         }
@@ -57,7 +57,7 @@ namespace Unity.Entities
         /// <param name="lhs">A EntityArchetype object.</param>
         /// <param name="rhs">Another EntityArchetype object.</param>
         /// <returns>True, if these EntityArchetype instances reference different archetypes.</returns>
-        public static bool operator !=(EntityArchetype lhs, EntityArchetype rhs)
+        public static bool operator!=(EntityArchetype lhs, EntityArchetype rhs)
         {
             return lhs.Archetype != rhs.Archetype;
         }
@@ -70,7 +70,7 @@ namespace Unity.Entities
         /// archetype.</returns>
         public override bool Equals(object compare)
         {
-            return this == (EntityArchetype) compare;
+            return this == (EntityArchetype)compare;
         }
 
         /// <summary>
@@ -90,7 +90,7 @@ namespace Unity.Entities
         /// <returns>An integer hash code.</returns>
         public override int GetHashCode()
         {
-            return (int) Archetype;
+            return (int)Archetype;
         }
 
         /// <summary>
@@ -127,7 +127,7 @@ namespace Unity.Entities
         /// <value>Capacity is determined by the fixed, 16KB size of the memory blocks allocated by the ECS framework
         /// and the total storage size of all the component types in the archetype.</value>
         public int ChunkCapacity => Archetype->ChunkCapacity;
-        
+
         /// <summary>
         /// Reports whether this EntityArchetype instance describes a Prefab.
         /// </summary>
@@ -139,7 +139,5 @@ namespace Unity.Entities
         /// </summary>
         /// <value>True, if the archetype is a disabled archetype.</value>
         public bool Disabled => Archetype->Disabled;
-
     }
-
 }

@@ -1,11 +1,13 @@
+using System;
+
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
-        
+
         /// <summary>
         /// Gets the version number of the specified component type.
         /// </summary>
@@ -24,9 +26,11 @@ namespace Unity.Entities
         /// <returns>The current version number.</returns>
         public int GetComponentOrderVersion<T>()
         {
-            return EntityComponentStore->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<T>());
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            return ecs->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<T>());
         }
-        
+
         /// <summary>
         /// Gets the version number of the specified shared component.
         /// </summary>
@@ -46,19 +50,24 @@ namespace Unity.Entities
         /// <returns>The current version number.</returns>
         public int GetSharedComponentOrderVersion<T>(T sharedComponent) where T : struct, ISharedComponentData
         {
-            return m_ManagedComponentStore.GetSharedComponentVersion(sharedComponent);
+            var access = GetCheckedEntityDataAccess();
+            var mcs = access->ManagedComponentStore;
+            return mcs.GetSharedComponentVersion(sharedComponent);
         }
-        
+
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
-   
+
         internal uint GetChunkVersionHash(Entity entity)
         {
-            if (!EntityComponentStore->Exists(entity))
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+
+            if (!ecs->Exists(entity))
                 return 0;
-            
-            var chunk = EntityComponentStore->GetChunk(entity);
+
+            var chunk = ecs->GetChunk(entity);
             var typeCount = chunk->Archetype->TypesCount;
 
             uint hash = 0;

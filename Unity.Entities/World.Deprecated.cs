@@ -9,9 +9,9 @@ namespace Unity.Entities
         [Obsolete("To construct systems with constructor parameters please use World.AddSystem(new MySystem(myParams)); instead. (RemovedAfter 2020-06-17)")]
         public T CreateSystem<T>(params object[] constructorArguments) where T : ComponentSystemBase
         {
-            return (T) CreateSystem(typeof(T), constructorArguments);
+            return (T)CreateSystem(typeof(T), constructorArguments);
         }
-        
+
         [Obsolete("To construct systems with constructor parameters please use World.AddSystem(new MySystem(myParams)); instead. (RemovedAfter 2020-06-17)")]
         public ComponentSystemBase CreateSystem(Type type, params object[] constructorArguments)
         {
@@ -43,10 +43,10 @@ namespace Unity.Entities
             catch (MissingMethodException)
             {
                 throw new MissingMethodException($"Constructing {type} failed because CreateSystem " +
-                                                 $"parameters did not match its constructor.  [Job]ComponentSystem {type} must " +
-                                                 "be mentioned in a link.xml file, or annotated with a [Preserve] attribute to " +
-                                                 "prevent its constructor from being stripped.  See " +
-                                                 "https://docs.unity3d.com/Manual/ManagedCodeStripping.html for more information.");
+                    $"parameters did not match its constructor.  [Job]ComponentSystem {type} must " +
+                    "be mentioned in a link.xml file, or annotated with a [Preserve] attribute to " +
+                    "prevent its constructor from being stripped.  See " +
+                    "https://docs.unity3d.com/Manual/ManagedCodeStripping.html for more information.");
             }
             finally
             {
@@ -56,6 +56,7 @@ namespace Unity.Entities
             }
             return AddSystem(system);
         }
+
 #endif
     }
 }

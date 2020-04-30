@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -25,20 +25,20 @@ namespace Unity.Entities.Editor
         private static readonly Dictionary<Type, string[]> GeneratedTypesAndDecompiledCSharpCode = new Dictionary<Type, string[]>();
         private static readonly Dictionary<Type, string[]> GeneratedTypesAndDecompiledIlCode = new Dictionary<Type, string[]>();
         private static readonly Dictionary<Type, TypeDefinition> TypesToTypeDefinitions = new Dictionary<Type, TypeDefinition>();
-        
+
         private static readonly Type[] AllDOTSCompilerGeneratedTypes;
         private static readonly List<Type> FilteredTypes;
 
         private static DisplayLanguage s_currentDisplayLanguage = DisplayLanguage.CSharp;
         private static Type s_currentlySelectedType;
         private static string[] s_currentlyDisplayedDecompiledCode;
-        
+
         private static Process s_decompilationProcess;
         private static ListView s_decompiledCodeField;
         private static Label s_decompilationStatusLabel;
-        
+
         private static bool s_userMadeAtLeastOneSelection;
-        
+
         private static DecompilationStatus s_currentDecompilationStatus;
         private static int s_decompilationDurationSoFar;
 
@@ -56,13 +56,13 @@ namespace Unity.Entities.Editor
             var window = GetWindow<PostprocessedILWindow>();
             window.titleContent = new GUIContent("Postprocessed IL code");
         }
-        
+
         static PostprocessedILWindow()
         {
             AllDOTSCompilerGeneratedTypes =
                 TypeCache.GetTypesWithAttribute<DOTSCompilerGeneratedAttribute>()
-                         .OrderBy(t => t.GetUserFriendlyName())
-                         .ToArray();
+                    .OrderBy(t => t.GetUserFriendlyName())
+                    .ToArray();
             FilteredTypes = new List<Type>(AllDOTSCompilerGeneratedTypes);
         }
 
@@ -85,7 +85,7 @@ namespace Unity.Entities.Editor
 
         private void ImportStyleSheet()
         {
-            StyleSheet styleSheet = 
+            StyleSheet styleSheet =
                 AssetDatabase.LoadAssetAtPath<StyleSheet>("Packages/com.unity.entities/Unity.Entities.Editor/PostprocessedILInspector/ILPostProcessorWindow.uss");
             rootVisualElement.styleSheets.Add(styleSheet);
         }
@@ -96,7 +96,7 @@ namespace Unity.Entities.Editor
             copyCodeButton.clicked += () =>
             {
                 EditorGUIUtility.systemCopyBuffer =
-                    string.Join(Environment.NewLine, (string[]) s_decompiledCodeField.itemsSource);
+                    string.Join(Environment.NewLine, (string[])s_decompiledCodeField.itemsSource);
             };
 
             var generatedTypesListView = rootVisualElement.Q<ListView>("Scripts ListView");
@@ -110,9 +110,9 @@ namespace Unity.Entities.Editor
 
             var searchField = rootVisualElement.Q<ToolbarSearchField>("Script Search Field");
             searchField.RegisterCallback<ChangeEvent<string>, ListView>(OnFilter, generatedTypesListView);
-    
+
             SetupListView(s_decompiledCodeField, s_currentlyDisplayedDecompiledCode, 15, MakeScriptLineLabel, BindScriptLineLabel);
-            
+
             var language = rootVisualElement.Q<EnumField>("Language Popup");
             language.Init(defaultValue: DisplayLanguage.CSharp);
             language.RegisterValueChangedCallback(changeEvent =>
@@ -120,7 +120,7 @@ namespace Unity.Entities.Editor
                 s_currentDisplayLanguage = (DisplayLanguage)changeEvent.newValue;
                 StartDecompilationOrDisplayDecompiledCode();
             });
-            
+
             var fontSizes = new PopupField<int>(
                 choices: Enumerable.Range(start: 12, count: 7).ToList(),
                 defaultIndex: 0,
@@ -132,13 +132,13 @@ namespace Unity.Entities.Editor
                 s_decompiledCodeField.style.fontSize = changeEvent.newValue;
                 s_decompiledCodeField.itemHeight = Mathf.CeilToInt(changeEvent.newValue * 1.5f);
             });
-            
+
             VisualElement fontSizeRoot = rootVisualElement.Q("Fontsize Popup");
             fontSizeRoot.Add(fontSizes);
 
             s_decompilationStatusLabel.binding = new DecompilationStatusLabelBinding();
         }
-        
+
         private static string GetFontSizeHeader(int size)
         {
             return "Font size: " + size;
@@ -162,16 +162,16 @@ namespace Unity.Entities.Editor
 
             if (string.IsNullOrEmpty(changeEvent.newValue))
             {
-                FilteredTypes.AddRange(AllDOTSCompilerGeneratedTypes);    
+                FilteredTypes.AddRange(AllDOTSCompilerGeneratedTypes);
             }
             else
             {
                 FilteredTypes.AddRange(
-                    AllDOTSCompilerGeneratedTypes.Where(t => 
+                    AllDOTSCompilerGeneratedTypes.Where(t =>
                         CultureInfo.InvariantCulture.CompareInfo.IndexOf(
                             t.GetUserFriendlyName(), changeEvent.newValue, CompareOptions.IgnoreCase) >= 0));
             }
-            
+
             listView.Refresh();
         }
 
@@ -185,15 +185,15 @@ namespace Unity.Entities.Editor
 
         private void CacheElements()
         {
-             s_decompiledCodeField = rootVisualElement.Q<ListView>("Decompiled Script ListView");
-             s_decompilationStatusLabel = rootVisualElement.Q<Label>(className:"status-label");
+            s_decompiledCodeField = rootVisualElement.Q<ListView>("Decompiled Script ListView");
+            s_decompilationStatusLabel = rootVisualElement.Q<Label>(className: "status-label");
         }
 
         private static VisualElement MakeScriptLabel()
         {
             var label = new Label();
             label.AddToClassList("script-label");
-            
+
             return label;
         }
 
@@ -209,10 +209,10 @@ namespace Unity.Entities.Editor
         {
             var label = new Label();
             label.AddToClassList("script-line-label");
-            
+
             return label;
         }
-        
+
         private static void BindScriptLineLabel(VisualElement element, int index)
         {
             if (element is Label label)
@@ -233,7 +233,7 @@ namespace Unity.Entities.Editor
                         DisplayDecompiledCode(DisplayLanguage.CSharp);
                         break;
                     }
-                    s_decompilationProcess = 
+                    s_decompilationProcess =
                         Decompiler.StartDecompilationProcesses(typeDefinition, DecompiledLanguage.CSharpOnly)
                             .DecompileIntoCSharpProcess;
                     s_currentDecompilationStatus = DecompilationStatus.InProgress;
@@ -246,7 +246,7 @@ namespace Unity.Entities.Editor
                         DisplayDecompiledCode(DisplayLanguage.IL);
                         break;
                     }
-                    s_decompilationProcess = 
+                    s_decompilationProcess =
                         Decompiler.StartDecompilationProcesses(typeDefinition, DecompiledLanguage.ILOnly)
                             .DecompileIntoILProcess;
                     s_currentDecompilationStatus = DecompilationStatus.InProgress;
@@ -259,9 +259,9 @@ namespace Unity.Entities.Editor
         {
             s_currentlyDisplayedDecompiledCode =
                 displayLanguage == DisplayLanguage.CSharp
-                    ? GeneratedTypesAndDecompiledCSharpCode[s_currentlySelectedType]
-                    : GeneratedTypesAndDecompiledIlCode[s_currentlySelectedType];
-            
+                ? GeneratedTypesAndDecompiledCSharpCode[s_currentlySelectedType]
+                : GeneratedTypesAndDecompiledIlCode[s_currentlySelectedType];
+
             s_decompiledCodeField.itemsSource = s_currentlyDisplayedDecompiledCode;
             s_currentDecompilationStatus = DecompilationStatus.Complete;
         }
@@ -272,23 +272,23 @@ namespace Unity.Entities.Editor
             {
                 return TypesToTypeDefinitions[type];
             }
-            
+
             ModuleDefinition moduleDefinition = CreateAssemblyDefinitionFor(type).MainModule;
 
             string fullName = type.FullName?.Replace(oldValue: "+", "/");
             TypeDefinition typeDefinition =
                 moduleDefinition.GetType(fullName) ?? moduleDefinition.GetType(GetCorrectedTypeName(fullName));
-            
+
             TypesToTypeDefinitions.Add(type, typeDefinition);
-            
+
             return typeDefinition;
         }
-        
+
         /*
          * Previously, selecting the Samples.Boids.BoidSchoolSpawnSystem/<>c__DisplayClass_OnUpdate_LambdaJob0 type for decompilation
          * causes a NullReferenceException to be thrown, because its corresponding TypeDefinition could not be found inside the module
          * that supposedly contains it. It turns out that the module stores the type as:
-         * 
+         *
          *     Samples.Boids.BoidSchoolSpawnSystem/Samples.Boids.<>c__DisplayClass_OnUpdate_LambdaJob0 (notice the Samples.Boids. infix)
          *
          * instead of:
@@ -297,21 +297,21 @@ namespace Unity.Entities.Editor
          *
          * Several other types throw the same exception. This method is intended correct the type name so that it can be found inside the
          * module that contains it.
-         * 
+         *
          */
         static string GetCorrectedTypeName(string name)
         {
             // An example that requires correction is: Samples.Boids.BoidSchoolSpawnSystem/<>c__DisplayClass_OnUpdate_LambdaJob0
             string[] splitName = name.Split('/');
             (string parentTypeName, string nestedTypeName) = (splitName[0], splitName[1]);
-            
+
             // Retrieve the namespace ("Samples.Boids.") from the parentTypeName ("Samples.Boids.BoidSchoolSpawnSystem")
             string nameSpace = string.Concat(parentTypeName.Reverse().SkipWhile(c => c != '.').Reverse());
-            
-            // Correct it to: Samples.Boids.BoidSchoolSpawnSystem/Samples.Boids.<>c__DisplayClass_OnUpdate_LambdaJob0 
+
+            // Correct it to: Samples.Boids.BoidSchoolSpawnSystem/Samples.Boids.<>c__DisplayClass_OnUpdate_LambdaJob0
             return $"{parentTypeName}/{nameSpace}{nestedTypeName}";
         }
-        
+
         private static AssemblyDefinition CreateAssemblyDefinitionFor(Type type)
         {
             var assemblyLocation = type.Assembly.Location;
@@ -320,14 +320,14 @@ namespace Unity.Entities.Editor
                 AssemblyDefinition.ReadAssembly(
                     new MemoryStream(
                         buffer: File.ReadAllBytes(assemblyLocation)),
-                        new ReaderParameters(ReadingMode.Immediate)
-                        {
-                            ReadSymbols = true,
-                            ThrowIfSymbolsAreNotMatching = true,
-                            SymbolReaderProvider = new PortablePdbReaderProvider(),
-                            AssemblyResolver = new OnDemandResolver(),
-                            SymbolStream = CreatePdbStreamFor(assemblyLocation)
-                        }
+                    new ReaderParameters(ReadingMode.Immediate)
+                    {
+                        ReadSymbols = true,
+                        ThrowIfSymbolsAreNotMatching = true,
+                        SymbolReaderProvider = new PortablePdbReaderProvider(),
+                        AssemblyResolver = new OnDemandResolver(),
+                        SymbolStream = CreatePdbStreamFor(assemblyLocation)
+                    }
                 );
 
             if (!assemblyDefinition.MainModule.HasSymbols)
@@ -342,7 +342,7 @@ namespace Unity.Entities.Editor
             string pdbFilePath = Path.ChangeExtension(assemblyLocation, ".pdb");
             return !File.Exists(pdbFilePath) ? null : new MemoryStream(File.ReadAllBytes(pdbFilePath));
         }
-        
+
         private class OnDemandResolver : IAssemblyResolver
         {
             public void Dispose()
@@ -356,9 +356,9 @@ namespace Unity.Entities.Editor
 
             public AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters)
             {
-                string assemblyLocation = 
+                string assemblyLocation =
                     AppDomain.CurrentDomain.GetAssemblies().First(a => a.GetName().Name == name.Name).Location;
-                
+
                 parameters.AssemblyResolver = this;
                 parameters.SymbolStream = CreatePdbStreamFor(assemblyLocation);
 
@@ -369,17 +369,17 @@ namespace Unity.Entities.Editor
 
         private class DecompilationStatusLabelBinding : IBinding
         {
-             public void PreUpdate()
-             {
-             }
-     
-             public void Update()
-             {
+            public void PreUpdate()
+            {
+            }
+
+            public void Update()
+            {
                 if (!s_userMadeAtLeastOneSelection)
                 {
                     return;
                 }
-            
+
                 switch (s_currentDecompilationStatus)
                 {
                     case DecompilationStatus.Complete:
@@ -403,9 +403,9 @@ namespace Unity.Entities.Editor
                                 GeneratedTypesAndDecompiledCSharpCode.Add(
                                     s_currentlySelectedType,
                                     s_decompilationProcess.StandardOutput
-                                                         .ReadToEnd()
-                                                         .Split(new[] {Environment.NewLine}, StringSplitOptions.None));
-                        
+                                        .ReadToEnd()
+                                        .Split(new[] {Environment.NewLine}, StringSplitOptions.None));
+
                                 DisplayDecompiledCode(DisplayLanguage.CSharp);
                                 break;
                             }
@@ -415,9 +415,9 @@ namespace Unity.Entities.Editor
                                 GeneratedTypesAndDecompiledIlCode.Add(
                                     s_currentlySelectedType,
                                     s_decompilationProcess.StandardOutput
-                                                         .ReadToEnd()
-                                                         .Split(new[] {Environment.NewLine}, StringSplitOptions.None));
-                        
+                                        .ReadToEnd()
+                                        .Split(new[] {Environment.NewLine}, StringSplitOptions.None));
+
                                 DisplayDecompiledCode(DisplayLanguage.IL);
                                 break;
                             }
@@ -427,11 +427,11 @@ namespace Unity.Entities.Editor
                         break;
                     }
                 }
-             }
-             
-             public void Release()
-             {
-             }
+            }
+
+            public void Release()
+            {
+            }
         }
     }
 }

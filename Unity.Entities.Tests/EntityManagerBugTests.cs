@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Unity.Collections;
 using NUnit.Framework;
 using System.Collections.Generic;
@@ -16,7 +16,7 @@ namespace Unity.Entities.Tests
         public int a;
         public int b;
     }
-    
+
     class Bug149 : ECSTestsFixture
     {
         EntityArchetype m_Archetype;
@@ -139,13 +139,13 @@ namespace Unity.Entities.Tests
         {
             // Create a valid Entity and get its EntityInChunk:
             var ent1 = m_Manager.CreateEntity(typeof(EcsTestData));
-            var eic1 = m_Manager.EntityComponentStore->GetEntityInChunk(ent1);
+            var eic1 = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->GetEntityInChunk(ent1);
             // Construct an artificial EntityInChunk for a hypothetical entity in a hypothetical
             // Chunk, exactly 2^32 bytes higher than ent1's (such that comparing only 32 bits of
             // the chunk pointer would fail):
             var eic2 = new EntityInChunk
             {
-                Chunk = (Chunk*)( (ulong)eic1.Chunk + (1ul<<32) ),
+                Chunk = (Chunk*)((ulong)eic1.Chunk + (1ul << 32)),
                 IndexInChunk = eic1.IndexInChunk,
             };
             Assert.Greater((ulong)eic2.Chunk, (ulong)eic1.Chunk);
@@ -160,13 +160,13 @@ namespace Unity.Entities.Tests
         {
             // Create a valid Entity and get its EntityInChunk:
             var ent1 = m_Manager.CreateEntity(typeof(EcsTestData));
-            var eic1 = m_Manager.EntityComponentStore->GetEntityInChunk(ent1);
+            var eic1 = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->GetEntityInChunk(ent1);
             // Construct an artificial EntityInChunk for a hypothetical entity in a hypothetical
             // Chunk, whose pointer is just above 2^31 larger than ent1's (such that using lhs-rhs as the
             // CompareTo result would overflow a signed int and give an incorrect result):
             var eic2 = new EntityInChunk
             {
-                Chunk = (Chunk*)( (ulong)eic1.Chunk + (1ul<<31) + 65536),
+                Chunk = (Chunk*)((ulong)eic1.Chunk + (1ul << 31) + 65536),
                 IndexInChunk = eic1.IndexInChunk,
             };
             Assert.Greater((ulong)eic2.Chunk, (ulong)eic1.Chunk);
@@ -176,7 +176,7 @@ namespace Unity.Entities.Tests
             Assert.Less(eic1.CompareTo(eic2), 0);
         }
     }
-    
+
     class Bug476 : ECSTestsFixture
     {
         [Test]

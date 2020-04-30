@@ -1,4 +1,4 @@
-﻿using UnityEditor.IMGUI.Controls;
+using UnityEditor.IMGUI.Controls;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,7 +8,8 @@ namespace Unity.Entities.Editor
 {
     internal delegate void SetEntityListSelection(EntityListQuery query);
 
-    internal class EntityQueryListView : TreeView {
+    internal class EntityQueryListView : TreeView
+    {
         private static Dictionary<ComponentSystemBase, List<EntityQueryDesc>> queryDescsBySystem = new Dictionary<ComponentSystemBase, List<EntityQueryDesc>>();
 
         private readonly Dictionary<int, EntityQuery> queriesById = new Dictionary<int, EntityQuery>();
@@ -238,7 +239,7 @@ namespace Unity.Entities.Editor
                 SetSelection(new List<int>());
                 return;
             }
-            if (newListQuery.Group != null)
+            if (newListQuery.Group != default)
             {
                 foreach (var pair in queriesById)
                 {
@@ -280,7 +281,6 @@ namespace Unity.Entities.Editor
                 var expectedGroupCount = SelectedSystem?.EntityQueries?.Length ?? 0;
                 return expectedGroupCount != queriesById.Count;
             }
-
         }
 
         public void ReloadIfNecessary()

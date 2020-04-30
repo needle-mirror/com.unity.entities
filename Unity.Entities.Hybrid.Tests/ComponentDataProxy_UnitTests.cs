@@ -8,6 +8,7 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
     class ComponentDataProxy_UnitTests
     {
         static bool IsSubclassOfOpenGenericType(Type type, Type genericType)
@@ -41,7 +42,7 @@ namespace Unity.Entities.Tests
                     );
                 }
                 // ignore if error loading some type from a dll
-                catch (ReflectionTypeLoadException) { }
+                catch (ReflectionTypeLoadException) {}
             }
             return result;
         }
@@ -77,4 +78,5 @@ namespace Unity.Entities.Tests
             Assert.That(Attribute.IsDefined(type, typeof(DisallowMultipleComponent)), Is.True);
         }
     }
+#pragma warning restore 618
 }

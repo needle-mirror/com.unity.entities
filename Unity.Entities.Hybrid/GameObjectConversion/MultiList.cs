@@ -94,7 +94,7 @@ namespace Unity.Entities.Conversion
         {
             var headId = HeadIds[headIdIndex];
 
-            for (int currentId = headId, serial = 1; ; ++serial)
+            for (int currentId = headId, serial = 1;; ++serial)
             {
                 var next = Next[currentId];
                 if (next < 0)

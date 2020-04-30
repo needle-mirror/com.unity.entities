@@ -1,7 +1,8 @@
 using System;
 using UnityEngine;
 
-namespace Unity.Entities.Tests {
+namespace Unity.Entities.Tests
+{
     [AddComponentMenu("")]
     [ConverterVersion("sschoener", 1)]
     public class DependencyTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
@@ -24,7 +25,9 @@ namespace Unity.Entities.Tests {
             dstManager.AddComponentData(entity, new ConversionDependencyData
             {
                 MaterialColor = Material != null ? Material.color : default,
-                TextureFilterMode = Texture != null ? Texture.filterMode : default
+                HasMaterial = Material != null,
+                TextureFilterMode = Texture != null ? Texture.filterMode : default,
+                HasTexture = Texture != null
             });
         }
     }
@@ -33,5 +36,7 @@ namespace Unity.Entities.Tests {
     {
         public Color MaterialColor;
         public FilterMode TextureFilterMode;
+        public bool HasMaterial;
+        public bool HasTexture;
     }
 }

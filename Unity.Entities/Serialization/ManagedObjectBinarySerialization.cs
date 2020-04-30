@@ -25,7 +25,7 @@ namespace Unity.Entities.Serialization
         readonly UnsafeAppendBuffer* m_Stream;
         readonly UnityEngineObjectBinaryAdapter m_UnityEngineObjectAdapter;
         readonly BinarySerializationParameters m_Params;
-        
+
         /// <summary>
         /// Initializes a new instance of <see cref="ManagedObjectBinaryWriter"/> which can be used to write managed objects to the given stream.
         /// </summary>
@@ -36,7 +36,7 @@ namespace Unity.Entities.Serialization
             m_UnityEngineObjectAdapter = new UnityEngineObjectBinaryAdapter(null);
             m_Params = new BinarySerializationParameters
             {
-                UserDefinedAdapters = new List<IBinaryAdapter>{m_UnityEngineObjectAdapter},
+                UserDefinedAdapters = new List<IBinaryAdapter> {m_UnityEngineObjectAdapter},
                 Context = new BinarySerializationContext()
             };
         }
@@ -48,7 +48,7 @@ namespace Unity.Entities.Serialization
         public UnityEngine.Object[] GetObjectTable() => m_UnityEngineObjectAdapter.GetSerializeObjectTable();
 
         /// <summary>
-        /// Writes the given boxed object to the binary stream. 
+        /// Writes the given boxed object to the binary stream.
         /// </summary>
         /// <remarks>
         /// Any <see cref="UnityEngine.Object"/> references are added to the object table and can be retrieved by calling <see cref="GetObjectTable"/>.
@@ -132,7 +132,7 @@ namespace Unity.Entities.Serialization
         {
             m_DeserializeObjectTable = deserializeObjectTable;
         }
-        
+
         /// <summary>
         /// Invoked during serialization any time we encounter a <see cref="UnityEngine.Object"/> type or any derived type.
         ///
@@ -146,7 +146,7 @@ namespace Unity.Entities.Serialization
         public void Serialize(UnsafeAppendBuffer* writer, UnityEngine.Object value)
         {
             var index = -1;
-            
+
             if (value != null)
             {
                 if (!m_SerializeObjectTableMap.TryGetValue(value, out index))
@@ -172,11 +172,11 @@ namespace Unity.Entities.Serialization
                 throw new ArgumentException("We are reading a UnityEngine.Object however no ObjectTable was provided to the ManagedObjectBinaryReader.");
 
             var index = reader->ReadNext<int>();
-            
+
             if (index == -1)
                 return null;
 
-            if ((uint) index >= m_DeserializeObjectTable.Length)
+            if ((uint)index >= m_DeserializeObjectTable.Length)
                 throw new ArgumentException("We are reading a UnityEngine.Object but the deserialized index is out of range for the given object table.");
 
             return m_DeserializeObjectTable[index];

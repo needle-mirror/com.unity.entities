@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Unity.Entities
 {
@@ -31,7 +31,7 @@ namespace Unity.Entities
         public int CalcUsedCacheCount()
         {
             var used = 0;
-            while (used < m_CacheHashes.Length && m_CachedEntityQueries[used] != null)
+            while (used < m_CacheHashes.Length && m_CachedEntityQueries[used] != default)
                 ++used;
 
             return used;
@@ -39,7 +39,7 @@ namespace Unity.Entities
 
         public int FindQueryInCache(uint hash)
         {
-            for (var i = 0; i < m_CacheHashes.Length && m_CachedEntityQueries[i] != null; ++i)
+            for (var i = 0; i < m_CacheHashes.Length && m_CachedEntityQueries[i] != default; ++i)
             {
                 if (m_CacheHashes[i] == hash)
                     return i;
@@ -52,10 +52,10 @@ namespace Unity.Entities
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             , ref EntityQueryBuilder builder, int* delegateTypeIndices, int delegateTypeCount
             #endif
-            )
+        )
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (query == null)
+            if (query == default)
                 throw new ArgumentNullException(nameof(query));
             #endif
 
@@ -83,7 +83,7 @@ namespace Unity.Entities
                     break;
                 }
 
-                if (m_CachedEntityQueries[index] == null)
+                if (m_CachedEntityQueries[index] == default)
                     break;
 
                 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -134,6 +134,7 @@ namespace Unity.Entities
         bad:
             throw new InvalidOperationException("Type signature does not match cached");
         }
+
         #endif
     }
 }

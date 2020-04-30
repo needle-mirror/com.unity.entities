@@ -16,7 +16,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate() {}
         }
-        
+
         class GetOtherSystemB : ComponentSystem
         {
             public GetOtherSystemA Other;
@@ -28,7 +28,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate() {}
         }
-        
+
         [Test]
         public void CrossReferenceSystem()
         {
@@ -37,10 +37,10 @@ namespace Unity.Entities.Tests
 
             var systemA = world.GetExistingSystem<GetOtherSystemA>();
             var systemB = world.GetExistingSystem<GetOtherSystemB>();
-            
+
             Assert.AreEqual(systemB, systemA.Other);
             Assert.AreEqual(systemA, systemB.Other);
-            
+
             world.Dispose();
         }
     }

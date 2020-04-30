@@ -125,6 +125,45 @@ See [SystemBase.Entities] for more information about setting attributes for capt
 
 **Note:** When executing the function with `Run()` you can write to captured variables that are not native containers. However, you should still use blittable types where possible so that the function can be compiled with [Burst].
 
+## Supported Features
+
+You can execute the lambda function on the main thread using `Run()`, as a single job using `Schedule()`, or as a parallel job using `ScheduleParallel()`. These different execution methods have different constraints on how you access data. In addition, [Burst] uses a restricted subset of the C# language, so you  need to specify `WithoutBurst()` when using C# features outside this subset (including accessing managed types). 
+
+The following table shows which features are currently supported in [Entities.ForEach] for the different methods of scheduling available in [SystemBase]:
+
+| Supported Feature             | Run                                             | Schedule | ScheduleParallel     |
+|-------------------------------|-------------------------------------------------|----------|----------------------|
+| Capture local value type      | x                                               | x        | x                    |
+| Capture local reference type  | x (only WithoutBurst)                           |          |                      |
+| Writing to captured variables | x                                               |          |                      |
+| Use field on the system class     | x (only WithoutBurst)                           |          |                      |
+| Methods on reference types    | x (only WithoutBurst)                           |          |                      |
+| Shared Components             | x (only WithoutBurst)                           |          |                      |
+| Managed Components            | x (only WithoutBurst)                           |          |                      |
+| Structural changes            | x (only WithoutBurst and WithStructuralChanges) |          |                      |
+| SystemBase.GetComponent       | x                                               | x        | x                    |
+| SystemBase.SetComponent       | x                                               | x        |                      |
+| GetComponentDataFromEntity    | x                                               | x        | x (only as ReadOnly) |
+| HasComponent                  | x                                               | x        | x                    |
+| WithDeallocateOnJobCompletion | x                                               | x        | x                    |
+
+An [Entities.ForEach] construction uses specialized intermediate language (IL) compilation post-processing to translate the code you write for the construction into correct ECS code. This translation allows you to express the intent of your algorithm without having to include complex, boilerplate code. However, it can mean that some common ways of writing code are not allowed.
+
+The following features are not currently supported:
+
+| Unsupported Feature                                                             |
+|---------------------------------------------------------------------------------|
+| Dynamic code in .With invocations                                               |
+| SharedComponent parameters by ref                                               |
+| Nested Entities.ForEach lambda expressions                                      |
+| Entities.ForEach in systems marked with [ExecuteAlways] (currently being fixed) |
+| Calling with delegate stored in variable, field or by method                    |
+| SetComponent with lambda parameter type                                         |
+| GetComponent with writable lambda parameter                                     |
+| Generic parameters in lambdas                                                   |
+| In systems with generic parameters                                              |
+
+
 ## Dependencies
 
 By default, a system manages its ECS-related dependencies using its [Dependency] property. By default, the system adds each job created with [Entities.ForEach] and [Job.WithCode] to the [Dependency] job handle in the order that they appear in the [OnUpdate()] function. You can also manage job dependencies manually by passing a [JobHandle] to your `Schedule` functions, which then return the resulting dependency. See [Dependency] for more information.

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -17,7 +17,7 @@ namespace Unity.Entities.CodeGen
         {
             return typeReference.Resolve() ?? throw new ResolutionException(typeReference);
         }
-        
+
         public static bool TypeReferenceEquals(this TypeReference ref1, Type ref2) =>
             ref1.FullName == ref2.FullName;
 
@@ -28,18 +28,18 @@ namespace Unity.Entities.CodeGen
         {
             if (ref1.TypeReferenceEquals(ref2))
                 return true;
-            
+
             var def1 = ref1.Resolve();
             if (def1 != null && def1.BaseType != null)
                 return def1.BaseType.TypeReferenceEqualsOrInheritsFrom(ref2);
-            
+
             return false;
         }
 
         public static bool IsIComponentDataStruct(this TypeDefinition typeDefinition) => typeDefinition.TypeImplements(typeof(IComponentData)) && typeDefinition.IsValueType();
         public static bool IsTagComponentDataStruct(this TypeDefinition typeDefinition) => typeDefinition.IsIComponentDataStruct() && typeDefinition.Fields.All(fd => fd.IsStatic);
         public static bool IsIBufferElementData(this TypeDefinition typeDefinition) => typeDefinition.TypeImplements(typeof(IBufferElementData)) && typeDefinition.IsValueType();
-        
+
         public static bool IsIComponentDataClass(this TypeDefinition typeDefinition)
         {
             if (typeDefinition.IsValueType())
@@ -63,14 +63,14 @@ namespace Unity.Entities.CodeGen
 
         public static bool IsDynamicBufferOfT(this TypeReference typeReference) =>
             typeReference.GetElementType().FullName == typeof(DynamicBuffer<>).FullName;
-        
+
         public static bool TypeImplements(this TypeReference typeReference, Type interfaceType)
         {
             var resolvedType = typeReference.Resolve();
             if (resolvedType == null) return false;
             return resolvedType.Interfaces.Any(i =>
                 i.InterfaceType.FullName == typeReference.Module.ImportReference(interfaceType).FullName);
-        } 
+        }
 
         public static bool TypeImplements(this TypeReference typeReference, TypeReference interfaceType)
         {
@@ -85,10 +85,10 @@ namespace Unity.Entities.CodeGen
         {
             return type.MetadataType == MetadataType.Void;
         }
-        
+
         public static bool IsDisplayClass(this TypeReference tr) =>
             tr.Name.Contains("<>c__DisplayClass");
-        
+
         // Safer version of TypeReference.IsValueType property as extension method since property is broken
         // (Cecil doesn't have enough information without resolving references so it just guesses)
         public static bool IsValueType(this TypeReference typeReference)
@@ -136,7 +136,7 @@ namespace Unity.Entities.CodeGen
     {
         /// <summary>
         /// Generates a closed/specialized MethodReference for the given method and types[]
-        /// e.g. 
+        /// e.g.
         /// struct Foo { T Bar<T>(T val) { return default(T); }
         ///
         /// In this case, if one would like a reference to "Foo::int Bar(int val)" this method will construct such a method
@@ -154,14 +154,14 @@ namespace Unity.Entities.CodeGen
                 result.GenericArguments.Add(type);
             return result;
         }
-        
+
         /// <summary>
         /// Allows one to generate reference to a method contained in a generic type which has been closed/specialized.
-        /// e.g. 
+        /// e.g.
         /// struct Foo<T> { T Bar(T val) { return default(T); }
-        /// 
+        ///
         /// In this case, if one would like a reference to "Foo<int>::int Bar(int val)" this method will construct such a method
-        /// reference when provided the open "T Bar(T val)" method reference and the closed declaring TypeReference, "Foo<int>". 
+        /// reference when provided the open "T Bar(T val)" method reference and the closed declaring TypeReference, "Foo<int>".
         /// </summary>
         /// <param name="self"></param>
         /// <param name="closedDeclaringType">See summary above for example. Typically construct this type using `MakeGenericInstanceMethod`</param>
@@ -194,7 +194,7 @@ namespace Unity.Entities.CodeGen
         internal static bool HasCompilerServicesIsReadOnlyAttribute(this ParameterDefinition p)
         {
             return p.HasCustomAttributes && p.CustomAttributes.Any(c =>
-                       c.AttributeType.FullName == "System.Runtime.CompilerServices.IsReadOnlyAttribute");
+                c.AttributeType.FullName == "System.Runtime.CompilerServices.IsReadOnlyAttribute");
         }
     }
 
@@ -202,13 +202,13 @@ namespace Unity.Entities.CodeGen
     {
         public static bool HasReadOnlyAttribute(this FieldDefinition fieldDefinition) =>
             fieldDefinition.CustomAttributes.Any(ca => ca.AttributeType.Name == nameof(ReadOnlyAttribute) && ca.AttributeType.Namespace == typeof(ReadOnlyAttribute).Namespace);
-        
+
         public static void AddReadOnlyAttribute(this FieldDefinition fieldDefinition, ModuleDefinition module)
         {
             var readOnlyAttribute = module.ImportReference(typeof(ReadOnlyAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
             fieldDefinition.CustomAttributes.Add(new CustomAttribute(readOnlyAttribute));
         }
-        
+
         public static void AddReadOnlyAttribute(this FieldDefinition fieldDefinition)
         {
             fieldDefinition.AddReadOnlyAttribute(fieldDefinition.Module);
@@ -225,13 +225,13 @@ namespace Unity.Entities.CodeGen
                 }
             }
         }
-        
+
         public static void AddNoAliasAttribute(this FieldDefinition fieldDefinition, ModuleDefinition module)
         {
             var noAliasAttribute = fieldDefinition.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
             fieldDefinition.CustomAttributes.Add(new CustomAttribute(noAliasAttribute));
         }
-        
+
         public static void AddNoAliasAttribute(this FieldDefinition fieldDefinition)
         {
             fieldDefinition.AddNoAliasAttribute(fieldDefinition.Module);
@@ -242,7 +242,7 @@ namespace Unity.Entities.CodeGen
     {
         public static bool IsDelegate(this TypeDefinition typeDefinition) =>
             typeDefinition.BaseType?.Name == nameof(MulticastDelegate);
-        
+
         public static bool IsSystemBase(this TypeDefinition arg)
         {
             var baseTypeRef = arg.BaseType;
@@ -292,14 +292,14 @@ namespace Unity.Entities.CodeGen
             var baseType = typeDefinition.BaseType.Resolve();
             return IsUnityEngineObject(baseType);
         }
-        
+
         public static void AddNoAliasAttribute(this TypeDefinition typeDefinition)
         {
             var noAliasAttribute = typeDefinition.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
             typeDefinition.CustomAttributes.Add(new CustomAttribute(noAliasAttribute));
         }
 
-		public static bool IsChildTypeOf(this TypeDefinition typeDefinition, TypeDefinition baseClass)
+        public static bool IsChildTypeOf(this TypeDefinition typeDefinition, TypeDefinition baseClass)
         {
             while (!baseClass.Equals(typeDefinition))
             {
@@ -310,7 +310,7 @@ namespace Unity.Entities.CodeGen
 
             return true;
         }
-        
+
         public static void MakeTypeInternal(this TypeDefinition typeDefinition)
         {
             if (typeDefinition.IsNested)
@@ -404,7 +404,7 @@ namespace Unity.Entities.CodeGen
             {
                 case Code.Ldloca:
                 case Code.Ldloca_S:
-                    index = instruction.Operand is VariableDefinition vd ? vd.Index : (int) instruction.Operand;
+                    index = instruction.Operand is VariableDefinition vd ? vd.Index : (int)instruction.Operand;
                     return true;
                 default:
                     return false;
@@ -416,7 +416,7 @@ namespace Unity.Entities.CodeGen
             var opCode = instruction.OpCode;
             var result = opCode == OpCodes.Call || opCode == OpCodes.Callvirt;
             targetMethod = result ? (MethodReference)instruction.Operand : null;
-            
+
             return result;
         }
 
@@ -443,7 +443,7 @@ namespace Unity.Entities.CodeGen
             {
                 case Code.Ldloc:
                 case Code.Ldloc_S:
-                    index = instruction.Operand is VariableDefinition vd ? vd.Index : (int) instruction.Operand;
+                    index = instruction.Operand is VariableDefinition vd ? vd.Index : (int)instruction.Operand;
                     return true;
                 case Code.Ldloc_0:
                     index = 0;
@@ -472,7 +472,7 @@ namespace Unity.Entities.CodeGen
                     if (instruction.Operand is VariableDefinition vd)
                         index = vd.Index;
                     else
-                        index = (int) instruction.Operand;
+                        index = (int)instruction.Operand;
                     return true;
                 case Code.Stloc_0:
                     index = 0;
@@ -490,7 +490,7 @@ namespace Unity.Entities.CodeGen
                     return false;
             }
         }
-        
+
         public static bool IsLoadArg(this Instruction instruction, out int index)
         {
             index = 0;
@@ -528,7 +528,7 @@ namespace Unity.Entities.CodeGen
                 case StackBehaviour.Varpush:
                     if (code.FlowControl == FlowControl.Call)
                     {
-                        var method = (IMethodSignature) instruction.Operand;
+                        var method = (IMethodSignature)instruction.Operand;
                         return method.ReturnType.IsVoid() ? 0 : 1;
                     }
 
@@ -571,7 +571,7 @@ namespace Unity.Entities.CodeGen
                 case StackBehaviour.Varpop:
                     if (code.FlowControl == FlowControl.Call)
                     {
-                        var method = (IMethodSignature) instruction.Operand;
+                        var method = (IMethodSignature)instruction.Operand;
                         int count = method.Parameters.Count;
                         if (method.HasThis && OpCodes.Newobj.Value != code.Value)
                             ++count;
@@ -587,5 +587,38 @@ namespace Unity.Entities.CodeGen
 
         public static bool IsLoadFieldOrLoadFieldAddress(this Instruction instruction) => (instruction.OpCode == OpCodes.Ldfld || instruction.OpCode == OpCodes.Ldflda);
         public static bool IsStoreField(this Instruction instruction) => (instruction.OpCode == OpCodes.Stfld);
+
+        public static bool IsLoadConstantInt(this Instruction instruction, out int intValue)
+        {
+            var opCode = instruction.OpCode;
+
+            if (opCode == OpCodes.Ldc_I4)
+                intValue = (int)instruction.Operand;
+            else if (opCode == OpCodes.Ldc_I4_0)
+                intValue = 0;
+            else if (opCode == OpCodes.Ldc_I4_1)
+                intValue = 1;
+            else if (opCode == OpCodes.Ldc_I4_2)
+                intValue = 2;
+            else if (opCode == OpCodes.Ldc_I4_3)
+                intValue = 3;
+            else if (opCode == OpCodes.Ldc_I4_4)
+                intValue = 4;
+            else if (opCode == OpCodes.Ldc_I4_5)
+                intValue = 5;
+            else if (opCode == OpCodes.Ldc_I4_6)
+                intValue = 6;
+            else if (opCode == OpCodes.Ldc_I4_7)
+                intValue = 7;
+            else if (opCode == OpCodes.Ldc_I4_8)
+                intValue = 8;
+            else
+            {
+                intValue = 0;
+                return false;
+            }
+
+            return true;
+        }
     }
 }

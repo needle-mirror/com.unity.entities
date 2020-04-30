@@ -10,11 +10,15 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes
 {
-    struct ResolvedSectionEntity : ISystemStateBufferElementData
+    public struct ResolvedSectionEntity : ISystemStateBufferElementData
     {
         public Entity SectionEntity;
     }
 
+    struct SceneEntityReference : IComponentData
+    {
+        public Entity SceneEntity;
+    }
     struct ResolvedSceneHash : IComponentData
     {
         public Hash128 ArtifactHash;
@@ -26,10 +30,17 @@ namespace Unity.Scenes
         public Words HybridPath;
     }
 
+    struct SceneSectionCustomMetadata
+    {
+        public ulong StableTypeHash;
+        public BlobArray<byte> Data;
+    }
+
     struct SceneMetaData
     {
         public BlobArray<SceneSectionData> Sections;
         public BlobString                  SceneName;
+        public BlobArray<BlobArray<SceneSectionCustomMetadata>> SceneSectionCustomMetadata;
     }
 
     public struct DisableSceneResolveAndLoad : IComponentData
@@ -145,7 +156,6 @@ namespace Unity.Scenes
                 {
                     LogResolving("Polling Importing (not complete)", scene.SceneGUID);
                 }
-
             });
 #endif
 
@@ -158,17 +168,17 @@ namespace Unity.Scenes
             Entities.With(m_ScenesToRequest).ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
             {
 #if UNITY_EDITOR && !USE_SUBSCENE_EDITORBUNDLES
-                 var blocking = (requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) != 0;
-                 var importMode = blocking ? ImportMode.Synchronous : ImportMode.Asynchronous;
+                var blocking = (requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) != 0;
+                var importMode = blocking ? ImportMode.Synchronous : ImportMode.Asynchronous;
 
-                 var hash = EntityScenesPaths.GetSubSceneArtifactHash(scene.SceneGUID, buildConfigurationGUID, importMode);
-                 if (hash.IsValid)
-                 {
-                     LogResolving(blocking ? "Blocking import (completed)" : "Queue not yet requested (completed)", scene.SceneGUID);
-                     ResolveScene(sceneEntity, ref scene, requestSceneLoaded, hash);
-                 }
-                 else
-                     LogResolving(blocking ? "Blocking import (failed)" : "Queue not yet requested (not complete)", scene.SceneGUID);
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(scene.SceneGUID, buildConfigurationGUID, importMode);
+                if (hash.IsValid)
+                {
+                    LogResolving(blocking ? "Blocking import (completed)" : "Queue not yet requested (completed)", scene.SceneGUID);
+                    ResolveScene(sceneEntity, ref scene, requestSceneLoaded, hash);
+                }
+                else
+                    LogResolving(blocking ? "Blocking import (failed)" : "Queue not yet requested (not complete)", scene.SceneGUID);
 #else
                 ResolveScene(sceneEntity, ref scene, requestSceneLoaded, new Hash128());
 #endif
@@ -205,5 +215,4 @@ namespace Unity.Scenes
             m_ChangedScenes.Dispose();
         }
     }
-
 }

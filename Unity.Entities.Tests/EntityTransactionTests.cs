@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Jobs;
 using Unity.Collections;
 using UnityEngine;
+using Unity.Entities;
 #if !UNITY_DOTSPLAYER
 using System.Text.RegularExpressions;
 #endif
@@ -13,13 +14,6 @@ namespace Unity.Entities.Tests
     class EntityTransactionTests : ECSTestsFixture
     {
         EntityQuery m_Group;
-
-        public EntityTransactionTests()
-        {
-#if !UNITY_DOTSPLAYER
-            Assert.IsTrue(Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobDebuggerEnabled, "JobDebugger must be enabled for these tests");
-#endif
-        }
 
         [SetUp]
         public override void Setup()
@@ -83,20 +77,21 @@ namespace Unity.Entities.Tests
             data.Dispose();
         }
 
-
         [Test]
         public void CommitAfterNotRegisteredTransactionJobLogsError()
         {
+#if !UNITY_DOTSPLAYER
             var job = new CreateEntityJob();
             job.entities = m_Manager.BeginExclusiveEntityTransaction();
 
-            /*var jobHandle =*/ job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
+            var jobHandle = job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
 
-            // Commit transaction expects an error nt exception otherwise errors might occurr after a system has completed...
-#if !UNITY_DOTSPLAYER
-            LogAssert.Expect(LogType.Error, new Regex("ExclusiveEntityTransaction job has not been registered"));
-#endif
+            Assert.Throws<InvalidOperationException>(() => m_Manager.EndExclusiveEntityTransaction());
+
+            jobHandle.Complete();
+
             m_Manager.EndExclusiveEntityTransaction();
+#endif
         }
 
         [Test]
@@ -106,19 +101,9 @@ namespace Unity.Entities.Tests
             job.entities = m_Manager.BeginExclusiveEntityTransaction();
 
             Assert.Throws<InvalidOperationException>(() => { m_Manager.CreateEntity(typeof(EcsTestData)); });
-            
+
             //@TODO:
             //Assert.Throws<InvalidOperationException>(() => { m_Manager.Exists(new Entity()); });
-        }
-
-        [Test]
-        [StandaloneFixme] // Needs AtomicSafetyHandle functionality EnforceAllBufferJobsHaveCompletedAndRelease
-        public void AccessTransactionAfterEndTransactionThrows()
-        {
-            var transaction = m_Manager.BeginExclusiveEntityTransaction();
-            m_Manager.EndExclusiveEntityTransaction();
-
-            Assert.Throws<InvalidOperationException>(() => { transaction.CreateEntity(typeof(EcsTestData)); });
         }
 
         [Test]
@@ -126,7 +111,7 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            
+
             var transaction = m_Manager.BeginExclusiveEntityTransaction();
             Assert.AreEqual(42, transaction.GetComponentData<EcsTestData>(entity).value);
         }
@@ -217,7 +202,7 @@ namespace Unity.Entities.Tests
 
             if (mainThread)
             {
-                job.Execute();
+                job.Run();
             }
             else
             {
@@ -237,6 +222,99 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(345 * 2, newBuffer[2].Value);
 
             newEntity.Dispose();
+        }
+
+        struct SyncIJobChunk : IJobChunk
+        {
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+            }
+        }
+
+        struct SyncMiddleJob : IJob
+        {
+            public ExclusiveEntityTransaction Txn;
+
+            public void Execute()
+            {
+            }
+        }
+
+        struct SyncEntityMgrJob : IJob
+        {
+            public EntityManager TheManager;
+
+            public void Execute()
+            {
+            }
+        }
+
+        [Test]
+        [StandaloneFixme]
+        public void TransactionSync1()
+        {
+            var top = new SyncIJobChunk {}.Schedule(m_Manager.UniversalQuery);
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                // Cant run exclusive transaction while ijob chunk is running
+                var exclusive = m_Manager.BeginExclusiveEntityTransaction();
+                var middle = new SyncMiddleJob { Txn = exclusive }.Schedule(top);
+            });
+            top.Complete();
+        }
+
+        [Test]
+        [StandaloneFixme]
+        public void TransactionSync2()
+        {
+            var exclusive = m_Manager.BeginExclusiveEntityTransaction();
+            var middle = new SyncMiddleJob { Txn = exclusive }.Schedule();
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                // job wasn't registered & thus couldn't be synced
+                m_Manager.EndExclusiveEntityTransaction();
+                new SyncIJobChunk {}.Schedule(m_Manager.UniversalQuery).Complete();
+            });
+            middle.Complete();
+        }
+
+        [Test]
+        public void TransactionSync3()
+        {
+            var exclusive = m_Manager.BeginExclusiveEntityTransaction();
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                // Cant run ijob chunk while in transaction
+                new SyncIJobChunk {}.Schedule(m_Manager.UniversalQuery);
+            });
+            m_Manager.EndExclusiveEntityTransaction();
+        }
+
+        [Test]
+        [Ignore("Need additional safety handle features to be able to do this")]
+        public void TransactionSync4()
+        {
+            var top = new SyncIJobChunk {}.Schedule(m_Manager.UniversalQuery);
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                // Cant run exclusive transaction while ijob chunk is running
+                new SyncEntityMgrJob { TheManager = m_Manager }.Schedule().Complete();
+            });
+            top.Complete();
+        }
+
+        [Test]
+        [Ignore("Need additional safety handle features to be able to do this")]
+        public void TransactionSync5()
+        {
+            var q = m_Manager.UniversalQuery;
+            var j = new SyncEntityMgrJob { TheManager = m_Manager }.Schedule();
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                // Can't schedule IJobChunk while entity manager belongs to job
+                new SyncIJobChunk {}.Schedule(q).Complete();
+            });
+            j.Complete();
         }
     }
 }

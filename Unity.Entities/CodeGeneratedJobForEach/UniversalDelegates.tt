@@ -39,10 +39,10 @@ List<string> AllModeCombinationsFor(int amount)
 {
     if (amount == 0)
         return new List<string>() { "" };
-        
+
     var oneFewerResult = AllModeCombinationsFor(amount - 1);
-    
-    return oneFewerResult.SelectMany(oldResult => 
+
+    return oneFewerResult.SelectMany(oldResult =>
         {
             if (oldResult == "")
             {
@@ -55,7 +55,7 @@ List<string> AllModeCombinationsFor(int amount)
             char lastChar = oldResult[oldResult.Length-1];
             if (lastChar == 'R' || lastChar == 'V')
                 result.Add(oldResult+"R");
-            
+
             if (lastChar == 'V')
                 result.Add(oldResult+"V");
             return result;
@@ -73,7 +73,7 @@ for (int paramCount=1; paramCount<=maxParamCount; paramCount++)
     foreach(var combination in combinations)
     {
         Write($"    public delegate void {combination}<{NTypeParameters(paramCount)}>(");
-        
+
         bool first = true;
         int count = 0;
         foreach(var c in combination)
@@ -93,7 +93,7 @@ for (int paramCount=1; paramCount<=maxParamCount; paramCount++)
 }
 #>
 }
-        
+
 public static partial class LambdaForEachDescriptionConstructionMethods
 {
 <#

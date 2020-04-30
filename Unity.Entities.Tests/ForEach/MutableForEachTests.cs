@@ -9,7 +9,7 @@ namespace Unity.Entities.Tests
         EntityQueryBuilder MutableEntities => TestSystem.Entities;
 
         struct ExtractTestDataFromEntityManager<T> : IDisposable
-            where T: struct, IComponentData
+            where T : struct, IComponentData
         {
             EntityManager m_mgr;
             public NativeArray<T> Values;
@@ -24,7 +24,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            public void Sort<U>(U comparer) where U: System.Collections.Generic.IComparer<T>
+            public void Sort<U>(U comparer) where U : System.Collections.Generic.IComparer<T>
             {
                 Values.Sort(comparer);
             }
@@ -36,7 +36,7 @@ namespace Unity.Entities.Tests
         }
 
         struct ExtractTestSharedDataFromEntityManager<T> : IDisposable
-            where T: struct, ISharedComponentData
+            where T : struct, ISharedComponentData
         {
             EntityManager m_mgr;
             public NativeArray<T> Values;
@@ -48,7 +48,7 @@ namespace Unity.Entities.Tests
                 using (var group = m_mgr.CreateEntityQuery(typeof(T)))
                 {
                     Values = new NativeArray<T>(group.CalculateEntityCount(), Allocator.TempJob);
-                    using(var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
+                    using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
                         for (int i = 0; i < chunks.Length; ++i)
                         {
                             var chunk = chunks[i];
@@ -59,7 +59,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            public void Sort<U>(U comparer) where U: System.Collections.Generic.IComparer<T>
+            public void Sort<U>(U comparer) where U : System.Collections.Generic.IComparer<T>
             {
                 Values.Sort(comparer);
             }
@@ -90,11 +90,11 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class EcsTestSharedDataComparer: System.Collections.Generic.IComparer<EcsTestSharedComp>
+        class EcsTestSharedDataComparer : System.Collections.Generic.IComparer<EcsTestSharedComp>
         {
             public int Compare(EcsTestSharedComp lhs, EcsTestSharedComp rhs)
             {
-                if (lhs.value< rhs.value) return -1;
+                if (lhs.value < rhs.value) return -1;
                 if (lhs.value > rhs.value) return +1;
                 return 0;
             }
@@ -117,7 +117,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void DestroyEntity_EMHasTheRightNumberOfEntities()
         {
-            const int kRepeat = 3*4; // Make a multiple of 3 for easy math
+            const int kRepeat = 3 * 4; // Make a multiple of 3 for easy math
 
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             m_Manager.SetComponentData(m_Manager.CreateEntity(archetype), new EcsTestData(12));
@@ -161,7 +161,7 @@ namespace Unity.Entities.Tests
                 }
             });
 
-            using(var group = m_Manager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
+            using (var group = m_Manager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
             using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
             {
                 Assert.AreEqual(10, arr.Length);
@@ -239,10 +239,10 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(newe1));
             });
 
-            using(var allEntities = m_Manager.GetAllEntities())
+            using (var allEntities = m_Manager.GetAllEntities())
                 Assert.AreEqual(4, allEntities.Length);
 
-            using(var group = new ExtractTestDataFromEntityManager<EcsTestData>(m_Manager))
+            using (var group = new ExtractTestDataFromEntityManager<EcsTestData>(m_Manager))
             {
                 Assert.AreEqual(3, group.Values.Length);
                 Assert.AreEqual(5, group.Values[0].value); // e
@@ -250,7 +250,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(5, group.Values[2].value); // newe2
             }
 
-            using(var group = new ExtractTestDataFromEntityManager<EcsTestData2>(m_Manager))
+            using (var group = new ExtractTestDataFromEntityManager<EcsTestData2>(m_Manager))
             {
                 Assert.AreEqual(2, group.Values.Length); // (e && newe2)
                 Assert.AreEqual(3, group.Values[0].value1);
@@ -327,7 +327,6 @@ namespace Unity.Entities.Tests
                     for (int i = 0; i < 189; ++i)
                         Assert.AreEqual(i * 2, buffer[i].Value);
                 }
-
             });
             var finalbuffer = m_Manager.GetBuffer<EcsIntElement>(entity);
             for (int i = 0; i < 189; ++i)
@@ -335,6 +334,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [IgnoreInPortableTests("Assert.Throws isn't supported; the test runner doesn't currently find the lambda function.")]
         public void DestroyEntity_EntityOperations_ShouldThrowWhenRequired()
         {
             var entity = m_Manager.CreateEntity();
@@ -362,7 +362,6 @@ namespace Unity.Entities.Tests
                 m_Manager.RemoveComponent<EcsTestSharedComp>(e);
                 m_Manager.RemoveComponent<EcsIntElement>(e);
                 Assert.IsFalse(m_Manager.Exists(e));
-
             });
         }
 
@@ -414,16 +413,16 @@ namespace Unity.Entities.Tests
                 m_Manager.RemoveComponent<EcsTestData>(c);
             });
 
-            using(var group = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            using (var group = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
             {
                 Assert.AreEqual(1, arr.Length); // (e)
                 Assert.AreEqual(123, arr[0].value);
             }
-
         }
 
         [Test]
+        [IgnoreInPortableTests("Assert.Throws isn't supported; the test runner doesn't currently find the lambda function.")]
         public void RemoveComponent_GetOrSetOfRemovedComponent_Throws()
         {
             m_Manager.AddComponentData(m_Manager.CreateEntity(), new EcsTestData(5));
@@ -470,7 +469,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            using(var group = new ExtractTestDataFromEntityManager<EcsTestData2>(m_Manager))
+            using (var group = new ExtractTestDataFromEntityManager<EcsTestData2>(m_Manager))
             {
                 Assert.AreEqual(2, group.Values.Length);
                 group.Sort(new EcsTestData2Comparer());
@@ -508,7 +507,7 @@ namespace Unity.Entities.Tests
                     group.Sort(new EcsTestData2Comparer());
                     Assert.AreEqual(10, group.Values.Length);
                     for (int i = 0; i < 10; i++)
-                        Assert.AreEqual(-10 +i, group.Values[i].value0);
+                        Assert.AreEqual(-10 + i, group.Values[i].value0);
                 }
             }
         }

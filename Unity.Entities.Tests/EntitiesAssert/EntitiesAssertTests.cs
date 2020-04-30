@@ -1,10 +1,14 @@
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
+// The main problem is that EntitiesAssert uses LINQ
+
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 
 namespace Unity.Entities.Tests
 {
-    class EntitiesAssertTests : ECSTestsFixture 
+    class EntitiesAssertTests : ECSTestsFixture
     {
         [Test]
         public void IsEmpty_WithEmptyEcs_DoesNotAssert()
@@ -12,7 +16,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.IsEmpty(m_Manager));
         }
-        
+
         [Test]
         public void IsEmpty_WithNonEmptyEcs_Asserts()
         {
@@ -21,7 +25,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.IsEmpty(m_Manager));
         }
-        
+
         [Test]
         public void ContainsOnly_WithNoMatchers_Throws()
         {
@@ -74,7 +78,7 @@ namespace Unity.Entities.Tests
         public void ContainsOnly_WithEmptyEntity()
         {
             var entity = m_Manager.CreateEntity();
-            
+
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Any(entity)));
             Assert.DoesNotThrow(() =>
@@ -91,10 +95,10 @@ namespace Unity.Entities.Tests
         public void ContainsOnly_WithNonEmptyEntity()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            
+
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Any(entity)));
-            
+
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData>(entity)));
             Assert.DoesNotThrow(() =>
@@ -127,7 +131,7 @@ namespace Unity.Entities.Tests
         {
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity2 = m_Manager.CreateEntity();
-            
+
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.Contains(m_Manager, EntityMatch.Any(entity1)));
             Assert.DoesNotThrow(() =>
@@ -140,14 +144,14 @@ namespace Unity.Entities.Tests
         public void ContainsOnly_WithParamTypeComparison()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            
+
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(typeof(EcsTestData2), entity, typeof(EcsTestData))));
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(typeof(EcsTestData), new[] { typeof(EcsTestData2) })));
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(entity, new[] { typeof(EcsTestData), typeof(EcsTestData2) })));
-            
+
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData2>(new[] { typeof(EcsTestData2) }, typeof(EcsTestData))));
         }
@@ -157,7 +161,7 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             m_Manager.SetComponentData(entity, new EcsTestData2(5));
-            
+
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData, EcsTestData2>(entity)));
             Assert.DoesNotThrow(() =>
@@ -171,7 +175,7 @@ namespace Unity.Entities.Tests
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData, EcsTestData2>(entity, new EcsTestData2(6))));
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData, EcsTestData2>(new EcsTestData2(6), entity)));
-            
+
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<EcsTestData, EcsTestData2>(entity, new EcsTestData2(5))));
             Assert.Throws<AssertionException>(() =>
@@ -200,7 +204,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<AssertionException>(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(EntityMatch.Component((EcsIntElement[] match) => match.Length == 2))));
         }
-        
+
         [Test]
         public void ContainsOnly_WithMatchingCustomMatcher_DoesNotAssert()
         {
@@ -209,7 +213,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Where(() => "Matcher #0", _ => true)));
         }
-        
+
         [Test]
         public void ContainsOnly_WithNonMatchingCustomMatcher_Asserts()
         {
@@ -219,21 +223,23 @@ namespace Unity.Entities.Tests
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Where(() => "Matcher #0", _ => false)));
             StringAssert.Contains("Matcher #0", ex.Message);
         }
-        
+
         [Test]
         public void ContainsOnly_WithCustomMatcher_OnlyCalledOnce()
         {
             m_Manager.CreateEntity();
             m_Manager.CreateEntity();
 
-            var (count0, count1) = (0, 10);
+            var(count0, count1) = (0, 10);
             Assert.DoesNotThrow(() =>
                 EntitiesAssert.ContainsOnly(m_Manager,
                     EntityMatch.Where(() => "Matcher #0", _ => { ++count0; return true; }),
                     EntityMatch.Where(() => "Matcher #1", _ => { ++count1; return true; })));
-            
+
             Assert.AreEqual(1, count0);
             Assert.AreEqual(11, count1);
         }
     }
 }
+
+#endif // UNITY_DOTSPLAYER_IL2CPP

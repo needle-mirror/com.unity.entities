@@ -49,7 +49,7 @@ namespace Unity.Entities
         /// <param name="lhs">An Entity object.</param>
         /// <param name="rhs">Another Entity object.</param>
         /// <returns>True, if both Index and Version are identical.</returns>
-        public static bool operator ==(Entity lhs, Entity rhs)
+        public static bool operator==(Entity lhs, Entity rhs)
         {
             return lhs.Index == rhs.Index && lhs.Version == rhs.Version;
         }
@@ -60,7 +60,7 @@ namespace Unity.Entities
         /// <param name="lhs">An Entity object.</param>
         /// <param name="rhs">Another Entity object.</param>
         /// <returns>True, if either Index or Version are different.</returns>
-        public static bool operator !=(Entity lhs, Entity rhs)
+        public static bool operator!=(Entity lhs, Entity rhs)
         {
             return !(lhs == rhs);
         }
@@ -83,7 +83,7 @@ namespace Unity.Entities
         /// as this Entity.</returns>
         public override bool Equals(object compare)
         {
-            return this == (Entity) compare;
+            return this == (Entity)compare;
         }
 
         /// <summary>

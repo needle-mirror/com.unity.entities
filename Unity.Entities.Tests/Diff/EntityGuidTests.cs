@@ -1,5 +1,7 @@
-using System.Linq;
 using NUnit.Framework;
+#if !UNITY_DOTSPLAYER_IL2CPP
+using System.Linq;
+#endif
 
 namespace Unity.Entities.Tests
 {
@@ -13,7 +15,7 @@ namespace Unity.Entities.Tests
 
             Assert.That(g0.OriginatingId, Is.EqualTo(1));
             Assert.That(g0.NamespaceId, Is.EqualTo(2));
-            Assert.That(g0.Serial, Is.EqualTo(3));
+            Assert.That(g0.Serial, Is.EqualTo((uint)3));
 
             Assert.That(g1.OriginatingId, Is.EqualTo(-1));
             Assert.That(g1.NamespaceId, Is.EqualTo(0xF0));
@@ -30,6 +32,8 @@ namespace Unity.Entities.Tests
             Assert.That(g1.ToString(), Is.EqualTo("-1:f0:89abcdef"));
         }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void Comparisons()
         {
@@ -57,5 +61,7 @@ namespace Unity.Entities.Tests
             Assert.That(hashCodeEquals, Is.EqualTo(new[] { true, false, false, false, false }));
             Assert.That(compareTo,      Is.EqualTo(new[] { 0, 1, 1, -1, 1 }));
         }
+
+#endif
     }
 }

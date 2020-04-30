@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 #if !NET_DOTS
 using System.Reflection;
@@ -39,11 +39,15 @@ namespace Unity.Entities.Serialization
             public int ComponentSize;
         }
 
-        public static int CurrentFileFormatVersion = 37;
+        public static int CurrentFileFormatVersion = 45;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjects = null)
         {
-            if (manager.EntityComponentStore->CountEntities() != 0)
+            var access = manager.EntityManager.GetCheckedEntityDataAccess();
+            var s = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
+
+            if (s->CountEntities() != 0)
             {
                 throw new ArgumentException(
                     $"DeserializeWorld can only be used on completely empty EntityManager. Please create a new empty World and use EntityManager.MoveEntitiesFrom to move the loaded entities into the destination world instead.");
@@ -72,7 +76,7 @@ namespace Unity.Entities.Serialization
             var sharedAndManagedStream = sharedAndManagedBuffer.AsReader();
             var managedDataReader = new ManagedObjectBinaryReader(&sharedAndManagedStream, (UnityEngine.Object[])unityObjects);
             ReadSharedComponents(manager, managedDataReader, sharedComponentRemap, sharedComponentRecordArray);
-            manager.ManagedComponentStore.ResetManagedComponentStoreForDeserialization(managedComponentCount, ref *manager.EntityComponentStore);
+            mcs.ResetManagedComponentStoreForDeserialization(managedComponentCount, ref *s);
 
             // Deserialize all managed components
             for (int i = 0; i < managedComponentCount; ++i)
@@ -81,7 +85,7 @@ namespace Unity.Entities.Serialization
                 int typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(typeHash);
                 Type managedType = TypeManager.GetTypeInfo(typeIndex).Type;
                 object obj = managedDataReader.ReadObject(managedType);
-                manager.ManagedComponentStore.SetManagedComponentValue(i+1, obj);
+                mcs.SetManagedComponentValue(i + 1, obj);
             }
 #else
             ReadSharedComponents(manager, reader, sharedAndManagedDataSize, sharedComponentRemap, sharedComponentRecordArray);
@@ -112,7 +116,7 @@ namespace Unity.Entities.Serialization
             int sharedComponentArraysIndex = 0;
             for (int i = 0; i < totalChunkCount; ++i)
             {
-                var chunk = manager.EntityComponentStore->AllocateChunk();
+                var chunk = s->AllocateChunk();
                 reader.ReadBytes(chunk, Chunk.kChunkSize);
 
                 var archetype = chunk->Archetype = archetypes[(int)chunk->Archetype].Archetype;
@@ -148,7 +152,7 @@ namespace Unity.Entities.Serialization
                         var target = (BufferHeader*)OffsetFromPointer(chunk->Buffer, bufferPatches[pi].ChunkOffset);
 
                         // TODO: Alignment
-                        target->Pointer = (byte*) UnsafeUtility.Malloc(bufferPatches[pi].AllocSizeBytes, 8, Allocator.Persistent);
+                        target->Pointer = (byte*)UnsafeUtility.Malloc(bufferPatches[pi].AllocSizeBytes, 8, Allocator.Persistent);
 
                         reader.ReadBytes(target->Pointer, bufferPatches[pi].AllocSizeBytes);
                     }
@@ -158,16 +162,16 @@ namespace Unity.Entities.Serialization
 
                 if (totalBlobAssetSize != 0 && archetype->ContainsBlobAssetRefs)
                 {
-                    blobAssetRefChunks.Add(new ArchetypeChunk(chunk, manager.EntityComponentStore));
+                    blobAssetRefChunks.Add(new ArchetypeChunk(chunk, s));
                     PatchBlobAssetsInChunkAfterLoad(chunk, allBlobAssetData);
                 }
 
-                manager.EntityComponentStore->AddExistingChunk(chunk, remapedSharedComponentValues);
-                manager.ManagedComponentStore.Playback(ref manager.EntityComponentStore->ManagedChangesTracker);
+                ChunkDataUtility.AddExistingChunk(chunk, remapedSharedComponentValues);
+                mcs.Playback(ref s->ManagedChangesTracker);
 
                 if (chunk->metaChunkEntity != Entity.Null)
                 {
-                    chunksWithMetaChunkEntities.Add(new ArchetypeChunk(chunk, manager.EntityComponentStore));
+                    chunksWithMetaChunkEntities.Add(new ArchetypeChunk(chunk, s));
                 }
             }
 
@@ -180,7 +184,7 @@ namespace Unity.Entities.Serialization
             for (int i = 0; i < chunksWithMetaChunkEntities.Length; ++i)
             {
                 var chunk = chunksWithMetaChunkEntities[i].m_Chunk;
-                manager.SetComponentData(chunk->metaChunkEntity, new ChunkHeader{ArchetypeChunk = chunksWithMetaChunkEntities[i]});
+                manager.SetComponentData(chunk->metaChunkEntity, new ChunkHeader {ArchetypeChunk = chunksWithMetaChunkEntities[i]});
             }
 
             blobAssetOwner.Release();
@@ -196,7 +200,7 @@ namespace Unity.Entities.Serialization
             // so remove the ref that was added on deserialization
             for (int i = 0; i < numSharedComponents; ++i)
             {
-                manager.ManagedComponentStore.RemoveReference(i + 1);
+                mcs.RemoveReference(i + 1);
             }
         }
 
@@ -224,7 +228,7 @@ namespace Unity.Entities.Serialization
                     tempComponentTypes.Add(ComponentType.FromTypeIndex(typeIndex));
                 }
 
-                archetypes[i] = entityManager.CreateArchetype((ComponentType*) tempComponentTypes.GetUnsafePtr(),
+                archetypes[i] = entityManager.CreateArchetype((ComponentType*)tempComponentTypes.GetUnsafePtr(),
                     tempComponentTypes.Length);
             }
 
@@ -300,15 +304,55 @@ namespace Unity.Entities.Serialization
             SerializeWorldInternal(entityManager, writer, out referencedObjects, entityRemapInfos);
         }
 
+        /// <summary>
+        /// Gets the entity representing the scene section with the index passed in.
+        /// If createIfMissing is true the section entity is created if it doesn't already exist.
+        /// Metadata components added to this section entity will be serialized into the entity scene header.
+        /// At runtime these components will be added to the scene section entities when the scene is resolved.
+        /// Only struct IComponentData components without BlobAssetReferences or Entity members are supported.
+        /// </summary>
+        /// <param name="sectionIndex">The section index for which to get the scene section entity</param>
+        /// <param name="manager">The entity manager to which the entity belongs</param>
+        /// <param name="cachedSceneSectionEntityQuery">The EntityQuery used to find the entity. Initially an null query should be passed in,
+        /// the same query can the be passed in for subsequent calls to avoid recreating the query</param>
+        /// <param name="createIfMissing">If true the section entity is created if it doesn't already exist. If false Entity.Null is returned for missing section entities</param>
+        /// <returns>The entity representing the scene section</returns>
+        public static Entity GetSceneSectionEntity(int sectionIndex, EntityManager manager, ref EntityQuery cachedSceneSectionEntityQuery, bool createIfMissing = true)
+        {
+            if (cachedSceneSectionEntityQuery == default)
+                cachedSceneSectionEntityQuery = manager.CreateEntityQuery(ComponentType.ReadOnly<SectionMetadataSetup>());
+            var sectionComponent = new SectionMetadataSetup {SceneSectionIndex = sectionIndex};
+            cachedSceneSectionEntityQuery.SetSharedComponentFilter(sectionComponent);
+            using (var sectionEntities = cachedSceneSectionEntityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                if (sectionEntities.Length == 0)
+                {
+                    if (!createIfMissing)
+                        return Entity.Null;
+                    var sceneSectionEntity = manager.CreateEntity();
+                    manager.AddSharedComponentData(sceneSectionEntity, sectionComponent);
+                    return sceneSectionEntity;
+                }
+
+                if (sectionEntities.Length == 1)
+                    return sectionEntities[0];
+
+                throw new InvalidOperationException($"Multiple scene section entities with section index {sectionIndex} found");
+            }
+        }
+
         internal static unsafe void SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, bool isDOTSRuntime = false)
         {
             writer.Write(CurrentFileFormatVersion);
-            var entityComponentStore = entityManager.EntityComponentStore;
+
+            var access = entityManager.GetCheckedEntityDataAccess();
+            var entityComponentStore = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
 
             var archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp);
 
             var typeHashToIndexMap = new UnsafeHashMap<ulong, int>(1024, Allocator.Temp);
-            for (int i = 0;i != archetypeArray.Length;i++)
+            for (int i = 0; i != archetypeArray.Length; i++)
             {
                 var archetype = archetypeArray.Ptr[i];
                 for (int iType = 0; iType < archetype->TypesCount; ++iType)
@@ -369,7 +413,7 @@ namespace Unity.Entities.Serialization
             var blobAssetOffsets = new NativeArray<int>(blobAssets.Length, Allocator.Temp);
             int totalBlobAssetSize = sizeof(BlobAssetBatch);
 
-            for(int i = 0; i<blobAssets.Length; ++i)
+            for (int i = 0; i < blobAssets.Length; ++i)
             {
                 totalBlobAssetSize += sizeof(BlobAssetHeader);
                 blobAssetOffsets[i] = totalBlobAssetSize;
@@ -380,7 +424,7 @@ namespace Unity.Entities.Serialization
             var blobAssetBatch = BlobAssetBatch.CreateForSerialize(blobAssets.Length, totalBlobAssetSize);
             writer.WriteBytes(&blobAssetBatch, sizeof(BlobAssetBatch));
             var zeroBytes = int4.zero;
-            for(int i = 0; i<blobAssets.Length; ++i)
+            for (int i = 0; i < blobAssets.Length; ++i)
             {
                 var blobAssetLength = blobAssets[i].header->Length;
                 var blobAssetHash = blobAssets[i].header->Hash;
@@ -392,7 +436,7 @@ namespace Unity.Entities.Serialization
 
             var tempChunk = Chunk.MallocChunk(Allocator.Temp);
             int currentManagedComponentIndex = 1;
-            for(int a = 0; a < archetypeArray.Length; ++a)
+            for (int a = 0; a < archetypeArray.Length; ++a)
             {
                 var archetype = archetypeArray.Ptr[a];
 
@@ -406,18 +450,18 @@ namespace Unity.Entities.Serialization
 
                     // Prevent patching from touching buffers allocated memory
                     BufferHeader.PatchAfterCloningChunk(tempChunk);
-                    PatchManagedComponentIndices(tempChunk, archetype, ref currentManagedComponentIndex, entityManager.ManagedComponentStore);
+                    PatchManagedComponentIndices(tempChunk, archetype, ref currentManagedComponentIndex, mcs);
 
                     byte* tempChunkBuffer = tempChunk->Buffer;
                     EntityRemapUtility.PatchEntities(archetype->ScalarEntityPatches, archetype->ScalarEntityPatchCount, archetype->BufferEntityPatches, archetype->BufferEntityPatchCount, tempChunkBuffer, tempChunk->Count, ref entityRemapInfos);
-                    if(archetype->ContainsBlobAssetRefs)
+                    if (archetype->ContainsBlobAssetRefs)
                         PatchBlobAssetsInChunkBeforeSave(tempChunk, chunk, blobAssetOffsets, blobAssetMap);
 
                     FillPatchRecordsForChunk(chunk, bufferPatches);
 
                     ClearChunkHeaderComponents(tempChunk);
                     ChunkDataUtility.MemsetUnusedChunkData(tempChunk, 0);
-                    tempChunk->Archetype = (Archetype*) a;
+                    tempChunk->Archetype = (Archetype*)a;
 
                     writer.WriteBytes(tempChunk, Chunk.kChunkSize);
 
@@ -464,7 +508,7 @@ namespace Unity.Entities.Serialization
                 var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, index);
                 for (int ei = 0; ei < chunk->Count; ++ei)
                 {
-                    if(managedComponentIndices[ei] == 0)
+                    if (managedComponentIndices[ei] == 0)
                         continue;
 
                     var obj = managedComponentStore.GetManagedComponent(managedComponentIndices[ei]);
@@ -485,6 +529,10 @@ namespace Unity.Entities.Serialization
 
 // We only support serialization in dots runtime for some unit tests but we currently can't support shared component serialization so skip it
 #if !NET_DOTS
+            var access = entityManager.GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
+
             var sharedComponentRecordArray = new NativeArray<SharedComponentRecord>(sharedComponentIndicies.Length, Allocator.Temp);
             if (!isDOTSRuntime)
             {
@@ -492,7 +540,7 @@ namespace Unity.Entities.Serialization
                 for (int i = 0; i < sharedComponentIndicies.Length; ++i)
                 {
                     var index = sharedComponentIndicies[i];
-                    var sharedData = entityManager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(index);
+                    var sharedData = mcs.GetSharedComponentDataNonDefaultBoxed(index);
                     var type = sharedData.GetType();
                     var managedObject = Convert.ChangeType(sharedData, type);
 
@@ -527,7 +575,7 @@ namespace Unity.Entities.Serialization
                                 if (managedComponentIndices[ei] == 0)
                                     continue;
 
-                                var obj = entityManager.ManagedComponentStore.GetManagedComponent(managedComponentIndices[ei]);
+                                var obj = mcs.GetManagedComponent(managedComponentIndices[ei]);
                                 if (obj == null)
                                     continue;
 
@@ -560,7 +608,7 @@ namespace Unity.Entities.Serialization
                 for (int i = 0; i < sharedComponentIndicies.Length; ++i)
                 {
                     var index = sharedComponentIndicies[i];
-                    object obj = entityManager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(index);
+                    object obj = mcs.GetSharedComponentDataNonDefaultBoxed(index);
 
                     Type type = obj.GetType();
                     var typeIndex = TypeManager.GetTypeIndex(type);
@@ -605,6 +653,9 @@ namespace Unity.Entities.Serialization
 
             sharedComponentRemap[0] = 0;
 
+            var access = manager.EntityManager.GetCheckedEntityDataAccess();
+            var mcs = access->ManagedComponentStore;
+
             int sizeRead = 0;
             for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
             {
@@ -624,19 +675,22 @@ namespace Unity.Entities.Serialization
 
                 // TODO: this recalculation should be removed once we merge the NET_DOTS and non NET_DOTS hashcode calculations
                 var hashCode = TypeManager.GetHashCode(data, typeIndex); // record.hashCode;
-                int runtimeIndex = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, data);
+                int runtimeIndex = mcs.InsertSharedComponentAssumeNonDefault(typeIndex, hashCode, data);
 
                 sharedComponentRemap[i + 1] = runtimeIndex;
             }
 
             Assert.AreEqual(expectedReadSize, sizeRead, "The amount of shared component data we read doesn't match the amount we serialized.");
         }
+
 #else
-        static void ReadSharedComponents(ExclusiveEntityTransaction manager, ManagedObjectBinaryReader managedDataReader, NativeArray<int> sharedComponentRemap, NativeArray<SharedComponentRecord> sharedComponentRecordArray)
+        static unsafe void ReadSharedComponents(ExclusiveEntityTransaction manager, ManagedObjectBinaryReader managedDataReader, NativeArray<int> sharedComponentRemap, NativeArray<SharedComponentRecord> sharedComponentRecordArray)
         {
             // 0 index is special and means default shared component value
             // Also see below the offset + 1 indices for the same reason
             sharedComponentRemap[0] = 0;
+
+            ManagedComponentStore mcs = manager.EntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore;
 
             for (int i = 0; i < sharedComponentRecordArray.Length; ++i)
             {
@@ -645,8 +699,8 @@ namespace Unity.Entities.Serialization
                 var typeInfo = TypeManager.GetTypeInfo(typeIndex);
                 var managedObject = managedDataReader.ReadObject(typeInfo.Type);
                 var currentHash = TypeManager.GetHashCode(managedObject, typeInfo.TypeIndex);
-                var sharedComponentIndex = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(typeIndex, currentHash, managedObject);
-                
+                var sharedComponentIndex = mcs.InsertSharedComponentAssumeNonDefault(typeIndex, currentHash, managedObject);
+
                 // When deserialization a shared component it is possible that it's hashcode changes if for example the referenced object (a UnityEngine.Object for example) becomes null.
                 // This can result in the sharedComponentIndex at serialize time being different from the sharedComponentIndex at load time.
                 // Thus we keep a remap table to handle this potential remap.
@@ -697,6 +751,7 @@ namespace Unity.Entities.Serialization
                     $"reason the pointer field should in fact be serialized, add the [ChunkSerializable] attribute to your type to bypass this error.");
             }
         }
+
 #endif
 
         static unsafe int ReadSharedComponentMetadata(BinaryReader reader, out NativeArray<int> sharedComponentArrays, out NativeArray<SharedComponentRecord> sharedComponentRecordArray)
@@ -712,15 +767,13 @@ namespace Unity.Entities.Serialization
             return sharedComponentRecordArrayLength;
         }
 
-
-
-
         unsafe struct BlobAssetPtr : IEquatable<BlobAssetPtr>
         {
             public BlobAssetPtr(BlobAssetHeader* header)
             {
                 this.header = header;
             }
+
             public readonly BlobAssetHeader* header;
             public bool Equals(BlobAssetPtr other)
             {
@@ -754,12 +807,12 @@ namespace Unity.Entities.Serialization
                     {
                         var ti = archetype->TypeMemoryOrder[unordered_ti];
                         var type = archetype->Types[ti];
-                        if(type.IsZeroSized)
+                        if (type.IsZeroSized)
                             continue;
 
                         var ct = TypeManager.GetTypeInfo(type.TypeIndex);
                         var blobAssetRefCount = ct.BlobAssetRefOffsetCount;
-                        if(blobAssetRefCount == 0)
+                        if (blobAssetRefCount == 0)
                             continue;
 
                         var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
@@ -833,12 +886,12 @@ namespace Unity.Entities.Serialization
             {
                 var ti = archetype->TypeMemoryOrder[unordered_ti];
                 var type = archetype->Types[ti];
-                if(type.IsZeroSized)
+                if (type.IsZeroSized)
                     continue;
 
                 var ct = TypeManager.GetTypeInfo(type.TypeIndex);
                 var blobAssetRefCount = ct.BlobAssetRefOffsetCount;
-                if(blobAssetRefCount == 0)
+                if (blobAssetRefCount == 0)
                     continue;
 
                 var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
@@ -861,7 +914,7 @@ namespace Unity.Entities.Serialization
                             PatchBlobAssetRefInfoBeforeSave(componentData, blobAssetRefOffsets, blobAssetRefCount, blobAssetOffsets, blobAssetMap);
                         }
 
-                        header = (BufferHeader*) OffsetFromPointer(header, strideSize);
+                        header = (BufferHeader*)OffsetFromPointer(header, strideSize);
                     }
                 }
                 else if (blobAssetRefCount > 0)
@@ -902,12 +955,12 @@ namespace Unity.Entities.Serialization
             {
                 var ti = archetype->TypeMemoryOrder[unordered_ti];
                 var type = archetype->Types[ti];
-                if(type.IsZeroSized)
+                if (type.IsZeroSized)
                     continue;
 
                 var ct = TypeManager.GetTypeInfo(type.TypeIndex);
                 var blobAssetRefCount = ct.BlobAssetRefOffsetCount;
-                if(blobAssetRefCount == 0)
+                if (blobAssetRefCount == 0)
                     continue;
 
                 var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
@@ -954,7 +1007,7 @@ namespace Unity.Entities.Serialization
                         {
                             var offset = blobAssetRefOffsets[i].Offset;
                             var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + offset);
-                            int value = (int) blobAssetRefPtr->m_Ptr;
+                            int value = (int)blobAssetRefPtr->m_Ptr;
                             byte* ptr = null;
                             if (value != -1)
                             {
@@ -978,14 +1031,14 @@ namespace Unity.Entities.Serialization
             {
                 int index = archetype->TypeMemoryOrder[ti];
                 var type = archetype->Types[index];
-                if(type.IsZeroSized)
+                if (type.IsZeroSized)
                     continue;
 
                 if (type.IsBuffer)
                 {
                     var ct = TypeManager.GetTypeInfo(type.TypeIndex);
                     int subArrayOffset = archetype->Offsets[index];
-                    BufferHeader* header = (BufferHeader*) OffsetFromPointer(tempChunkBuffer, subArrayOffset);
+                    BufferHeader* header = (BufferHeader*)OffsetFromPointer(tempChunkBuffer, subArrayOffset);
                     int stride = archetype->SizeOfs[index];
                     var elementSize = ct.ElementSize;
 
@@ -996,12 +1049,12 @@ namespace Unity.Entities.Serialization
                             int capacityInBytes = elementSize * header->Capacity;
                             bufferPatches.Add(new BufferPatchRecord
                             {
-                                ChunkOffset = (int) (((byte*) header) - tempChunkBuffer),
+                                ChunkOffset = (int)(((byte*)header) - tempChunkBuffer),
                                 AllocSizeBytes = capacityInBytes
                             });
                         }
 
-                        header = (BufferHeader*) OffsetFromPointer(header, stride);
+                        header = (BufferHeader*)OffsetFromPointer(header, stride);
                     }
                 }
             }
@@ -1036,7 +1089,7 @@ namespace Unity.Entities.Serialization
             {
                 var archetype = archetypeArray.Ptr[iArchetype];
                 int numSharedComponents = archetype->NumSharedComponents;
-                if(numSharedComponents==0)
+                if (numSharedComponents == 0)
                     continue;
                 var sharedComponentIndexRemap = stackalloc int[numSharedComponents];
 
@@ -1051,7 +1104,7 @@ namespace Unity.Entities.Serialization
                     }
                 }
             }
-            Assert.AreEqual(sharedComponentArrays.Length,index);
+            Assert.AreEqual(sharedComponentArrays.Length, index);
         }
 
         private static unsafe NativeHashMap<int, int> GatherSharedComponents(UnsafeArchetypePtrList archetypeArray, out int sharedComponentArraysTotalCount)

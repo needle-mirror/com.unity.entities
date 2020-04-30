@@ -1,11 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using JetBrains.Annotations;
 using UnityEditor.Networking.PlayerConnection;
 using UnityEngine.Events;
 using UnityEngine.Networking.PlayerConnection;
 
-namespace Unity.Scenes.Editor {
+namespace Unity.Scenes.Editor
+{
     class EditorPlayerConnection : IEditorConnection
     {
         readonly EditorConnection m_Connection;
@@ -13,6 +14,7 @@ namespace Unity.Scenes.Editor {
         {
             m_Connection = connection ? connection : throw new ArgumentNullException(nameof(connection));
         }
+
         public void Register(Guid messageId, UnityAction<MessageEventArgs> callback) => m_Connection.Register(messageId, callback);
         public void Unregister(Guid messageId, UnityAction<MessageEventArgs> callback) => m_Connection.Unregister(messageId, callback);
         public void DisconnectAll() => m_Connection.DisconnectAll();

@@ -8,7 +8,7 @@ namespace Unity.Entities.Tests
     public class EntityQueryBuilderTestFixture : ECSTestsFixture
     {
         protected class TestComponentSystem : ComponentSystem
-            { protected override void OnUpdate() { } }
+        { protected override void OnUpdate() {} }
 
         protected TestComponentSystem TestSystem => World.GetOrCreateSystem<TestComponentSystem>();
     }
@@ -16,13 +16,13 @@ namespace Unity.Entities.Tests
     class EntityQueryBuilderTests : EntityQueryBuilderTestFixture
     {
         class TestComponentSystem2 : ComponentSystem
-            { protected override void OnUpdate() { } }
+        { protected override void OnUpdate() {} }
 
         TestComponentSystem2 TestSystem2 => World.DefaultGameObjectInjectionWorld.GetOrCreateSystem<TestComponentSystem2>();
 
         [Test]
         public void WithGroup_WithNullGroup_Throws() =>
-            Assert.Throws<ArgumentNullException>(() => TestSystem.Entities.With(null));
+            Assert.Throws<ArgumentNullException>(() => TestSystem.Entities.With(default(EntityQuery)));
 
         [Test]
         public void WithGroup_WithExistingGroup_Throws()
@@ -266,7 +266,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         public void ForEach_WithAllReadOnlyAndWrite_Throws() =>
-            Assert.Throws<EntityQueryDescValidationException>(() => 
+            Assert.Throws<EntityQueryDescValidationException>(() =>
             {
                 var query = TestSystem.Entities.WithAll<EcsTestData>().WithAllReadOnly<EcsTestData>();
                 query.ForEach((Entity id) => {});
@@ -274,20 +274,20 @@ namespace Unity.Entities.Tests
 
         [Test]
         public void ForEach_WithAllTypeInForEach_DoesNotThrow() =>
-            Assert.DoesNotThrow(() => 
+            Assert.DoesNotThrow(() =>
             {
                 var query = TestSystem.Entities.WithAll<EcsTestData>();
                 query.ForEach((Entity id, ref EcsTestData data) => {});
             });
-        
+
         [Test]
         public void ForEach_WithAllReadOnlyTypeInForEach_DoesNotThrow() =>
-            Assert.DoesNotThrow(() => 
+            Assert.DoesNotThrow(() =>
             {
                 var query = TestSystem.Entities.WithAllReadOnly<EcsTestData>();
                 query.ForEach((Entity id, ref EcsTestData data) => {});
             });
-        
+
         [Test]
         public void ForEach_WithAllReadOnlyTypeInForEach_OnlyHasReadOnlyType()
         {
@@ -314,7 +314,7 @@ namespace Unity.Entities.Tests
                 eaq.All);
         }
 
-		[Test]
+        [Test]
         public void ForEach_WithIncludeDisabledOptionsAsSecondQuery_ReturnsEntityWithDisabled()
         {
             var entity = m_Manager.CreateEntity();
@@ -322,7 +322,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponentData(entity, new Disabled());
 
             var queryWithNoOptions = TestSystem.Entities.WithAny<EcsTestData>();
-            queryWithNoOptions.ForEach((Entity id) => { });
+            queryWithNoOptions.ForEach((Entity id) => {});
 
             var queryWithIncludeDisabled = TestSystem.Entities.WithAny<EcsTestData>().With(EntityQueryOptions.IncludeDisabled);
             bool entityFound = false;

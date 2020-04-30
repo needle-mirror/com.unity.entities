@@ -42,7 +42,7 @@ namespace Unity.Entities.CodeGen
         int m_TotalEntityOffsetCount;
         int m_TotalBlobAssetRefOffsetCount;
         int m_TotalWriteGroupCount;
-        
+
         /// <summary>
         /// Populates the registry's entityOffset int array.
         /// Offsets are laid out contiguously in memory such that the memory layout for Types A (2 entites), B (3 entities), C (0 entities) D (2 entities) is as such: aabbbdd
@@ -174,7 +174,7 @@ namespace Unity.Entities.CodeGen
 
             StoreTopOfStackToField(il, fieldRef, isStaticField);
         }
-        
+
         internal MethodDefinition InjectConstructComponentFunction(TypeGenInfoList typeGenInfoList)
         {
             var createComponentFn = new MethodDefinition(
@@ -185,13 +185,13 @@ namespace Unity.Entities.CodeGen
 
             var srcPtrArg =
                 new ParameterDefinition("buffer",
-                Mono.Cecil.ParameterAttributes.None,
-                AssemblyDefinition.MainModule.ImportReference(typeof(void*)));
+                    Mono.Cecil.ParameterAttributes.None,
+                    AssemblyDefinition.MainModule.ImportReference(typeof(void*)));
             createComponentFn.Parameters.Add(srcPtrArg);
 
             var typeIndexNoFlagsArg = new ParameterDefinition("typeIndexNoFlags",
                 Mono.Cecil.ParameterAttributes.None,
-                AssemblyDefinition.MainModule.ImportReference(typeof(int))); 
+                AssemblyDefinition.MainModule.ImportReference(typeof(int)));
             createComponentFn.Parameters.Add(typeIndexNoFlagsArg);
 
             createComponentFn.Body.InitLocals = true;
@@ -223,7 +223,7 @@ namespace Unity.Entities.CodeGen
 
             il.Append(defaultCaseOp);
             var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
-                                .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
+                .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
             il.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
             il.Emit(OpCodes.Throw);
             return createComponentFn;
@@ -259,8 +259,7 @@ namespace Unity.Entities.CodeGen
             var boxedPtrEqJumpTable = new List<Instruction>[typeGenInfoList.Count];
             var boxedHashJumpTable = new List<Instruction>[typeGenInfoList.Count];
 
-            // Begin iterating at 1 to skip the null type
-            for (int i = 1; i < typeGenInfoList.Count; ++i)
+            for (int i = 0; i < typeGenInfoList.Count; ++i)
             {
                 var typeGenInfo = typeGenInfoList[i];
                 var thisTypeRef = AssemblyDefinition.MainModule.ImportReference(typeGenInfo.TypeReference);
@@ -281,7 +280,7 @@ namespace Unity.Entities.CodeGen
                             instructionList.Add(eqIL.Create(OpCodes.Unbox, thisTypeRef));
                             instructionList.Add(eqIL.Create(OpCodes.Ldarg_1));
                             instructionList.Add(eqIL.Create(OpCodes.Unbox, thisTypeRef));
-                            instructionList.Add(eqIL.Create(OpCodes.Ldc_I8, (long) typeGenInfo.AlignAndSize.size));
+                            instructionList.Add(eqIL.Create(OpCodes.Ldc_I8, (long)typeGenInfo.AlignAndSize.size));
                             instructionList.Add(eqIL.Create(OpCodes.Call, m_MemCmpFnRef));
                             instructionList.Add(eqIL.Create(OpCodes.Ldc_I4_0));
                             instructionList.Add(eqIL.Create(OpCodes.Ceq));
@@ -312,7 +311,7 @@ namespace Unity.Entities.CodeGen
                             instructionList.Add(eqIL.Create(OpCodes.Ldarg_0));
                             instructionList.Add(eqIL.Create(OpCodes.Unbox, thisTypeRef));
                             instructionList.Add(eqIL.Create(OpCodes.Ldarg_1));
-                            instructionList.Add(eqIL.Create(OpCodes.Ldc_I8, (long) typeGenInfo.AlignAndSize.size));
+                            instructionList.Add(eqIL.Create(OpCodes.Ldc_I8, (long)typeGenInfo.AlignAndSize.size));
                             instructionList.Add(eqIL.Create(OpCodes.Call, m_MemCmpFnRef));
                             instructionList.Add(eqIL.Create(OpCodes.Ldc_I4_0));
                             instructionList.Add(eqIL.Create(OpCodes.Ceq));
@@ -365,14 +364,14 @@ namespace Unity.Entities.CodeGen
                 var eqIL = boxedEqualsFn.Body.GetILProcessor();
                 List<Instruction> jumps = new List<Instruction>(boxedEqJumpTable.Length);
                 Instruction loadTypeIndex = eqIL.Create(OpCodes.Ldarg_2);
-                Instruction loadDefault = eqIL.Create(OpCodes.Ldc_I4_0); // default to false
+                Instruction defaultCaseOp = Instruction.Create(OpCodes.Ldstr, "FATAL: Tried to call TypeManager.Equals() for a component type unknown to the static TypeRegistry");
                 eqIL.Append(loadTypeIndex); // Load typeIndex
 
                 foreach (var instructionList in boxedEqJumpTable)
                 {
                     if (instructionList == null)
                     {
-                        jumps.Add(loadDefault);
+                        jumps.Add(defaultCaseOp);
                         continue;
                     }
 
@@ -386,11 +385,14 @@ namespace Unity.Entities.CodeGen
                 }
 
                 // default case
-                eqIL.Append(loadDefault);
-                eqIL.Append(eqIL.Create(OpCodes.Ret));
+                eqIL.Append(defaultCaseOp);
+                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
+                    .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
+                eqIL.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
+                eqIL.Emit(OpCodes.Throw);
 
                 // Since we are using InsertAfter these instructions are appended in reverse order to how they will appear
-                eqIL.InsertAfter(loadTypeIndex, eqIL.Create(OpCodes.Br, loadDefault));
+                eqIL.InsertAfter(loadTypeIndex, eqIL.Create(OpCodes.Br, defaultCaseOp));
                 eqIL.InsertAfter(loadTypeIndex, eqIL.Create(OpCodes.Switch, jumps.ToArray()));
             }
 
@@ -399,14 +401,14 @@ namespace Unity.Entities.CodeGen
                 var eqIL = boxedEqualsPtrFn.Body.GetILProcessor();
                 List<Instruction> jumps = new List<Instruction>(boxedPtrEqJumpTable.Length);
                 Instruction loadTypeIndex = eqIL.Create(OpCodes.Ldarg_2);
-                Instruction loadDefault = eqIL.Create(OpCodes.Ldc_I4_0); // default to false
+                Instruction defaultCaseOp = Instruction.Create(OpCodes.Ldstr, "FATAL: Tried to call TypeManager.Equals() for a component type unknown to the static TypeRegistry");
                 eqIL.Append(loadTypeIndex); // Load typeIndex
 
                 foreach (var instructionList in boxedPtrEqJumpTable)
                 {
                     if (instructionList == null)
                     {
-                        jumps.Add(loadDefault);
+                        jumps.Add(defaultCaseOp);
                         continue;
                     }
 
@@ -420,11 +422,14 @@ namespace Unity.Entities.CodeGen
                 }
 
                 // default case
-                eqIL.Append(loadDefault);
-                eqIL.Append(eqIL.Create(OpCodes.Ret));
+                eqIL.Append(defaultCaseOp);
+                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
+                    .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
+                eqIL.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
+                eqIL.Emit(OpCodes.Throw);
 
                 // Since we are using InsertAfter these instructions are appended in reverse order to how they will appear
-                eqIL.InsertAfter(loadTypeIndex, eqIL.Create(OpCodes.Br, loadDefault));
+                eqIL.InsertAfter(loadTypeIndex, eqIL.Create(OpCodes.Br, defaultCaseOp));
                 eqIL.InsertAfter(loadTypeIndex, eqIL.Create(OpCodes.Switch, jumps.ToArray()));
             }
 
@@ -433,14 +438,14 @@ namespace Unity.Entities.CodeGen
                 var hashIL = boxedGetHashCodeFn.Body.GetILProcessor();
                 List<Instruction> jumps = new List<Instruction>(boxedHashJumpTable.Length);
                 Instruction loadTypeIndex = hashIL.Create(OpCodes.Ldarg_1);
-                Instruction loadDefault = hashIL.Create(OpCodes.Ldc_I4_0); // default to 0 for the hash
+                Instruction defaultCaseOp = Instruction.Create(OpCodes.Ldstr, "FATAL: Tried to call TypeManager.GetHashCode() for a component type unknown to the static TypeRegistry");
                 hashIL.Append(loadTypeIndex); // Load typeIndex
 
                 foreach (var instructionList in boxedHashJumpTable)
                 {
                     if (instructionList == null)
                     {
-                        jumps.Add(loadDefault);
+                        jumps.Add(defaultCaseOp);
                         continue;
                     }
 
@@ -454,11 +459,14 @@ namespace Unity.Entities.CodeGen
                 }
 
                 // default case
-                hashIL.Append(loadDefault);
-                hashIL.Append(hashIL.Create(OpCodes.Ret));
+                hashIL.Append(defaultCaseOp);
+                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
+                    .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
+                hashIL.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
+                hashIL.Emit(OpCodes.Throw);
 
                 // Since we are using InsertAfter these instructions are appended in reverse order to how they will appear in generated code
-                hashIL.InsertAfter(loadTypeIndex, hashIL.Create(OpCodes.Br, loadDefault));
+                hashIL.InsertAfter(loadTypeIndex, hashIL.Create(OpCodes.Br, defaultCaseOp));
                 hashIL.InsertAfter(loadTypeIndex, hashIL.Create(OpCodes.Switch, jumps.ToArray()));
             }
 
@@ -474,8 +482,8 @@ namespace Unity.Entities.CodeGen
         {
             return typeDef.Methods.FirstOrDefault(
                 m => m.Name == "Equals"
-                    && m.Parameters.Count == 1
-                    && m.Parameters[0].ParameterType == typeDef);
+                && m.Parameters.Count == 1
+                && m.Parameters[0].ParameterType == typeDef);
         }
 
         private static MethodReference GetTypesGetHashCodeMethodReference(TypeReference typeRef)
@@ -485,7 +493,7 @@ namespace Unity.Entities.CodeGen
 
         private static MethodReference GetTypesGetHashCodeMethodReference(TypeDefinition typeDef)
         {
-            // This code is kind of weak. We actually want to confirm this function is overriding System.Object.GetHashCode however 
+            // This code is kind of weak. We actually want to confirm this function is overriding System.Object.GetHashCode however
             // as far as I can tell, cecil is not detecting legitimate overrides so we resort to this.
             return typeDef.Methods.FirstOrDefault(
                 m => m.Name == "GetHashCode" && m.Parameters.Count == 0);
@@ -539,7 +547,7 @@ namespace Unity.Entities.CodeGen
             // May need to do something more clever if this doesn't pan out for all types
             il.Emit(OpCodes.Ldarg, arg0);
             il.Emit(OpCodes.Ldarg, arg1);
-            il.Emit(OpCodes.Ldc_I8, (long)typeSize);           
+            il.Emit(OpCodes.Ldc_I8, (long)typeSize);
             il.Emit(OpCodes.Call, m_MemCmpFnRef);
             il.Emit(OpCodes.Ldc_I4_0);
             il.Emit(OpCodes.Ceq);
@@ -565,7 +573,7 @@ namespace Unity.Entities.CodeGen
                 if (typeRef.IsValueType)
                 {
                     // avoid boxing if we know the type is a value type
-                    il.Emit(OpCodes.Constrained, importedTypeRef); 
+                    il.Emit(OpCodes.Constrained, importedTypeRef);
                 }
                 il.Emit(OpCodes.Callvirt, AssemblyDefinition.MainModule.ImportReference(userImpl));
             }
@@ -595,7 +603,7 @@ namespace Unity.Entities.CodeGen
 
             return hashFn;
         }
-        
+
         internal void GenerateHashFunctionRecurse(ILProcessor il, List<Instruction> hashInstructions, List<Instruction> fieldLoadChain, ParameterDefinition val, TypeReference typeRef)
         {
             // http://www.isthe.com/chongo/tech/comp/fnv/index.html#FNV-1a
@@ -754,7 +762,7 @@ namespace Unity.Entities.CodeGen
             }
 
             int typeIndex = m_TotalTypeCount++;
-            bool isSystemStateBufferElement = typeDef.Interfaces.Select(i=>i.InterfaceType.Name).Contains(nameof(ISystemStateBufferElementData));
+            bool isSystemStateBufferElement = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ISystemStateBufferElementData));
             bool isSystemStateSharedComponent = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ISystemStateSharedComponentData));
             bool isSystemStateComponent = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ISystemStateComponentData)) || isSystemStateSharedComponent || isSystemStateBufferElement;
 
@@ -819,12 +827,12 @@ namespace Unity.Entities.CodeGen
                 //alignment = alignAndSize.align;
                 alignment = CalculateAlignmentInChunk(alignAndSize.size);
             }
-            
+
             if (typeCategory != TypeCategory.ISharedComponentData && isManaged)
             {
                 // Managed components are stored as an integer index inside the chunk
                 sizeInChunk = alignment = 4;
-            } 
+            }
 
             if (typeCategory == TypeCategory.BufferData)
             {
@@ -886,7 +894,7 @@ namespace Unity.Entities.CodeGen
                 }
             }
 
-            m_TotalWriteGroupCount = 0; 
+            m_TotalWriteGroupCount = 0;
             for (int i = 0; i < typeGenInfoList.Count; ++i)
             {
                 var typeGenInfo = typeGenInfoList[i];
@@ -896,7 +904,7 @@ namespace Unity.Entities.CodeGen
                     typeGenInfo.WriteGroupTypes = writeGroups;
                     typeGenInfo.WriteGroupsIndex = m_TotalWriteGroupCount;
                     typeGenInfoList[i] = typeGenInfo;
-                    m_TotalWriteGroupCount += writeGroups.Count();
+                    m_TotalWriteGroupCount += writeGroups.Count;
                 }
             }
         }

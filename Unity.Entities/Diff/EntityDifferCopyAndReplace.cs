@@ -21,35 +21,35 @@ namespace Unity.Entities
                 var srcChunk = SrcChunks[index].m_Chunk;
                 var dstChunk = DstChunks[index].m_Chunk;
 
-                var archetype = srcChunk->Archetype;
-                var typeCount = archetype->TypesCount;
+                var srcArchetype = srcChunk->Archetype;
+                var dstArchetype = dstChunk->Archetype;
 
-                for (var typeIndex = 0; typeIndex < typeCount; typeIndex++)
-                {
-                    //@TODO: Overridable dst system version here?
-                    dstChunk->SetChangeVersion(typeIndex, srcChunk->GetChangeVersion(typeIndex));
-                }
+                ChunkDataUtility.CloneChangeVersions(srcArchetype, srcChunk->ListIndex, dstArchetype, dstChunk->ListIndex);
 
                 DstEntityComponentStore->AddExistingEntitiesInChunk(dstChunk);
             }
         }
-        
+
         internal static void CopyAndReplaceChunks(
-            EntityManager srcEntityManager, 
-            EntityManager dstEntityManager, 
-            EntityQuery dstEntityQuery, 
+            EntityManager srcEntityManager,
+            EntityManager dstEntityManager,
+            EntityQuery dstEntityQuery,
             ArchetypeChunkChanges archetypeChunkChanges)
         {
-            var archetypeChanges = dstEntityManager.EntityComponentStore->BeginArchetypeChangeTracking();
+            s_CopyAndReplaceChunksProfilerMarker.Begin();
+            var dstAccess = dstEntityManager.GetCheckedEntityDataAccess();
+            var srcAccess = srcEntityManager.GetCheckedEntityDataAccess();
+
+            var archetypeChanges = dstAccess->EntityComponentStore->BeginArchetypeChangeTracking();
 
             DestroyChunks(dstEntityManager, archetypeChunkChanges.DestroyedDstChunks.Chunks);
             CloneAndAddChunks(srcEntityManager, dstEntityManager, archetypeChunkChanges.CreatedSrcChunks.Chunks);
-            
-            dstEntityManager.EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, dstEntityManager.EntityQueryManager);
+
+            dstAccess->EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, dstAccess->EntityQueryManager);
 
             //@TODO-opt: use a query that searches for all chunks that have chunk components on it
             //@TODO-opt: Move this into a job
-            // Any chunk might have been recreated, so the ChunkHeader might be invalid 
+            // Any chunk might have been recreated, so the ChunkHeader might be invalid
             using (var allDstChunks = dstEntityQuery.CreateArchetypeChunkArray(Allocator.TempJob))
             {
                 foreach (var chunk in allDstChunks)
@@ -58,72 +58,84 @@ namespace Unity.Entities
                     if (metaEntity != Entity.Null)
                     {
                         if (dstEntityManager.Exists(metaEntity))
-                            dstEntityManager.SetComponentData(metaEntity, new ChunkHeader {ArchetypeChunk = chunk});
+                            dstEntityManager.SetComponentData(metaEntity, new ChunkHeader { ArchetypeChunk = chunk });
                     }
                 }
             }
-            
-            srcEntityManager.EntityComponentStore->IncrementGlobalSystemVersion();
-            dstEntityManager.EntityComponentStore->IncrementGlobalSystemVersion();
+
+            srcAccess->EntityComponentStore->IncrementGlobalSystemVersion();
+            dstAccess->EntityComponentStore->IncrementGlobalSystemVersion();
+            s_CopyAndReplaceChunksProfilerMarker.End();
         }
 
         static void DestroyChunks(EntityManager entityManager, NativeList<ArchetypeChunk> chunks)
         {
+            var access = entityManager.GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+
             for (var i = 0; i < chunks.Length; i++)
             {
-                Assert.IsTrue(chunks[i].entityComponentStore == entityManager.EntityComponentStore);
+                Assert.IsTrue(chunks[i].m_EntityComponentStore == access);
                 DestroyChunkForDiffing(entityManager, chunks[i].m_Chunk);
             }
         }
-        
+
         static void DestroyChunkForDiffing(EntityManager entityManager, Chunk* chunk)
         {
+            var access = entityManager.GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
+
             var count = chunk->Count;
             ChunkDataUtility.DeallocateBuffers(chunk);
-            entityManager.EntityComponentStore->DeallocateManagedComponents(chunk, 0, count);
+            ecs->DeallocateManagedComponents(chunk, 0, count);
 
             chunk->Archetype->EntityCount -= chunk->Count;
-            entityManager.EntityComponentStore->FreeEntities(chunk);
+            ecs->FreeEntities(chunk);
 
-            entityManager.EntityComponentStore->SetChunkCountKeepMetaChunk(chunk, 0);
+            ChunkDataUtility.SetChunkCountKeepMetaChunk(chunk, 0);
 
-            entityManager.ManagedComponentStore.Playback(ref entityManager.EntityComponentStore->ManagedChangesTracker);
+            mcs.Playback(ref ecs->ManagedChangesTracker);
         }
-        
+
         static void CloneAndAddChunks(EntityManager srcEntityManager, EntityManager dstEntityManager, NativeList<ArchetypeChunk> chunks)
         {
             var cloned = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            
+
+            var srcAccess = srcEntityManager.GetCheckedEntityDataAccess();
+            var dstAccess = dstEntityManager.GetCheckedEntityDataAccess();
+
             for (var i = 0; i < chunks.Length; i++)
             {
                 var srcChunk = chunks[i].m_Chunk;
-                
+
                 var dstChunk = CloneChunkWithoutAllocatingEntities(
                     dstEntityManager,
                     srcChunk,
-                    srcEntityManager.ManagedComponentStore);
+                    srcAccess->ManagedComponentStore);
 
                 cloned[i] = new ArchetypeChunk {m_Chunk = dstChunk};
             }
-            
+
             // Ensure capacity in the dst world before we start linking entities.
-            dstEntityManager.EntityComponentStore->EnsureCapacity(srcEntityManager.EntityCapacity);
-            dstEntityManager.EntityComponentStore->CopyNextFreeEntityIndex(srcEntityManager.EntityComponentStore);
-                
+            dstAccess->EntityComponentStore->EnsureCapacity(srcEntityManager.EntityCapacity);
+            dstAccess->EntityComponentStore->CopyNextFreeEntityIndex(srcAccess->EntityComponentStore);
+
             new PatchAndAddClonedChunks
             {
                 SrcChunks = chunks,
                 DstChunks = cloned,
-                DstEntityComponentStore = dstEntityManager.EntityComponentStore
+                DstEntityComponentStore = dstAccess->EntityComponentStore
             }.Schedule(chunks.Length, 64).Complete();
-            
+
             cloned.Dispose();
         }
-        
+
         static Chunk* CloneChunkWithoutAllocatingEntities(EntityManager dstEntityManager, Chunk* srcChunk, ManagedComponentStore srcManagedComponentStore)
         {
-            var dstEntityComponentStore = dstEntityManager.EntityComponentStore;
-            var dstManagedComponentStore = dstEntityManager.ManagedComponentStore;
+            var dstAccess = dstEntityManager.GetCheckedEntityDataAccess();
+            var dstEntityComponentStore = dstAccess->EntityComponentStore;
+            var dstManagedComponentStore = dstAccess->ManagedComponentStore;
 
             // Copy shared component data
             var dstSharedIndices = stackalloc int[srcChunk->Archetype->NumSharedComponents];
@@ -131,7 +143,7 @@ namespace Unity.Entities
             dstManagedComponentStore.CopySharedComponents(srcManagedComponentStore, dstSharedIndices, srcChunk->Archetype->NumSharedComponents);
 
             // @TODO: Why don't we memcpy the whole chunk. So we include all extra fields???
-            
+
             // Allocate a new chunk
             var srcArchetype = srcChunk->Archetype;
             var dstArchetype = dstEntityComponentStore->GetOrCreateArchetype(srcArchetype->Types, srcArchetype->TypesCount);
@@ -140,37 +152,37 @@ namespace Unity.Entities
             dstManagedComponentStore.Playback(ref dstEntityComponentStore->ManagedChangesTracker);
 
             dstChunk->metaChunkEntity = srcChunk->metaChunkEntity;
-            
+
             // Release any references obtained by GetCleanChunk & CopySharedComponents
             for (var i = 0; i < srcChunk->Archetype->NumSharedComponents; i++)
                 dstManagedComponentStore.RemoveReference(dstSharedIndices[i]);
 
-            dstEntityComponentStore->SetChunkCountKeepMetaChunk(dstChunk, srcChunk->Count);
+            ChunkDataUtility.SetChunkCountKeepMetaChunk(dstChunk, srcChunk->Count);
             dstManagedComponentStore.Playback(ref dstEntityComponentStore->ManagedChangesTracker);
 
             dstChunk->Archetype->EntityCount += srcChunk->Count;
 
             var copySize = Chunk.GetChunkBufferSize();
-            UnsafeUtility.MemCpy((byte*) dstChunk + Chunk.kBufferOffset, (byte*) srcChunk + Chunk.kBufferOffset, copySize);
+            UnsafeUtility.MemCpy((byte*)dstChunk + Chunk.kBufferOffset, (byte*)srcChunk + Chunk.kBufferOffset, copySize);
 
             var numManagedComponents = dstChunk->Archetype->NumManagedComponents;
             var hasHybridComponents = dstArchetype->HasHybridComponents;
             for (int t = 0; t < numManagedComponents; ++t)
             {
-                int type = t + dstChunk->Archetype->FirstManagedComponent;
+                int indexInArchetype = t + dstChunk->Archetype->FirstManagedComponent;
 
                 if (hasHybridComponents)
                 {
                     // We consider hybrid components as always different, there's no reason to clone those at this point
-                    var typeCategory = TypeManager.GetTypeInfo(dstChunk->Archetype->Types[type].TypeIndex).Category;
-                    if(typeCategory == TypeManager.TypeCategory.Class)
+                    var typeCategory = TypeManager.GetTypeInfo(dstChunk->Archetype->Types[indexInArchetype].TypeIndex).Category;
+                    if (typeCategory == TypeManager.TypeCategory.Class)
                         continue;
                 }
 
-                var offset = dstChunk->Archetype->Offsets[type];
+                var offset = dstChunk->Archetype->Offsets[indexInArchetype];
                 var a = (int*)(dstChunk->Buffer + offset);
 
-                dstManagedComponentStore.CloneManagedComponentsFromDifferentWorld(a, dstChunk->Count, srcManagedComponentStore, ref *dstEntityManager.EntityComponentStore);
+                dstManagedComponentStore.CloneManagedComponentsFromDifferentWorld(a, dstChunk->Count, srcManagedComponentStore, ref *dstAccess->EntityComponentStore);
             }
 
             BufferHeader.PatchAfterCloningChunk(dstChunk);

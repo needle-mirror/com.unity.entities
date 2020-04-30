@@ -23,8 +23,8 @@ namespace Unity.Entities.CodeGen
         ScheduleParallel,
         Run
     }
-    
-    
+
+
     class LambdaJobDescriptionConstruction
     {
         private const string EntitiesGetterName = "get_" + nameof(JobComponentSystem.Entities);
@@ -43,10 +43,10 @@ namespace Unity.Entities.CodeGen
             public string MethodName { get; }
             public object[] Arguments { get; }
             public Instruction InstructionInvokingMethod { get; }
-            
+
             public TypeReference[] TypeArguments { get; }
         }
-        
+
         public MethodDefinition ContainingMethod { get; set; }
         public Instruction WithCodeInvocationInstruction;
         public List<InvokedConstructionMethod> InvokedConstructionMethods = new List<InvokedConstructionMethod>();
@@ -90,7 +90,7 @@ namespace Unity.Entities.CodeGen
             {
                 if (IsInSystemBase)
                 {
-                    switch (((MethodReference) ScheduleOrRunInvocationInstruction.Operand).Name)
+                    switch (((MethodReference)ScheduleOrRunInvocationInstruction.Operand).Name)
                     {
                         case nameof(ExecutionMode.Run): return ExecutionMode.Run;
                         case nameof(ExecutionMode.Schedule): return ExecutionMode.Schedule;
@@ -100,7 +100,7 @@ namespace Unity.Entities.CodeGen
                 }
                 else
                 {
-                    switch (((MethodReference) ScheduleOrRunInvocationInstruction.Operand).Name)
+                    switch (((MethodReference)ScheduleOrRunInvocationInstruction.Operand).Name)
                     {
                         case nameof(ExecutionMode.Run): return ExecutionMode.Run;
                         case nameof(ExecutionMode.Schedule): return ExecutionMode.Schedule;
@@ -109,14 +109,14 @@ namespace Unity.Entities.CodeGen
                 }
             }
         }
-        
 
-        public bool UseImplicitSystemDependency => IsInSystemBase &&  
-                                                   (ExecutionMode == CodeGen.ExecutionMode.Schedule || ExecutionMode == CodeGen.ExecutionMode.ScheduleParallel) &&
-                                                   ((MethodReference) ScheduleOrRunInvocationInstruction.Operand).ReturnType.IsVoid();
+
+        public bool UseImplicitSystemDependency => IsInSystemBase &&
+        (ExecutionMode == CodeGen.ExecutionMode.Schedule || ExecutionMode == CodeGen.ExecutionMode.ScheduleParallel) &&
+        ((MethodReference)ScheduleOrRunInvocationInstruction.Operand).ReturnType.IsVoid();
 
         public bool AllowReferenceTypes => ExecutionMode == ExecutionMode.Run && !UsesBurst;
-        
+
         // Suffix DisplayClass string to enable magic sauce that shows fields as locals in debugger
         public string ClassName => $"<>c__DisplayClass_{LambdaJobName}";
 
@@ -129,7 +129,7 @@ namespace Unity.Entities.CodeGen
                 return MethodLambdaWasEmittedAs.DeclaringType;
             }
         }
-        
+
         public override string ToString()
         {
             var analysis = this;
@@ -155,7 +155,7 @@ namespace Unity.Entities.CodeGen
             {
                 if (i.OpCode != OpCodes.Call && i.OpCode != OpCodes.Callvirt)
                     return false;
-                var mr = (MethodReference) i.Operand;
+                var mr = (MethodReference)i.Operand;
 
                 if (mr.Name == EntitiesGetterName && (mr.ReturnType.Name == nameof(ForEachLambdaJobDescription) || mr.ReturnType.Name == nameof(ForEachLambdaJobDescriptionJCS)))
                     return true;
@@ -225,7 +225,7 @@ namespace Unity.Entities.CodeGen
                     if (givenName != null && !VerifyLambdaName(givenName))
                         UserError.DC0043(method, givenName, getEntitiesOrJobInstruction).Throw();
 
-                    var hasWithStructuralChangesModifier 
+                    var hasWithStructuralChangesModifier
                         = modifiers.Any(m => m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges));
 
                     if (hasWithStructuralChangesModifier && mr.Name != nameof(LambdaJobDescriptionExecutionMethods.Run))
@@ -246,7 +246,7 @@ namespace Unity.Entities.CodeGen
 
                     LambdaJobDescriptionKind FindLambdaDescriptionKind()
                     {
-                        switch (((MethodReference) getEntitiesOrJobInstruction.Operand).Name)
+                        switch (((MethodReference)getEntitiesOrJobInstruction.Operand).Name)
                         {
                             case EntitiesGetterName:
                                 return LambdaJobDescriptionKind.Entities;
@@ -261,8 +261,8 @@ namespace Unity.Entities.CodeGen
                         }
                     }
 
-                    if (modifiers.All(m => m.MethodName != nameof(LambdaForEachDescriptionConstructionMethods.ForEach) && 
-                                           m.MethodName != nameof(LambdaSingleJobDescriptionConstructionMethods.WithCode)))
+                    if (modifiers.All(m => m.MethodName != nameof(LambdaForEachDescriptionConstructionMethods.ForEach) &&
+                        m.MethodName != nameof(LambdaSingleJobDescriptionConstructionMethods.WithCode)))
                     {
                         DiagnosticMessage MakeDiagnosticMessage()
                         {
@@ -281,7 +281,7 @@ namespace Unity.Entities.CodeGen
 
                         MakeDiagnosticMessage().Throw();
                     }
-                    
+
                     if (method.DeclaringType.HasGenericParameters)
                         UserError.DC0025($"Entities.ForEach cannot be used in system {method.DeclaringType.Name} as Entities.ForEach in generic system types are not supported.", method, getEntitiesOrJobInstruction).Throw();
 
@@ -303,12 +303,16 @@ namespace Unity.Entities.CodeGen
                     };
                 }
 
-                var instructions = mr.Parameters.Skip(1)
-                    .Select(p => OperandObjectFor(CecilHelpers.FindInstructionThatPushedArg(method, p.Index, cursor))).ToArray();
-
+                var arguments = mr.Parameters.Skip(1).Select(p =>
+                {
+                    var instructionThatPushedArg = CecilHelpers.FindInstructionThatPushedArg(method, p.Index, cursor);
+                    if (instructionThatPushedArg.IsLoadConstantInt(out var intValue))
+                        return intValue;
+                    return instructionThatPushedArg.Operand;
+                }).ToArray();
                 var invokedConstructionMethod = new InvokedConstructionMethod(mr.Name,
                     (mr as GenericInstanceMethod)?.GenericArguments.ToArray() ?? Array.Empty<TypeReference>(),
-                    instructions, cursor);
+                    arguments, cursor);
 
                 var allowDynamicValue = method.Module.ImportReference(typeof(AllowDynamicValueAttribute));
                 for (int i = 0; i != invokedConstructionMethod.Arguments.Length; i++)
@@ -319,7 +323,7 @@ namespace Unity.Entities.CodeGen
                     var inbovokedForEachMethod = mr.Resolve();
                     var methodDefinitionParameter = inbovokedForEachMethod.Parameters[i + 1];
 
-                    if (!methodDefinitionParameter.CustomAttributes.Any(c =>c.AttributeType.TypeReferenceEquals(allowDynamicValue)))
+                    if (!methodDefinitionParameter.CustomAttributes.Any(c => c.AttributeType.TypeReferenceEquals(allowDynamicValue)))
                         UserError.DC0008(method, cursor, mr).Throw();
                 }
 
@@ -335,7 +339,6 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-
         private static Instruction FindNextConstructionMethod(MethodDefinition method, Instruction instruction)
         {
             var cursor = instruction;
@@ -345,7 +348,7 @@ namespace Unity.Entities.CodeGen
             {
                 cursor = cursor.Next;
 
-                var result = CecilHelpers.MatchesDelegateProducingPattern(method, cursor,CecilHelpers.DelegateProducingPattern.MatchSide.Start);
+                var result = CecilHelpers.MatchesDelegateProducingPattern(method, cursor, CecilHelpers.DelegateProducingPattern.MatchSide.Start);
                 if (result != null)
                 {
                     cursor = result.Instructions.Last();
@@ -368,43 +371,11 @@ namespace Unity.Entities.CodeGen
 
             return null;
         }
-        
 
         static bool HasAllowMultipleAttribute(MethodDefinition mr) => mr.HasCustomAttributes && mr.CustomAttributes.Any(c => c.AttributeType.Name == nameof(LambdaJobDescriptionConstructionMethods.AllowMultipleInvocationsAttribute));
 
-        private static object OperandObjectFor(Instruction argumentPushingInstruction)
-        {
-            var opCode = argumentPushingInstruction.OpCode;
-
-            if (opCode == OpCodes.Ldstr)
-                return (string) argumentPushingInstruction.Operand;
-            if (opCode == OpCodes.Ldc_I4)
-                return (int) argumentPushingInstruction.Operand;
-            if (opCode == OpCodes.Ldc_I4_0)
-                return 0;
-            if (opCode == OpCodes.Ldc_I4_1)
-                return 1;
-            if (opCode == OpCodes.Ldc_I4_2)
-                return 2;
-            if (opCode == OpCodes.Ldc_I4_3)
-                return 3;
-            if (opCode == OpCodes.Ldc_I4_4)
-                return 4;
-            if (opCode == OpCodes.Ldc_I4_5)
-                return 5;
-            if (opCode == OpCodes.Ldc_I4_6)
-                return 6;
-            if (opCode == OpCodes.Ldc_I4_7)
-                return 7;
-            if (opCode == OpCodes.Ldc_I4_8)
-                return 8;
-            if (opCode == OpCodes.Ldfld)
-                return argumentPushingInstruction.Operand;
-            return null;
-        }
-
         static bool IsLambdaJobDescriptionConstructionMethod(MethodReference mr) =>
-            (mr.DeclaringType.Name.EndsWith("ConstructionMethods") || mr.DeclaringType.Name.EndsWith("ExecutionMethods") || mr.DeclaringType.Name.EndsWith("ExecutionMethodsJCS")) 
+            (mr.DeclaringType.Name.EndsWith("ConstructionMethods") || mr.DeclaringType.Name.EndsWith("ExecutionMethods") || mr.DeclaringType.Name.EndsWith("ExecutionMethodsJCS"))
             && (mr.DeclaringType.Namespace == "Unity.Entities" || mr.DeclaringType.Namespace == "");
 
         public static CecilHelpers.DelegateProducingSequence AnalyzeForEachInvocationInstruction(MethodDefinition methodToAnalyze, Instruction withCodeInvocationInstruction)
@@ -417,18 +388,18 @@ namespace Unity.Entities.CodeGen
             {
                 // Make sure we aren't generating this lambdajob from a stored delegate
                 bool LivesInUniversalDelegatesNamespace(TypeReference type) => type.Namespace == typeof(UniversalDelegates.R<>).Namespace;
-                if ((delegatePushingInstruction.OpCode == OpCodes.Ldfld && LivesInUniversalDelegatesNamespace(((FieldReference)delegatePushingInstruction.Operand).FieldType) || 
+                if ((delegatePushingInstruction.OpCode == OpCodes.Ldfld && LivesInUniversalDelegatesNamespace(((FieldReference)delegatePushingInstruction.Operand).FieldType) ||
                      (delegatePushingInstruction.IsLoadLocal(out var localIndex) && LivesInUniversalDelegatesNamespace(methodToAnalyze.Body.Variables[localIndex].VariableType)) ||
-                     (delegatePushingInstruction.IsLoadArg(out var argIndex) && 
+                     (delegatePushingInstruction.IsLoadArg(out var argIndex) &&
                       LivesInUniversalDelegatesNamespace(methodToAnalyze.Parameters[methodToAnalyze.HasThis ? (argIndex - 1) : argIndex].ParameterType))))
-                     UserError.DC0044(methodToAnalyze, delegatePushingInstruction).Throw();
+                    UserError.DC0044(methodToAnalyze, delegatePushingInstruction).Throw();
                 else if (((delegatePushingInstruction.OpCode == OpCodes.Call || delegatePushingInstruction.OpCode == OpCodes.Callvirt) &&
                           delegatePushingInstruction.Operand is MethodReference callMethod))
                 {
                     if (LivesInUniversalDelegatesNamespace(callMethod.ReturnType))
                         UserError.DC0044(methodToAnalyze, delegatePushingInstruction).Throw();
                 }
-                
+
                 InternalCompilerError.DCICE002(methodToAnalyze, delegatePushingInstruction).Throw();
             }
 

@@ -128,7 +128,7 @@ namespace Unity.Entities
             Capacity = capacity;
         }
     }
-    
+
     /// <summary>
     /// Specifies the maximum number of components of a type that can be stored in the same chunk.
     /// </summary>
@@ -155,7 +155,6 @@ namespace Unity.Entities
         {
             Capacity = capacity;
         }
-        
     }
 
     /// <summary>
@@ -272,7 +271,7 @@ namespace Unity.Entities
     public struct Disabled : IComponentData
     {
     }
-    
+
     /// <summary>
     /// Marks the entity as a prefab, which implicitly disables the entity.
     /// </summary>
@@ -298,7 +297,7 @@ namespace Unity.Entities
     /// <remarks>
     /// Referenced Prefabs automatically add a LinkedEntityGroup with the complete child hierarchy.
     /// EntityManager.Instantiate uses LinkedEntityGroup to instantiate the whole set of entities automatically.
-    /// EntityManager.SetEnabled uses LinkedEntityGroup to enable the whole set of entities. 
+    /// EntityManager.SetEnabled uses LinkedEntityGroup to enable the whole set of entities.
     /// </remarks>
     public struct LinkedEntityGroup : IBufferElementData
     {
@@ -306,7 +305,7 @@ namespace Unity.Entities
         /// A child entity.
         /// </summary>
         public Entity Value;
-        
+
         /// <summary>
         /// Provides implicit conversion of an <see cref="Entity"/> to a LinkedEntityGroup element.
         /// </summary>
@@ -317,7 +316,7 @@ namespace Unity.Entities
             return new LinkedEntityGroup {Value = e};
         }
     }
-    
+
     /// <summary>
     /// A Unity-defined shared component assigned to all entities in the same subscene.
     /// </summary>
@@ -358,4 +357,3 @@ namespace Unity.Entities
         }
     }
 }
-

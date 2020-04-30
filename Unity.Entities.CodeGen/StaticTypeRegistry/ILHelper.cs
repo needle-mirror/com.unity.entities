@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 #if UNITY_DOTSPLAYER
@@ -11,7 +10,7 @@ namespace Unity.Entities.CodeGen
     static class ILHelper
     {
         // Annoyingly cecil's il.Emit API doesn't allow generic operand values so we have a variety of
-        // helper functions that all do similar things with only the input list type varying  
+        // helper functions that all do similar things with only the input list type varying
         public static void StoreStringArrayInField(ILProcessor il, List<string> values, FieldReference fieldRef, bool isStaticField)
         {
             var stringTypeRef = il.Body.Method.Module.ImportReference(typeof(string));
@@ -41,7 +40,7 @@ namespace Unity.Entities.CodeGen
             }
             StoreTopOfStackToField(il, fieldRef, isStaticField);
         }
-        
+
         public static void StoreIntArrayInField(ILProcessor il, List<int> values, FieldReference fieldRef, bool isStaticField)
         {
             var boolTypeDef = il.Body.Method.Module.ImportReference(typeof(int));
@@ -56,7 +55,7 @@ namespace Unity.Entities.CodeGen
             }
             StoreTopOfStackToField(il, fieldRef, isStaticField);
         }
-        
+
         public static void StoreTopOfStackToField(ILProcessor il, FieldReference fieldRef, bool isStatic)
         {
             if (isStatic)

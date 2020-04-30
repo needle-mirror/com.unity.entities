@@ -25,10 +25,10 @@ namespace Unity.Entities
                 return (m_ZeroSizedMask & (1 << index)) != 0;
             }
 
-            public int Buffers => math.countbits((UInt32) m_BufferMask);
-            public int SystemStateComponents => math.countbits((UInt32) m_SystemStateComponentMask);
-            public int SharedComponents => math.countbits((UInt32) m_SharedComponentMask);
-            public int ZeroSizeds => math.countbits((UInt32) m_ZeroSizedMask);
+            public int Buffers => math.countbits((UInt32)m_BufferMask);
+            public int SystemStateComponents => math.countbits((UInt32)m_SystemStateComponentMask);
+            public int SharedComponents => math.countbits((UInt32)m_SharedComponentMask);
+            public int ZeroSizeds => math.countbits((UInt32)m_ZeroSizedMask);
         }
 
         public Masks m_masks;
@@ -38,7 +38,7 @@ namespace Unity.Entities
             for (var i = 0; i < m_sorted.Length; ++i)
             {
                 var typeIndex = m_sorted[i];
-                var mask = (UInt16) (1 << i);
+                var mask = (UInt16)(1 << i);
                 if (TypeManager.IsBuffer(typeIndex))
                     m_masks.m_BufferMask |= mask;
                 if (TypeManager.IsSystemStateComponent(typeIndex))

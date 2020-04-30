@@ -55,7 +55,7 @@ namespace Unity.Entities.CodeGen
     /// For DOTSRuntime, we still need the runtime to find all generated TypeRegistry instances for all assemblies and
     /// register them with the TypeManager at runtime. We would do this via ModuleInitializers however there is no
     /// support for those in il2cpp yet. So instead this registration is done elsewhere via TypeRegGen (part of the
-    /// DOTS Runtime compilation pipeline). 
+    /// DOTS Runtime compilation pipeline).
     /// </summary>
     internal partial class StaticTypeRegistryPostProcessor : EntitiesILPostProcessor
     {
@@ -77,15 +77,15 @@ namespace Unity.Entities.CodeGen
         TypeDefinition GeneratedRegistryDef;
         MethodDefinition GeneratedRegistryCCTORDef;
         bool IsReleaseConfig;
-        
+
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <returns></returns>
         protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
             bool madeChange = false;
-            
+
             (var typeGenInfoList, var systemList) = GatherTypeInformation();
             if (typeGenInfoList.Count > 0 || systemList.Count > 0)
             {
@@ -94,7 +94,7 @@ namespace Unity.Entities.CodeGen
             }
 
             madeChange |= InjectFieldInfo();
-            
+
             // We are modifying the TypeManager in these functions so only
             // do so if we are modifying the Entities assembly
             if (AssemblyDefinition.Name.Name == "Unity.Entities")
@@ -127,13 +127,13 @@ namespace Unity.Entities.CodeGen
 
             m_TypeInfoRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager.TypeInfo));
             m_TypeInfoConstructorRef = m_TypeInfoRef.Module.ImportReference(typeof(TypeManager.TypeInfo).GetConstructor(new Type[]
-            { 
-                typeof(int), typeof(TypeCategory), typeof(int), typeof(int), 
+            {
+                typeof(int), typeof(TypeCategory), typeof(int), typeof(int),
                 typeof(ulong), typeof(ulong), typeof(int), typeof(int), typeof(int),
-                typeof(int), typeof(int), typeof(int), typeof(int), 
-                typeof(int), typeof(int), typeof(int), typeof(int) 
-            }));  
-            
+                typeof(int), typeof(int), typeof(int), typeof(int),
+                typeof(int), typeof(int), typeof(int), typeof(int)
+            }));
+
             IsReleaseConfig = !EntitiesILPostProcessors.Defines.Contains("DEBUG");
         }
 
@@ -156,14 +156,14 @@ namespace Unity.Entities.CodeGen
         TypeCategory FindTypeCategoryForTypeRecursive(TypeDefinition typeDef)
         {
             var typeCategory = FindTypeCategoryForType(typeDef);
-            if (typeCategory == TypeCategory.Class && typeDef.BaseType != null) 
+            if (typeCategory == TypeCategory.Class && typeDef.BaseType != null)
             {
                 typeCategory = FindTypeCategoryForTypeRecursive(typeDef.BaseType.Resolve());
             }
 
             return typeCategory;
         }
-        
+
         /// <summary>
         /// Generates a list of type information for all component types in the assembly
         /// </summary>
@@ -231,7 +231,7 @@ namespace Unity.Entities.CodeGen
             // For any found generic components, validate the user has registered the closed form with the assembly
             var genericComponents = AssemblyDefinition.CustomAttributes
                 .Where(ca => ca.AttributeType.Name == nameof(RegisterGenericComponentTypeAttribute))
-                .Select(ca=>ca.ConstructorArguments.First().Value as TypeReference)
+                .Select(ca => ca.ConstructorArguments.First().Value as TypeReference)
                 .Distinct();
             foreach (var genericComponent in genericComponents)
             {
@@ -263,7 +263,7 @@ namespace Unity.Entities.CodeGen
                 {
                     typeGenInfoList.Add(CreateTypeGenInfo(typePair.Type, typePair.Category));
                 }
-                
+
                 PopulateWriteGroups(typeGenInfoList);
             }
 
@@ -293,7 +293,7 @@ namespace Unity.Entities.CodeGen
             var il = GeneratedRegistryCCTORDef.Body.GetILProcessor();
 
             // Create a new TypeRegistry type
-            var assemblyTypeRegistryCtorRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetConstructor(new Type[] { }));
+            var assemblyTypeRegistryCtorRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetConstructor(new Type[] {}));
             il.Emit(OpCodes.Newobj, assemblyTypeRegistryCtorRef);
             il.Emit(OpCodes.Stloc_0);
 
@@ -437,14 +437,14 @@ namespace Unity.Entities.CodeGen
 
         MethodDefinition InjectSetSharedStaticTypeIndices(TypeGenInfoList typeGenInfos)
         {
-            var setSharedStaticTypeIndicesFn = new MethodDefinition("SetSharedStaticTypeIndices", 
+            var setSharedStaticTypeIndicesFn = new MethodDefinition("SetSharedStaticTypeIndices",
                 MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig,
                 AssemblyDefinition.MainModule.ImportReference(typeof(void)));
 
             var typeInfosPtrArg =
                 new ParameterDefinition("pTypeInfos",
-                Mono.Cecil.ParameterAttributes.None,
-                AssemblyDefinition.MainModule.ImportReference(typeof(int*)));
+                    Mono.Cecil.ParameterAttributes.None,
+                    AssemblyDefinition.MainModule.ImportReference(typeof(int*)));
             setSharedStaticTypeIndicesFn.Parameters.Add(typeInfosPtrArg);
 
             var countArg = new ParameterDefinition("count",
@@ -464,7 +464,7 @@ namespace Unity.Entities.CodeGen
                 il.Emit(OpCodes.Ldc_I4, typeGenInfos.Count);
                 il.Emit(OpCodes.Beq, branchEndOp);
                 var argumentExceptionConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(ArgumentException)).Resolve().GetConstructors()
-                        .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
+                    .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
                 il.Emit(OpCodes.Ldstr, $"The passed in 'count' does not match the expected count of '{typeGenInfos.Count}' component types");
                 il.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(argumentExceptionConstructor));
                 il.Emit(OpCodes.Throw);
@@ -476,8 +476,8 @@ namespace Unity.Entities.CodeGen
             var openSharedTypeIndex = AssemblyDefinition.MainModule.ImportReference(typeof(SharedTypeIndex<>));
             var sharedTypeIndexRefField = AssemblyDefinition.MainModule.ImportReference(typeof(SharedTypeIndex<>).GetField(nameof(SharedTypeIndex<int>.Ref)));
             var sharedStaticGetDataFn = AssemblyDefinition.MainModule.ImportReference(typeof(SharedStatic<int>).GetProperty("Data").GetMethod);
-            
-            for(int i = 0; i < typeGenInfos.Count; ++i)
+
+            for (int i = 0; i < typeGenInfos.Count; ++i)
             {
                 var closedSharedTypeIndex = AssemblyDefinition.MainModule.ImportReference(openSharedTypeIndex.MakeGenericInstanceType(typeGenInfos[i].TypeReference));
                 var closeSharedTypeIndexRefField = new FieldReference(sharedTypeIndexRefField.Name, sharedTypeIndexRefField.FieldType, closedSharedTypeIndex);
@@ -502,7 +502,7 @@ namespace Unity.Entities.CodeGen
 
             return setSharedStaticTypeIndicesFn;
         }
-        
+
         void InjectEntityStableTypeHash()
         {
             var entityStableTypeHash = TypeHash.CalculateStableTypeHashRefl(typeof(Entity));
@@ -510,11 +510,11 @@ namespace Unity.Entities.CodeGen
             var getEntityStableTypeHashFn = typeManagerDef.GetMethods().First(m => m.Parameters.Count == 0 && m.Name == "GetEntityStableTypeHash");
             var il = getEntityStableTypeHashFn.Body.GetILProcessor();
             il.Body.Instructions.Clear();
-            
-            il.Emit(OpCodes.Ldc_I8, (long) entityStableTypeHash);
+
+            il.Emit(OpCodes.Ldc_I8, (long)entityStableTypeHash);
             il.Emit(OpCodes.Ret);
         }
-        
+
         /// <summary>
         /// Customizes the <Module> initializer for our assembly to call out to TypeManager.RegisterAssemblyTypes
         /// </summary>

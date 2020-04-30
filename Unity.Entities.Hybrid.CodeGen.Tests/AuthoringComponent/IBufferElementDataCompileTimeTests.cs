@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -38,14 +38,14 @@ namespace Unity.Entities.Hybrid.CodeGen.Tests
             public int Value2;
 #pragma warning restore 649
         }
-        
+
         [StructLayout(LayoutKind.Explicit, Size = 10)]
         [GenerateAuthoringComponent]
         public struct BufferElementWithExplicitLayout : IBufferElementData
         {
             [FieldOffset(3)] public byte Value;
         }
-        
+
         protected override void AssertProducesInternal(Type systemType, DiagnosticType expectedDiagnosticType, string[] errorIdentifiers, bool useFailResolver = false)
         {
             DiagnosticMessage error = null;

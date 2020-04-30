@@ -64,7 +64,7 @@ namespace Unity.Transforms
                 var hasAnyScale = hasScale || hasNonUniformScale;
 
                 // 000 - Invalid. Must have at least one.
-                // 001 
+                // 001
                 if (!hasAnyScale && !hasScalePivotTranslation && hasScalePivot)
                 {
                     var didChange = chunk.DidChange(ScalePivotType, LastSystemVersion);
@@ -87,7 +87,7 @@ namespace Unity.Transforms
                         var translation = chunkScalePivotTranslations[i].Value;
 
                         chunkCompositeScales[i] = new CompositeScale
-                            {Value = float4x4.Translate(translation)};
+                        {Value = float4x4.Translate(translation)};
                     }
                 }
                 // 011
@@ -103,7 +103,7 @@ namespace Unity.Transforms
                         var translation = chunkScalePivotTranslations[i].Value;
 
                         chunkCompositeScales[i] = new CompositeScale
-                            {Value = float4x4.Translate(translation)};
+                        {Value = float4x4.Translate(translation)};
                     }
                 }
                 // 100
@@ -142,7 +142,7 @@ namespace Unity.Transforms
                     if (hasScale)
                     {
                         var didChange = chunk.DidChange(ScaleType, LastSystemVersion) ||
-                                        chunk.DidChange(ScalePivotType, LastSystemVersion);
+                            chunk.DidChange(ScalePivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -162,7 +162,7 @@ namespace Unity.Transforms
                     else // if (hasNonUniformScalee)
                     {
                         var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
-                                        chunk.DidChange(ScalePivotType, LastSystemVersion);
+                            chunk.DidChange(ScalePivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -180,7 +180,6 @@ namespace Unity.Transforms
                         }
                     }
                 }
-
                 // 110
                 else if (hasAnyScale && hasScalePivotTranslation && !hasScalePivot)
                 {
@@ -188,7 +187,7 @@ namespace Unity.Transforms
                     if (hasScale)
                     {
                         var didChange = chunk.DidChange(ScaleType, LastSystemVersion) ||
-                                        chunk.DidChange(ScalePivotTranslationType, LastSystemVersion);
+                            chunk.DidChange(ScalePivotTranslationType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -198,13 +197,13 @@ namespace Unity.Transforms
                             var scale = chunkScales[i].Value;
 
                             chunkCompositeScales[i] = new CompositeScale
-                                {Value = math.mul(float4x4.Translate(translation), float4x4.Scale(scale))};
+                            {Value = math.mul(float4x4.Translate(translation), float4x4.Scale(scale))};
                         }
                     }
                     else // if (hasNonUniformScale)
                     {
                         var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
-                                        chunk.DidChange(ScalePivotTranslationType, LastSystemVersion);
+                            chunk.DidChange(ScalePivotTranslationType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -214,7 +213,7 @@ namespace Unity.Transforms
                             var scale = chunkNonUniformScale[i].Value;
 
                             chunkCompositeScales[i] = new CompositeScale
-                                {Value = math.mul(float4x4.Translate(translation), float4x4.Scale(scale))};
+                            {Value = math.mul(float4x4.Translate(translation), float4x4.Scale(scale))};
                         }
                     }
                 }
@@ -225,8 +224,8 @@ namespace Unity.Transforms
                     if (hasScale)
                     {
                         var didChange = chunk.DidChange(ScaleType, LastSystemVersion) ||
-                                        chunk.DidChange(ScalePivotTranslationType, LastSystemVersion) ||
-                                        chunk.DidChange(ScalePivotType, LastSystemVersion);
+                            chunk.DidChange(ScalePivotTranslationType, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -248,8 +247,8 @@ namespace Unity.Transforms
                     else // if (hasNonUniformScale)
                     {
                         var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
-                                        chunk.DidChange(ScalePivotTranslationType, LastSystemVersion) ||
-                                        chunk.DidChange(ScalePivotType, LastSystemVersion);
+                            chunk.DidChange(ScalePivotTranslationType, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotType, LastSystemVersion);
                         if (!didChange)
                             return;
 

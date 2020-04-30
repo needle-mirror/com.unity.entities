@@ -24,11 +24,16 @@ namespace Unity.Entities
             EndInitializationEntityCommandBufferSystem endEcbSys = null;
             foreach (var s in m_systemsToUpdate)
             {
-                if (s is BeginInitializationEntityCommandBufferSystem) {
+                if (s is BeginInitializationEntityCommandBufferSystem)
+                {
                     beginEcbSys = (BeginInitializationEntityCommandBufferSystem)s;
-                } else if (s is EndInitializationEntityCommandBufferSystem) {
+                }
+                else if (s is EndInitializationEntityCommandBufferSystem)
+                {
                     endEcbSys = (EndInitializationEntityCommandBufferSystem)s;
-                } else {
+                }
+                else
+                {
                     toSort.Add(s);
                 }
             }
@@ -70,15 +75,23 @@ namespace Unity.Entities
             BeginSimulationEntityCommandBufferSystem beginEcbSys = null;
             LateSimulationSystemGroup lateSysGroup = null;
             EndSimulationEntityCommandBufferSystem endEcbSys = null;
-            foreach (var s in m_systemsToUpdate) {
-                if (s is BeginSimulationEntityCommandBufferSystem) {
+            foreach (var s in m_systemsToUpdate)
+            {
+                if (s is BeginSimulationEntityCommandBufferSystem)
+                {
                     beginEcbSys = (BeginSimulationEntityCommandBufferSystem)s;
-                } else if (s is LateSimulationSystemGroup) {
+                }
+                else if (s is LateSimulationSystemGroup)
+                {
                     lateSysGroup = (LateSimulationSystemGroup)s;
                     lateSysGroup.SortSystemUpdateList(); // not handled by base-class sort call below
-                } else if (s is EndSimulationEntityCommandBufferSystem) {
+                }
+                else if (s is EndSimulationEntityCommandBufferSystem)
+                {
                     endEcbSys = (EndSimulationEntityCommandBufferSystem)s;
-                } else {
+                }
+                else
+                {
                     toSort.Add(s);
                 }
             }
@@ -118,7 +131,9 @@ namespace Unity.Entities
                 if (s is BeginPresentationEntityCommandBufferSystem)
                 {
                     beginEcbSys = (BeginPresentationEntityCommandBufferSystem)s;
-                } else {
+                }
+                else
+                {
                     toSort.Add(s);
                 }
             }

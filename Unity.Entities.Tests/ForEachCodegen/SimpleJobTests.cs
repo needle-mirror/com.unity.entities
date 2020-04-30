@@ -1,4 +1,3 @@
-﻿
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -15,7 +14,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem = World.GetOrCreateSystem<SimpleJobSystem>();
         }
-
 
         [Test]
         public void SimpleJob()

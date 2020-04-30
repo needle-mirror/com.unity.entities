@@ -42,7 +42,7 @@ namespace Unity.Entities
     /// your own logic. Typically, you create an EntityCommandBufferSystem subclass to create a named buffer system
     /// for other systems to use and update it at an appropriate place in a custom <see cref="ComponentSystemGroup"/>
     /// setup.</remarks>
-    public abstract class EntityCommandBufferSystem : ComponentSystem
+    public unsafe abstract class EntityCommandBufferSystem : ComponentSystem
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         List<EntityCommandBuffer> m_PendingBuffers;
@@ -77,7 +77,7 @@ namespace Unity.Entities
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob, -1, PlaybackPolicy.SinglePlayback);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            cmds.SystemID = ms_ExecutingSystem != null ? ms_ExecutingSystem.m_SystemID : 0;
+            cmds.SystemID = ms_ExecutingSystem != null ? ms_ExecutingSystem.CheckedState()->m_SystemID : 0;
 #endif
             m_PendingBuffers.Add(cmds);
 

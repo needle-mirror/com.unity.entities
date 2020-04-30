@@ -64,7 +64,7 @@ namespace Unity.Entities.Tests.Conversion
         [Test]
         public void AddVarious_WithInvalidId_Throws()
         {
-            var (min, max) = (-1, m_MultiList.HeadIds.Length);
+            var(min, max) = (-1, m_MultiList.HeadIds.Length);
 
             Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddHead(min, "0"));
             Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddHead(max, "0"));

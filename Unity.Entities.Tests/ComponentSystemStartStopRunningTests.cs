@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -101,7 +101,6 @@ namespace Unity.Entities.Tests
 
             Assert.IsFalse(system.StoredData.IsCreated);
         }
-
 
         [Test]
         [StandaloneFixme] // UnityEngine.Debug.Log is at a very basic level in ZeroJobs
@@ -329,6 +328,5 @@ namespace Unity.Entities.Tests
 
             LogAssert.NoUnexpectedReceived();
         }
-
     }
 }

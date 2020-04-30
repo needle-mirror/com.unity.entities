@@ -11,12 +11,15 @@ namespace Unity.Entities.Tests
         public void SIZ_TagComponentDoesNotChangeCapacity()
         {
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestData));
-            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData),typeof(EcsTestTag));
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestTag));
 
             unsafe {
+                var access = m_Manager.GetCheckedEntityDataAccess();
+                var ecs = access->EntityComponentStore;
+
                 // a system ran, the version should match the global
-                var chunk0 = m_Manager.EntityComponentStore->GetChunk(entity0);
-                var chunk1 = m_Manager.EntityComponentStore->GetChunk(entity1);
+                var chunk0 = access->EntityComponentStore->GetChunk(entity0);
+                var chunk1 = access->EntityComponentStore->GetChunk(entity1);
                 var archetype0 = chunk0->Archetype;
                 var archetype1 = chunk1->Archetype;
 
@@ -32,8 +35,10 @@ namespace Unity.Entities.Tests
             var entity0 = m_Manager.CreateEntity(typeof(EcsTestTag));
 
             unsafe {
+                var access = m_Manager.GetCheckedEntityDataAccess();
+                var ecs = access->EntityComponentStore;
                 // a system ran, the version should match the global
-                var chunk0 = m_Manager.EntityComponentStore->GetChunk(entity0);
+                var chunk0 = ecs->GetChunk(entity0);
                 var archetype0 = chunk0->Archetype;
                 var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestTag>());
 
@@ -48,7 +53,7 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<ArgumentException>(() =>
             {
-               var data = m_Manager.GetComponentData<EcsTestTag>(entity0);
+                var data = m_Manager.GetComponentData<EcsTestTag>(entity0);
             });
             Assert.Throws<ArgumentException>(() =>
             {
@@ -63,7 +68,7 @@ namespace Unity.Entities.Tests
 
             Assert.Throws<ArgumentException>(() =>
             {
-               m_Manager.SetComponentData(entity0, default(EcsTestTag));
+                m_Manager.SetComponentData(entity0, default(EcsTestTag));
             });
             Assert.Throws<ArgumentException>(() =>
             {
@@ -113,13 +118,14 @@ namespace Unity.Entities.Tests
 
             chunks.Dispose();
         }
+
 #pragma warning restore 0219
 
         unsafe struct TestTooBig : IComponentData
         {
             fixed byte Value[32768];
         }
-        
+
         [Test]
         public void ThrowsWhenTooLargeCreate()
         {
@@ -128,15 +134,15 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateEntity(typeof(TestTooBig));
             });
         }
-        
+
         [Test]
         public void ThrowsWhenTooLargeAddComponent()
         {
-           var entity = m_Manager.CreateEntity();
-           Assert.Throws<InvalidOperationException>(() =>
-           {
-               m_Manager.AddComponent<TestTooBig>(entity);
-           });
+            var entity = m_Manager.CreateEntity();
+            Assert.Throws<InvalidOperationException>(() =>
+            {
+                m_Manager.AddComponent<TestTooBig>(entity);
+            });
         }
     }
 }

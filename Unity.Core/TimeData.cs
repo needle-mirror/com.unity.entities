@@ -33,6 +33,5 @@ namespace Unity.Core
         public float fixedDeltaTime => UnityEngine.Time.fixedDeltaTime;
 
     #endif
-
     }
 }

@@ -18,7 +18,11 @@ namespace Unity.Entities.Tests
         // Until sorted out, pull a simple exception out for use by the worker threads.
         static void AssertOnThread(bool test)
         {
-            if (!test) throw new Exception("AssertOnThread Failed.");
+            if (!test)
+            {
+                Console.WriteLine("AssertOnThread failed.");
+                throw new Exception("AssertOnThread Failed.");
+            }
         }
 
         public struct SimpleJob : IJob
@@ -183,6 +187,10 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if UNITY_DOTSPLAYER_IL2CPP
+        // https://unity3d.atlassian.net/browse/DOTSR-1365
+        [Ignore("Crash because of array pinning.")]
+#endif
         [Test]
         public void Schedule3SimpleJobsInParallel()
         {
@@ -221,6 +229,7 @@ namespace Unity.Entities.Tests
             jobResult1.Dispose();
             jobResult2.Dispose();
             jobResult3.Dispose();
+
             group.Dispose();
         }
 
@@ -246,6 +255,10 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if UNITY_DOTSPLAYER_IL2CPP
+        // https://unity3d.atlassian.net/browse/DOTSR-1365
+        [Ignore("Crash because of array pinning.")]
+#endif
         [Test]
         public void Schedule3SimpleListJobsInParallel()
         {
@@ -319,7 +332,7 @@ namespace Unity.Entities.Tests
         [Test]
         // The parameter variants are intended to check "a little more and less" than typical thread counts, to
         // confirm work ranges are assigned - at least correctly enough - so that each index is called once.
-        public void ScheduleSimpleParallelFor([Values(1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 15, 16, 17, 1000)]int arrayLen)
+        public void ScheduleSimpleParallelFor([Values(1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 15, 16, 17, 1000)] int arrayLen)
         {
             NativeArray<int> a = new NativeArray<int>(arrayLen, Allocator.TempJob);
             NativeArray<int> b = new NativeArray<int>(arrayLen, Allocator.TempJob);
@@ -379,7 +392,7 @@ namespace Unity.Entities.Tests
             result.Dispose();
         }
 
-        [BurstCompile] 
+        [BurstCompile]
         public struct HashWriterParallelFor : IJobParallelFor
         {
             [WriteOnly]
@@ -488,7 +501,7 @@ namespace Unity.Entities.Tests
             var lengthValue = new NativeArray<int>(1, Allocator.TempJob);
             lengthValue[0] = SimpleParallelForDefer.N;
 
-            JobHandle handle = job.Schedule((int*) lengthValue.GetUnsafePtr(), 300);
+            JobHandle handle = job.Schedule((int*)lengthValue.GetUnsafePtr(), 300);
             handle.Complete();
 
             for (int i = 0; i < SimpleParallelFor.N; ++i)
@@ -673,6 +686,5 @@ namespace Unity.Entities.Tests
             listOfInt.Dispose();
             eArr.Dispose();
         }
-
     }
 }

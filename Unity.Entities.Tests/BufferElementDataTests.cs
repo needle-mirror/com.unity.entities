@@ -3,8 +3,12 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Jobs;
+
+#if !UNITY_PORTABLE_TEST_RUNNER
+using System.Linq;
+#endif
+
 
 // ******* COPY AND PASTE WARNING *************
 // NOTE: Duplicate tests (with only type differences)
@@ -23,7 +27,7 @@ namespace Unity.Entities.Tests
 {
     class BufferElementDataTests : ECSTestsFixture
     {
-        [InternalBufferCapacity(1024*1024)]
+        [InternalBufferCapacity(1024 * 1024)]
         public struct OverSizedCapacity : IBufferElementData
         {
             public int Value;
@@ -133,19 +137,19 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(189, buffer.Length);
             for (int i = 0; i < 189; ++i)
             {
-                Assert.AreEqual(188-i, buffer[i].Value);
+                Assert.AreEqual(188 - i, buffer[i].Value);
             }
 
             buffer.Clear();
 
             // Insert in middle
             for (int i = 0; i < 189; ++i)
-                buffer.Insert(i/2, i);
+                buffer.Insert(i / 2, i);
 
             Assert.AreEqual(189, buffer.Length);
             for (int i = 0; i < 189; ++i)
             {
-                int expectedValue = i<94 ? i*2+1 : (188-i)*2;
+                int expectedValue = i < 94 ? i * 2 + 1 : (188 - i) * 2;
                 Assert.AreEqual(expectedValue, buffer[i].Value);
             }
         }
@@ -377,7 +381,6 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => { buffer.Add(4); });
         }
 
-
         [Test]
         public void WritingReadOnlyThrows()
         {
@@ -423,7 +426,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void TrimExcessWorks()
         {
-
             var entityInt = m_Manager.CreateEntity(typeof(EcsIntElement));
             var intBuffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
 
@@ -593,6 +595,8 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        // https://unity3d.atlassian.net/browse/DOTSR-1432
+        [IgnoreInPortableTests("There are Assert.Throws in the WriteJob, which the runner doesn't find or support.")]
         public void ReadWriteDynamicBuffer()
         {
             // Create multiple chunks so we ensure we are doing parallel for writing to buffers

@@ -13,9 +13,23 @@ namespace Unity.Entities
 {
     public static unsafe partial class EntityPatcher
     {
-#if ENABLE_PROFILER || UNITY_EDITOR
         static Profiling.ProfilerMarker s_ApplyChangeSetProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyChangeSet");
-#endif
+        static Profiling.ProfilerMarker s_BuildEntityLookupsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.BuildEntityLookups");
+        static Profiling.ProfilerMarker s_BuildPackedLookupsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.BuildPackedLookups");
+        static Profiling.ProfilerMarker s_ApplyDestroyEntitiesProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyDestroyEntities");
+        static Profiling.ProfilerMarker s_ApplyCreateEntitiesProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyCreateEntities");
+        static Profiling.ProfilerMarker s_ApplyEntityNamesProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyEntityNames");
+        static Profiling.ProfilerMarker s_ApplyRemoveComponentsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyRemoveComponents");
+        static Profiling.ProfilerMarker s_ApplyAddComponentsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyAddComponents");
+        static Profiling.ProfilerMarker s_ApplySetSharedComponentsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplySetSharedComponents");
+        static Profiling.ProfilerMarker s_ApplySetManagedComponentsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplySetManagedComponents");
+        static Profiling.ProfilerMarker s_ApplySetComponentsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplySetComponents");
+        static Profiling.ProfilerMarker s_BuildPrefabAndLinkedEntityGroupLookupsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.BuildPrefabAndLinkedEntityGroupLookups");
+        static Profiling.ProfilerMarker s_ApplyLinkedEntityGroupRemovalsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyLinkedEntityGroupRemovals");
+        static Profiling.ProfilerMarker s_ApplyLinkedEntityGroupAdditionsProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyLinkedEntityGroupAdditions");
+        static Profiling.ProfilerMarker s_ApplyEntityPatchesProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyEntityPatches");
+        static Profiling.ProfilerMarker s_ApplyBlobAssetChangesProfilerMarker = new Profiling.ProfilerMarker("EntityPatcher.ApplyBlobAssetChanges");
+
         static EntityQueryDesc EntityGuidQueryDesc { get; } = new EntityQueryDesc
         {
             All = new ComponentType[]
@@ -24,7 +38,7 @@ namespace Unity.Entities
             },
             Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
         };
-        
+
         static EntityQueryDesc PrefabQueryDesc { get; } = new EntityQueryDesc
         {
             All = new ComponentType[]
@@ -33,7 +47,7 @@ namespace Unity.Entities
             },
             Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
         };
-        
+
         static EntityQueryDesc LinkedEntityGroupQueryDesc { get; } = new EntityQueryDesc
         {
             All = new ComponentType[]
@@ -50,7 +64,7 @@ namespace Unity.Entities
         {
             [ReadOnly] public ArchetypeChunkComponentType<EntityGuid> ComponentType;
             [ReadOnly] public ArchetypeChunkEntityType EntityType;
-            
+
             [WriteOnly] public NativeMultiHashMap<EntityGuid, Entity>.ParallelWriter ComponentToEntity;
 
             public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
@@ -63,15 +77,15 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         // Restore to BuildComponentToEntityMultiHashMap<TComponent> once fix goes in:
         // https://unity3d.atlassian.net/browse/DOTSR-354
         [BurstCompile]
-        struct BuildComponentToEntityHashMap: IJobChunk
+        struct BuildComponentToEntityHashMap : IJobChunk
         {
             [ReadOnly] public ArchetypeChunkComponentType<EntityGuid> ComponentType;
             [ReadOnly] public ArchetypeChunkEntityType EntityType;
-            
+
             [WriteOnly] public NativeHashMap<EntityGuid, Entity>.ParallelWriter ComponentToEntity;
 
             public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
@@ -84,7 +98,7 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         // Restore to BuildComponentToEntityMultiHashMap<TComponent> once fix goes in:
         // https://unity3d.atlassian.net/browse/DOTSR-354
         [BurstCompile]
@@ -92,7 +106,7 @@ namespace Unity.Entities
         {
             [ReadOnly] public ArchetypeChunkComponentType<EntityGuid> EntityGuidComponentType;
             [ReadOnly] public ArchetypeChunkEntityType EntityType;
-            
+
             [WriteOnly] public NativeHashMap<Entity, EntityGuid>.ParallelWriter EntityToEntityGuid;
 
             public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
@@ -105,14 +119,14 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         [BurstCompile]
         struct CalculateLinkedEntityGroupEntitiesLengthJob : IJob
         {
             [NativeDisableUnsafePtrRestriction] public int* Count;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             [ReadOnly] public ArchetypeChunkBufferType<LinkedEntityGroup> LinkedEntityGroupType;
-            
+
             public void Execute()
             {
                 var count = 0;
@@ -121,24 +135,24 @@ namespace Unity.Entities
                     var linkedEntityGroups = Chunks[chunkIndex].GetBufferAccessor(LinkedEntityGroupType);
                     for (var linkedEntityGroupIndex = 0; linkedEntityGroupIndex < linkedEntityGroups.Length; linkedEntityGroupIndex++)
                     {
-                        count += linkedEntityGroups[linkedEntityGroupIndex].Length; 
+                        count += linkedEntityGroups[linkedEntityGroupIndex].Length;
                     }
                 }
 
                 *Count = count;
             }
         }
-        
+
         [BurstCompile]
         struct BuildLinkedEntityGroupHashMap : IJobChunk
         {
             [WriteOnly] public NativeHashMap<Entity, Entity>.ParallelWriter EntityToLinkedEntityGroupRoot;
             [ReadOnly] public ArchetypeChunkBufferType<LinkedEntityGroup> LinkedEntityGroupType;
-            
+
             public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
             {
                 var linkedEntityGroups = chunk.GetBufferAccessor(LinkedEntityGroupType);
-                
+
                 for (var bufferIndex = 0; bufferIndex != linkedEntityGroups.Length; bufferIndex++)
                 {
                     var linkedEntityGroup = linkedEntityGroups[bufferIndex];
@@ -149,7 +163,7 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         [BurstCompile]
         struct BuildPackedEntityLookupJob : IJobParallelFor
         {
@@ -157,7 +171,7 @@ namespace Unity.Entities
             [ReadOnly] public NativeArray<EntityGuid> EntityGuids;
             [ReadOnly] public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
             [WriteOnly] public NativeMultiHashMap<int, Entity>.ParallelWriter PackedEntities;
-            
+
             public void Execute(int index)
             {
                 var entityGuid = EntityGuids[index + StartIndex];
@@ -176,7 +190,7 @@ namespace Unity.Entities
         {
             [ReadOnly] public NativeArray<ComponentTypeHash> TypeHashes;
             [WriteOnly] public NativeArray<ComponentType> PackedTypes;
-            
+
             public void Execute(int index)
             {
                 var typeHash = TypeHashes[index];
@@ -206,10 +220,8 @@ namespace Unity.Entities
             {
                 return;
             }
-            
-#if ENABLE_PROFILER || UNITY_EDITOR
+
             s_ApplyChangeSetProfilerMarker.Begin();
-#endif
 
             var entityQuery = entityManager.CreateEntityQuery(EntityGuidQueryDesc);
             var prefabQuery = entityManager.CreateEntityQuery(PrefabQueryDesc);
@@ -333,7 +345,7 @@ namespace Unity.Entities
                         entityGuidToPrefab,
                         entityToLinkedEntityGroupRoot);
                 }
-                
+
                 ApplyBlobAssetChanges(
                     entityManager,
                     changeSet.Entities,
@@ -344,11 +356,9 @@ namespace Unity.Entities
                     changeSet.DestroyedBlobAssets,
                     changeSet.BlobAssetReferenceChanges);
             }
-#if ENABLE_PROFILER || UNITY_EDITOR
             s_ApplyChangeSetProfilerMarker.End();
-#endif
         }
-        
+
         /// <summary>
         /// Builds a lookup of <see cref="NativeMultiHashMap{TEntityGuidComponent, Entity}"/> for the target world.
         /// </summary>
@@ -361,6 +371,7 @@ namespace Unity.Entities
             NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
             NativeHashMap<Entity, EntityGuid> entityToEntityGuid)
         {
+            s_BuildEntityLookupsProfilerMarker.Begin();
             var buildEntityGuidToEntity = new BuildComponentToEntityMultiHashMap
             {
                 EntityType = entityManager.GetArchetypeChunkEntityType(),
@@ -376,6 +387,7 @@ namespace Unity.Entities
             }.Schedule(entityQuery);
 
             JobHandle.CombineDependencies(buildEntityGuidToEntity, buildEntityToEntityGuid).Complete();
+            s_BuildEntityLookupsProfilerMarker.End();
         }
 
         static void BuildPrefabAndLinkedEntityGroupLookups(
@@ -386,6 +398,7 @@ namespace Unity.Entities
             NativeHashMap<EntityGuid, Entity> entityGuidToPrefab,
             NativeHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
         {
+            s_BuildPrefabAndLinkedEntityGroupLookupsProfilerMarker.Begin();
             var buildPrefabLookups = new BuildComponentToEntityHashMap
             {
                 EntityType = entityManager.GetArchetypeChunkEntityType(),
@@ -400,6 +413,7 @@ namespace Unity.Entities
             }.Schedule(linkedEntityGroupQuery);
 
             JobHandle.CombineDependencies(buildPrefabLookups, buildLinkedEntityGroupLookups).Complete();
+            s_BuildPrefabAndLinkedEntityGroupLookupsProfilerMarker.End();
         }
 
         /// <summary>
@@ -416,6 +430,7 @@ namespace Unity.Entities
             NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
+            s_BuildPackedLookupsProfilerMarker.Begin();
             var buildPackedEntityLookups = new BuildPackedEntityLookupJob
             {
                 StartIndex = changeSet.CreatedEntityCount,
@@ -431,6 +446,7 @@ namespace Unity.Entities
             }.Schedule(changeSet.TypeHashes.Length, 64);
 
             JobHandle.CombineDependencies(buildPackedEntityLookups, buildPackedTypeLookups).Complete();
+            s_BuildPackedLookupsProfilerMarker.End();
         }
 
         /// <summary>
@@ -444,6 +460,7 @@ namespace Unity.Entities
             EntityChangeSet changeSet,
             NativeMultiHashMap<int, Entity> packedEntities)
         {
+            s_ApplyCreateEntitiesProfilerMarker.Begin();
             var entityGuidArchetype = entityManager.CreateArchetype(null, 0);
             using (var entities = new NativeArray<Entity>(changeSet.CreatedEntityCount, Allocator.Temp))
             {
@@ -453,6 +470,7 @@ namespace Unity.Entities
                     packedEntities.Add(i, entities[i]);
                 }
             }
+            s_ApplyCreateEntitiesProfilerMarker.End();
         }
 
 #if UNITY_EDITOR
@@ -461,6 +479,7 @@ namespace Unity.Entities
             EntityChangeSet changeSet,
             NativeMultiHashMap<int, Entity> packedEntities)
         {
+            s_ApplyEntityNamesProfilerMarker.Begin();
             for (var i = 0; i < changeSet.Entities.Length; i++)
             {
                 if (packedEntities.TryGetFirstValue(i, out var entity, out var it))
@@ -472,6 +491,7 @@ namespace Unity.Entities
                     while (packedEntities.TryGetNextValue(out entity, ref it));
                 }
             }
+            s_ApplyEntityNamesProfilerMarker.End();
         }
 
 #endif
@@ -489,6 +509,8 @@ namespace Unity.Entities
             NativeMultiHashMap<int, Entity> packedEntities,
             NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity)
         {
+            s_ApplyDestroyEntitiesProfilerMarker.Begin();
+            var s = entityManager.GetCheckedEntityDataAccess();
             for (var i = changeSet.Entities.Length - changeSet.DestroyedEntityCount; i < changeSet.Entities.Length; i++)
             {
                 if (!packedEntities.TryGetFirstValue(i, out var entity, out var iterator))
@@ -502,9 +524,9 @@ namespace Unity.Entities
                     // @NOTE We do NOT remove from the `entityToEntityGuid` here since the LinkedEntityGroup removal will need it to map back groups.
                     entityGuidToEntity.Remove(changeSet.Entities[i], entity);
 
-                    if (entityManager.EntityComponentStore->Exists(entity))
+                    if (s->Exists(entity))
                     {
-                        entityManager.DestroyEntity(entity);
+                        s->DestroyEntity(entity);
                     }
                     else
                     {
@@ -513,6 +535,7 @@ namespace Unity.Entities
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
             }
+            s_ApplyDestroyEntitiesProfilerMarker.End();
         }
 
         static void ApplyAddComponents(
@@ -522,6 +545,8 @@ namespace Unity.Entities
             NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
+            s_ApplyAddComponentsProfilerMarker.Begin();
+            var s = entityManager.GetCheckedEntityDataAccess();
             var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
 
             for (var i = 0; i < addComponents.Length; i++)
@@ -537,9 +562,9 @@ namespace Unity.Entities
 
                 do
                 {
-                    if (!entityManager.EntityComponentStore->HasComponent(entity, component))
+                    if (!s->HasComponent(entity, component))
                     {
-                        entityManager.AddComponent(entity, component);
+                        s->AddComponent(entity, component);
 
                         // magic is required to force the first entity in the LinkedEntityGroup to be the entity
                         // that owns the component. this magic doesn't seem to exist at a lower level, so let's
@@ -557,6 +582,7 @@ namespace Unity.Entities
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
             }
+            s_ApplyAddComponentsProfilerMarker.End();
         }
 
         static void ApplyRemoveComponents(
@@ -566,7 +592,9 @@ namespace Unity.Entities
             NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
+            s_ApplyRemoveComponentsProfilerMarker.Begin();
             var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
+            var access = entityManager.GetCheckedEntityDataAccess();
 
             for (var i = 0; i < removeComponents.Length; i++)
             {
@@ -587,9 +615,9 @@ namespace Unity.Entities
                         // Should entityGuidToEntity be updated or should we throw and error.
                     }
 
-                    if (entityManager.EntityComponentStore->HasComponent(entity, component))
+                    if (access->HasComponent(entity, component))
                     {
-                        entityManager.RemoveComponent(entity, component);
+                        access->RemoveComponent(entity, component);
                     }
                     else
                     {
@@ -598,6 +626,7 @@ namespace Unity.Entities
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
             }
+            s_ApplyRemoveComponentsProfilerMarker.End();
         }
 
         static void ApplySetSharedComponents(
@@ -607,6 +636,7 @@ namespace Unity.Entities
             NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
+            s_ApplySetSharedComponentsProfilerMarker.Begin();
             for (var i = 0; i < sharedComponentDataChanges.Length; i++)
             {
                 var packedSharedComponentDataChange = sharedComponentDataChanges[i];
@@ -636,6 +666,7 @@ namespace Unity.Entities
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
             }
+            s_ApplySetSharedComponentsProfilerMarker.End();
         }
 
         static void ApplySetManagedComponents(
@@ -645,6 +676,7 @@ namespace Unity.Entities
             NativeMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes)
         {
+            s_ApplySetManagedComponentsProfilerMarker.Begin();
             var entitiesWithCompanionLink = new NativeList<Entity>(Allocator.Temp);
 
             for (var i = 0; i < managedComponentDataChanges.Length; i++)
@@ -688,6 +720,7 @@ namespace Unity.Entities
             {
                 ManagedComponentStore.AssignHybridComponentsToCompanionGameObjects(entityManager, entitiesWithCompanionLink.AsArray());
             }
+            s_ApplySetManagedComponentsProfilerMarker.End();
         }
 
         static void ApplySetComponents(
@@ -700,6 +733,7 @@ namespace Unity.Entities
             NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity,
             NativeHashMap<Entity, EntityGuid> entityToEntityGuid)
         {
+            s_ApplySetComponentsProfilerMarker.Begin();
             var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
 
             var offset = 0L;
@@ -767,6 +801,7 @@ namespace Unity.Entities
 
                 offset += size;
             }
+            s_ApplySetComponentsProfilerMarker.End();
         }
 
         internal struct OffsetEntityPair
@@ -797,6 +832,7 @@ namespace Unity.Entities
             NativeHashMap<EntityGuid, Entity> entityGuidToPrefab,
             NativeHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
         {
+            s_ApplyEntityPatchesProfilerMarker.Begin();
             NativeMultiHashMap<EntityComponentPair, OffsetEntityPair> managedComponentPatchMap = new NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>(changes.Length, Allocator.Temp);
 
             for (var i = 0; i < changes.Length; i++)
@@ -883,10 +919,10 @@ namespace Unity.Entities
                                 var pointer = (byte*)entityManager.GetBufferRawRW(entity, component.TypeIndex);
                                 UnsafeUtility.MemCpy(pointer + targetOffset, &targetEntity, sizeof(Entity));
                             }
-                            else if(component.IsManagedComponent)
+                            else if (component.IsManagedComponent)
                             {
                                 managedComponentPatchMap.Add(
-                                    new EntityComponentPair() { Entity = entity, Component = component }, 
+                                    new EntityComponentPair() { Entity = entity, Component = component },
                                     new OffsetEntityPair() { Offset = targetOffset, TargetEntity = targetEntity });
                             }
                             else
@@ -903,7 +939,7 @@ namespace Unity.Entities
             // Apply all managed entity patches
             using (var keys = managedComponentPatchMap.GetKeyArray(Allocator.Temp))
             {
-                foreach(var ecPair in keys)
+                foreach (var ecPair in keys)
                 {
                     var obj = entityManager.GetComponentObject<object>(ecPair.Entity, ecPair.Component);
                     var patches = managedComponentPatchMap.GetValuesForKey(ecPair);
@@ -913,6 +949,7 @@ namespace Unity.Entities
                 }
             }
             managedComponentPatchMap.Dispose();
+            s_ApplyEntityPatchesProfilerMarker.End();
         }
 
         struct Child
@@ -932,6 +969,7 @@ namespace Unity.Entities
             NativeHashMap<EntityGuid, Entity> entityGuidToPrefab,
             NativeHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
         {
+            s_ApplyLinkedEntityGroupAdditionsProfilerMarker.Begin();
             using (var additions = new NativeList<Child>(Allocator.TempJob))
             {
                 for (var i = 0; i < linkedEntityGroupChanges.Length; i++)
@@ -983,7 +1021,7 @@ namespace Unity.Entities
                     {
                         // At this point we are dealing with a non-prefab linked entity group
                         // This can happen for disabled entities during conversion.
-                        
+
                         var hasRootEntity = entityGuidToEntity.TryGetFirstValue(linkedEntityGroupAddition.RootEntityGuid, out var rootEntity, out var rootIterator);
                         var hasChildEntity = entityGuidToEntity.TryGetFirstValue(linkedEntityGroupAddition.ChildEntityGuid, out var childEntityToLink, out var childIterator);
 
@@ -992,22 +1030,22 @@ namespace Unity.Entities
                             Debug.LogWarning("Failed to add a linked child. The specified root entity was not found in the destination world.");
                             continue;
                         }
-                        
+
                         if (!hasChildEntity)
                         {
                             Debug.LogWarning("Failed to add a linked child. The specified child entity was not found in the destination world.");
                             continue;
                         }
-                        
+
                         var multipleRootEntities = entityGuidToEntity.TryGetNextValue(out _, ref rootIterator);
                         var multipleChildEntities = entityGuidToEntity.TryGetNextValue(out _, ref childIterator);
-                        
+
                         if (multipleRootEntities)
                         {
                             Debug.LogWarning("Failed to add a linked child. Multiple instances of the root entity were found in the destination world.");
                             continue;
                         }
-                        
+
                         if (multipleChildEntities)
                         {
                             Debug.LogWarning("Failed to add a linked child. Multiple instances of the child entity were found in the destination world.");
@@ -1047,6 +1085,7 @@ namespace Unity.Entities
                     entityToLinkedEntityGroupRoot.TryAdd(addition.ChildEntity, addition.RootEntity);
                 }
             }
+            s_ApplyLinkedEntityGroupAdditionsProfilerMarker.End();
         }
 
         static void ApplyLinkedEntityGroupRemovals(
@@ -1058,6 +1097,8 @@ namespace Unity.Entities
             NativeHashMap<Entity, EntityGuid> entityToEntityGuid,
             NativeHashMap<Entity, Entity> entityToLinkedEntityGroupRoot)
         {
+            s_ApplyLinkedEntityGroupRemovalsProfilerMarker.Begin();
+            var s = entityManager.GetCheckedEntityDataAccess();
             using (var removals = new NativeList<Child>(Allocator.TempJob))
             {
                 for (var i = 0; i < linkedEntityGroupChanges.Length; ++i)
@@ -1088,9 +1129,9 @@ namespace Unity.Entities
                                         ChildEntityGuid = linkedEntityGroupRemoval.ChildEntityGuid,
                                     });
 
-                                    if (entityManager.EntityComponentStore->Exists(childEntity))
+                                    if (s->Exists(childEntity))
                                     {
-                                        entityManager.DestroyEntity(childEntity);
+                                        s->DestroyEntity(childEntity);
                                     }
                                     break;
                                 }
@@ -1121,6 +1162,7 @@ namespace Unity.Entities
                     entityToLinkedEntityGroupRoot.Remove(removal.ChildEntity);
                 }
             }
+            s_ApplyLinkedEntityGroupRemovalsProfilerMarker.End();
         }
 
         static int CalculateLinkedEntityGroupEntitiesLength(EntityManager entityManager, EntityQuery linkedEntityGroupQuery)
@@ -1139,7 +1181,7 @@ namespace Unity.Entities
 
             return count;
         }
-        
+
         static void PatchEntitiesInObject(object obj, NativeMultiHashMap<EntityComponentPair, OffsetEntityPair>.Enumerator patches)
         {
 #if !NET_DOTS
@@ -1163,12 +1205,12 @@ namespace Unity.Entities
                 {
                     Patches = patches;
                 }
-                
+
                 public VisitStatus Visit<TContainer>(Property<TContainer, Entity> property, ref TContainer container, ref Entity value)
                 {
                     // Make a copy for we can re-use the enumerator
                     var patches = Patches;
-                    foreach(var patch in patches)
+                    foreach (var patch in patches)
                     {
                         if (value.Index == patch.Offset)
                         {

@@ -51,7 +51,7 @@ namespace Unity.Scenes.Editor
                 return;
 
             m_NextInvocationTime = currentTime + k_TimeInterval;
-            for (var i = m_RegisterdCallbacks.Count - 1; i >= 0 ; i--)
+            for (var i = m_RegisterdCallbacks.Count - 1; i >= 0; i--)
                 m_RegisterdCallbacks[i].Invoke();
         }
     }

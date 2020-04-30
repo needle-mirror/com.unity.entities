@@ -25,6 +25,7 @@ namespace Unity.Entities
                     {
                         foreach (var type in assembly.GetTypes())
                         {
+#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
                             if (!typeof(ComponentDataProxyBase).IsAssignableFrom(type) || type.IsAbstract)
                                 continue;
 
@@ -32,6 +33,7 @@ namespace Unity.Entities
                             while (t.BaseType != typeof(ComponentDataProxyBase))
                                 t = t.BaseType;
                             s_ComponentToProxy[t.GetGenericArguments()[0]] = type;
+#pragma warning restore 618
                         }
                     }
                     catch (ReflectionTypeLoadException)

@@ -25,22 +25,22 @@ namespace Unity.Entities.Editor
         {
             var enabled = GUI.enabled;
             GUI.enabled = false;
-            
+
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField(GetDisplayName(property), GUILayout.Width(EditorGUIUtility.labelWidth - 1));
 
             var name = value == Entity.Null ? "Entity.Null" : $"[{value.Index}:{value.Version}] {m_resolveNameCallback(value)}";
-            
+
             GUI.enabled = true;
-            
+
             if (GUILayout.Button(name, "ObjectField"))
             {
-                if (value != Entity.Null) 
+                if (value != Entity.Null)
                     m_selectButtonCallback?.Invoke(value);
             }
 
             GUI.enabled = enabled;
-            
+
             EditorGUILayout.EndHorizontal();
             return VisitStatus.Stop;
         }

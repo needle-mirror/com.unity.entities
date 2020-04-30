@@ -84,7 +84,7 @@ namespace Unity.Entities
 
                 if (componentTypeInArchetype.IsBuffer)
                 {
-                    var header = (BufferHeader*) componentArrayStart;
+                    var header = (BufferHeader*)componentArrayStart;
                     var strideSize = archetype->SizeOfs[typeIndexInArchetype];
                     var elementSize = typeInfo.ElementSize;
 
@@ -98,7 +98,7 @@ namespace Unity.Entities
                             AddBlobAssets(componentData, blobAssetRefOffsets, blobAssetRefCount);
                         }
 
-                        header = (BufferHeader*) (((byte*) header) + strideSize);
+                        header = (BufferHeader*)(((byte*)header) + strideSize);
                     }
                 }
                 else
@@ -121,7 +121,7 @@ namespace Unity.Entities
                 for (var i = 0; i < blobAssetRefCount; ++i)
                 {
                     var blobAssetRefOffset = blobAssetRefOffsets[i].Offset;
-                    var blobAssetRefPtr = (BlobAssetReferenceData*) (componentData + blobAssetRefOffset);
+                    var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + blobAssetRefOffset);
 
                     if (blobAssetRefPtr->m_Ptr == null)
                         continue;
@@ -133,11 +133,11 @@ namespace Unity.Entities
                         // Try to read ValidationPtr, this might throw if the memory has been unmapped
                         validationPtr = blobAssetRefPtr->Header->ValidationPtr;
                     }
-                    catch(Exception)
+                    catch (Exception)
                     {
                     }
-                    
-                    if (validationPtr != blobAssetRefPtr->m_Ptr) 
+
+                    if (validationPtr != blobAssetRefPtr->m_Ptr)
                         continue;
 
                     if (BlobAssetsMap.TryGetValue(blobAssetRefPtr->Header->Hash, out _))
@@ -293,12 +293,12 @@ namespace Unity.Entities
                 DestroyedBlobAssetChanges = changes.DestroyedBlobAssets,
                 BlobAssetData = changes.BlobAssetData
             }.Schedule(jobHandle);
-            
+
             jobHandle = JobHandle.CombineDependencies
-            (
-                createdBlobAssets.Dispose(jobHandle),
-                destroyedBlobAssets.Dispose(jobHandle)
-            );
+                (
+                    createdBlobAssets.Dispose(jobHandle),
+                    destroyedBlobAssets.Dispose(jobHandle)
+                );
 
             return changes;
         }

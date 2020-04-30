@@ -14,13 +14,13 @@ namespace Unity.Entities
             public EntityGuid EntityGuid;
             public EntityInChunk AfterEntityInChunk;
         }
-        
+
         struct DestroyedEntity
         {
             public EntityGuid EntityGuid;
             public EntityInChunk BeforeEntityInChunk;
         }
-        
+
         struct ModifiedEntity
         {
             public EntityGuid EntityGuid;
@@ -29,7 +29,7 @@ namespace Unity.Entities
             public bool CanCompareChunkVersions;
         }
 #pragma warning restore 649
-        
+
         readonly struct EntityInChunkChanges : IDisposable
         {
             public readonly EntityManager AfterEntityManager;
@@ -41,8 +41,8 @@ namespace Unity.Entities
             public readonly bool IsCreated;
 
             public EntityInChunkChanges(
-                EntityManager afterEntityManager, 
-                EntityManager beforeEntityManager, 
+                EntityManager afterEntityManager,
+                EntityManager beforeEntityManager,
                 Allocator allocator)
             {
                 AfterEntityManager = afterEntityManager;
@@ -60,15 +60,15 @@ namespace Unity.Entities
                 DestroyedEntities.Dispose();
             }
         }
-        
+
         struct EntityInChunkWithGuid
         {
             public EntityInChunk EntityInChunk;
             public EntityGuid EntityGuid;
             public ArchetypeChunkChangeFlags Flags;
         }
-        
-        struct EntityInChunkWithGuidComparer : IComparer<EntityInChunkWithGuid> 
+
+        struct EntityInChunkWithGuidComparer : IComparer<EntityInChunkWithGuid>
         {
             public int Compare(EntityInChunkWithGuid x, EntityInChunkWithGuid y) => x.EntityGuid.CompareTo(y.EntityGuid);
         }
@@ -90,7 +90,7 @@ namespace Unity.Entities
 
                 var archetype = chunk->Archetype;
                 var entityGuidIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, EntityGuidTypeIndex);
-                var entityGuidBuffer = (EntityGuid*) (GetChunkBuffer(chunk) + archetype->Offsets[entityGuidIndexInArchetype]);
+                var entityGuidBuffer = (EntityGuid*)(ChunkDataUtility.GetChunkBuffer(chunk) + archetype->Offsets[entityGuidIndexInArchetype]);
 
                 var entitiesIndex = startIndex;
                 for (var i = 0; i < chunk->Count; ++i)
@@ -113,7 +113,7 @@ namespace Unity.Entities
             public NativeArray<T> Array;
             public void Execute() => Array.Sort(new TComparer());
         }
-        
+
         [BurstCompile]
         struct GatherEntityChanges : IJob
         {
@@ -122,7 +122,7 @@ namespace Unity.Entities
             [WriteOnly] public NativeList<CreatedEntity> CreatedEntities;
             [WriteOnly] public NativeList<ModifiedEntity> ModifiedEntities;
             [WriteOnly] public NativeList<DestroyedEntity> DestroyedEntities;
-            
+
             public void Execute()
             {
                 var afterEntityIndex = 0;
@@ -190,10 +190,10 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         static NativeArray<EntityInChunkWithGuid> GetSortedEntitiesInChunk
         (
-            ArchetypeChunkChangeSet archetypeChunkChangeSet, 
+            ArchetypeChunkChangeSet archetypeChunkChangeSet,
             Allocator allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
@@ -218,7 +218,7 @@ namespace Unity.Entities
 
             return entities;
         }
-        
+
         static EntityInChunkChanges GetEntityInChunkChanges
         (
             EntityManager afterEntityManager,
@@ -226,15 +226,15 @@ namespace Unity.Entities
             NativeArray<EntityInChunkWithGuid> afterEntities,
             NativeArray<EntityInChunkWithGuid> beforeEntities,
             Allocator allocator,
-            out JobHandle jobHandle, 
+            out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {
             var entityChanges = new EntityInChunkChanges
-            (
-                afterEntityManager, 
-                beforeEntityManager, 
+                (
+                afterEntityManager,
+                beforeEntityManager,
                 allocator
-            );
+                );
 
             jobHandle = new GatherEntityChanges
             {
@@ -244,7 +244,7 @@ namespace Unity.Entities
                 ModifiedEntities = entityChanges.ModifiedEntities,
                 DestroyedEntities = entityChanges.DestroyedEntities
             }.Schedule(dependsOn);
-            
+
             return entityChanges;
         }
     }

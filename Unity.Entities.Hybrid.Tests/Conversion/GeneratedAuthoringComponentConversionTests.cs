@@ -1,12 +1,14 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace Unity.Entities.Tests.Conversion {
-    class GeneratedAuthoringComponentConversionTests : ConversionTestFixtureBase {
+namespace Unity.Entities.Tests.Conversion
+{
+    class GeneratedAuthoringComponentConversionTests : ConversionTestFixtureBase
+    {
         static Type GetAuthoringComponentType<T>()
         {
             var typeName = $"Unity.Entities.Tests.{typeof(T).Name}Authoring, Unity.Entities.TestComponents";
@@ -67,6 +69,7 @@ namespace Unity.Entities.Tests.Conversion {
             var component = m_Manager.GetComponentData<CodeGenManagedTestComponent>(goEntity);
             Assert.AreEqual("test", component.String);
         }
+
 #endif
 
         [Test]
@@ -154,6 +157,7 @@ namespace Unity.Entities.Tests.Conversion {
                 EntityMatch.Exact<Prefab>(prefabEntity, new MockData(), k_RootComponents)
             );
         }
+
 #endif
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.Tests;
@@ -19,7 +19,7 @@ namespace Unity.Entities.PerformanceTests
         EntityQuery group;
 
         const int count = 1024 * 128;
-        
+
         public override void Setup()
         {
             base.Setup();
@@ -34,11 +34,11 @@ namespace Unity.Entities.PerformanceTests
             entities3 = new NativeArray<Entity>(count, Allocator.Persistent);
             group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
         }
-        
+
         [TearDown]
         public override void TearDown()
         {
-            if (m_Manager != null)
+            if (m_Manager.IsCreated)
             {
                 entities1.Dispose();
                 entities2.Dispose();
@@ -47,7 +47,7 @@ namespace Unity.Entities.PerformanceTests
             }
             base.TearDown();
         }
-        
+
         struct EcsTestDataWithEntity : IComponentData
         {
             public int value;
@@ -71,7 +71,7 @@ namespace Unity.Entities.PerformanceTests
                 cmds.AddComponent(e, new EcsTestData {value = i});
             }
         }
-        
+
         void FillWithCreateEntityCommands(EntityCommandBuffer cmds, int repeat)
         {
             for (int i = repeat; i != 0; --i)
@@ -79,7 +79,7 @@ namespace Unity.Entities.PerformanceTests
                 cmds.CreateEntity();
             }
         }
-        
+
         void FillWithInstantiateEntityCommands(EntityCommandBuffer cmds, int repeat, Entity prefab)
         {
             for (int i = repeat; i != 0; --i)
@@ -87,7 +87,7 @@ namespace Unity.Entities.PerformanceTests
                 cmds.Instantiate(prefab);
             }
         }
-        
+
         void FillWithAddComponentCommands(EntityCommandBuffer cmds, NativeArray<Entity> entities, ComponentType componentType)
         {
             for (int i = entities.Length - 1; i != 0; i--)
@@ -95,7 +95,7 @@ namespace Unity.Entities.PerformanceTests
                 cmds.AddComponent(entities[i], componentType);
             }
         }
-        
+
         void FillWithRemoveComponentCommands(EntityCommandBuffer cmds, NativeArray<Entity> entities)
         {
             for (int i = entities.Length - 1; i != 0; i--)
@@ -103,7 +103,7 @@ namespace Unity.Entities.PerformanceTests
                 cmds.RemoveComponent(entities[i], typeof(EcsTestData));
             }
         }
-        
+
         void FillWithSetComponentCommands(EntityCommandBuffer cmds, NativeArray<Entity> entities)
         {
             for (int i = entities.Length - 1; i != 0; i--)
@@ -111,7 +111,7 @@ namespace Unity.Entities.PerformanceTests
                 cmds.SetComponent(entities[i], new EcsTestData {value = i});
             }
         }
-        
+
         void FillWithDestroyEntityCommands(EntityCommandBuffer cmds, NativeArray<Entity> entities)
         {
             for (int i = entities.Length - 1; i != 0; i--)
@@ -119,39 +119,40 @@ namespace Unity.Entities.PerformanceTests
                 cmds.DestroyEntity(entities[i]);
             }
         }
-        
+
         void FillWithEcsTestSharedComp(EntityCommandBuffer cmds, NativeArray<Entity> entities)
         {
             for (int i = entities.Length - 1; i != 0; i--)
             {
-                cmds.AddSharedComponent(entities[i], new EcsTestSharedComp{value = 1});
+                cmds.AddSharedComponent(entities[i], new EcsTestSharedComp {value = 1});
             }
         }
-        
+
         void FillWithSetEcsTestSharedComp(EntityCommandBuffer cmds, NativeArray<Entity> entities)
         {
             for (int i = entities.Length - 1; i != 0; i--)
             {
-                cmds.SetSharedComponent(entities[i], new EcsTestSharedComp{value = 2});
+                cmds.SetSharedComponent(entities[i], new EcsTestSharedComp {value = 2});
             }
         }
-        
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         void FillWithEcsTestManagedComp(EntityCommandBuffer cmds, NativeArray<Entity> entities)
         {
             for (int i = entities.Length - 1; i != 0; i--)
             {
-                cmds.AddComponent(entities[i], new EcsTestManagedComponent{value = "string1"});
+                cmds.AddComponent(entities[i], new EcsTestManagedComponent {value = "string1"});
             }
         }
-        
+
         void FillWithSetEcsTestManagedComp(EntityCommandBuffer cmds, NativeArray<Entity> entities)
         {
             for (int i = entities.Length - 1; i != 0; i--)
             {
-                cmds.SetComponent(entities[i], new EcsTestManagedComponent{value = "string2"});
+                cmds.SetComponent(entities[i], new EcsTestManagedComponent {value = "string2"});
             }
         }
+
 #endif
 
         [Test, Performance]
@@ -171,7 +172,7 @@ namespace Unity.Entities.PerformanceTests
                         ecbs.Add(cmds);
                     }
                 })
-                .Definition("Record")
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(1)
                 .Run();
@@ -184,7 +185,7 @@ namespace Unity.Entities.PerformanceTests
                         ecbs[repeat].Playback(m_Manager);
                     }
                 })
-                .Definition("Playback")
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(1)
                 .CleanUp(() =>
@@ -197,7 +198,7 @@ namespace Unity.Entities.PerformanceTests
                 ecb.Dispose();
             }
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_512EntitiesWithEmbeddedEntity()
         {
@@ -206,28 +207,28 @@ namespace Unity.Entities.PerformanceTests
 
             var ecbs = new List<EntityCommandBuffer>(kPlaybackLoopCount);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                     {
-                        for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
-                        {
-                            var cmds = new EntityCommandBuffer(Allocator.TempJob);
-                            FillWithEcsTestDataWithEntity(cmds, kCreateLoopCount);
-                            ecbs.Add(cmds);
-                        }
-                    })
-                .Definition("Record")
+                        var cmds = new EntityCommandBuffer(Allocator.TempJob);
+                        FillWithEcsTestDataWithEntity(cmds, kCreateLoopCount);
+                        ecbs.Add(cmds);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(1)
                 .Run();
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                     {
-                        for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
-                        {
-                            ecbs[repeat].Playback(m_Manager);
-                        }
-                    })
-                .Definition("Playback")
+                        ecbs[repeat].Playback(m_Manager);
+                    }
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(1)
                 .Run();
@@ -250,28 +251,28 @@ namespace Unity.Entities.PerformanceTests
 
             var ecbs = new List<EntityCommandBuffer>(kPlaybackLoopCount);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
                     {
-                        for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
-                        {
-                            var cmds = new EntityCommandBuffer(Allocator.TempJob);
-                            Entity e0 = cmds.CreateEntity();
-                            cmds.AddComponent(e0, new EcsTestDataWithEntity {value = -1, entity = e0 });
-                            FillWithEcsTestData(cmds, kCreateLoopCount);
-                            ecbs.Add(cmds);
-                        }
-                    })
-                .Definition("Record")
+                        var cmds = new EntityCommandBuffer(Allocator.TempJob);
+                        Entity e0 = cmds.CreateEntity();
+                        cmds.AddComponent(e0, new EcsTestDataWithEntity {value = -1, entity = e0 });
+                        FillWithEcsTestData(cmds, kCreateLoopCount);
+                        ecbs.Add(cmds);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(1)
                 .Run();
             Measure.Method(
-                    () =>
-                    {
-                        for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
-                            ecbs[repeat].Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    for (int repeat = 0; repeat < kPlaybackLoopCount; ++repeat)
+                        ecbs[repeat].Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(1)
                 .Run();
@@ -280,7 +281,7 @@ namespace Unity.Entities.PerformanceTests
                 ecb.Dispose();
             }
         }
-        
+
         // ----------------------------------------------------------------------------------------------------------
         // BLITTABLE
         // ----------------------------------------------------------------------------------------------------------
@@ -289,14 +290,14 @@ namespace Unity.Entities.PerformanceTests
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    using (var entities = group.ToEntityArray(Allocator.TempJob))
                     {
-                        using (var entities = group.ToEntityArray(Allocator.TempJob))
-                        {
-                            FillWithDestroyEntityCommands(ecb, entities);
-                        }
-                    })
-                .Definition("Record")
+                        FillWithDestroyEntityCommands(ecb, entities);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -316,11 +317,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -343,17 +344,17 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_CreateEntities([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
-                    {
-                        FillWithCreateEntityCommands(ecb, size);
-                    })
-                .Definition("Record")
+                () =>
+                {
+                    FillWithCreateEntityCommands(ecb, size);
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -371,11 +372,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -393,24 +394,24 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_InstantiateEntities([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
-            var prefabEntity= m_Manager.CreateEntity(archetype1);
+            var prefabEntity = m_Manager.CreateEntity(archetype1);
             Measure.Method(
-                    () =>
-                    {
-                        FillWithInstantiateEntityCommands(ecb, size, prefabEntity);
-                    })
-                .Definition("Record")
+                () =>
+                {
+                    FillWithInstantiateEntityCommands(ecb, size, prefabEntity);
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
                     ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    prefabEntity= m_Manager.CreateEntity(archetype1);
+                    prefabEntity = m_Manager.CreateEntity(archetype1);
                 })
                 .CleanUp(() =>
                 {
@@ -423,17 +424,17 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
                     ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    prefabEntity= m_Manager.CreateEntity(archetype1);
+                    prefabEntity = m_Manager.CreateEntity(archetype1);
                     FillWithInstantiateEntityCommands(ecb, size, prefabEntity);
                 })
                 .CleanUp(() =>
@@ -446,20 +447,20 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_AddComponent([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    using (var entities = group.ToEntityArray(Allocator.TempJob))
                     {
-                        using (var entities = group.ToEntityArray(Allocator.TempJob))
-                        {
-                            FillWithAddComponentCommands(ecb, entities, typeof(EcsTestData2));
-                        }
-                    })
-                .Definition("Record")
+                        FillWithAddComponentCommands(ecb, entities, typeof(EcsTestData2));
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -479,11 +480,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -506,20 +507,20 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_SetComponent([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    using (var entities = group.ToEntityArray(Allocator.TempJob))
                     {
-                        using (var entities = group.ToEntityArray(Allocator.TempJob))
-                        {
-                            FillWithSetComponentCommands(ecb, entities);
-                        }
-                    })
-                .Definition("Record")
+                        FillWithSetComponentCommands(ecb, entities);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -539,11 +540,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -566,20 +567,20 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_RemoveComponent([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    using (var entities = group.ToEntityArray(Allocator.TempJob))
                     {
-                        using (var entities = group.ToEntityArray(Allocator.TempJob))
-                        {
-                            FillWithRemoveComponentCommands(ecb, entities);
-                        }
-                    })
-                .Definition("Record")
+                        FillWithRemoveComponentCommands(ecb, entities);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -599,11 +600,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -626,8 +627,7 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
-        
+
         // ----------------------------------------------------------------------------------------------------------
         // MANAGED
         // ----------------------------------------------------------------------------------------------------------
@@ -636,14 +636,14 @@ namespace Unity.Entities.PerformanceTests
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    using (var entities = group.ToEntityArray(Allocator.TempJob))
                     {
-                        using (var entities = group.ToEntityArray(Allocator.TempJob))
-                        {
-                            FillWithEcsTestSharedComp(ecb, entities);
-                        }
-                    })
-                .Definition("Record")
+                        FillWithEcsTestSharedComp(ecb, entities);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -663,11 +663,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -690,21 +690,21 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test, Performance]
         public void EntityCommandBuffer_AddManagedComponent([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    using (var entities = group.ToEntityArray(Allocator.TempJob))
                     {
-                        using (var entities = group.ToEntityArray(Allocator.TempJob))
-                        {
-                            FillWithEcsTestManagedComp(ecb, entities);
-                        }
-                    })
-                .Definition("Record")
+                        FillWithEcsTestManagedComp(ecb, entities);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -724,11 +724,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -751,21 +751,22 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
+
 #endif
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_SetSharedComponent([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    using (var entities = group.ToEntityArray(Allocator.TempJob))
                     {
-                        using (var entities = group.ToEntityArray(Allocator.TempJob))
-                        {
-                            FillWithSetEcsTestSharedComp(ecb, entities);
-                        }
-                    })
-                .Definition("Record")
+                        FillWithSetEcsTestSharedComp(ecb, entities);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -785,11 +786,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -812,21 +813,21 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test, Performance]
         public void EntityCommandBuffer_SetManagedComponent([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    using (var entities = group.ToEntityArray(Allocator.TempJob))
                     {
-                        using (var entities = group.ToEntityArray(Allocator.TempJob))
-                        {
-                            FillWithSetEcsTestManagedComp(ecb, entities);
-                        }
-                    })
-                .Definition("Record")
+                        FillWithSetEcsTestManagedComp(ecb, entities);
+                    }
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -846,11 +847,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -873,18 +874,19 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
+
 #endif
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_AddComponentToEntityQuery([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
-                    {
-                        ecb.AddComponent(group, typeof(EcsTestData2));
-                    })
-                .Definition("Record")
+                () =>
+                {
+                    ecb.AddComponent(group, typeof(EcsTestData2));
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -904,11 +906,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -928,17 +930,17 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_RemoveComponentFromEntityQuery([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
-                    {
-                        ecb.RemoveComponent(group, typeof(EcsTestData));
-                    })
-                .Definition("Record")
+                () =>
+                {
+                    ecb.RemoveComponent(group, typeof(EcsTestData));
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -958,11 +960,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -982,17 +984,17 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_DestroyEntitiesInEntityQuery([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
-                    {
-                        ecb.DestroyEntity(group);
-                    })
-                .Definition("Record")
+                () =>
+                {
+                    ecb.DestroyEntity(group);
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -1000,7 +1002,6 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    
                 })
                 .CleanUp(() =>
                 {
@@ -1013,11 +1014,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -1037,17 +1038,17 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .Run();
         }
-        
+
         [Test, Performance]
         public void EntityCommandBuffer_AddSharedComponentToEntityQuery([Values(10, 1000, 10000)] int size)
         {
             var ecb = default(EntityCommandBuffer);
             Measure.Method(
-                    () =>
-                    {
-                        ecb.AddSharedComponent(group, new EcsTestSharedComp{value = 1});
-                    })
-                .Definition("Record")
+                () =>
+                {
+                    ecb.AddSharedComponent(group, new EcsTestSharedComp {value = 1});
+                })
+                .SampleGroup("Record")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -1067,11 +1068,11 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             Measure.Method(
-                    () =>
-                    {
-                        ecb.Playback(m_Manager);
-                    })
-                .Definition("Playback")
+                () =>
+                {
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Playback")
                 .WarmupCount(0)
                 .MeasurementCount(100)
                 .SetUp(() =>
@@ -1079,7 +1080,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    ecb.AddSharedComponent(group, new EcsTestSharedComp{value = 1});
+                    ecb.AddSharedComponent(group, new EcsTestSharedComp {value = 1});
                 })
                 .CleanUp(() =>
                 {
@@ -1093,4 +1094,3 @@ namespace Unity.Entities.PerformanceTests
         }
     }
 }
-

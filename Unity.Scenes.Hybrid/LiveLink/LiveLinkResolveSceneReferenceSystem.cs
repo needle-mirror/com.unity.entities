@@ -41,7 +41,7 @@ namespace Unity.Scenes
             EntityManager.AddComponentData(sceneEntity, new ResolvedSceneHash { ArtifactHash = artifactHash });
 
             var sceneHeaderPath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesHeader, -1);
-            
+
             if (!BlobAssetReference<SceneMetaData>.TryRead(sceneHeaderPath, SceneMetaDataSerializeUtility.CurrentFileFormatVersion, out var sceneMetaDataRef))
             {
                 Debug.LogError("Loading Entity Scene failed because the entity header file was an old version or doesn't exist: " + scene.SceneGUID);
@@ -58,7 +58,7 @@ namespace Unity.Scenes
 #endif
 
             var loadSections = !requestSceneLoaded.LoadFlags.HasFlag(SceneLoadFlags.DisableAutoLoad);
-            
+
             for (int i = 0; i != sceneMetaData.Sections.Length; i++)
             {
                 var sectionEntity = EntityManager.CreateEntity();
@@ -74,7 +74,8 @@ namespace Unity.Scenes
 
                 EntityManager.AddComponentData(sectionEntity, sceneMetaData.Sections[i]);
                 EntityManager.AddComponentData(sectionEntity, new SceneBoundingVolume { Value = sceneMetaData.Sections[i].BoundingVolume });
-                
+                EntityManager.AddComponentData(sectionEntity, new SceneEntityReference {SceneEntity = sceneEntity});
+
                 var sectionPath = new ResolvedSectionPath();
                 var hybridPath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesUnitObjectReferencesBundle, sectionIndex);
                 var scenePath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
@@ -82,13 +83,15 @@ namespace Unity.Scenes
                 sectionPath.ScenePath.SetString(scenePath);
                 if (hybridPath != null)
                     sectionPath.HybridPath.SetString(hybridPath);
-                
+
                 EntityManager.AddComponentData(sectionEntity, sectionPath);
+
+                ResolveSceneSectionUtility.AddSectionMetadataComponents(sectionEntity, ref sceneMetaData.SceneSectionCustomMetadata[i], EntityManager);
 
                 var buffer = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
                 buffer.Add(new ResolvedSectionEntity { SectionEntity = sectionEntity });
             }
-            sceneMetaDataRef.Dispose();            
+            sceneMetaDataRef.Dispose();
         }
 
         protected override void OnUpdate()
@@ -115,7 +118,7 @@ namespace Unity.Scenes
                     }
                 }
             });
-            
+
             // For each scene that we are waiting for, check whether we have received all data from the editor. Then
             // mark it as resolved and start streaming it in.
             Entities.With(m_WaitingForEditorScenes).ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
@@ -152,20 +155,20 @@ namespace Unity.Scenes
             //  * resolved
             // The OnUpdate method handles the transition between these three states.
             // A new scene starts as 'not yet requested'
-            
+
             m_NotYetRequestedScenes = GetEntityQuery(ComponentType.ReadWrite<SceneReference>(),
                 ComponentType.ReadOnly<EditorTriggeredLoad>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
-                
+
                 ComponentType.Exclude<ResolvedSectionEntity>(),
                 ComponentType.Exclude<WaitingForEditor>(),
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
-            
+
             m_WaitingForEditorScenes = GetEntityQuery(ComponentType.ReadWrite<SceneReference>(),
                 ComponentType.ReadOnly<EditorTriggeredLoad>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.ReadWrite<WaitingForEditor>(),
-                
+
                 ComponentType.Exclude<ResolvedSectionEntity>(),
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
 
@@ -174,9 +177,8 @@ namespace Unity.Scenes
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.ReadWrite<ResolvedSectionEntity>(),
                 ComponentType.ReadWrite<ResolvedSceneHash>(),
-                
+
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
         }
     }
-
 }

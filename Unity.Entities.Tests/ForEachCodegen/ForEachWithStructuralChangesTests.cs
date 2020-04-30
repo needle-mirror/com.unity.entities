@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.CodeGeneratedJobForEach;
@@ -8,6 +7,9 @@ using Unity.Entities.Tests.ForEachCodegen;
 using Unity.Jobs;
 using Unity.Transforms;
 using UnityEngine;
+#if !UNITY_PORTABLE_TEST_RUNNER
+using System.Linq;
+#endif
 
 namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 {
@@ -140,6 +142,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         }
 
         [Test]
+        [IgnoreInPortableTests("Assert.Throws isn't supported; the test runner doesn't currently find the lambda function.")]
         public void DestroyEntity_EntityOperations_ShouldThrowWhenRequired()
         {
             TestSystem.DestroyEntity_EntityOperations_ShouldThrowWhenRequired();
@@ -158,6 +161,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         }
 
         [Test]
+        [IgnoreInPortableTests("Assert.Throws isn't supported; the test runner doesn't currently find the lambda function.")]
         public void RemoveComponent_GetOrSetOfRemovedComponent_Throws()
         {
             TestSystem.RemoveComponent_GetOrSetOfRemovedComponent_Throws();
@@ -199,6 +203,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         {
             TestSystem.Many_ManagedComponents_WithStructuralChanges();
         }
+
 #endif
 
         class MyTestSystem : JobComponentSystem
@@ -240,10 +245,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
-                    {
-                        Assert.AreEqual(kRepeat - kRepeat / 3, arr.Length);
-                    }
+                using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                {
+                    Assert.AreEqual(kRepeat - kRepeat / 3, arr.Length);
+                }
             }
 
             public void DestroyEntity_OfAForwardEntity_CanBeIterated()
@@ -272,10 +277,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
-                    {
-                        Assert.AreEqual(10, arr.Length);
-                    }
+                using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                {
+                    Assert.AreEqual(10, arr.Length);
+                }
             }
 
             public void RemoveComponent_OfAForwardEntity_CanBeIterated()
@@ -303,10 +308,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
-                    {
-                        Assert.AreEqual(10 + 1, arr.Length);
-                    }
+                using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                {
+                    Assert.AreEqual(10 + 1, arr.Length);
+                }
             }
 
             public void Buffer_ModifiedEntities_VisibleFromInsideForEach()
@@ -336,13 +341,12 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                             for (int i = 0; i < 189; ++i)
                                 Assert.AreEqual(i * 2, buffer[i].Value);
                         }
-
                     }).Run();
                 var finalbuffer = EntityManager.GetBuffer<EcsIntElement>(entity);
                 for (int i = 0; i < 189; ++i)
                     Assert.AreEqual(i * 2, finalbuffer[i].Value);
             }
-            
+
             public void Instantiate_HasGetComponent_VisibleFromInsideForEach()
             {
                 EntityManager.AddComponentData(EntityManager.CreateEntity(), new EcsTestData(5));
@@ -405,7 +409,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     Assert.AreEqual(1, group.Values[1].value0);
                 }
             }
-            
+
             public void Instatiate_BasicOperations_VisibleFromInsideForEach()
             {
                 EntityManager.AddComponentData(EntityManager.CreateEntity(), new EcsTestData() {value = 3});
@@ -447,7 +451,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
                 Assert.AreEqual(20, EntityManager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
             }
-            
+
             public void DestroyEntity_EntityOperations_ShouldThrowWhenRequired()
             {
                 var entity = EntityManager.CreateEntity();
@@ -531,12 +535,11 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(EcsTestData)))
-                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
-                    {
-                        Assert.AreEqual(1, arr.Length); // (e)
-                        Assert.AreEqual(123, arr[0].value);
-                    }
-
+                using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                {
+                    Assert.AreEqual(1, arr.Length);     // (e)
+                    Assert.AreEqual(123, arr[0].value);
+                }
             }
 
             public void RemoveComponent_GetOrSetOfRemovedComponent_Throws()
@@ -593,7 +596,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }
                 }
             }
-            
+
             public void SetComponentData_WhenBothSetAndRefAreModified_RefWins()
             {
                 var archA = EntityManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -604,29 +607,29 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     Entities
                         .WithStructuralChanges()
                         .ForEach((Entity entity, ref EcsTestData ca, ref EcsTestData2 ca2) =>
-                    {
-                        switch (count)
                         {
-                            case 0:
-                                EntityManager.SetComponentData(entity, new EcsTestData2(count * 100));
-                                break;
-                            case 1:
-                                EntityManager.SetComponentData(entity, new EcsTestData2(count * 100));
-                                break;
-                            case 2:
-                                EntityManager.SetComponentData(entity, new EcsTestData2(count * 100));
-                                ca2.value0 = 1;
-                                break;
-                            case 3:
-                                ca2.value0 = -count * 100;
-                                break;
-                            case 4:
-                                EntityManager.CreateEntity();
-                                break;
-                        }
+                            switch (count)
+                            {
+                                case 0:
+                                    EntityManager.SetComponentData(entity, new EcsTestData2(count * 100));
+                                    break;
+                                case 1:
+                                    EntityManager.SetComponentData(entity, new EcsTestData2(count * 100));
+                                    break;
+                                case 2:
+                                    EntityManager.SetComponentData(entity, new EcsTestData2(count * 100));
+                                    ca2.value0 = 1;
+                                    break;
+                                case 3:
+                                    ca2.value0 = -count * 100;
+                                    break;
+                                case 4:
+                                    EntityManager.CreateEntity();
+                                    break;
+                            }
 
-                        count = count + 1;
-                    }).Run();
+                            count = count + 1;
+                        }).Run();
                     Assert.AreEqual(ents.Length, count);
                     using (var group = new ExtractTestDataFromEntityManager<EcsTestData2>(EntityManager))
                     {
@@ -638,7 +641,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }
                 }
             }
-            
+
             public void AddToDynamicBuffer_WithStructuralChanges()
             {
                 var archA = EntityManager.CreateArchetype(typeof(EcsTestData), typeof(ForEachCodegenTests.TestBufferElement));
@@ -652,30 +655,29 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                         buf.Add(e1.value);
                         EntityManager.RemoveComponent(entity, typeof(EcsTestData));
                     }).Run();
-                
+
                 var buffer = EntityManager.GetBuffer<ForEachCodegenTests.TestBufferElement>(newEntity);
                 Assert.AreEqual(1, buffer.Length);
-                Assert.AreEqual(10, buffer[buffer.Length-1].Value);
+                Assert.AreEqual(10, buffer[buffer.Length - 1].Value);
             }
-            
-            
+
             public void UseEntityIndex_WithStructuralChanges()
             {
                 var archA = EntityManager.CreateArchetype(typeof(EcsTestData));
                 var newEntity = EntityManager.CreateEntity(archA);
                 EntityManager.SetComponentData(newEntity, new EcsTestData(10));
-                
+
                 Entities
                     .WithStructuralChanges()
                     .ForEach((int entityInQueryIndex, ref EcsTestData etd) =>
-                {
-                    etd.value = entityInQueryIndex + 1234;
-                    EntityManager.CreateEntity(archA);
-                }).Run();
-                
+                    {
+                        etd.value = entityInQueryIndex + 1234;
+                        EntityManager.CreateEntity(archA);
+                    }).Run();
+
                 Assert.AreEqual(1234, EntityManager.GetComponentData<EcsTestData>(newEntity).value);
             }
-            
+
             public void TagComponent_WithStructuralChanges()
             {
                 var archA = EntityManager.CreateArchetype(typeof(EcsTestTag));
@@ -687,10 +689,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     {
                         EntityManager.AddComponentData(entity, new EcsTestData(1234));
                     }).Run();
-                
+
                 Assert.AreEqual(1234, EntityManager.GetComponentData<EcsTestData>(newEntity).value);
             }
-            
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             public void Many_ManagedComponents_WithStructuralChanges()
             {
@@ -699,23 +701,24 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                 EntityManager.AddComponentData(entity, new EcsTestManagedComponent2() { value2 = "SomeString2" });
                 EntityManager.AddComponentData(entity, new EcsTestManagedComponent3() { value3 = "SomeString3" });
                 EntityManager.AddComponentData(entity, new EcsTestManagedComponent4() { value4 = "SomeString4" });
-                
+
                 var counter = 0;
                 Entities
                     .WithStructuralChanges()
                     .ForEach(
-                    (EcsTestManagedComponent t0, EcsTestManagedComponent2 t1, EcsTestManagedComponent3 t2, in EcsTestManagedComponent4 t3) =>
-                    {
-                        Assert.AreEqual("SomeString", t0.value);
-                        Assert.AreEqual("SomeString2", t1.value2);
-                        Assert.AreEqual("SomeString3", t2.value3);
-                        Assert.AreEqual("SomeString4", t3.value4);
-                        counter++;
-                        EntityManager.CreateEntity();
-                    }).Run();
-                
+                        (EcsTestManagedComponent t0, EcsTestManagedComponent2 t1, EcsTestManagedComponent3 t2, in EcsTestManagedComponent4 t3) =>
+                        {
+                            Assert.AreEqual("SomeString", t0.value);
+                            Assert.AreEqual("SomeString2", t1.value2);
+                            Assert.AreEqual("SomeString3", t2.value3);
+                            Assert.AreEqual("SomeString4", t3.value4);
+                            counter++;
+                            EntityManager.CreateEntity();
+                        }).Run();
+
                 Assert.AreEqual(1, counter);
             }
+
 #endif
         }
     }

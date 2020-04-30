@@ -486,6 +486,5 @@ namespace Unity.Entities
             m_All.Add(type4.TypeIndex);
             return this;
         }
-
     }
 }

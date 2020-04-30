@@ -47,6 +47,5 @@ namespace Unity.Entities.Editor
             Menu.SetChecked(kGameState, SubSceneInspectorUtility.LiveLinkShowGameStateInSceneView);
             return true;
         }
-
     }
 }

@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
+
+#if !UNITY_PORTABLE_TEST_RUNNER
+using System.Linq;
+#endif
 
 #pragma warning disable 0649
 #pragma warning disable 0219 // assigned but its value is never used
@@ -22,7 +25,7 @@ namespace Unity.Entities.Tests
             buffer = m_Manager.GetBuffer<EcsIntElement>(original);
             var buffer2 = m_Manager.GetBuffer<EcsIntElement>(clone);
 
-            Assert.AreNotEqual((UIntPtr)buffer.GetUnsafePtr(), (UIntPtr)buffer2.GetUnsafePtr());
+            Assert.AreNotEqual((UIntPtr)buffer.GetUnsafeReadOnlyPtr(), (UIntPtr)buffer2.GetUnsafeReadOnlyPtr());
             Assert.AreEqual(buffer.Length, buffer2.Length);
             for (int i = 0; i < buffer.Length; ++i)
             {
@@ -42,7 +45,7 @@ namespace Unity.Entities.Tests
             buffer = m_Manager.GetBuffer<EcsIntElement>(original);
             var buffer2 = m_Manager.GetBuffer<EcsIntElement>(clone);
 
-            Assert.AreNotEqual((UIntPtr)buffer.GetUnsafePtr(), (UIntPtr)buffer2.GetUnsafePtr());
+            Assert.AreNotEqual((UIntPtr)buffer.GetUnsafeReadOnlyPtr(), (UIntPtr)buffer2.GetUnsafeReadOnlyPtr());
             Assert.AreEqual(buffer.Length, buffer2.Length);
             for (int i = 0; i < buffer.Length; ++i)
             {
@@ -52,97 +55,101 @@ namespace Unity.Entities.Tests
 
         struct MockData0 : IComponentData { public double Value; }
 
-	    struct MockData1 : IComponentData { public double Value; }
+        struct MockData1 : IComponentData { public double Value; }
 
-	    [InternalBufferCapacity(BufferCapacity)]
-	    struct MockElement : IBufferElementData
-	    {
-	        public const int BufferCapacity = 5;
-	        public byte Value;
-	    }
+        [InternalBufferCapacity(BufferCapacity)]
+        struct MockElement : IBufferElementData
+        {
+            public const int BufferCapacity = 5;
+            public byte Value;
+        }
 
-	    [Test]
-	    public void DuplicatingEntity_WhenPrototypeHasDynamicBuffer_DoesNotWriteOutOfBounds()
-	    {
-	        // ensure there are two different archetypes
-	        var prototype0 = m_Manager.CreateEntity();
-	        m_Manager.AddComponent(prototype0, typeof(MockData0));
-	        var buffer = m_Manager.AddBuffer<MockElement>(prototype0);
-	        for (var i = 0; i < MockElement.BufferCapacity; ++i)
-	            buffer.Add(new MockElement { Value = 0 });
+#if !UNITY_PORTABLE_TEST_RUNNER
+        // https://unity3d.atlassian.net/browse/DOTSR-1432
+        // TODO: IL2CPP_TEST_RUNNER doesn't support the Assert.That / Has behavior
 
-	        var prototype1 = m_Manager.CreateEntity();
-	        m_Manager.AddComponent(prototype1, typeof(MockData1));
-	        buffer = m_Manager.AddBuffer<MockElement>(prototype1);
-	        for (var i = 0; i < MockElement.BufferCapacity; ++i)
-	            buffer.Add(new MockElement { Value = 0 });
+        [Test]
+        public void DuplicatingEntity_WhenPrototypeHasDynamicBuffer_DoesNotWriteOutOfBounds()
+        {
+            // ensure there are two different archetypes
+            var prototype0 = m_Manager.CreateEntity();
+            m_Manager.AddComponent(prototype0, typeof(MockData0));
+            var buffer = m_Manager.AddBuffer<MockElement>(prototype0);
+            for (var i = 0; i < MockElement.BufferCapacity; ++i)
+                buffer.Add(new MockElement { Value = 0 });
 
-	        // set up test data
-	        var prototypes = (IReadOnlyList<Entity>)new[] { prototype0, prototype1 };
-	        var duplicates = (IReadOnlyList<NativeArray<Entity>>)new []
-	        {
-	            new NativeArray<Entity>(100, Allocator.Temp),
-	            new NativeArray<Entity>(100, Allocator.Temp)
-	        };
-	        var testValuesEven = (IReadOnlyList<IReadOnlyList<byte>>)new[]
-	        {
-	            Enumerable.Range(0, MockElement.BufferCapacity).Select(e => (byte)13).ToArray(),
-	            Enumerable.Range(0, MockElement.BufferCapacity).Select(e => (byte)17).ToArray()
-	        };
-	        var testValuesOdd = (IReadOnlyList<IReadOnlyList<byte>>)new[] { testValuesEven[1], testValuesEven[0] };
+            var prototype1 = m_Manager.CreateEntity();
+            m_Manager.AddComponent(prototype1, typeof(MockData1));
+            buffer = m_Manager.AddBuffer<MockElement>(prototype1);
+            for (var i = 0; i < MockElement.BufferCapacity; ++i)
+                buffer.Add(new MockElement { Value = 0 });
 
-	        var verifiedDuplicates = new HashSet<Entity>();
+            // set up test data
+            var prototypes = (IReadOnlyList<Entity>) new[] { prototype0, prototype1 };
+            var duplicates = (IReadOnlyList<NativeArray<Entity>>) new[]
+            {
+                new NativeArray<Entity>(100, Allocator.Temp),
+                new NativeArray<Entity>(100, Allocator.Temp)
+            };
+            var testValuesEven = (IReadOnlyList<IReadOnlyList<byte>>) new[]
+            {
+                Enumerable.Range(0, MockElement.BufferCapacity).Select(e => (byte)13).ToArray(),
+                Enumerable.Range(0, MockElement.BufferCapacity).Select(e => (byte)17).ToArray()
+            };
+            var testValuesOdd = (IReadOnlyList<IReadOnlyList<byte>>) new[] { testValuesEven[1], testValuesEven[0] };
 
-	        try
-	        {
-	            // alternate duplicating each different prototype so chunks are adjusted between duplications
-	            for (var iteration = 0; iteration < 3; ++iteration)
-	            {
-	                // alternate values written to each set of duplicates with each iteration to detect out-of-bounds writing
-	                var testValues = (iteration & 1) == 0 ? testValuesEven : testValuesOdd;
+            var verifiedDuplicates = new HashSet<Entity>();
 
-	                // first duplicate both of the prototypes
-	                for (var prototypeIndex = 0; prototypeIndex < prototypes.Count; ++prototypeIndex)
-	                {
-	                    // write test values to prototype
-	                    var prototype = prototypes[prototypeIndex];
-	                    buffer = m_Manager.GetBuffer<MockElement>(prototype);
-	                    var testValue = testValues[prototypeIndex];
-	                    for (var i = 0; i < testValue.Count; ++i)
-	                        buffer[i] = new MockElement { Value = testValue[i] };
+            try
+            {
+                // alternate duplicating each different prototype so chunks are adjusted between duplications
+                for (var iteration = 0; iteration < 3; ++iteration)
+                {
+                    // alternate values written to each set of duplicates with each iteration to detect out-of-bounds writing
+                    var testValues = (iteration & 1) == 0 ? testValuesEven : testValuesOdd;
 
-	                    // duplicate prototype
-	                    m_Manager.Instantiate(prototype, duplicates[prototypeIndex]);
-	                }
+                    // first duplicate both of the prototypes
+                    for (var prototypeIndex = 0; prototypeIndex < prototypes.Count; ++prototypeIndex)
+                    {
+                        // write test values to prototype
+                        var prototype = prototypes[prototypeIndex];
+                        buffer = m_Manager.GetBuffer<MockElement>(prototype);
+                        var testValue = testValues[prototypeIndex];
+                        for (var i = 0; i < testValue.Count; ++i)
+                            buffer[i] = new MockElement { Value = testValue[i] };
 
-	                // verify duplicates' buffers have expected values
-	                for (var prototypeIndex = 0; prototypeIndex < prototypes.Count; ++prototypeIndex)
-	                {
-	                    var testValue = testValues[prototypeIndex];
-	                    foreach (var duplicate in duplicates[prototypeIndex])
-	                    {
-	                        Assert.That(verifiedDuplicates, Has.None.EqualTo(duplicate));
-	                        verifiedDuplicates.Add(duplicate);
+                        // duplicate prototype
+                        m_Manager.Instantiate(prototype, duplicates[prototypeIndex]);
+                    }
 
-	                        var b = m_Manager.GetBuffer<MockElement>(duplicate);
-	                        Assert.That(
-	                            Enumerable.Range(0, b.Length).Select(i => b[i].Value).ToArray(), Is.EqualTo(testValue),
-	                            $"Invalid data for duplicate of prototype {prototypeIndex} on iteration {iteration}."
-	                        );
-	                    }
-	                }
-	            }
-	        }
-	        finally
-	        {
-	            foreach (var duplicate in duplicates)
-	                duplicate.Dispose();
-	        }
-	    }
+                    // verify duplicates' buffers have expected values
+                    for (var prototypeIndex = 0; prototypeIndex < prototypes.Count; ++prototypeIndex)
+                    {
+                        var testValue = testValues[prototypeIndex];
+                        foreach (var duplicate in duplicates[prototypeIndex])
+                        {
+                            Assert.That(verifiedDuplicates, Has.None.EqualTo(duplicate));
+                            verifiedDuplicates.Add(duplicate);
+
+                            var b = m_Manager.GetBuffer<MockElement>(duplicate);
+                            Assert.That(
+                                Enumerable.Range(0, b.Length).Select(i => b[i].Value).ToArray(), Is.EqualTo(testValue),
+                                $"Invalid data for duplicate of prototype {prototypeIndex} on iteration {iteration}."
+                            );
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                foreach (var duplicate in duplicates)
+                    duplicate.Dispose();
+            }
+        }
+
+#endif
     }
 }
 
 #pragma warning restore 0649
 #pragma warning restore 0219 // assigned but its value is never used
-
-

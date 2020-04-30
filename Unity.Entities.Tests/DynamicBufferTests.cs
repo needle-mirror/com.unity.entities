@@ -122,10 +122,10 @@ namespace Unity.Entities.Tests
             dst.Add(new DynamicBufferElement(){Value = 1});
             dst.Capacity = 100;
             Assert.AreEqual(100, dst.Capacity);
-            Assert.AreEqual(dst[0], new DynamicBufferElement(){Value =0});
-            Assert.AreEqual(dst[1], new DynamicBufferElement(){Value =1});
+            Assert.AreEqual(dst[0], new DynamicBufferElement(){Value = 0});
+            Assert.AreEqual(dst[1], new DynamicBufferElement(){Value = 1});
         }
-        
+
         [Test]
         public void SetCapacitySmallerThanLengthThrows()
         {
@@ -135,7 +135,7 @@ namespace Unity.Entities.Tests
             dst.Add(new DynamicBufferElement(){Value = 1});
             Assert.Throws<InvalidOperationException>(() => dst.Capacity = 1);
         }
-        
+
         [Test]
         public void SetCapacitySmallerActuallyShrinksBuffer()
         {
@@ -158,6 +158,14 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(100, dst.Capacity);
             dst.Capacity = 0;
             Assert.AreEqual(0, dst.Capacity);
+        }
+
+        [Test]
+        public unsafe void DynamicBuffer_GetUnsafePtr_ReadOnlyAndReadWriteAreEqual()
+        {
+            var ent = m_Manager.CreateEntity(typeof(DynamicBufferElement));
+            var buf = m_Manager.GetBuffer<DynamicBufferElement>(ent);
+            Assert.AreEqual((UIntPtr)buf.GetUnsafePtr(), (UIntPtr)buf.GetUnsafeReadOnlyPtr());
         }
 
 #if !UNITY_DOTSPLAYER
@@ -219,6 +227,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, count);
             Assert.AreEqual(8, sum);
         }
+
 #endif
     }
 }

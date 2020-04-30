@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Scenes;
+using Unity.Transforms;
 
 namespace Unity.Entities.Hybrid.EndToEnd.Tests
 {
@@ -21,7 +22,7 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
 
             if ((categories & SystemCategories.Streaming) == SystemCategories.Streaming)
             {
-                systems.AddRange(new []
+                systems.AddRange(new[]
                 {
                     typeof(SceneSystemGroup),
                     typeof(SceneSystem),
@@ -33,10 +34,11 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             if ((categories & SystemCategories.HybridComponents) == SystemCategories.HybridComponents)
             {
-                systems.AddRange(new []
+                systems.AddRange(new[]
                 {
                     typeof(CompanionGameObjectUpdateSystem),
-                    typeof(CompanionGameObjectUpdateTransformSystem)
+                    typeof(CompanionGameObjectUpdateTransformSystem),
+                    typeof(TransformSystemGroup) // empty but required to satisfy constraint
                 });
             }
 #endif

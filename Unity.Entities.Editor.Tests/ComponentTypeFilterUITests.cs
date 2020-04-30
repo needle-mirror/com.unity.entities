@@ -1,14 +1,12 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Entities.Tests;
 
 namespace Unity.Entities.Editor.Tests
 {
     class ComponentTypeFilterUITests : ECSTestsFixture
     {
-
         public void SetFilterDummy(EntityListQuery query)
         {
-            
         }
 
         private World WorldSelectionGetter()
@@ -22,7 +20,7 @@ namespace Unity.Entities.Editor.Tests
             var filterUI = new ComponentTypeFilterUI(SetFilterDummy, () => null);
             Assert.DoesNotThrow(filterUI.GetTypes);
         }
-        
+
         [Test]
         public void ComponentTypeFilterUI_ComparisonToTypeManagerCorrect()
         {
@@ -38,8 +36,8 @@ namespace Unity.Entities.Editor.Tests
         {
             var filterUI = new ComponentTypeFilterUI(SetFilterDummy, WorldSelectionGetter);
             var types = new ComponentType[]
-                {ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()};
-            Assert.IsNull(filterUI.GetExistingQuery(types));
+            {ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()};
+            Assert.AreEqual(default(EntityQuery), filterUI.GetExistingQuery(types));
             var group = filterUI.GetEntityQuery(types);
             Assert.AreEqual(group, filterUI.GetExistingQuery(types));
         }

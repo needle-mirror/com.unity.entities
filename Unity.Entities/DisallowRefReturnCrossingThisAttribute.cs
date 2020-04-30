@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Unity.Entities
 {
@@ -16,9 +16,9 @@ namespace Unity.Entities
     ///     are concidered to have the attribute.
     /// </summary>
     [AttributeUsage(AttributeTargets.Struct
-                    | AttributeTargets.Method
-                    | AttributeTargets.Property
-                    | AttributeTargets.Interface)]
+        | AttributeTargets.Method
+        | AttributeTargets.Property
+        | AttributeTargets.Interface)]
     public class DisallowRefReturnCrossingThisAttribute : Attribute
     {
     }

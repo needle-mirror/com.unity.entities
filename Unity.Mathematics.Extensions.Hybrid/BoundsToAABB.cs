@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Unity.Mathematics
 {
@@ -8,7 +8,7 @@ namespace Unity.Mathematics
         {
             return new AABB { Center = bounds.center, Extents = bounds.extents};
         }
-        
+
         public static Bounds ToBounds(this AABB aabb)
         {
             return new Bounds { center = aabb.Center, extents = aabb.Extents};

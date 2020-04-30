@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 
 namespace Unity.Entities.Tests.ForEach
@@ -20,7 +20,7 @@ namespace Unity.Entities.Tests.ForEach
             Assert.IsNull(TestSystem.EntityQueryCache);
 
             var counter = 0;
-            TestSystem.Entities.ForEach(e => ++counter);
+            TestSystem.Entities.ForEach(e => ++ counter);
             Assert.AreEqual(4, counter);
         }
 
@@ -31,20 +31,20 @@ namespace Unity.Entities.Tests.ForEach
             for (var i = 0; i < 2; ++i)
             {
                 // variance in 'all' should change hash
-                TestSystem.Entities.WithAll<EcsTestData>().ForEach(e => { });
-                TestSystem.Entities.WithAll<EcsTestData2>().ForEach(e => { });
+                TestSystem.Entities.WithAll<EcsTestData>().ForEach(e => {});
+                TestSystem.Entities.WithAll<EcsTestData2>().ForEach(e => {});
 
                 // variance in 'any' should change hash
-                TestSystem.Entities.WithAny<EcsTestData>().ForEach(e => { });
-                TestSystem.Entities.WithAny<EcsTestData2>().ForEach(e => { });
+                TestSystem.Entities.WithAny<EcsTestData>().ForEach(e => {});
+                TestSystem.Entities.WithAny<EcsTestData2>().ForEach(e => {});
 
                 // variance in 'none' should change hash
-                TestSystem.Entities.WithNone<EcsTestData>().ForEach(e => { });
-                TestSystem.Entities.WithNone<EcsTestData2>().ForEach(e => { });
+                TestSystem.Entities.WithNone<EcsTestData>().ForEach(e => {});
+                TestSystem.Entities.WithNone<EcsTestData2>().ForEach(e => {});
 
                 // variance in delegate params should change hash
-                TestSystem.Entities.WithNone<EcsTestData>().ForEach((ref EcsTestData2 d) => { });
-                TestSystem.Entities.WithNone<EcsTestData>().ForEach((ref EcsTestData3 d) => { });
+                TestSystem.Entities.WithNone<EcsTestData>().ForEach((ref EcsTestData2 d) => {});
+                TestSystem.Entities.WithNone<EcsTestData>().ForEach((ref EcsTestData3 d) => {});
 
                 Assert.AreEqual(8, TestSystem.EntityQueryCache.CalcUsedCacheCount());
             }
@@ -121,7 +121,7 @@ namespace Unity.Entities.Tests.ForEach
         public void EmptyComponentData() // "tag"
         {
             var counter = 0;
-            TestSystem.Entities.WithAll<EcsTestTag>().ForEach(entity => ++counter);
+            TestSystem.Entities.WithAll<EcsTestTag>().ForEach(entity => ++ counter);
             Assert.AreEqual(1, counter);
         }
     }
@@ -137,13 +137,13 @@ namespace Unity.Entities.Tests.ForEach
 
             {
                 var counter = 0;
-                TestSystem.Entities.WithAll<EcsTestGeneric<int>>().ForEach(e => ++counter);
+                TestSystem.Entities.WithAll<EcsTestGeneric<int>>().ForEach(e => ++ counter);
                 Assert.AreEqual(1, counter);
             }
 
             {
                 var counter = 0;
-                TestSystem.Entities.WithAll<EcsTestGeneric<float>>().ForEach(e => ++counter);
+                TestSystem.Entities.WithAll<EcsTestGeneric<float>>().ForEach(e => ++ counter);
                 Assert.AreEqual(0, counter);
             }
 
@@ -175,13 +175,13 @@ namespace Unity.Entities.Tests.ForEach
 
             {
                 var counter = 0;
-                TestSystem.Entities.WithAll<EcsTestGenericTag<int>>().ForEach(e => ++counter);
+                TestSystem.Entities.WithAll<EcsTestGenericTag<int>>().ForEach(e => ++ counter);
                 Assert.AreEqual(1, counter);
             }
 
             {
                 var counter = 0;
-                TestSystem.Entities.WithAll<EcsTestGenericTag<float>>().ForEach(e => ++counter);
+                TestSystem.Entities.WithAll<EcsTestGenericTag<float>>().ForEach(e => ++ counter);
                 Assert.AreEqual(0, counter);
             }
         }
@@ -196,7 +196,7 @@ namespace Unity.Entities.Tests.ForEach
 
                 {
                     var counter = 0;
-                    TestSystem.Entities.WithAll<EcsTestGeneric<T>>().ForEach(e => ++counter);
+                    TestSystem.Entities.WithAll<EcsTestGeneric<T>>().ForEach(e => ++ counter);
                     Assert.AreEqual(1, counter);
                 }
 
@@ -221,7 +221,7 @@ namespace Unity.Entities.Tests.ForEach
                 where T : struct, IComponentData
             {
                 var counter = 0;
-                TestSystem.Entities.WithAll<T>().ForEach(e => ++counter);
+                TestSystem.Entities.WithAll<T>().ForEach(e => ++ counter);
                 Assert.AreEqual(1, counter);
             }
 
@@ -278,9 +278,8 @@ namespace Unity.Entities.Tests.ForEach
             var counter = 0;
             TestSystem.Entities
                 .WithAny<EcsTestData, EcsTestData2>()
-                .ForEach(e => ++counter);
+                .ForEach(e => ++ counter);
             Assert.AreEqual(counter, 3);
-
         }
 
         [Test]
@@ -308,18 +307,18 @@ namespace Unity.Entities.Tests.ForEach
                 Assert.DoesNotThrow(() => m_Manager.AddComponent(e, typeof(EcsTestData2)));
                 Assert.DoesNotThrow(() => m_Manager.RemoveComponent<EcsTestData2>(e));
                 Assert.DoesNotThrow(() => m_Manager.DestroyEntity(e));
-                
+
                 counter++;
             });
             Assert.AreEqual(1, counter);
-            
+
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.IsFalse(m_Manager.IsInsideForEach);
             #endif
         }
 
         [Test]
-        public void ForEachOnDifferentAmount([Values(16, 1024, 2048, 4096)]int entityCount)
+        public void ForEachOnDifferentAmount([Values(16, 1024, 2048, 4096)] int entityCount)
         {
             for (int i = 0; i < entityCount; i++)
             {
@@ -333,10 +332,10 @@ namespace Unity.Entities.Tests.ForEach
                 Assert.AreEqual(count, t0.value);
                 count++;
             });
-            
+
             Assert.AreEqual(entityCount, count);
         }
-        
+
         [Test]
         // The goal here is to generate many nested call that contains different results
         // So The first level is defining the types to query based on its Entity.Index
@@ -345,7 +344,7 @@ namespace Unity.Entities.Tests.ForEach
         {
             var maxRecursionCall = 10_000;
             var curRecursionCounter = 0;
-            
+
             // Create L0 entities
             var l0Count = 16;
             for (int i = 0; i < l0Count; i++)
@@ -358,16 +357,16 @@ namespace Unity.Entities.Tests.ForEach
             for (int i = 0; i < 16; i++)
             {
                 var entity = m_Manager.CreateEntity();
-                m_Manager.AddComponentData(entity, new EcsTestData2(entity.Index*100));
-                
+                m_Manager.AddComponentData(entity, new EcsTestData2(entity.Index * 100));
+
                 entity = m_Manager.CreateEntity();
-                m_Manager.AddComponentData(entity, new EcsTestData3(entity.Index*200));
-                
+                m_Manager.AddComponentData(entity, new EcsTestData3(entity.Index * 200));
+
                 entity = m_Manager.CreateEntity();
-                m_Manager.AddComponentData(entity, new EcsTestData4(entity.Index*300));
-                
+                m_Manager.AddComponentData(entity, new EcsTestData4(entity.Index * 300));
+
                 entity = m_Manager.CreateEntity();
-                m_Manager.AddComponentData(entity, new EcsTestData5(entity.Index*400));
+                m_Manager.AddComponentData(entity, new EcsTestData5(entity.Index * 400));
             }
 
             // The function that does a query on T, then recurse to do a query on U, then T, then U...
@@ -378,14 +377,14 @@ namespace Unity.Entities.Tests.ForEach
                 {
                     return;
                 }
-                
+
                 TestSystem.Entities.ForEach((Entity e, ref T c) =>
                 {
-                    Assert.AreEqual(e.Index*factorU, c.GetValue());
+                    Assert.AreEqual(e.Index * factorU, c.GetValue());
 
                     if (nestedCount > 0)
                     {
-                        NestedForEach<U, T>(factorV, factorU, nestedCount-1);
+                        NestedForEach<U, T>(factorV, factorU, nestedCount - 1);
                     }
                 });
             }
@@ -402,35 +401,35 @@ namespace Unity.Entities.Tests.ForEach
                         TestSystem.Entities.ForEach((Entity e1, ref EcsTestData2 t1) =>
                         {
                             NestedForEach<EcsTestData3, EcsTestData4>(200, 300, 4);
-                            Assert.AreEqual(e1.Index*100, t1.GetValue());
+                            Assert.AreEqual(e1.Index * 100, t1.GetValue());
                         });
                         break;
                     case 1:
                         TestSystem.Entities.ForEach((Entity e1, ref EcsTestData3 t1) =>
                         {
                             NestedForEach<EcsTestData5, EcsTestData2>(400, 100, 4);
-                            Assert.AreEqual(e1.Index*200, t1.GetValue());
+                            Assert.AreEqual(e1.Index * 200, t1.GetValue());
                         });
                         break;
                     case 2:
                         TestSystem.Entities.ForEach((Entity e1, ref EcsTestData4 t1) =>
                         {
                             NestedForEach<EcsTestData2, EcsTestData3>(100, 200, 4);
-                            Assert.AreEqual(e1.Index*300, t1.GetValue());
+                            Assert.AreEqual(e1.Index * 300, t1.GetValue());
                         });
                         break;
                     case 3:
                         TestSystem.Entities.ForEach((Entity e1, ref EcsTestData5 t1) =>
                         {
                             NestedForEach<EcsTestData4, EcsTestData2>(300, 100, 4);
-                            Assert.AreEqual(e1.Index*400, t1.GetValue());
+                            Assert.AreEqual(e1.Index * 400, t1.GetValue());
                         });
                         break;
                 }
-                
+
                 l0ResultCount++;
             });
-            
+
             Assert.AreEqual(l0Count, l0ResultCount);
         }
 
@@ -458,10 +457,11 @@ namespace Unity.Entities.Tests.ForEach
             });
             Assert.AreEqual(1, counter);
         }
+
 #endif
-        
+
         [Test]
-        public void ForEach_WithAllAndDelegateCombinations_Matches([Range(0, 4)]int withAllCount, [Range(0, 4)]int delegateCount)
+        public void ForEach_WithAllAndDelegateCombinations_Matches([Range(0, 4)] int withAllCount, [Range(0, 4)] int delegateCount)
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
 
@@ -484,7 +484,7 @@ namespace Unity.Entities.Tests.ForEach
                     eqb = TestSystem.Entities.WithAllReadOnly<EcsTestData, EcsTestData2, EcsTestData3, EcsTestData4>();
                     break;
             }
-            
+
             var counter = 0;
             switch (delegateCount)
             {
@@ -504,7 +504,7 @@ namespace Unity.Entities.Tests.ForEach
                     eqb.ForEach((ref EcsTestData data1, ref EcsTestData2 data2, ref EcsTestData3 data3, ref EcsTestData4 data4) => { counter++; });
                     break;
             }
-            
+
             Assert.AreEqual(1, counter);
         }
     }

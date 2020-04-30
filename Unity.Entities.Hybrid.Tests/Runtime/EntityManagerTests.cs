@@ -1,15 +1,17 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
     [DisallowMultipleComponent]
     [AddComponentMenu("")]
-    public class EcsFooTestProxy : ComponentDataProxy<EcsFooTest> { }
-    
+    public class EcsFooTestProxy : ComponentDataProxy<EcsFooTest> {}
+
     [DisallowMultipleComponent]
     [AddComponentMenu("")]
-    public class EcsTestProxy : ComponentDataProxy<EcsTestData> { }
+    public class EcsTestProxy : ComponentDataProxy<EcsTestData> {}
+#pragma warning restore 618
 
     class EntityManagerTests : ECSTestsFixture
     {
@@ -41,7 +43,7 @@ namespace Unity.Entities.Tests
             var types = new ComponentType[]
             {
                 typeof(EcsTestData),
-                typeof(EcsTestMonoBehaviourComponent),
+                typeof(ConversionTestHybridComponent),
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 typeof(EcsTestManagedComponent)
 #endif

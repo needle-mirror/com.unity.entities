@@ -15,15 +15,15 @@ namespace Unity.Entities.PerformanceTests
             var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             Measure.Method(() =>
+            {
+                for (int i = 0; i < entityCount; ++i)
                 {
-                    for (int i = 0; i < entityCount; ++i)
-                    {
-                        var entity = entities[i];
-                        m_Manager.AddBuffer<EcsIntElement>(entity);
-                        var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
-                        buffer.Add(i);
-                    }
-                })
+                    var entity = entities[i];
+                    m_Manager.AddBuffer<EcsIntElement>(entity);
+                    var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+                    buffer.Add(i);
+                }
+            })
                 .SetUp(() =>
                 {
                     m_Manager.CreateEntity(archetype, entities);

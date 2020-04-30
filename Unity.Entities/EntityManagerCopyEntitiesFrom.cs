@@ -4,9 +4,9 @@ using Unity.Jobs;
 
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
-        struct IsolateCopiedEntities : IComponentData { }
+        struct IsolateCopiedEntities : IComponentData {}
 
         /// <summary>
         /// Instantiates / Copies all entities from srcEntityManager and copies them into this EntityManager.
@@ -18,7 +18,7 @@ namespace Unity.Entities
             if (outputEntities.IsCreated && outputEntities.Length != srcEntities.Length)
                 throw  new ArgumentException("outputEntities.Length must match srcEntities.Length");
 #endif
-            
+
             using (var srcManagerInstances = new NativeArray<Entity>(srcEntities.Length, Allocator.Temp))
             {
                 srcEntityManager.CopyEntities(srcEntities, srcManagerInstances);
@@ -33,7 +33,7 @@ namespace Unity.Entities
                 using (var entityRemapping = srcEntityManager.CreateEntityRemapArray(Allocator.TempJob))
                 {
                     MoveEntitiesFromInternalQuery(srcEntityManager, instantiated, entityRemapping);
-                    
+
                     EntityRemapUtility.GetTargets(out var output, entityRemapping);
                     RemoveComponent(output, ComponentType.ReadWrite<IsolateCopiedEntities>());
                     output.Dispose();
@@ -59,29 +59,32 @@ namespace Unity.Entities
         public void CopyAndReplaceEntitiesFrom(EntityManager srcEntityManager)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (srcEntityManager == null || !srcEntityManager.IsCreated)
+            if (!srcEntityManager.IsCreated)
                 throw new ArgumentNullException(nameof(srcEntityManager));
             if (!IsCreated)
                 throw new ArgumentException("This EntityManager has been destroyed");
 #endif
-            
+
             srcEntityManager.CompleteAllJobs();
             CompleteAllJobs();
 
-            using (var srcChunks = srcEntityManager.m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var srcChunksJob))
-            using (var dstChunks = m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var dstChunksJob))
+            var srcAccess = srcEntityManager.GetCheckedEntityDataAccess();
+            var selfAccess = GetCheckedEntityDataAccess();
+
+            using (var srcChunks = srcAccess->ManagedEntityDataAccess.m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var srcChunksJob))
+            using (var dstChunks = selfAccess->ManagedEntityDataAccess.m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var dstChunksJob))
             {
                 using (var archetypeChunkChanges = EntityDiffer.GetArchetypeChunkChanges(
-                    srcChunks, 
-                    dstChunks, 
-                    Allocator.TempJob,                                                     
-                    jobHandle: out var archetypeChunkChangesJob, 
+                    srcChunks,
+                    dstChunks,
+                    Allocator.TempJob,
+                    jobHandle: out var archetypeChunkChangesJob,
                     dependsOn: JobHandle.CombineDependencies(srcChunksJob, dstChunksJob)))
                 {
                     archetypeChunkChangesJob.Complete();
-                    
-                    EntityDiffer.CopyAndReplaceChunks(srcEntityManager, this, m_UniversalQueryWithChunks, archetypeChunkChanges);
-                    Unity.Entities.EntityComponentStore.AssertSameEntities(srcEntityManager.EntityComponentStore, EntityComponentStore);
+
+                    EntityDiffer.CopyAndReplaceChunks(srcEntityManager, this, selfAccess->ManagedEntityDataAccess.m_UniversalQueryWithChunks, archetypeChunkChanges);
+                    Unity.Entities.EntityComponentStore.AssertSameEntities(srcAccess->EntityComponentStore, selfAccess->EntityComponentStore);
                 }
             }
         }

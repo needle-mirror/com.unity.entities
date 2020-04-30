@@ -34,14 +34,12 @@ namespace Unity.Scenes
             _Assets[guid] = resolved;
         }
 
-
         public void UpdateObjectManifest(Hash128 guid, AssetObjectManifest manifest)
         {
             var resolved = _Assets[guid];
             resolved.AssetObjectManifest = manifest;
             _Assets[guid] = resolved;
         }
-
 
         public void Validate(Hash128 guid)
         {
@@ -90,7 +88,7 @@ namespace Unity.Scenes
             if (!_Assets.TryGetValue(objID.AssetGUID, out var manifest))
                 return null;
 
-            //@TODO-PERF: sort by GlobalObjectIDs and do binary search to find the right object  
+            //@TODO-PERF: sort by GlobalObjectIDs and do binary search to find the right object
             var objectIDs = manifest.AssetObjectManifest.GlobalObjectIds;
             for (int i = 0; i != objectIDs.Length; i++)
             {
@@ -114,7 +112,7 @@ namespace Unity.Scenes
             {
                 if (resolved.AssetBundle != null)
                     resolved.AssetBundle.Unload(true);
-                if(resolved.AssetObjectManifest != null)
+                if (resolved.AssetObjectManifest != null)
                     Object.DestroyImmediate(resolved.AssetObjectManifest);
                 _Assets.Remove(assetId);
             }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEditor.IMGUI.Controls;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -6,14 +6,13 @@ using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-
     internal delegate void EntitySelectionCallback(Entity selection);
     internal delegate World WorldSelectionGetter();
     internal delegate ComponentSystemBase SystemSelectionGetter();
     internal delegate void ChunkArrayAssignmentCallback(NativeArray<ArchetypeChunk> chunkArray);
 
-    internal class EntityListView : TreeView, IDisposable {
-
+    internal class EntityListView : TreeView, IDisposable
+    {
         public EntityListQuery SelectedEntityQuery
         {
             get { return selectedEntityQuery; }
@@ -93,12 +92,12 @@ namespace Unity.Entities.Editor
         }
 
         internal bool ShowingSomething => getWorldSelection() != null &&
-                                       (selectedEntityQuery != null || !(getSystemSelection() is ComponentSystemBase));
+        (selectedEntityQuery != null || !(getSystemSelection() is ComponentSystemBase));
 
         private int lastVersion = -1;
 
         public bool NeedsReload => ShowingSomething && getWorldSelection().EntityManager.Version != lastVersion;
-        
+
         public void ReloadIfNecessary()
         {
             if (NeedsReload)
@@ -118,17 +117,22 @@ namespace Unity.Entities.Editor
         {
             if (!ShowingSomething)
                 return new List<TreeViewItem>();
-            
+
             var entityManager = getWorldSelection().EntityManager;
-            
+
             if (chunkArray.IsCreated)
                 chunkArray.Dispose();
 
             entityManager.CompleteAllJobs();
 
-            var group = SelectedEntityQuery?.Group;
+            var group = default(EntityQuery);
 
-            if (group == null || !group.IsCreated)
+            if (SelectedEntityQuery != null)
+            {
+                group = SelectedEntityQuery.Group;
+            }
+
+            if (group == default || !entityManager.IsQueryValid(group))
             {
                 var query = SelectedEntityQuery?.QueryDesc;
                 if (query == null)
@@ -193,7 +197,7 @@ namespace Unity.Entities.Editor
         public void SetEntitySelection(Entity entitySelection)
         {
             if (entitySelection != Entity.Null && getWorldSelection().EntityManager.Exists(entitySelection))
-                SetSelection(new List<int>{entitySelection.Index});
+                SetSelection(new List<int> {entitySelection.Index});
         }
 
         public void TouchSelection()

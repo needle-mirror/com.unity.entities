@@ -96,13 +96,13 @@ namespace Unity.Entities.Tests
     {
         public float Value;
     }
-    
+
     public struct EcsTestFloatData2 : IComponentData
     {
         public float Value0;
         public float Value1;
     }
-    
+
     public struct EcsTestFloatData3 : IComponentData
     {
         public float Value0;
@@ -153,7 +153,7 @@ namespace Unity.Entities.Tests
             Value = value;
         }
     }
-    
+
     public unsafe struct EcsTestSharedCompWithRefCount : ISharedComponentData, IRefCounted
     {
         readonly int* RefCount;
@@ -176,7 +176,7 @@ namespace Unity.Entities.Tests
             Interlocked.Decrement(ref *RefCount);
         }
     }
-    
+
 
     public struct EcsTestDataEntity : IComponentData
     {
@@ -220,10 +220,9 @@ namespace Unity.Entities.Tests
         {
             value = inValue;
         }
-
     }
 
-    struct EcsState1 : ISystemStateComponentData
+    public struct EcsState1 : ISystemStateComponentData
     {
         public int Value;
 
@@ -233,7 +232,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-    struct EcsStateTag1 : ISystemStateComponentData
+    public struct EcsStateTag1 : ISystemStateComponentData
     {
     }
 
@@ -359,7 +358,7 @@ namespace Unity.Entities.Tests
     {
         public ClassWithString ClassWithString;
     }
-    
+
     public class EcsTestManagedDataEntity : IComponentData
     {
         public string value0;
@@ -380,6 +379,9 @@ namespace Unity.Entities.Tests
         }
     }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
+
     public class EcsTestManagedDataEntityCollection : IComponentData
     {
         public List<string> value0;
@@ -397,6 +399,7 @@ namespace Unity.Entities.Tests
             nullField = null;
         }
     }
+#endif
 
     public class EcsTestManagedComponent : IComponentData
     {
@@ -428,7 +431,7 @@ namespace Unity.Entities.Tests
     {
         public string value4;
     }
-    
+
     public unsafe class EcsTestManagedCompWithRefCount : IComponentData, ICloneable, IDisposable
     {
         readonly int* RefCount;
@@ -437,7 +440,7 @@ namespace Unity.Entities.Tests
         {
             RefCount = null;
         }
-        
+
         public EcsTestManagedCompWithRefCount(int* refCount)
         {
             Assert.IsTrue(refCount != null);
@@ -457,6 +460,6 @@ namespace Unity.Entities.Tests
             Interlocked.Decrement(ref *RefCount);
         }
     }
-    
+
 #endif
 }

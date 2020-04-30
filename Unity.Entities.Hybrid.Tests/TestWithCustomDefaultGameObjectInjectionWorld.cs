@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using Unity.Entities;
 
-namespace Unity.Entities.Hybrid.Tests {
+namespace Unity.Entities.Hybrid.Tests
+{
     [Serializable]
-    struct TestWithCustomDefaultGameObjectInjectionWorld
+    public struct TestWithCustomDefaultGameObjectInjectionWorld
     {
         public World PreviousGameObjectInjectionWorld;
 

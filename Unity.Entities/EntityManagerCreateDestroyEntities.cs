@@ -1,3 +1,4 @@
+using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -6,7 +7,7 @@ using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
@@ -29,7 +30,8 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public Entity CreateEntity(EntityArchetype archetype)
         {
-            return m_EntityDataAccess.CreateEntity(archetype);
+            var access = GetCheckedEntityDataAccess();
+            return access->CreateEntity(archetype);
         }
 
         /// <summary>
@@ -57,11 +59,15 @@ namespace Unity.Entities
         {
             BeforeStructuralChange();
             Entity entity;
-            EntityComponentStore->CreateEntities(m_EntityDataAccess.GetEntityOnlyArchetype().Archetype, &entity, 1);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
+
+            ecs->CreateEntities(access->GetEntityOnlyArchetype().Archetype, &entity, 1);
+            mcs.Playback(ref ecs->ManagedChangesTracker);
             return entity;
         }
-        
+
         /// <summary>
         /// Creates a set of entities of the specified archetype.
         /// </summary>
@@ -76,7 +82,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
         {
-            m_EntityDataAccess.CreateEntity(archetype, entities);
+            GetCheckedEntityDataAccess()->CreateEntity(archetype, entities);
         }
 
         /// <summary>
@@ -96,11 +102,11 @@ namespace Unity.Entities
         public NativeArray<Entity> CreateEntity(EntityArchetype archetype, int entityCount, Allocator allocator)
         {
             var entities = new NativeArray<Entity>(entityCount, allocator);
-            m_EntityDataAccess.CreateEntity(archetype, entities);
-            
+            GetCheckedEntityDataAccess()->CreateEntity(archetype, entities);
+
             return entities;
         }
-        
+
         /// <summary>
         /// Destroy all entities having a common set of component types.
         /// </summary>
@@ -110,8 +116,12 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void DestroyEntity(EntityQuery entityQuery)
         {
-            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, EntityComponentStore);
-            DestroyEntity(entityQuery._QueryData->MatchingArchetypes, entityQuery._Filter);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var queryImpl = entityQuery._GetImpl();
+
+            Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, ecs);
+            DestroyEntity(queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter);
         }
 
         /// <summary>
@@ -127,7 +137,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void DestroyEntity(NativeArray<Entity> entities)
         {
-            DestroyEntityInternal((Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length);
+            DestroyEntityInternal((Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length);
         }
 
         /// <summary>
@@ -143,7 +153,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void DestroyEntity(NativeSlice<Entity> entities)
         {
-            DestroyEntityInternal((Entity*) entities.GetUnsafeReadOnlyPtr(), entities.Length);
+            DestroyEntityInternal((Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length);
         }
 
         /// <summary>
@@ -168,7 +178,7 @@ namespace Unity.Entities
         /// <remarks>
         /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
         ///
-        /// If the source entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component, 
+        /// If the source entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component,
         /// the entire group is cloned as a new set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         ///
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
@@ -181,8 +191,9 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public Entity Instantiate(Entity srcEntity)
         {
+            var access = GetCheckedEntityDataAccess();
             Entity entity;
-            m_EntityDataAccess.InstantiateInternal(srcEntity, &entity, 1);
+            access->InstantiateInternal(srcEntity, &entity, 1);
             return entity;
         }
 
@@ -206,7 +217,8 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void Instantiate(Entity srcEntity, NativeArray<Entity> outputEntities)
         {
-            m_EntityDataAccess.InstantiateInternal(srcEntity, (Entity*) outputEntities.GetUnsafePtr(), outputEntities.Length);
+            var access = GetCheckedEntityDataAccess();
+            access->InstantiateInternal(srcEntity, (Entity*)outputEntities.GetUnsafePtr(), outputEntities.Length);
         }
 
         /// <summary>
@@ -214,10 +226,10 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>
         /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
-        /// 
+        ///
         /// If the source entity has a <see cref="LinkedEntityGroup"/> component, the entire group is cloned as a new
         /// set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
-        /// 
+        ///
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating these entities and no additional Jobs can start before
         /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
@@ -230,8 +242,9 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public NativeArray<Entity> Instantiate(Entity srcEntity, int instanceCount, Allocator allocator)
         {
+            var access = GetCheckedEntityDataAccess();
             var entities = new NativeArray<Entity>(instanceCount, allocator);
-            m_EntityDataAccess.InstantiateInternal(srcEntity, (Entity*) entities.GetUnsafePtr(), instanceCount);
+            access->InstantiateInternal(srcEntity, (Entity*)entities.GetUnsafePtr(), instanceCount);
             return entities;
         }
 
@@ -244,7 +257,7 @@ namespace Unity.Entities
         /// Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         /// This method overload ignores the <see cref="LinkedEntityGroup"/> component,
         /// since the group of entities that will be cloned is passed explicitly.
-        /// 
+        ///
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
         /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
@@ -255,9 +268,10 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void Instantiate(NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities)
         {
-            m_EntityDataAccess.InstantiateInternal((Entity*)srcEntities.GetUnsafeReadOnlyPtr(), (Entity*)outputEntities.GetUnsafePtr(), srcEntities.Length, outputEntities.Length, true);
+            var access = GetCheckedEntityDataAccess();
+            access->InstantiateInternal((Entity*)srcEntities.GetUnsafeReadOnlyPtr(), (Entity*)outputEntities.GetUnsafePtr(), srcEntities.Length, outputEntities.Length, true);
         }
-        
+
         /// <summary>
         /// Clones a set of entities, different from Instantiate because it does not remove the prefab tag component.
         /// </summary>
@@ -267,7 +281,7 @@ namespace Unity.Entities
         /// Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         /// This method overload ignores the <see cref="LinkedEntityGroup"/> component,
         /// since the group of entities that will be cloned is passed explicitly.
-        /// 
+        ///
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
         /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
@@ -278,9 +292,10 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void CopyEntities(NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities)
         {
-            m_EntityDataAccess.InstantiateInternal((Entity*)srcEntities.GetUnsafeReadOnlyPtr(), (Entity*)outputEntities.GetUnsafePtr(), srcEntities.Length, outputEntities.Length, false);
+            var access = GetCheckedEntityDataAccess();
+            access->InstantiateInternal((Entity*)srcEntities.GetUnsafeReadOnlyPtr(), (Entity*)outputEntities.GetUnsafePtr(), srcEntities.Length, outputEntities.Length, false);
         }
-        
+
         /// <summary>
         /// Creates a set of chunks containing the specified number of entities having the specified archetype.
         /// </summary>
@@ -295,33 +310,56 @@ namespace Unity.Entities
         /// <param name="archetype">The archetype for the chunk and entities.</param>
         /// <param name="chunks">An empty array to receive the created chunks.</param>
         /// <param name="entityCount">The number of entities to create.</param>
+        [Obsolete("CreateChunk is deprecated. (RemovedAfter 2020-06-05)", false)]
         [StructuralChangeMethod]
         public void CreateChunk(EntityArchetype archetype, NativeArray<ArchetypeChunk> chunks, int entityCount)
         {
-            Unity.Entities.EntityComponentStore.AssertValidArchetype(EntityComponentStore, archetype);
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
+
+            Unity.Entities.EntityComponentStore.AssertValidArchetype(ecs, archetype);
             BeforeStructuralChange();
 
-            EntityComponentStore->CreateChunks(archetype.Archetype, (ArchetypeChunk*) chunks.GetUnsafePtr(), chunks.Length, entityCount);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            ecs->CreateChunks(archetype.Archetype, (ArchetypeChunk*)chunks.GetUnsafePtr(), chunks.Length, entityCount);
+            mcs.Playback(ref ecs->ManagedChangesTracker);
         }
-        
+
         /// <summary>
         /// Detects the created and destroyed entities compared to last time the method was called with the given state.
         /// </summary>
         /// <remarks>
         /// Entities must be fully destroyed, if system state components keep it alive it still counts as not yet destroyed.
-        /// EntityCommandBuffers that have not been played back will have no effect on this until they are played back. 
+        /// EntityCommandBuffers that have not been played back will have no effect on this until they are played back.
         /// </remarks>
         /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created & destroyed.</param>
         /// <param name="createdEntities">The Entities that were created</param>
         /// <param name="destroyedEntities">The Entities that were destroyed</param>
         public JobHandle GetCreatedAndDestroyedEntitiesAsync(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)
         {
-            var jobHandle = m_EntityDataAccess.EntityComponentStore->GetCreatedAndDestroyedEntities(state, createdEntities, destroyedEntities);
-            DependencyManager->AddDependency(null, 0, null, 0, jobHandle);
+            var access = GetCheckedEntityDataAccess();
+
+            var jobHandle = Entities.EntityComponentStore.GetCreatedAndDestroyedEntities(access->EntityComponentStore, state, createdEntities, destroyedEntities, true);
+            access->DependencyManager->AddDependency(null, 0, null, 0, jobHandle);
+
             return jobHandle;
         }
 
+        /// <summary>
+        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
+        /// </summary>
+        /// <remarks>
+        /// Entities must be fully destroyed, if system state components keep it alive it still counts as not yet destroyed.
+        /// EntityCommandBuffers that have not been played back will have no effect on this until they are played back.
+        /// </remarks>
+        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created & destroyed.</param>
+        /// <param name="createdEntities">The Entities that were created</param>
+        /// <param name="destroyedEntities">The Entities that were destroyed</param>
+        public void GetCreatedAndDestroyedEntities(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)
+        {
+            var access = GetCheckedEntityDataAccess();
+            Entities.EntityComponentStore.GetCreatedAndDestroyedEntities(access->EntityComponentStore, state, createdEntities, destroyedEntities, false);
+        }
 
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
@@ -329,12 +367,14 @@ namespace Unity.Entities
 
         internal void DestroyEntityInternal(Entity* entities, int count)
         {
-            m_EntityDataAccess.DestroyEntityInternal(entities, count);
+            var access = GetCheckedEntityDataAccess();
+            access->DestroyEntityInternal(entities, count);
         }
 
         void DestroyEntity(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter)
         {
-            m_EntityDataAccess.DestroyEntity(archetypeList, filter);
+            var access = GetCheckedEntityDataAccess();
+            access->DestroyEntity(archetypeList, filter);
         }
     }
 }

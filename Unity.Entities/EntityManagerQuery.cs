@@ -4,7 +4,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager
     {
         // ----------------------------------------------------------------------------------------------------------
         // PUBLIC
@@ -18,11 +18,10 @@ namespace Unity.Entities
         /// <seealso cref="EntityQueryDesc"/>
         public EntityQuery CreateEntityQuery(params ComponentType[] requiredComponents)
         {
-            fixed (ComponentType* requiredComponentsPtr = requiredComponents)
+            var access = GetCheckedEntityDataAccess();
+            fixed(ComponentType* requiredComponentsPtr = requiredComponents)
             {
-                return m_EntityQueryManager->CreateEntityQuery(EntityComponentStore,
-                    ManagedComponentStore, requiredComponentsPtr,
-                    requiredComponents.Length);
+                return access->EntityQueryManager->CreateEntityQuery(access, requiredComponentsPtr, requiredComponents.Length);
             }
         }
 
@@ -33,8 +32,8 @@ namespace Unity.Entities
         /// <returns>The EntityQuery corresponding to the queryDesc.</returns>
         public EntityQuery CreateEntityQuery(params EntityQueryDesc[] queriesDesc)
         {
-            return m_EntityQueryManager->CreateEntityQuery(EntityComponentStore,
-                ManagedComponentStore, queriesDesc);
+            var access = GetCheckedEntityDataAccess();
+            return access->EntityQueryManager->CreateEntityQuery(access, queriesDesc);
         }
 
         /// <summary>
@@ -51,9 +50,9 @@ namespace Unity.Entities
         /// <returns>An array of ArchetypeChunk objects referring to all the chunks in the <see cref="World"/>.</returns>
         public NativeArray<ArchetypeChunk> GetAllChunks(Allocator allocator = Allocator.TempJob)
         {
-            BeforeStructuralChange();
-
-            return m_UniversalQuery.CreateArchetypeChunkArray(allocator);
+            var access = GetCheckedEntityDataAccess();
+            access->BeforeStructuralChange();
+            return access->ManagedEntityDataAccess.m_UniversalQuery.CreateArchetypeChunkArray(allocator);
         }
 
         /// <summary>
@@ -64,14 +63,15 @@ namespace Unity.Entities
         /// <param name="allArchetypes">A native list to receive the EntityArchetype objects.</param>
         public void GetAllArchetypes(NativeList<EntityArchetype> allArchetypes)
         {
-            for (var i = 0; i < EntityComponentStore->m_Archetypes.Length; ++i)
+            var access = GetCheckedEntityDataAccess();
+            for (var i = 0; i < access->EntityComponentStore->m_Archetypes.Length; ++i)
             {
-                var archetype = EntityComponentStore->m_Archetypes.Ptr[i];
+                var archetype = access->EntityComponentStore->m_Archetypes.Ptr[i];
                 var entityArchetype = new EntityArchetype()
                 {
                     Archetype = archetype,
                     #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    _DebugComponentStore = EntityComponentStore
+                    _DebugComponentStore = access->EntityComponentStore
                     #endif
                 };
                 allArchetypes.Add(entityArchetype);
@@ -87,30 +87,33 @@ namespace Unity.Entities
         /// <returns>The EntityQueryMask corresponding to the EntityQuery.</returns>
         public EntityQueryMask GetEntityQueryMask(EntityQuery query)
         {
+            var access = GetCheckedEntityDataAccess();
+            var queryImpl = query._GetImpl();
+
             if (query.HasFilter())
                 throw new Exception("GetEntityQueryMask can only be called on an EntityQuery without a filter applied to it."
-                + "  You can call EntityQuery.ResetFilter to remove the filters from an EntityQuery.");
+                    + "  You can call EntityQuery.ResetFilter to remove the filters from an EntityQuery.");
 
-            if (query._QueryData->EntityQueryMask.IsCreated())
-                return query._QueryData->EntityQueryMask;
+            if (queryImpl->_QueryData->EntityQueryMask.IsCreated())
+                return queryImpl->_QueryData->EntityQueryMask;
 
-            if (m_EntityQueryManager->m_EntityQueryMasksAllocated >= 1024)
+            if (access->EntityQueryManager->m_EntityQueryMasksAllocated >= 1024)
                 throw new Exception("You have reached the limit of 1024 unique EntityQueryMasks, and cannot generate any more.");
 
             var mask = new EntityQueryMask(
-                (byte) (m_EntityQueryManager->m_EntityQueryMasksAllocated / 8),
-                (byte) (1 << (m_EntityQueryManager->m_EntityQueryMasksAllocated % 8)),
-                query._EntityComponentStore);
+                (byte)(access->EntityQueryManager->m_EntityQueryMasksAllocated / 8),
+                (byte)(1 << (access->EntityQueryManager->m_EntityQueryMasksAllocated % 8)),
+                access->EntityComponentStore);
 
-            m_EntityQueryManager->m_EntityQueryMasksAllocated++;
+            access->EntityQueryManager->m_EntityQueryMasksAllocated++;
 
-            for (var i = 0; i < query._QueryData->MatchingArchetypes.Length; ++i)
+            for (var i = 0; i < queryImpl->_QueryData->MatchingArchetypes.Length; ++i)
             {
-                query._QueryData->MatchingArchetypes.Ptr[i]->Archetype->QueryMaskArray[mask.Index] |= mask.Mask;
+                queryImpl->_QueryData->MatchingArchetypes.Ptr[i]->Archetype->QueryMaskArray[mask.Index] |= mask.Mask;
             }
 
-            query._QueryData->EntityQueryMask = mask;
-            
+            queryImpl->_QueryData->EntityQueryMask = mask;
+
             return mask;
         }
 
@@ -120,7 +123,8 @@ namespace Unity.Entities
 
         internal EntityQuery CreateEntityQuery(ComponentType* requiredComponents, int count)
         {
-            return m_EntityQueryManager->CreateEntityQuery(EntityComponentStore, ManagedComponentStore, requiredComponents, count);
+            var access = GetCheckedEntityDataAccess();
+            return access->EntityQueryManager->CreateEntityQuery(access, requiredComponents, count);
         }
 
         bool TestMatchingArchetypeAny(Archetype* archetype, ComponentType* anyTypes, int anyCount)
@@ -188,6 +192,16 @@ namespace Unity.Entities
                 return false;
 
             return foundCount == allCount;
+        }
+
+        /// <summary>
+        /// Check if an entity query is still valid
+        /// </summary>
+        /// <param name="query"></param>
+        /// <returns>Return true if the specified query handle is still valid (and can be disposed)</returns>
+        public bool IsQueryValid(EntityQuery query)
+        {
+            return GetCheckedEntityDataAccess()->AliveEntityQueries.ContainsKey((ulong)(IntPtr)query.__impl);
         }
     }
 }

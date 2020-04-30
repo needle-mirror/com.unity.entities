@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using static Unity.Mathematics.math;
 
 namespace Unity.Mathematics
@@ -18,7 +18,7 @@ namespace Unity.Mathematics
         {
             return $"AABB(Center:{Center}, Extents:{Extents}";
         }
-        
+
         public bool Contains(float3 point)
         {
             if (point[0] < Center[0] - Extents[0])
@@ -41,14 +41,14 @@ namespace Unity.Mathematics
 
         public bool Contains(AABB b)
         {
-            return    Contains(b.Center + float3(-b.Extents.x, -b.Extents.y, -b.Extents.z))
-                   && Contains(b.Center + float3(-b.Extents.x, -b.Extents.y,  b.Extents.z))
-                   && Contains(b.Center + float3(-b.Extents.x,  b.Extents.y, -b.Extents.z))
-                   && Contains(b.Center + float3(-b.Extents.x,  b.Extents.y,  b.Extents.z))
-                   && Contains(b.Center + float3( b.Extents.x, -b.Extents.y, -b.Extents.z))
-                   && Contains(b.Center + float3( b.Extents.x, -b.Extents.y,  b.Extents.z))
-                   && Contains(b.Center + float3( b.Extents.x,  b.Extents.y, -b.Extents.z))
-                   && Contains(b.Center + float3( b.Extents.x,  b.Extents.y,  b.Extents.z));
+            return Contains(b.Center + float3(-b.Extents.x, -b.Extents.y, -b.Extents.z))
+                && Contains(b.Center + float3(-b.Extents.x, -b.Extents.y,  b.Extents.z))
+                && Contains(b.Center + float3(-b.Extents.x,  b.Extents.y, -b.Extents.z))
+                && Contains(b.Center + float3(-b.Extents.x,  b.Extents.y,  b.Extents.z))
+                && Contains(b.Center + float3(b.Extents.x, -b.Extents.y, -b.Extents.z))
+                && Contains(b.Center + float3(b.Extents.x, -b.Extents.y,  b.Extents.z))
+                && Contains(b.Center + float3(b.Extents.x,  b.Extents.y, -b.Extents.z))
+                && Contains(b.Center + float3(b.Extents.x,  b.Extents.y,  b.Extents.z));
         }
 
         static float3 RotateExtents(float3 extents, float3 m0, float3 m1, float3 m2)

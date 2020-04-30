@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
@@ -29,19 +29,18 @@ namespace Unity.Entities.CodeGen.Tests
             CollectionAssert.AreEquivalent(instructions, match);
         }
 
-
         private static Func<Instruction, bool>[] Pattern1 =>
             new Func<Instruction, bool>[]
-            {
-                i => i.OpCode == OpCodes.Add,
-                i => i.OpCode == OpCodes.Dup,
-            };
+        {
+            i => i.OpCode == OpCodes.Add,
+            i => i.OpCode == OpCodes.Dup,
+        };
 
-        private static Instruction[] Pattern1Instructions => MakeInstructions(new[]{Instruction.Create(OpCodes.Add), Instruction.Create(OpCodes.Dup)});
+        private static Instruction[] Pattern1Instructions => MakeInstructions(new[] {Instruction.Create(OpCodes.Add), Instruction.Create(OpCodes.Dup)});
 
         private static Instruction[] MakeInstructions(params Instruction[] inputs)
         {
-            for (int i = 0; i != inputs.Length - 1;i++)
+            for (int i = 0; i != inputs.Length - 1; i++)
             {
                 inputs[i].Next = inputs[i + 1];
                 inputs[i + 1].Previous = inputs[i];

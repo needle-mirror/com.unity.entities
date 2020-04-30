@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Unity.Entities
 {
+    [Obsolete("ComponentDataProxy<T> has been deprecated. Please use the new GameObject-to-entity conversion workflows instead. (RemovedAfter 2020-07-03).")]
     public abstract class ComponentDataProxy<T> : ComponentDataProxyBase where T : struct, IComponentData
     {
         internal override void ValidateSerializedData()

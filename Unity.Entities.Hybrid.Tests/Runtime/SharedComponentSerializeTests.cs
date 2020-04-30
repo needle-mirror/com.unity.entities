@@ -1,4 +1,4 @@
-﻿//#define WRITE_TO_DISK
+//#define WRITE_TO_DISK
 
 using System;
 using System.Collections.Generic;
@@ -65,7 +65,6 @@ namespace Unity.Entities.Tests
             world.Dispose();
             reader.Dispose();
         }
-
 
         public struct SharedComponentWithUnityObject : ISharedComponentData, IEquatable<SharedComponentWithUnityObject>
         {
@@ -188,7 +187,8 @@ namespace Unity.Entities.Tests
 
             world.Dispose();
             reader.Dispose();
-        } 
+        }
+
 #endif
     }
 }

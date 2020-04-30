@@ -11,7 +11,7 @@ namespace Unity.Entities
         internal enum ArchetypeChunkChangeFlags
         {
             None = 0,
-            
+
             /// <summary>
             /// This chunk exists in both worlds, change version comparisons can be done.
             /// </summary>
@@ -27,7 +27,7 @@ namespace Unity.Entities
             /// This includes modified chunks that are being re-created.
             /// </remarks>
             public readonly ArchetypeChunkChangeSet CreatedSrcChunks;
-            
+
             /// <summary>
             /// A set of all chunks in the DstWorld that have be destroyed from the SrcWorld.
             /// </summary>
@@ -55,12 +55,12 @@ namespace Unity.Entities
             /// A set of changed chunks within a given world.
             /// </summary>
             public readonly NativeList<ArchetypeChunk> Chunks;
-            
+
             /// <summary>
             /// Change flags for each chunk matched by index.
             /// </summary>
             public readonly NativeList<ArchetypeChunkChangeFlags> Flags;
-            
+
             /// <summary>
             /// An array containing the cumulative count of entities per chunk.
             /// </summary>
@@ -85,7 +85,7 @@ namespace Unity.Entities
                 EntityCounts.Dispose();
             }
         }
-        
+
         /// <summary>
         /// Builds a mapping of <see cref="Chunk.SequenceNumber"/> to it's <see cref="ArchetypeChunk"/>.
         /// </summary>
@@ -96,7 +96,7 @@ namespace Unity.Entities
             [WriteOnly] public NativeHashMap<ulong, ArchetypeChunk>.ParallelWriter ChunksBySequenceNumber;
             public void Execute(int index) => ChunksBySequenceNumber.TryAdd(Chunks[index].m_Chunk->SequenceNumber, Chunks[index]);
         }
-        
+
         /// <summary>
         /// Builds a set of chunks which have been created or destroyed.
         ///
@@ -133,7 +133,7 @@ namespace Unity.Entities
 
                     if (srcChunk.m_Chunk == null)
                     {
-                        // This chunk exists in the destination world but NOT in the source world. 
+                        // This chunk exists in the destination world but NOT in the source world.
                         // This means the chunk was simply destroyed.
                         DestroyedChunks.Add(dstChunk);
                         DestroyedChunkFlags.Add(ArchetypeChunkChangeFlags.None);

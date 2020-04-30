@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -13,10 +13,10 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
     //Types used in examples below
-    public struct Melee : IComponentData { }
-    public struct Ranger : IComponentData { }
-    public struct Player : IComponentData { }
-    public struct Position : IComponentData { }
+    public struct Melee : IComponentData {}
+    public struct Ranger : IComponentData {}
+    public struct Player : IComponentData {}
+    public struct Position : IComponentData {}
 
     public class EntityQueryExamples : SystemBase
     {
@@ -50,7 +50,6 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnCreate()
         {
-
             #region query-description
 
             EntityQueryDesc description = new EntityQueryDesc

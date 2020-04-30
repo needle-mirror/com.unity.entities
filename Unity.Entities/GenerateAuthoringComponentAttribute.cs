@@ -24,5 +24,4 @@ namespace Unity.Entities
         }
     }
 #endif
-
 }

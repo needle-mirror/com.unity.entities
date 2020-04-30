@@ -23,14 +23,12 @@ namespace Unity.Entities.Tests
         [Ignore("NOT IMPLEMENTED")]
         public void AddEntityRemappingThrowsForInvalidSource()
         {
-
         }
 
         [Test]
         [Ignore("NOT IMPLEMENTED")]
         public void RemapEntityThrowsForInvalidSource()
         {
-
         }
 
         [Test]
@@ -71,7 +69,8 @@ namespace Unity.Entities.Tests
 #else
             unsafe {
                 var info = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(type));
-                if (info.EntityOffsetCount > 0) {
+                if (info.EntityOffsetCount > 0)
+                {
                     TypeManager.EntityOffsetInfo[] ei = new TypeManager.EntityOffsetInfo[info.EntityOffsetCount];
                     for (var i = 0; i < info.EntityOffsetCount; ++i)
                         ei[i] = TypeManager.GetEntityOffsets(info)[i];
@@ -86,7 +85,7 @@ namespace Unity.Entities.Tests
         public void CalculateEntityOffsetsReturnsNullIfNoEntities()
         {
             var offsets = GetEntityOffsets(typeof(EmptyStruct));
-            Assert.AreEqual(null, offsets);
+            Assert.IsNull(offsets);
         }
 
         [Test]
@@ -96,7 +95,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, offsets.Length);
             Assert.AreEqual(0, offsets[0].Offset);
         }
-
 
         struct TwoEntityStruct : IComponentData
         {

@@ -1,4 +1,4 @@
-﻿#if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
 
 /*
  * Hybrid Components are classic Unity components that are added to an entity via AddComponentObject.
@@ -15,7 +15,7 @@ using Unity.Entities;
 using UnityEngine;
 
 // Needs to be a system state because instantiation will always create disabled GameObjects
-struct CompanionGameObjectActiveSystemState : ISystemStateComponentData { }
+struct CompanionGameObjectActiveSystemState : ISystemStateComponentData {}
 
 [ExecuteAlways]
 class CompanionGameObjectUpdateSystem : ComponentSystem
@@ -26,7 +26,9 @@ class CompanionGameObjectUpdateSystem : ComponentSystem
         toActivate.ForEach((CompanionLink link) => link.Companion.SetActive(true));
         EntityManager.AddComponent<CompanionGameObjectActiveSystemState>(toActivate.ToEntityQuery());
 
-        var toDeactivate = Entities.WithAny<Disabled, Prefab>().WithAll<CompanionGameObjectActiveSystemState, CompanionLink>();
+        var toDeactivate = Entities.WithAny<Disabled, Prefab>()
+            .With(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab)
+            .WithAll<CompanionGameObjectActiveSystemState, CompanionLink>();
         toDeactivate.ForEach((CompanionLink link) => link.Companion.SetActive(false));
         EntityManager.RemoveComponent<CompanionGameObjectActiveSystemState>(toDeactivate.ToEntityQuery());
 

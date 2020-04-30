@@ -16,17 +16,17 @@ namespace Unity.Entities.PerformanceTests
         public override void SetUp()
         {
             base.SetUp();
-            
+
             m_ComponentDataInitializer = new Dictionary<ComponentType, Action<EntityManager, Entity, int>>
             {
                 {
-                    typeof(EcsTestData), (manager, entity, index) => { manager.SetComponentData(entity, new EcsTestData{value = index * 3}); }
+                    typeof(EcsTestData), (manager, entity, index) => { manager.SetComponentData(entity, new EcsTestData {value = index * 3}); }
                 },
                 {
-                    typeof(EcsTestData2), (manager, entity, index) => { manager.SetComponentData(entity, new EcsTestData2{value0 = index, value1 = index * 2}); }
+                    typeof(EcsTestData2), (manager, entity, index) => { manager.SetComponentData(entity, new EcsTestData2 {value0 = index, value1 = index * 2}); }
                 },
                 {
-                    typeof(EcsTestSharedComp), (manager, entity, index) => { manager.SetSharedComponentData(entity, new EcsTestSharedComp{value = index / 31}); }
+                    typeof(EcsTestSharedComp), (manager, entity, index) => { manager.SetSharedComponentData(entity, new EcsTestSharedComp {value = index / 31}); }
                 }
             };
         }
@@ -36,11 +36,11 @@ namespace Unity.Entities.PerformanceTests
         /// </summary>
         protected void CreateEntitiesWithMockComponentData(
             EntityManager entityManager,
-            int count, 
+            int count,
             params ComponentType[] components)
         {
             var startIndex = entityManager.Debug.EntityCount;
-            
+
             for (var i = 0; i < count; i++)
             {
                 var entity = entityManager.CreateEntity();
@@ -54,7 +54,7 @@ namespace Unity.Entities.PerformanceTests
                     {
                         continue;
                     }
-                    
+
                     if (m_ComponentDataInitializer.TryGetValue(component, out var initializer))
                     {
                         initializer(entityManager, entity, startIndex + i);

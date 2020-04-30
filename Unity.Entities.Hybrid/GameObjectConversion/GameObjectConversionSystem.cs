@@ -12,23 +12,23 @@ using UnityObject = UnityEngine.Object;
 //{
 [DisableAutoCreation]
 [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-public class GameObjectDeclareReferencedObjectsGroup : ComponentSystemGroup { }
+public class GameObjectDeclareReferencedObjectsGroup : ComponentSystemGroup {}
 
 [DisableAutoCreation]
 [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-public class GameObjectBeforeConversionGroup : ComponentSystemGroup { }
+public class GameObjectBeforeConversionGroup : ComponentSystemGroup {}
 
 [DisableAutoCreation]
 [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-public class GameObjectConversionGroup : ComponentSystemGroup { }
+public class GameObjectConversionGroup : ComponentSystemGroup {}
 
 [DisableAutoCreation]
 [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-public class GameObjectAfterConversionGroup : ComponentSystemGroup { }
+public class GameObjectAfterConversionGroup : ComponentSystemGroup {}
 
 [DisableAutoCreation]
 [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
-public class GameObjectExportGroup : ComponentSystemGroup { }
+public class GameObjectExportGroup : ComponentSystemGroup {}
 
 /// <summary>
 /// Derive from this class to create a system that can convert GameObjects and assets into Entities.
@@ -70,6 +70,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     {
         return ShouldRunConversionSystem(this.GetType());
     }
+
 #endif
 
     // ** DISCOVERY **
@@ -145,6 +146,17 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     public Entity GetPrimaryEntity(Component component) =>
         m_MappingSystem.GetPrimaryEntity(component != null ? component.gameObject : null);
 
+    /// <summary>
+    /// Gets the entity representing the scene section of the entity passed in, the section entity is created if it doesn't already exist.
+    /// Metadata components added to this section entity will be serialized into the entity scene header.
+    /// At runtime these components will be added to the scene section entities when the scene is resolved.
+    /// Only struct IComponentData components without BlobAssetReferences or Entity members are supported.
+    /// </summary>
+    /// <param name="entity">The entity for which to get the scene section entity</param>
+    /// <returns>The entity representing the scene section</returns>
+    public Entity GetSceneSectionEntity(Entity entity) =>
+        m_MappingSystem.GetSceneSectionEntity(entity);
+
     public Entity CreateAdditionalEntity(UnityObject uobject) =>
         m_MappingSystem.CreateAdditionalEntity(uobject);
     public Entity CreateAdditionalEntity(Component component) =>
@@ -172,14 +184,6 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// </summary>
     public bool TryGetBuildConfigurationComponent<T>(out T component) where T : Unity.Build.IBuildComponent => m_MappingSystem.TryGetBuildConfigurationComponent(out component);
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("GetBuildSettingsComponent has been renamed to GetBuildConfigurationComponent. (RemovedAfter 2020-04-15) (UnityUpgradable) -> GetBuildConfigurationComponent(*)")]
-    public T GetBuildSettingsComponent<T>() where T : Unity.Build.IBuildComponent => m_MappingSystem.GetBuildConfigurationComponent<T>();
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Obsolete("TryGetBuildSettingsComponent has been renamed to TryGetBuildConfigurationComponent. (RemovedAfter 2020-04-15) (UnityUpgradable) -> TryGetBuildConfigurationComponent(*)")]
-    public bool TryGetBuildSettingsComponent<T>(out T component) where T : Unity.Build.IBuildComponent => m_MappingSystem.TryGetBuildConfigurationComponent(out component);
-
     /// <summary>
     /// Returns whether a GameObjectConversionSystem of the given type, or a IConvertGameObjectToEntity
     /// MonoBehaviour, should execute its conversion methods.  Typically used in an implementation
@@ -187,7 +191,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// </summary>
     public bool ShouldRunConversionSystem(Type conversionSystemType)
     {
-        return m_MappingSystem.ShouldRunConversionSystem(conversionSystemType);
+        return m_MappingSystem.ShouldRunConversion(conversionSystemType);
     }
 
     /// <summary>
@@ -209,7 +213,8 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     {
         return m_MappingSystem.BuildHasType(componentTypes);
     }
-    #endif
+
+#endif
 
     public void AddHybridComponent(UnityEngine.Component component) =>
         m_MappingSystem.AddHybridComponent(component);

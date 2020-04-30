@@ -1,4 +1,4 @@
-﻿#if !UNITY_EDITOR
+#if !UNITY_EDITOR
 
 using System;
 using System.Collections.Generic;
@@ -75,15 +75,18 @@ namespace Unity.Entities.BuildUtils
             }
         }
 
-        private static Dictionary<TypeReference, AlignAndSize>[] ValueTypeAlignment = {
+        private static Dictionary<TypeReference, AlignAndSize>[] ValueTypeAlignment =
+        {
             new Dictionary<TypeReference, AlignAndSize>(new TypeReferenceEqualityComparer()), new Dictionary<TypeReference, AlignAndSize>(new TypeReferenceEqualityComparer())
         };
 
-        private static Dictionary<FieldReference, AlignAndSize>[] StructFieldAlignment = {
+        private static Dictionary<FieldReference, AlignAndSize>[] StructFieldAlignment =
+        {
             new Dictionary<FieldReference, AlignAndSize>(new FieldReferenceComparer()), new Dictionary<FieldReference, AlignAndSize>(new FieldReferenceComparer())
         };
 
-        internal static Dictionary<TypeReference, bool>[] ValueTypeIsComplex = {
+        internal static Dictionary<TypeReference, bool>[] ValueTypeIsComplex =
+        {
             new Dictionary<TypeReference, bool>(new TypeReferenceEqualityComparer()), new Dictionary<TypeReference, bool>(new TypeReferenceEqualityComparer())
         };
 
@@ -137,7 +140,7 @@ namespace Unity.Entities.BuildUtils
             {
                 var sz = ValueTypeAlignment[bits][typeRef];
 
-                if(sz.IsSentinel)
+                if (sz.IsSentinel)
                     throw new ArgumentException($"Type {typeRef} triggered sentinel; recursive value type definition");
 
                 return sz;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -12,7 +12,7 @@ namespace Unity.Entities
 {
     internal struct RetainBlobAssets : ISystemStateComponentData
     {
-        // DummyBlobAssetReference will always be null, but will make sure the serializer adds the BlobOwner shared componet 
+        // DummyBlobAssetReference will always be null, but will make sure the serializer adds the BlobOwner shared componet
         public BlobAssetReference<byte> DummyBlobAssetReference;
         public int FramesToRetainBlobAssets;
     }
@@ -43,7 +43,7 @@ namespace Unity.Entities
             if (BlobAssetBatchPtr != null)
                 BlobAssetBatch.Release(BlobAssetBatchPtr);
         }
-        
+
         public void Retain()
         {
             if (BlobAssetBatchPtr != null)
@@ -74,10 +74,9 @@ namespace Unity.Entities
             };
         }
 
-
         internal static BlobAssetBatch* CreateFromMemory(void* buffer, int expectedTotalDataSize)
         {
-            var batch = (BlobAssetBatch*)buffer; 
+            var batch = (BlobAssetBatch*)buffer;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (batch->TotalDataSize != expectedTotalDataSize)
@@ -87,15 +86,15 @@ namespace Unity.Entities
 
             var header = (BlobAssetHeader*)(batch + 1);
             for (int i = 0; i != batch->BlobAssetHeaderCount; i++)
-            { 
+            {
                 header->ValidationPtr = header + 1;
                 if (header->Allocator != Allocator.None)
                     throw new System.ArgumentException("Blob Allocator should be Allocator.None");
-                header = (BlobAssetHeader*)(((byte*) (header+1)) + header->Length);
+                header = (BlobAssetHeader*)(((byte*)(header + 1)) + header->Length);
             }
             header--;
 
-            if (header == (byte*) batch + batch->TotalDataSize)
+            if (header == (byte*)batch + batch->TotalDataSize)
                 throw new System.ArgumentException("");
 #endif
 
@@ -117,10 +116,10 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (newRefCount < 0)
                     throw new InvalidOperationException("BlobAssetBatch refcount is less than zero. It has been corrupted.");
-                
+
                 if (batch->TotalDataSize == 0)
                     throw new InvalidOperationException("BlobAssetBatch has been corrupted. Likely it has already been unloaded or released.");
-                
+
                 var header = (BlobAssetHeader*)(batch + 1);
                 for (int i = 0; i != batch->BlobAssetHeaderCount; i++)
                 {
@@ -128,22 +127,22 @@ namespace Unity.Entities
                         throw new InvalidOperationException("The BlobAssetReference has been corrupted. Likely it has already been unloaded or released.");
 
                     header->Invalidate();
-                    header = (BlobAssetHeader*)(((byte*) (header+1)) + header->Length);
+                    header = (BlobAssetHeader*)(((byte*)(header + 1)) + header->Length);
                 }
                 header--;
-                
-                if (header == (byte*) batch + batch->TotalDataSize)
+
+                if (header == (byte*)batch + batch->TotalDataSize)
                     throw new InvalidOperationException("BlobAssetBatch has been corrupted. Likely it has already been unloaded or released.");
 
                 batch->TotalDataSize = 0;
                 batch->BlobAssetHeaderCount = 0;
 #endif
-                
+
                 UnsafeUtility.Free(batch, Allocator.Persistent);
             }
         }
     }
-    
+
     // TODO: For now the size of BlobAssetHeader needs to be multiple of 16 to ensure alignment of blob assets
     // TODO: Add proper alignment support to blob assets
     // TODO: Reduce the size of the header at runtime or remove it completely
@@ -189,13 +188,13 @@ namespace Unity.Entities
         /// </summary>
         [FieldOffset(0)]
         internal long m_Align8Union;
-    
+
         internal BlobAssetHeader* Header
         {
-            get { return ((BlobAssetHeader*) m_Ptr) - 1; }
+            get { return ((BlobAssetHeader*)m_Ptr) - 1; }
         }
 
-        
+
         [BurstDiscard]
         void ValidateNonBurst()
         {
@@ -205,7 +204,7 @@ namespace Unity.Entities
                 // Try to read ValidationPtr, this might throw if the memory has been unmapped
                 validationPtr = Header->ValidationPtr;
             }
-            catch(Exception)
+            catch (Exception)
             {
             }
 
@@ -216,21 +215,20 @@ namespace Unity.Entities
         void ValidateBurst()
         {
             void* validationPtr = Header->ValidationPtr;
-            if(validationPtr != m_Ptr)
+            if (validationPtr != m_Ptr)
                 throw new InvalidOperationException("The BlobAssetReference is not valid. Likely it has already been unloaded or released.");
         }
 
-        
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void ValidateNotNull()
         {
-            if(m_Ptr == null)
+            if (m_Ptr == null)
                 throw new InvalidOperationException("The BlobAssetReference is null.");
 
             ValidateNonBurst();
             ValidateBurst();
         }
-        
+
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void ValidateAllowNull()
         {
@@ -246,7 +244,7 @@ namespace Unity.Entities
             ValidateNotNull();
             var header = Header;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if(header->Allocator == Allocator.None)
+            if (header->Allocator == Allocator.None)
                 throw new InvalidOperationException("It's not possible to release a blob asset reference that was deserialized. It will be automatically released when the scene is unloaded ");
             Header->Invalidate();
 #endif
@@ -262,7 +260,7 @@ namespace Unity.Entities
     /// <remarks>Create a blob asset using a <see cref="BlobBuilder"/> or by deserializing a serialized blob asset.</remarks>
     /// <typeparam name="T">The struct data type defining the data structure of the blob asset.</typeparam>
     [ChunkSerializable]
-    public unsafe struct BlobAssetReference<T> : IDisposable, IEquatable<BlobAssetReference<T>> 
+    public unsafe struct BlobAssetReference<T> : IDisposable, IEquatable<BlobAssetReference<T>>
         where T : struct
     {
         internal BlobAssetReferenceData m_data;
@@ -274,7 +272,7 @@ namespace Unity.Entities
         {
             get { return m_data.m_Ptr != null; }
         }
-        
+
         /// <summary>
         /// Provides an unsafe pointer to the blob asset data.
         /// </summary>
@@ -285,10 +283,6 @@ namespace Unity.Entities
             m_data.ValidateAllowNull();
             return m_data.m_Ptr;
         }
-
-        [Obsolete("Use Dispose instead. Release will be (RemovedAfter 2020-04-09). (UnityUpgradable) -> Dispose()")]
-        public void Release() => Dispose();
-
 
         /// <summary>
         /// Destroys the referenced blob asset and frees its memory.
@@ -317,7 +311,7 @@ namespace Unity.Entities
             }
         }
 
-        
+
         /// <summary>
         /// Creates a blob asset from a pointer to data and a specified size.
         /// </summary>
@@ -330,15 +324,15 @@ namespace Unity.Entities
         public static BlobAssetReference<T> Create(void* ptr, int length)
         {
             byte* buffer =
-                (byte*) UnsafeUtility.Malloc(sizeof(BlobAssetHeader) + length, 16, Allocator.Persistent);
+                (byte*)UnsafeUtility.Malloc(sizeof(BlobAssetHeader) + length, 16, Allocator.Persistent);
             UnsafeUtility.MemCpy(buffer + sizeof(BlobAssetHeader), ptr, length);
 
-            BlobAssetHeader* header = (BlobAssetHeader*) buffer;
+            BlobAssetHeader* header = (BlobAssetHeader*)buffer;
             *header = new BlobAssetHeader();
 
             header->Length = length;
             header->Allocator = Allocator.Persistent;
-            
+
             // @TODO use 64bit hash
             header->Hash = math.hash(ptr, length);
 
@@ -358,7 +352,7 @@ namespace Unity.Entities
         /// <seealso cref="BlobBuilder"/>
         public static BlobAssetReference<T> Create(byte[] data)
         {
-            fixed (byte* ptr = &data[0])
+            fixed(byte* ptr = &data[0])
             {
                 return Create(ptr, data.Length);
             }
@@ -388,7 +382,7 @@ namespace Unity.Entities
         {
             return new BlobAssetReference<T> { m_data = blobData };
         }
-        
+
 #if !NET_DOTS
         /// <summary>
         /// Reads bytes from a fileName, validates the expected serialized version, and deserializes them into a new blob asset.
@@ -430,6 +424,7 @@ namespace Unity.Entities
                 }
             }
         }
+
 #endif
 
         /// <summary>
@@ -443,7 +438,7 @@ namespace Unity.Entities
         /// <param name="lhs">The BlobAssetReference on the left side of the operator.</param>
         /// <param name="rhs">The BlobAssetReference on the right side of the operator.</param>
         /// <returns>True, if both references point to the same data or if both are <see cref="Null"/>.</returns>
-        public static bool operator ==(BlobAssetReference<T> lhs, BlobAssetReference<T> rhs)
+        public static bool operator==(BlobAssetReference<T> lhs, BlobAssetReference<T> rhs)
         {
             return lhs.m_data.m_Ptr == rhs.m_data.m_Ptr;
         }
@@ -454,7 +449,7 @@ namespace Unity.Entities
         /// <param name="lhs">The BlobAssetReference on the left side of the operator.</param>
         /// <param name="rhs">The BlobAssetReference on the right side of the operator.</param>
         /// <returns>True, if the references point to different data in memory or if one is <see cref="Null"/>.</returns>
-        public static bool operator !=(BlobAssetReference<T> lhs, BlobAssetReference<T> rhs)
+        public static bool operator!=(BlobAssetReference<T> lhs, BlobAssetReference<T> rhs)
         {
             return lhs.m_data.m_Ptr != rhs.m_data.m_Ptr;
         }
@@ -513,12 +508,12 @@ namespace Unity.Entities
             get
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if(m_OffsetPtr == 0)
+                if (m_OffsetPtr == 0)
                     throw new System.InvalidOperationException("The accessed BlobPtr hasn't been allocated.");
 #endif
-                fixed (int* thisPtr = &m_OffsetPtr)
+                fixed(int* thisPtr = &m_OffsetPtr)
                 {
-                    return ref UnsafeUtilityEx.AsRef<T>((byte*) thisPtr + m_OffsetPtr);
+                    return ref UnsafeUtilityEx.AsRef<T>((byte*)thisPtr + m_OffsetPtr);
                 }
             }
         }
@@ -533,9 +528,9 @@ namespace Unity.Entities
             if (m_OffsetPtr == 0)
                 return null;
 
-            fixed (int* thisPtr = &m_OffsetPtr)
+            fixed(int* thisPtr = &m_OffsetPtr)
             {
-                return (byte*) thisPtr + m_OffsetPtr;
+                return (byte*)thisPtr + m_OffsetPtr;
             }
         }
     }
@@ -570,9 +565,9 @@ namespace Unity.Entities
         {
             // for an unallocated array this will return an invalid pointer which is ok since it
             // should never be accessed as Length will be 0
-            fixed (int* thisPtr = &m_OffsetPtr)
+            fixed(int* thisPtr = &m_OffsetPtr)
             {
-                return (byte*) thisPtr + m_OffsetPtr;
+                return (byte*)thisPtr + m_OffsetPtr;
             }
         }
 
@@ -589,14 +584,14 @@ namespace Unity.Entities
             get
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if ((uint) index >= (uint) m_Length)
+                if ((uint)index >= (uint)m_Length)
                     throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}",
                         index, m_Length));
 #endif
 
-                fixed (int* thisPtr = &m_OffsetPtr)
+                fixed(int* thisPtr = &m_OffsetPtr)
                 {
-                    return ref UnsafeUtilityEx.ArrayElementAsRef<T>((byte*) thisPtr + m_OffsetPtr, index);
+                    return ref UnsafeUtilityEx.ArrayElementAsRef<T>((byte*)thisPtr + m_OffsetPtr, index);
                 }
             }
         }
@@ -611,7 +606,7 @@ namespace Unity.Entities
             if (m_Length > 0)
             {
                 var src = GetUnsafePtr();
-                
+
                 var handle = GCHandle.Alloc(result, GCHandleType.Pinned);
                 var addr = handle.AddrOfPinnedObject();
 
@@ -654,10 +649,10 @@ namespace Unity.Entities
         /// <returns>The C# string.</returns>
         public new string ToString()
         {
-            return new string((char*) Data.GetUnsafePtr(), 0, Data.Length);
+            return new string((char*)Data.GetUnsafePtr(), 0, Data.Length);
         }
     }
-    
+
     /// <summary>
     /// Extensions that allow the creation of <see cref="BlobString"/> instances by a <see cref="BlobBuilder"/>.
     /// </summary>
@@ -674,7 +669,7 @@ namespace Unity.Entities
         {
             var res = builder.Allocate(ref blobStr.Data, value.Length);
             var len = value.Length;
-            fixed (char* p = value)
+            fixed(char* p = value)
             {
                 UnsafeUtility.MemCpy(res.GetUnsafePtr(), p, sizeof(char) * len);
             }
@@ -698,7 +693,7 @@ namespace Unity.Entities
         {
             var blobAssetLength = blob.m_data.Header->Length;
             var serializeReadyHeader = BlobAssetHeader.CreateForSerialize(blobAssetLength, blob.m_data.Header->Hash);
-            
+
             binaryWriter.WriteBytes(&serializeReadyHeader, sizeof(BlobAssetHeader));
             binaryWriter.WriteBytes(blob.m_data.Header + 1, blobAssetLength);
         }
@@ -715,18 +710,18 @@ namespace Unity.Entities
         {
             BlobAssetHeader header;
             binaryReader.ReadBytes(&header, sizeof(BlobAssetHeader));
-            
-            var buffer = (byte*) UnsafeUtility.Malloc(sizeof(BlobAssetHeader) + header.Length, 16, Allocator.Persistent);
+
+            var buffer = (byte*)UnsafeUtility.Malloc(sizeof(BlobAssetHeader) + header.Length, 16, Allocator.Persistent);
             binaryReader.ReadBytes(buffer + sizeof(BlobAssetHeader), header.Length);
 
-            var bufferHeader = (BlobAssetHeader*) buffer;
+            var bufferHeader = (BlobAssetHeader*)buffer;
             bufferHeader->Allocator = Allocator.Persistent;
             bufferHeader->Length = header.Length;
             bufferHeader->ValidationPtr = buffer + sizeof(BlobAssetHeader);
-            
+
             // @TODO use 64bit hash
             bufferHeader->Hash = header.Hash;
-            
+
             BlobAssetReference<T> blobAssetReference;
             blobAssetReference.m_data.m_Align8Union = 0;
             blobAssetReference.m_data.m_Ptr = buffer + sizeof(BlobAssetHeader);

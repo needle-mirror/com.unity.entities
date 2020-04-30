@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using Unity.Transforms;
 using UnityEngine;
 
 namespace Unity.Entities.Streaming
-{    
+{
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.EntitySceneOptimizations)]
     class OptimizationGroup : ComponentSystemGroup
@@ -51,11 +51,11 @@ namespace Unity.Entities.Streaming
             // Run all systems again (For example chunk bounding volumes might be out of sync after various remove / add from previous pass)
             // But now we are sure that no more re-ordering will happen.
             group.Update();
-            
+
             RemoveSystemState(entityManager);
             MarkStaticFrozen(entityManager);
         }
-        
+
         static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)
         {
             try

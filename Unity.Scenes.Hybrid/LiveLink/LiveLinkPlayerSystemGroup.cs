@@ -3,7 +3,6 @@ using UnityEngine;
 
 namespace Unity.Scenes
 {
-    
     //@TODO: #ifdefs massively increase iteration time right now when building players (Should be fixed in 20.1)
     //       Until then always have the live link code present.
 #if UNITY_EDITOR

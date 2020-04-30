@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using Unity.Burst;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Profiling;
 
 namespace Unity.Entities
 {
@@ -74,7 +75,7 @@ namespace Unity.Entities
 
             public int IsParallel;
         }
-        
+
         /// <summary>
         /// Adds an IJobChunk instance to the Job scheduler queue for parallel execution.
         /// Note: This method is being replaced with use of ScheduleParallel to make non-sequential execution explicit.
@@ -92,7 +93,7 @@ namespace Unity.Entities
         {
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched, true);
         }
-        
+
         /// <summary>
         /// Adds an IJobChunk instance to the Job scheduler queue for sequential (non-parallel) execution.
         /// </summary>
@@ -138,7 +139,7 @@ namespace Unity.Entities
         {
             ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run, false);
         }
-        
+
         /// <summary>
         /// Runs the job using an ArchetypeChunkIterator instead of the jobs API.
         /// </summary>
@@ -163,9 +164,11 @@ namespace Unity.Entities
             where T : struct, IJobChunk
         {
             var unfilteredChunkCount = query.CalculateChunkCountWithoutFiltering();
+            var impl = query._GetImpl();
 
             var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount,
-                query._QueryData->MatchingArchetypes, query._Filter, dependsOn, mode,
+
+                impl->_QueryData->MatchingArchetypes, impl->_Filter, dependsOn, mode,
                 out NativeArray<byte> prefilterData,
                 out void* deferredCountData);
 
@@ -174,7 +177,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // All IJobChunk jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
                 // jobs without any other safety handles are still running (haven't been synced).
-                safety = new EntitySafetyHandle{m_Safety = query.SafetyHandles->GetEntityManagerSafetyHandle()},
+                safety = new EntitySafetyHandle {m_Safety = impl->_Access->DependencyManager->Safety.GetEntityManagerSafetyHandle()},
 #endif
 
                 JobData = jobData,
@@ -192,25 +195,26 @@ namespace Unity.Entities
             try
             {
 #endif
-                if (!isParallel)
-                {
-                    return JobsUtility.Schedule(ref scheduleParams);
-                }
-                else
-                {
-                	if (mode == ScheduleMode.Batched)
-                    	return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
-                	else
-                		return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredChunkCount, unfilteredChunkCount);
-				}
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            }
-            catch (InvalidOperationException e)
+            if (!isParallel)
             {
-                prefilterHandle.Complete();
-                prefilterData.Dispose();
-                throw e;
+                return JobsUtility.Schedule(ref scheduleParams);
             }
+            else
+            {
+                if (mode == ScheduleMode.Batched)
+                    return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
+                else
+                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredChunkCount, unfilteredChunkCount);
+            }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        }
+
+        catch (InvalidOperationException e)
+        {
+            prefilterHandle.Complete();
+            prefilterData.Dispose();
+            throw e;
+        }
 #endif
         }
 
@@ -224,20 +228,20 @@ namespace Unity.Entities
             {
                 if (s_JobReflectionDataSingle == IntPtr.Zero)
                     s_JobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
-                        typeof(T), JobType.Single, (ExecuteJobFunction) Execute);
+                        typeof(T), JobType.Single, (ExecuteJobFunction)Execute);
 
                 return s_JobReflectionDataSingle;
             }
-            
+
             public static IntPtr InitializeParallel()
             {
                 if (s_JobReflectionDataParallel == IntPtr.Zero)
                     s_JobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
-                        typeof(T), JobType.ParallelFor, (ExecuteJobFunction) Execute);
+                        typeof(T), JobType.ParallelFor, (ExecuteJobFunction)Execute);
 
                 return s_JobReflectionDataParallel;
             }
-            
+
             public delegate void ExecuteJobFunction(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
 
             public static void Execute(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
@@ -251,10 +255,10 @@ namespace Unity.Entities
 
                 bool isParallel = jobWrapper.IsParallel == 1;
                 while (true)
-				{
+                {
                     int beginChunkIndex = 0;
                     int endChunkIndex = chunkCount;
-                    
+
                     // If we are running the job in parallel, steal some work.
                     if (isParallel)
                     {
@@ -262,7 +266,7 @@ namespace Unity.Entities
                         if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out beginChunkIndex, out endChunkIndex))
                             break;
                     }
-                    
+
                     // Do the actual user work.
                     for (int chunkIndex = beginChunkIndex; chunkIndex < endChunkIndex; ++chunkIndex)
                     {
@@ -270,7 +274,7 @@ namespace Unity.Entities
                         var entityOffset = entityIndices[chunkIndex];
                         jobWrapper.JobData.Execute(chunk, chunkIndex, entityOffset);
                     }
-                    
+
                     // If we are not running in parallel, our job is done.
                     if (!isParallel)
                         break;

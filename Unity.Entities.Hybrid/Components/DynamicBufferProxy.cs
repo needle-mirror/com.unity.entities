@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace Unity.Entities
 {
+    [Obsolete("DynamicBufferProxy<T> has been deprecated. Please use the new GameObject-to-entity conversion workflows instead. (RemovedAfter 2020-07-03).")]
     public abstract class DynamicBufferProxy<T> : ComponentDataProxyBase where T : struct, IBufferElementData
     {
         internal override void ValidateSerializedData()

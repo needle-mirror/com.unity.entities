@@ -14,25 +14,25 @@ namespace Unity.Entities.CodeGen
     class SingletonAccessPostProcessor : EntitiesILPostProcessor
     {
         static readonly bool _enable = true;
-        
-        static readonly Dictionary<string, (string methodName, int parameterCount, bool needsReadOnlyQuery, bool patchedIsGeneric)> SingletonAccessMethodDescriptions 
+
+        static readonly Dictionary<string, (string methodName, int parameterCount, bool needsReadOnlyQuery, bool patchedIsGeneric)> SingletonAccessMethodDescriptions
             = new Dictionary<string, (string methodName, int parameterCount, bool needsReadOnlyQuery, bool patchedIsGeneric)>()
-        {
-            { nameof(SystemBase.GetSingleton), (nameof(EntityQuery.GetSingleton), 0, true, true) }, 
+            {
+            { nameof(SystemBase.GetSingleton), (nameof(EntityQuery.GetSingleton), 0, true, true) },
             { nameof(SystemBase.SetSingleton), (nameof(EntityQuery.SetSingleton), 1, false, true) },
             { nameof(SystemBase.GetSingletonEntity), (nameof(EntityQuery.GetSingletonEntity), 0, true, false) }
-        };
+            };
 
         protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
             if (!_enable)
                 return false;
-            
+
             bool madeChange = false;
-            
-            Dictionary<(TypeReference declaringType, string name, bool asReadOnly), (FieldDefinition field, TypeReference type)> entityQueryFields = 
+
+            Dictionary<(TypeReference declaringType, string name, bool asReadOnly), (FieldDefinition field, TypeReference type)> entityQueryFields =
                 new Dictionary<(TypeReference, string, bool), (FieldDefinition, TypeReference)>();
-            
+
             var systemBaseTypes = componentSystemTypes.Where(TypeDefinitionExtensions.IsSystemBase).ToArray();
             foreach (var systemBaseType in systemBaseTypes)
             {
@@ -40,7 +40,7 @@ namespace Unity.Entities.CodeGen
                 {
                     if (containingMethod.Body == null)
                         continue;
-                    
+
                     try
                     {
                         madeChange |= Rewrite(containingMethod, entityQueryFields);
@@ -66,7 +66,7 @@ namespace Unity.Entities.CodeGen
                     }
                 }
             }
-            
+
             if (madeChange)
                 InjectEntityQueriesIntoSystemBase(entityQueryFields);
 
@@ -83,7 +83,7 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        internal static bool Rewrite(MethodDefinition containingMethod, 
+        internal static bool Rewrite(MethodDefinition containingMethod,
             Dictionary<(TypeReference declaringType, string name, bool asReadOnly), (FieldDefinition field, TypeReference type)> entityQueryFields)
         {
             var madeChange = false;
@@ -112,15 +112,15 @@ namespace Unity.Entities.CodeGen
         // Perform IL patching
         // https://sharplab.io/#v2:EYLgxg9gTgpgtADwGwBYA0AXEBLANmgExAGoAfAAQCYBGAWACgHyBmAAmwDsMYoAzAQzAxWASQDCEALYAHCBxhcAIvwz9WAbwC+TNgGcMUAK5gMrAMqcA5rhgY5y1axCiJMuQowO1WnayqsAUS5sDABPAEVDHlCGdQZWBL82ABVWAHFbCw5rWzkAHmSAPgAKAEp4xMqAdwALHmFU530jEzQXKVl5JRV+CoS4+krK8gB2VgIYAUNcDABuPtZtQcSWPxRzTKsbOw4CktSAN35cKPLlodZa+tZG1mbjDDbxDvdu1QWByqWl1f8xVliCyCGBCESiUFCrAA+gBHcGhebnAFI1apDIYLI5HZ7MoLap1WA3Jx3AwPJ6uToeLwfPErMYTKYzRFfBa/dZmTbZbb5IrFQ7HU60hJXQm3e6tdpuLqeHo0pFLSqstjkdYAWTKyMqnwu0Lh0VYAF5WPIqoFgmFItEysydULWEcoHctrkOIb0pysflMdyOF4SqUbRcHU6uS7KG7YfCAHTo70uvJxnZ+612u0cjHO7GJ+w9Eq6TNyAN2yPRKPp7O7CvJ/OhnaUIvyhiaIA=
         static void PatchSingletonMethod(MethodDefinition containingMethod, MethodReference methodReference, Instruction instruction,
-            Dictionary<(TypeReference declaringType, string name, bool asReadOnly), (FieldDefinition field, TypeReference type)> entityQueryFields, 
+            Dictionary<(TypeReference declaringType, string name, bool asReadOnly), (FieldDefinition field, TypeReference type)> entityQueryFields,
             (string methodName, int parameterCount, bool needsReadOnlyQuery, bool patchedIsGeneric) methodDescription)
         {
-            var invokedGenericMethod = (GenericInstanceMethod) methodReference;
+            var invokedGenericMethod = (GenericInstanceMethod)methodReference;
             var singletonType = invokedGenericMethod.GenericArguments.First();
             var singletonQueryField = GetOrCreateEntityQueryField(containingMethod.DeclaringType, singletonType, entityQueryFields, methodDescription);
             var ilProcessor = containingMethod.Body.GetILProcessor();
-            
-            var loadEntityQueryField = ilProcessor.Create(OpCodes.Ldfld, singletonQueryField);
+
+            var loadEntityQueryField = ilProcessor.Create(OpCodes.Ldflda, singletonQueryField);
             var instructionThatPushedThisArg = CecilHelpers.FindInstructionThatPushedArg(containingMethod, 0, instruction);
             ilProcessor.InsertAfter(instructionThatPushedThisArg, loadEntityQueryField);
 
@@ -132,7 +132,7 @@ namespace Unity.Entities.CodeGen
 
         // Collect EntityQueries (unique per declaring type, singleton type and readonly access
         static FieldDefinition GetOrCreateEntityQueryField(TypeDefinition declaringType, TypeReference singletonType,
-            Dictionary<(TypeReference declaringType, string name, bool asReadOnly), (FieldDefinition field, TypeReference type)> entityQueryFields, 
+            Dictionary<(TypeReference declaringType, string name, bool asReadOnly), (FieldDefinition field, TypeReference type)> entityQueryFields,
             (string methodName, int parameterCount, bool needsReadOnlyQuery, bool patchedIsGeneric) methodDescription)
         {
             if (entityQueryFields.TryGetValue((declaringType, singletonType.FullName, methodDescription.needsReadOnlyQuery), out var result))
@@ -147,6 +147,11 @@ namespace Unity.Entities.CodeGen
 
             entityQueryFields[(declaringType, singletonType.FullName, methodDescription.needsReadOnlyQuery)] = result;
             return result.Item1;
+        }
+
+        protected override bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes)
+        {
+            return false;
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Unity.Core;
+using Unity.Core;
 
 namespace Unity.Entities
 {

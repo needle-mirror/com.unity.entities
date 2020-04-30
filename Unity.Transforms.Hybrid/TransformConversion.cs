@@ -1,4 +1,4 @@
-﻿using Unity.Entities;
+using Unity.Entities;
 using Unity.Transforms;
 using UnityEngine;
 
@@ -38,9 +38,9 @@ class TransformConversion : GameObjectConversionSystem
                 DstEntityManager.AddComponentData(entity, new NonUniformScale { Value = transform.lossyScale });
         }
     }
+
     protected override void OnUpdate()
     {
-        
         Entities.ForEach((Transform transform) =>
         {
             Convert(transform);

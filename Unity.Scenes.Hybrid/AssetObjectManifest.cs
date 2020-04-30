@@ -21,7 +21,7 @@ namespace Unity.Scenes
             var objects = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(guid.ToString()));
             BuildManifest(objects, manifest);
         }
-        
+
         public static unsafe void BuildManifest(Object[] objects, AssetObjectManifest manifest)
         {
             manifest.Objects = objects;
@@ -30,8 +30,8 @@ namespace Unity.Scenes
 
             GlobalObjectId.GetGlobalObjectIdsSlow(objects, globalobjectIds);
 
-            fixed (GlobalObjectId* src = globalobjectIds)
-            fixed (RuntimeGlobalObjectId* dst = manifest.GlobalObjectIds)
+            fixed(GlobalObjectId* src = globalobjectIds)
+            fixed(RuntimeGlobalObjectId * dst = manifest.GlobalObjectIds)
             {
                 UnsafeUtility.MemCpy(dst, src, UnsafeUtility.SizeOf<RuntimeGlobalObjectId>() * objects.Length);
             }

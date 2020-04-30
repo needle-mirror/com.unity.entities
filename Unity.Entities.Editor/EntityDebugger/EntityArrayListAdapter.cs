@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -52,7 +52,7 @@ namespace Unity.Entities.Editor
                 this.adapter = adapter;
                 Reset();
             }
-            
+
             private void UpdateIndexInChunk()
             {
                 while (adapter.chunkArray[currentChunk].Count <= currentIndexInChunk)
@@ -72,12 +72,12 @@ namespace Unity.Entities.Editor
                     Reset(newLinearIndex);
                 }
             }
-            
+
             public bool MoveNext()
             {
                 ++currentIndexInChunk;
                 ++currentLinearIndex;
-                
+
                 if (currentLinearIndex >= adapter.Count)
                     return false;
 
@@ -110,7 +110,7 @@ namespace Unity.Entities.Editor
                 {
                     var entityArray = adapter.chunkArray[currentChunk].GetNativeArray(adapter.entityManager.GetArchetypeChunkEntityType());
                     var entity = entityArray[currentIndexInChunk];
-            
+
                     adapter.currentItem.id = entity.Index;
                     var name = adapter.entityManager.GetName(entity);
                     if (string.IsNullOrEmpty(name))
@@ -151,9 +151,9 @@ namespace Unity.Entities.Editor
                     }
                 }
             }
-            
+
             foundEntity = Entity.Null;
-            
+
             return false;
         }
 
@@ -161,7 +161,7 @@ namespace Unity.Entities.Editor
         {
             throw new NotImplementedException();
         }
-        
+
         public IEnumerator<TreeViewItem> GetEnumerator()
         {
             return new Enumerator(this);

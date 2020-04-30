@@ -10,38 +10,38 @@ namespace Unity.Entities.Hybrid.CodeGen
     {
         private bool HasGenerateAuthoringComponentAttribute(TypeDefinition typeDefinition)
         {
-            return typeDefinition.HasCustomAttributes 
-                   && typeDefinition.CustomAttributes.Any(
-                       c => c.AttributeType.Name == nameof(GenerateAuthoringComponentAttribute));
+            return typeDefinition.HasCustomAttributes
+                && typeDefinition.CustomAttributes.Any(
+                c => c.AttributeType.Name == nameof(GenerateAuthoringComponentAttribute));
         }
 
         private bool ShouldGenerateAuthoringComponentForBufferElementData(TypeDefinition typeDefinition)
         {
             return typeDefinition.Interfaces.Any(i => i.InterfaceType.Name == nameof(IBufferElementData)) &&
-                   HasGenerateAuthoringComponentAttribute(typeDefinition);
+                HasGenerateAuthoringComponentAttribute(typeDefinition);
         }
 
         private bool ShouldGenerateComponentDataAuthoringComponent(TypeDefinition typeDefinition)
         {
             return typeDefinition.Interfaces.Any(i => i.InterfaceType.Name == nameof(IComponentData)) &&
-                   HasGenerateAuthoringComponentAttribute(typeDefinition);
+                HasGenerateAuthoringComponentAttribute(typeDefinition);
         }
 
         protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
             var mainModule = AssemblyDefinition.MainModule;
 
-            TypeDefinition[] componentDataTypesRequiringAuthoringComponent = 
+            TypeDefinition[] componentDataTypesRequiringAuthoringComponent =
                 mainModule.Types.Where(ShouldGenerateComponentDataAuthoringComponent).ToArray();
             TypeDefinition[] bufferElementTypesRequiringAuthoringComponent =
                 mainModule.Types.Where(ShouldGenerateAuthoringComponentForBufferElementData).ToArray();
-            
+
             if (componentDataTypesRequiringAuthoringComponent.Length == 0
                 && bufferElementTypesRequiringAuthoringComponent.Length == 0)
             {
                 return false;
             }
-                
+
             foreach (var componentDataType in componentDataTypesRequiringAuthoringComponent)
             {
                 CreateComponentDataAuthoringType(componentDataType);
@@ -56,11 +56,11 @@ namespace Unity.Entities.Hybrid.CodeGen
 
         static MethodDefinition CreateEmptyConvertMethod(ModuleDefinition componentDataModule, TypeDefinition authoringType)
         {
-            return 
+            return
                 CecilHelpers.AddMethodImplementingInterfaceMethod(
-                    componentDataModule, 
-                    authoringType,
-                    typeof(IConvertGameObjectToEntity).GetMethod(nameof(IConvertGameObjectToEntity.Convert)));
+                componentDataModule,
+                authoringType,
+                typeof(IConvertGameObjectToEntity).GetMethod(nameof(IConvertGameObjectToEntity.Convert)));
         }
     }
 }

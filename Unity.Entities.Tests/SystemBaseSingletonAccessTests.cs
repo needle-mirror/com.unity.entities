@@ -1,4 +1,3 @@
-
 using System;
 #if !UNITY_DOTSPLAYER
 using NUnit.Framework;
@@ -17,11 +16,11 @@ namespace Unity.Entities.Tests
         {
             TestSystem = World.GetOrCreateSystem<SystemBase_TestSystem>();
         }
-        
+
         public class SystemBase_TestSystem : SystemBase
         {
             protected override void OnUpdate() {}
-            
+
             public void GetSetSingleton()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
@@ -29,18 +28,74 @@ namespace Unity.Entities.Tests
                 SetSingleton(new EcsTestData(10));
                 Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
             }
-            
+
+            public void SingletonMethodsWithValidFilter_GetsAndSets()
+            {
+                var queryWithFilter1 = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
+                queryWithFilter1.SetSharedComponentFilter(new SharedData1(1));
+                var queryWithFilter2 = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
+                queryWithFilter2.SetSharedComponentFilter(new SharedData1(2));
+
+                var entity1 = EntityManager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
+                EntityManager.SetComponentData(entity1, new EcsTestData(-1));
+                EntityManager.SetSharedComponentData(entity1, new SharedData1(1));
+
+                var entity2 = EntityManager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
+                EntityManager.SetComponentData(entity2, new EcsTestData(-1));
+                EntityManager.SetSharedComponentData(entity2, new SharedData1(2));
+
+                Assert.DoesNotThrow(() => queryWithFilter1.SetSingleton(new EcsTestData(1)));
+                Assert.DoesNotThrow(() => queryWithFilter2.SetSingleton(new EcsTestData(2)));
+
+                Assert.DoesNotThrow(() => queryWithFilter1.GetSingletonEntity());
+                Assert.DoesNotThrow(() => queryWithFilter2.GetSingletonEntity());
+
+                var data1 = queryWithFilter1.GetSingleton<EcsTestData>();
+                Assert.AreEqual(1, data1.value);
+                var data2 = queryWithFilter2.GetSingleton<EcsTestData>();
+                Assert.AreEqual(2, data2.value);
+
+                // These need to be reset or the AllSharedComponentReferencesAreFromChunks check will fail
+                queryWithFilter1.ResetFilter();
+                queryWithFilter2.ResetFilter();
+            }
+
+            public void SingletonMethodsWithInvalidFilter_Throws()
+            {
+                var queryWithFilterMissingEntity = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
+                queryWithFilterMissingEntity.SetSharedComponentFilter(new SharedData1(1));
+                var queryWithFilterWithAdditionalEntity = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
+                queryWithFilterWithAdditionalEntity.SetSharedComponentFilter(new SharedData1(2));
+
+                var entity1 = EntityManager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
+                EntityManager.SetSharedComponentData(entity1, new SharedData1(2));
+                var entity2 = EntityManager.CreateEntity(typeof(EcsTestData), typeof(SharedData1));
+                EntityManager.SetSharedComponentData(entity2, new SharedData1(2));
+
+                Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.GetSingleton<EcsTestData>());
+                Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.SetSingleton(new EcsTestData(1)));
+                Assert.Throws<InvalidOperationException>(() => queryWithFilterMissingEntity.GetSingletonEntity());
+
+                Assert.Throws<InvalidOperationException>(() => queryWithFilterWithAdditionalEntity.GetSingleton<EcsTestData>());
+                Assert.Throws<InvalidOperationException>(() => queryWithFilterWithAdditionalEntity.SetSingleton(new EcsTestData(1)));
+                Assert.Throws<InvalidOperationException>(() => queryWithFilterWithAdditionalEntity.GetSingletonEntity());
+
+                // These need to be reset or the AllSharedComponentReferencesAreFromChunks check will fail
+                queryWithFilterMissingEntity.ResetFilter();
+                queryWithFilterWithAdditionalEntity.ResetFilter();
+            }
+
             public void GetSetSingletonMultipleComponents()
             {
                 var entity = EntityManager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestData), typeof(EcsTestData2));
 
                 EntityManager.SetComponentData(entity, new EcsTestData(10));
                 Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
-                
+
                 SetSingleton(new EcsTestData2(100));
                 Assert.AreEqual(100, EntityManager.GetComponentData<EcsTestData2>(entity).value0);
             }
-            
+
             public void GetSetSingletonInEntitiesForEach()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData2));
@@ -58,7 +113,7 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(() => SetSingleton(new EcsTestData()));
                 Assert.Throws<InvalidOperationException>(() => GetSingleton<EcsTestData>());
             }
-            
+
             // Throws due to a singleton component only being allowed on a single Entity
             public void GetSetSingletonMultipleThrows()
             {
@@ -68,12 +123,12 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(() => SetSingleton(new EcsTestData()));
                 Assert.Throws<InvalidOperationException>(() => GetSingleton<EcsTestData>());
             }
-            
+
             public void RequireSingletonWorks()
             {
                 RequireSingletonForUpdate<EcsTestData>();
                 GetEntityQuery(typeof(EcsTestData2));
-                
+
                 EntityManager.CreateEntity(typeof(EcsTestData2));
                 Assert.IsFalse(ShouldRunSystem());
                 EntityManager.CreateEntity(typeof(EcsTestData));
@@ -90,14 +145,14 @@ namespace Unity.Entities.Tests
             public void HasSingleton_ReturnsTrueWithEntityWithOnlyComponent()
             {
                 Assert.IsFalse(HasSingleton<EcsTestData>());
-                
+
                 EntityManager.CreateEntity(typeof(EcsTestData));
                 Assert.IsTrue(HasSingleton<EcsTestData>());
-                
+
                 EntityManager.CreateEntity(typeof(EcsTestData));
                 Assert.IsFalse(HasSingleton<EcsTestData>());
             }
-            
+
             public void GetSingletonEntityWorks()
             {
                 var entity = EntityManager.CreateEntity(typeof(EcsTestData));
@@ -132,6 +187,7 @@ namespace Unity.Entities.Tests
                 EntityManager.CreateEntity(typeof(EcsTestManagedComponent));
                 Assert.IsTrue(this.HasSingleton<EcsTestManagedComponent>());
             }
+
     #endif
         }
 
@@ -140,13 +196,25 @@ namespace Unity.Entities.Tests
         {
             TestSystem.GetSetSingleton();
         }
-        
+
+        [Test]
+        public void SystemBase_SingletonMethodsWithValidFilter_GetsAndSets()
+        {
+            TestSystem.SingletonMethodsWithValidFilter_GetsAndSets();
+        }
+
+        [Test]
+        public void SystemBase_SingletonMethodsWithInvalidFilter_Throws()
+        {
+            TestSystem.SingletonMethodsWithInvalidFilter_Throws();
+        }
+
         [Test]
         public void SystemBase_GetSetSingletonMultipleComponents()
         {
             TestSystem.GetSetSingletonMultipleComponents();
         }
-        
+
         [Test]
         public void SystemBase_GetSetSingletonInEntitiesForEach()
         {
@@ -158,13 +226,13 @@ namespace Unity.Entities.Tests
         {
             TestSystem.GetSetSingletonZeroThrows();
         }
-        
+
         [Test]
         public void SystemBase_GetSetSingletonMultipleThrows()
         {
             TestSystem.GetSetSingletonMultipleThrows();
         }
-        
+
         [Test]
         public void SystemBase_RequireSingletonWorks()
         {
@@ -182,7 +250,7 @@ namespace Unity.Entities.Tests
         {
             TestSystem.HasSingleton_ReturnsTrueWithEntityWithOnlyComponent();
         }
-        
+
         [Test]
         public void SystemBase_GetSingletonEntityWorks()
         {
@@ -207,6 +275,7 @@ namespace Unity.Entities.Tests
         {
             TestSystem.HasSingletonWorks_ManagedComponents();
         }
+
 #endif
     }
 }

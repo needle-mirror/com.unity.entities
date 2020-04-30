@@ -14,14 +14,14 @@ namespace Unity.Entities.Editor
                 var local = value;
 
                 var index = Array.FindIndex(options, name => name == local.ToString());
-            
+
                 EditorGUILayout.Popup
-                (
-                    typeof(TValue).Name,
-                    index,
-                    options
-                );
-                
+                    (
+                        typeof(TValue).Name,
+                        index,
+                        options
+                    );
+
                 return VisitStatus.Handled;
             }
 
@@ -35,7 +35,7 @@ namespace Unity.Entities.Editor
             {
                 return VisitStatus.Stop;
             }
-            
+
             return VisitStatus.Unhandled;
         }
 

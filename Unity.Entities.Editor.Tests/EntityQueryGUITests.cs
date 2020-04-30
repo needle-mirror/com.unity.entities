@@ -3,9 +3,8 @@ using NUnit.Framework;
 
 namespace Unity.Entities.Editor.Tests
 {
-
-    public struct JustComponentNonExclude: IComponentData {}
-    public struct ZeroSizedComponent: IComponentData {}
+    public struct JustComponentNonExclude : IComponentData {}
+    public struct ZeroSizedComponent : IComponentData {}
     public struct NonZeroSizedComponent : IComponentData
     {
         public float Value;
@@ -36,7 +35,6 @@ namespace Unity.Entities.Editor.Tests
 
     public class EntityQueryGUITests
     {
-
         [Test]
         public void EntityQueryGUI_SpecifiedTypeName_NestedTypeInGeneric()
         {
@@ -62,7 +60,6 @@ namespace Unity.Entities.Editor.Tests
                 var ui2 = new EntityQueryGUIControl(system.Group2.GetQueryTypes(), system.Group2.GetReadAndWriteTypes(), false);
                 Assert.AreEqual(EntityDebuggerStyles.ComponentExclude, ui2.styles[1]);
             }
-
         }
 
         [Test]

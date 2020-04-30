@@ -3,7 +3,8 @@ using Unity.Collections;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
 
-namespace Unity.Entities {
+namespace Unity.Entities
+{
     /// <summary>
     /// The BlobAssetComputationContext must be used during Authoring to ECS conversion process to detect which BlobAsset should be computed and to declare their association with a UnityObject
     /// </summary>
@@ -58,22 +59,12 @@ namespace Unity.Entities {
             }
 
             UpdateBlobStore();
-            
+
             m_ToCompute.Dispose();
             m_Computed.Dispose();
             m_BlobPerUnityObject.Dispose();
         }
 
-    #if UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE
-        [Obsolete("BlobAssetComputationContext<TS, TB>.AssociateBlobAssetWithGameObject(Hash128, GameObject) is deprecated, use BlobAssetComputationContext<TS, TB>.AssociateBlobAssetWithUnityObject(Hash128, UnityObject) instead. (RemovedAfter 2020-04-08)")]
-    #else
-        [Obsolete("BlobAssetComputationContext<TS, TB>.AssociateBlobAssetWithGameObject(Hash128, GameObject) is deprecated, use BlobAssetComputationContext<TS, TB>.AssociateBlobAssetWithUnityObject(Hash128, UnityObject) instead. (RemovedAfter 2020-04-08) (UnityUpgradable) -> AssociateBlobAssetWithUnityObject(*)")]
-    #endif
-        public void AssociateBlobAssetWithGameObject(Hash128 hash, GameObject gameObject)
-        {
-            AssociateBlobAssetWithUnityObject(hash, gameObject);
-        }
-        
         /// <summary>
         /// Declare the BlobAsset being associated with the given UnityObject
         /// </summary>
@@ -86,7 +77,7 @@ namespace Unity.Entities {
         {
             m_BlobPerUnityObject.Add(unityObject.GetInstanceID(), hash);
         }
-        
+
         /// <summary>
         /// During the conversion process, the user must call this method for each BlobAsset being processed, to determine if it requires to be computed
         /// </summary>
@@ -133,7 +124,7 @@ namespace Unity.Entities {
         {
             return m_Computed.TryGetValue(hash, out blob) || m_BlobAssetStore.TryGet(hash, out blob);
         }
-        
+
         /// <summary>
         /// Update the store with the recorded BlobAsset/UnityObject associations.
         /// </summary>
@@ -157,7 +148,8 @@ namespace Unity.Entities {
                         do
                         {
                             valueArray[i++] = value;
-                        } while (m_BlobPerUnityObject.TryGetNextValue(out value, ref iterator));
+                        }
+                        while (m_BlobPerUnityObject.TryGetNextValue(out value, ref iterator));
 
                         valueArray.Sort();
                     }

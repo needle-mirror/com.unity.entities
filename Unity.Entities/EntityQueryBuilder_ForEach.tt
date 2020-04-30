@@ -61,7 +61,7 @@ foreach (var categories in combinations) {
 <#      } #>
 
                 var query = m_Query;
-                if (query == null)
+                if (query == default)
                 {
 <#          if (categories.Any()) {#>
                     var delegateTypes = stackalloc[] { <#=GetDelegateTypeIndexNames(categories.Length)#> };
@@ -71,8 +71,11 @@ foreach (var categories in combinations) {
                 EntityQuery.GatherEntitiesResult result = default;
                 try
                 {
+                    var access = m_System.EntityManager.GetCheckedEntityDataAccess();
+                    var ecs = access->EntityComponentStore;
+
                     query.GatherEntitiesToArray(out result);
-                    
+
                     for (var entityCount = 0; entityCount < result.EntityCount; entityCount++)
                     {
                         var entity = result.EntityBuffer[entityCount];
@@ -80,7 +83,7 @@ foreach (var categories in combinations) {
                             continue;
 <#      foreach (var (c, i) in mappedCategories) {#>
 <#          if (c == (int) Category.D) {#>
-                        UnsafeUtility.CopyPtrToStructure(m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRO(entity, typeIndex<#=i#>), out T<#=i#> c<#=i#>);
+                        UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex<#=i#>), out T<#=i#> c<#=i#>);
                         var copy<#=i#> = c<#=i#>;
 <#          } else {#>
                         var c<#=i#> = m_System.EntityManager.<#=string.Format(GetSlowComponent[c], i)#>;
@@ -91,10 +94,10 @@ foreach (var categories in combinations) {
 <#          foreach (var (c, i) in mappedCategories) {#>
 <#              if (c == (int) Category.D) {#>
                         if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref copy<#=i#>), UnsafeUtility.AddressOf(ref c<#=i#>), UnsafeUtility.SizeOf<T<#=i#>>()) != 0 &&
-                            m_System.EntityManager.EntityComponentStore->HasComponent(entity, typeIndex<#=i#>))
+                            ecs->HasComponent(entity, typeIndex<#=i#>))
                         {
-                            UnsafeUtility.CopyStructureToPtr(ref c<#=i#>, m_System.EntityManager.EntityComponentStore->GetComponentDataWithTypeRW(entity, typeIndex<#=i#>,
-                                m_System.EntityManager.EntityComponentStore->GlobalSystemVersion));
+                            UnsafeUtility.CopyStructureToPtr(ref c<#=i#>, ecs->GetComponentDataWithTypeRW(entity, typeIndex<#=i#>,
+                                ecs->GlobalSystemVersion));
                         }
 <#              }#>
 <#          }#>
@@ -146,10 +149,10 @@ string[] Param =
 string[] FwdParam =
 {
     "ref d{0}", // ref ComponentData
-    "i{0}",		// in ComponentData
-    "c{0}",		// class
+    "i{0}",     // in ComponentData
+    "c{0}",     // class
     "b{0}",     // IBufferElementData
-    "k{0}",		// in IBufferElementData
+    "k{0}",     // in IBufferElementData
     "s{0}",     // ISharedComponentData
 };
 

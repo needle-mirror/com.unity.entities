@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -46,19 +46,17 @@ namespace Unity.Entities.PerformanceTests
             throw new NotImplementedException();
         }
 
-        unsafe static NativeArray<T> ArraySlice<T>(NativeArray<T> array, int startIndex, int count) where T: struct
+        unsafe static NativeArray<T> ArraySlice<T>(NativeArray<T> array, int startIndex, int count) where T : struct
         {
-            var ptr = (byte*) NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(array);
+            var ptr = (byte*)NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(array);
             var sliced = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(ptr + startIndex * UnsafeUtility.SizeOf<T>(), count, Allocator.Invalid);
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref sliced, NativeArrayUnsafeUtility.GetAtomicSafetyHandle(array));
             return sliced;
         }
 
-
-
         [Test, Performance]
-        [Category("Performance")] // bug: this redundant category here required because our current test runner ignores Category on a fixture for generated test methods  
-        public void InstantiateBatch_100k([Values(1, 10, 100, 1000)]int batchSize, [Values]EntityType entityType)
+        [Category("Performance")] // bug: this redundant category here required because our current test runner ignores Category on a fixture for generated test methods
+        public void InstantiateBatch_100k([Values(1, 10, 100, 1000)] int batchSize, [Values] EntityType entityType)
         {
             Entity srcEntity = default(Entity);
 
@@ -71,14 +69,14 @@ namespace Unity.Entities.PerformanceTests
             srcEntity = CreateEntity(entityType);
 
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    for (int i = 0; i != totalCount; i += batchSize)
                     {
-                        for (int i = 0; i != totalCount; i += batchSize)
-                        {
-                            var actualBatchCount = math.min(batchSize, totalCount - i);
-                            m_Manager.Instantiate(srcEntity, ArraySlice(entities, i, actualBatchCount));
-                        }
-                    })
+                        var actualBatchCount = math.min(batchSize, totalCount - i);
+                        m_Manager.Instantiate(srcEntity, ArraySlice(entities, i, actualBatchCount));
+                    }
+                })
                 .CleanUp(() =>
                 {
                     m_Manager.DestroyEntity(entities);
@@ -92,8 +90,8 @@ namespace Unity.Entities.PerformanceTests
 
         //@TODO: Couldn't figure out how to make this test be a single one with above...
         [Test, Performance]
-        [Category("Performance")] // bug: this redundant category here required because our current test runner ignores Category on a fixture for generated test methods  
-        public void DestroyBatch_100k([Values(1, 10, 100, 1000)]int batchSize, [Values]EntityType entityType)
+        [Category("Performance")] // bug: this redundant category here required because our current test runner ignores Category on a fixture for generated test methods
+        public void DestroyBatch_100k([Values(1, 10, 100, 1000)] int batchSize, [Values] EntityType entityType)
         {
             Entity srcEntity = default(Entity);
 
@@ -106,14 +104,14 @@ namespace Unity.Entities.PerformanceTests
             srcEntity = CreateEntity(entityType);
 
             Measure.Method(
-                    () =>
+                () =>
+                {
+                    for (int i = 0; i != totalCount; i += batchSize)
                     {
-                        for (int i = 0; i != totalCount; i += batchSize)
-                        {
-                            var actualBatchCount = math.min(batchSize, totalCount - i);
-                            m_Manager.DestroyEntity(ArraySlice(entities, i, actualBatchCount));
-                        }
-                    })
+                        var actualBatchCount = math.min(batchSize, totalCount - i);
+                        m_Manager.DestroyEntity(ArraySlice(entities, i, actualBatchCount));
+                    }
+                })
                 .SetUp(() =>
                 {
                     Assert.IsTrue(m_Manager.Debug.EntityCount <= 10);

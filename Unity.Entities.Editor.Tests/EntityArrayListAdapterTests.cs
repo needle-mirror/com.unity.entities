@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.Tests;
 
@@ -11,9 +11,9 @@ namespace Unity.Entities.Editor.Tests
         public override void Setup()
         {
             base.Setup();
-            
+
             var archetype = m_Manager.CreateArchetype(new ComponentType[] {typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3),
-                typeof(EcsTestData4)});
+                                                                           typeof(EcsTestData4)});
             using (var entities = new NativeArray<Entity>(100000, Allocator.Temp))
             {
                 m_Manager.CreateEntity(archetype, entities);
@@ -51,7 +51,6 @@ namespace Unity.Entities.Editor.Tests
             Assert.AreNotEqual(e2, e1Again);
             Assert.AreEqual(e1, e1Again);
             Assert.AreEqual(e2, e2Again);
-            
         }
 
         [Test]

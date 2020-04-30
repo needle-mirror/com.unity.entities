@@ -25,9 +25,10 @@ namespace Unity.Entities
         public readonly int* Ptr;
         public readonly int Length;
         public readonly int Capacity;
-        public readonly Allocator Allocator;
+        public readonly AllocatorManager.AllocatorHandle Allocator;
 
-        public unsafe UnsafeIntList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.None; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<int>(), UnsafeUtility.AlignOf<int>(), initialCapacity, allocator, options); }
+        public unsafe UnsafeIntList(int initialCapacity, AllocatorManager.AllocatorHandle allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<int>(), UnsafeUtility.AlignOf<int>(), initialCapacity, allocator, options); }
+        public unsafe UnsafeIntList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<int>(), UnsafeUtility.AlignOf<int>(), initialCapacity, allocator, options); }
         public bool IsCreated => Ptr != null;
         public void Dispose() { this.ListData().Dispose(); }
         public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }
@@ -110,9 +111,10 @@ namespace Unity.Entities
         public readonly uint* Ptr;
         public readonly int Length;
         public readonly int Capacity;
-        public readonly Allocator Allocator;
+        public readonly AllocatorManager.AllocatorHandle Allocator;
 
-        public unsafe UnsafeUintList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.None; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<uint>(), UnsafeUtility.AlignOf<uint>(), initialCapacity, allocator, options); }
+        public unsafe UnsafeUintList(int initialCapacity, AllocatorManager.AllocatorHandle allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<uint>(), UnsafeUtility.AlignOf<uint>(), initialCapacity, allocator, options); }
+        public unsafe UnsafeUintList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<uint>(), UnsafeUtility.AlignOf<uint>(), initialCapacity, allocator, options); }
         public bool IsCreated => Ptr != null;
         public void Dispose() { this.ListData().Dispose(); }
         public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }
@@ -195,10 +197,10 @@ namespace Unity.Entities
         public readonly Chunk** Ptr;
         public readonly int Length;
         public readonly int Capacity;
-        public readonly Allocator Allocator;
+        public readonly AllocatorManager.AllocatorHandle Allocator;
 
-        public unsafe UnsafeChunkPtrList(Chunk** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; this.ListData() = new UnsafePtrList((void**)ptr, length); }
-        public unsafe UnsafeChunkPtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.None; this.ListData() = new UnsafePtrList(initialCapacity, allocator, options); }
+        public unsafe UnsafeChunkPtrList(Chunk** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.Invalid; this.ListData() = new UnsafePtrList((void**)ptr, length); }
+        public unsafe UnsafeChunkPtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafePtrList(initialCapacity, allocator, options); }
         public bool IsCreated => Ptr != null;
         public void Dispose() { this.ListData().Dispose(); }
         public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }
@@ -277,10 +279,10 @@ namespace Unity.Entities
         public readonly Archetype** Ptr;
         public readonly int Length;
         public readonly int Capacity;
-        public readonly Allocator Allocator;
+        public readonly AllocatorManager.AllocatorHandle Allocator;
 
-        public unsafe UnsafeArchetypePtrList(Archetype** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; this.ListData() = new UnsafePtrList((void**)ptr, length); }
-        public unsafe UnsafeArchetypePtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.None; this.ListData() = new UnsafePtrList(initialCapacity, allocator, options); }
+        public unsafe UnsafeArchetypePtrList(Archetype** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.Invalid; this.ListData() = new UnsafePtrList((void**)ptr, length); }
+        public unsafe UnsafeArchetypePtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafePtrList(initialCapacity, allocator, options); }
         public bool IsCreated => Ptr != null;
         public void Dispose() { this.ListData().Dispose(); }
         public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }
@@ -359,10 +361,10 @@ namespace Unity.Entities
         public readonly EntityQueryData** Ptr;
         public readonly int Length;
         public readonly int Capacity;
-        public readonly Allocator Allocator;
+        public readonly AllocatorManager.AllocatorHandle Allocator;
 
-        public unsafe UnsafeEntityQueryDataPtrList(EntityQueryData** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.Invalid; this.ListData() = new UnsafePtrList((void**)ptr, length); }
-        public unsafe UnsafeEntityQueryDataPtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = Allocator.None; this.ListData() = new UnsafePtrList(initialCapacity, allocator, options); }
+        public unsafe UnsafeEntityQueryDataPtrList(EntityQueryData** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.Invalid; this.ListData() = new UnsafePtrList((void**)ptr, length); }
+        public unsafe UnsafeEntityQueryDataPtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafePtrList(initialCapacity, allocator, options); }
         public bool IsCreated => Ptr != null;
         public void Dispose() { this.ListData().Dispose(); }
         public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
@@ -39,8 +39,8 @@ namespace Unity.Entities
             get
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if(0 > index || index >= m_length)
-                    throw new IndexOutOfRangeException(string.Format("Index {0} is out of range of '{1}' Length.", (object) index, (object) this.m_length));
+                if (0 > index || index >= m_length)
+                    throw new IndexOutOfRangeException(string.Format("Index {0} is out of range of '{1}' Length.", (object)index, (object)this.m_length));
 #endif
                 return ref UnsafeUtilityEx.ArrayElementAsRef<T>(m_data, index);
             }
@@ -225,7 +225,7 @@ namespace Unity.Entities
             m_patches.Add(patch);
             return ref UnsafeUtilityEx.AsRef<T>(AllocationToPointer(allocation));
         }
-        
+
         struct SortedIndex : IComparable<SortedIndex>
         {
             public byte* p;
@@ -255,7 +255,7 @@ namespace Unity.Entities
             offsets[0] = 0;
             for (int i = 0; i < m_allocations.Length; ++i)
             {
-                offsets[i+1] = offsets[i] + m_allocations[i].size;
+                offsets[i + 1] = offsets[i] + m_allocations[i].size;
                 sortedAllocs[i] = new SortedIndex {p = m_allocations[i].p, index = i};
             }
             int dataSize = offsets[m_allocations.Length];
@@ -266,7 +266,7 @@ namespace Unity.Entities
                 sortedPatches[i] = new SortedIndex {p = (byte*)m_patches[i].offsetPtr, index = i};
             sortedPatches.Sort();
 
-            byte* buffer = (byte*) UnsafeUtility.Malloc(sizeof(BlobAssetHeader) + dataSize, 16, allocator);
+            byte* buffer = (byte*)UnsafeUtility.Malloc(sizeof(BlobAssetHeader) + dataSize, 16, allocator);
             byte* data = buffer + sizeof(BlobAssetHeader);
 
             for (int i = 0; i < m_allocations.Length; ++i)
@@ -293,10 +293,10 @@ namespace Unity.Entities
                 int offsetPtrInData = offsets[sortedAllocs[iAlloc].index] + (int)((byte*)offsetPtr - allocStart);
                 int targetPtrInData = offsets[patch.target.allocIndex] + patch.target.offset;
 
-                *(int*) (data + offsetPtrInData) = targetPtrInData - offsetPtrInData;
+                *(int*)(data + offsetPtrInData) = targetPtrInData - offsetPtrInData;
                 if (patch.length != 0)
                 {
-                    *(int*) (data + offsetPtrInData + 4) = patch.length;
+                    *(int*)(data + offsetPtrInData + 4) = patch.length;
                 }
             }
 
@@ -304,11 +304,11 @@ namespace Unity.Entities
             sortedAllocs.Dispose();
             offsets.Dispose();
 
-            BlobAssetHeader* header = (BlobAssetHeader*) buffer;
+            BlobAssetHeader* header = (BlobAssetHeader*)buffer;
             *header = new BlobAssetHeader();
             header->Length = (int)dataSize;
             header->Allocator = allocator;
-            
+
             // @TODO use 64bit hash
             header->Hash = math.hash(buffer + sizeof(BlobAssetHeader), dataSize);
 
@@ -318,6 +318,7 @@ namespace Unity.Entities
 
             return blobAssetReference;
         }
+
         void* AllocationToPointer(BlobDataRef blobDataRef)
         {
             return m_allocations[blobDataRef.allocIndex].p + blobDataRef.offset;
@@ -333,7 +334,7 @@ namespace Unity.Entities
             if (startOffset + size > m_chunkSize)
                 return AllocateNewChunk();
 
-            UnsafeUtility.MemClear(alloc.p + alloc.size, startOffset-alloc.size);
+            UnsafeUtility.MemClear(alloc.p + alloc.size, startOffset - alloc.size);
 
             alloc.size = startOffset;
             return alloc;
@@ -345,7 +346,7 @@ namespace Unity.Entities
             {
                 size = CollectionHelper.Align(size, 16);
                 var allocIndex = m_allocations.Length;
-                var mem = (byte*) UnsafeUtility.Malloc(size, alignment, m_allocator);
+                var mem = (byte*)UnsafeUtility.Malloc(size, alignment, m_allocator);
                 UnsafeUtility.MemClear(mem, size);
                 m_allocations.Add(new BlobAllocation {p = mem, size = size});
                 return new BlobDataRef {allocIndex = allocIndex, offset = 0};
@@ -363,7 +364,7 @@ namespace Unity.Entities
         BlobAllocation AllocateNewChunk()
         {
             // align size of last chunk to 16 bytes so chunks can be concatenated without breaking alignment
-            if(m_currentChunkIndex != -1)
+            if (m_currentChunkIndex != -1)
             {
                 var currentAlloc = m_allocations[m_currentChunkIndex];
                 currentAlloc.size = CollectionHelper.Align(currentAlloc.size, 16);
@@ -371,7 +372,7 @@ namespace Unity.Entities
             }
 
             m_currentChunkIndex = m_allocations.Length;
-            var alloc = new BlobAllocation {p = (byte*) UnsafeUtility.Malloc(m_chunkSize, 16, m_allocator), size = 0};
+            var alloc = new BlobAllocation {p = (byte*)UnsafeUtility.Malloc(m_chunkSize, 16, m_allocator), size = 0};
             m_allocations.Add(alloc);
             return alloc;
         }
@@ -381,7 +382,7 @@ namespace Unity.Entities
         {
             // ValidateAllocation is most often called with data in recently allocated allocations
             // so this searches backwards
-            for (int i = m_allocations.Length-1; i >= 0; --i)
+            for (int i = m_allocations.Length - 1; i >= 0; --i)
             {
                 if (m_allocations[i].p <= p && p < m_allocations[i].p + m_allocations[i].size)
                     return;
@@ -396,14 +397,10 @@ namespace Unity.Entities
         /// <remarks>Call `Dispose()` after calling <see cref="CreateBlobAssetReference{T}"/>.</remarks>
         public void Dispose()
         {
-            for(int i=0;i<m_allocations.Length;++i)
+            for (int i = 0; i < m_allocations.Length; ++i)
                 UnsafeUtility.Free(m_allocations[i].p, m_allocator);
             m_allocations.Dispose();
             m_patches.Dispose();
         }
-        
-        [Obsolete("The Allocate parameters have been reversed for consistency. Please swap length & BlobArray parameter order. (RemovedAfter 2020-04-09)")]
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public BlobBuilderArray<T> Allocate<T>(int length, ref BlobArray<T> ptr) where T : struct => Allocate(ref ptr, length);
     }
 }

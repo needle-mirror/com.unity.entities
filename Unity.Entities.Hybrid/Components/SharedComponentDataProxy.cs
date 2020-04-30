@@ -1,7 +1,9 @@
+using System;
 using UnityEngine;
 
 namespace Unity.Entities
 {
+    [Obsolete("SharedComponentDataProxy<T> has been deprecated. Please use the new GameObject-to-entity conversion workflows instead. (RemovedAfter 2020-07-03).")]
     public abstract class SharedComponentDataProxy<T> : ComponentDataProxyBase where T : struct, ISharedComponentData
     {
         internal override void ValidateSerializedData()
@@ -48,14 +50,14 @@ namespace Unity.Entities
             m_SerializedData = manager.GetSharedComponentData<T>(entity);
         }
 
-        internal override int InsertSharedComponent(EntityManager manager)
+        internal unsafe override int InsertSharedComponent(EntityManager manager)
         {
-            return manager.ManagedComponentStore.InsertSharedComponent(m_SerializedData);
+            return manager.GetCheckedEntityDataAccess()->ManagedComponentStore.InsertSharedComponent(m_SerializedData);
         }
 
-        internal override void UpdateSerializedData(EntityManager manager, int sharedComponentIndex)
+        internal unsafe override void UpdateSerializedData(EntityManager manager, int sharedComponentIndex)
         {
-            m_SerializedData = manager.ManagedComponentStore.GetSharedComponentData<T>(sharedComponentIndex);
+            m_SerializedData = manager.GetCheckedEntityDataAccess()->ManagedComponentStore.GetSharedComponentData<T>(sharedComponentIndex);
         }
     }
 }

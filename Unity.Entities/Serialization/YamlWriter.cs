@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Unity.Mathematics;
 
-namespace Unity.Entities.Serialization 
+namespace Unity.Entities.Serialization
 {
     /// <summary>
     /// Small and efficient class to writer in the Yaml format
@@ -61,7 +61,7 @@ namespace Unity.Entities.Serialization
         {
             return new Collection(this, collectionName.ToString());
         }
-            
+
         public YamlWriter WriteInlineSequence<TS>(TS sequenceName, IEnumerable<object> values)
         {
             var sb = new StringBuilder();
@@ -187,7 +187,7 @@ namespace Unity.Entities.Serialization
         #endregion
 
         #region Helpers
-            
+
         static string FormatValue<T>(T value)
         {
             if (typeof(T) == typeof(string))
@@ -210,9 +210,9 @@ namespace Unity.Entities.Serialization
                 throw new NotImplementedException($"Method {caller} does not currently support multi-lines text");
             }
         }
-            
+
         #endregion
-            
+
         #region Private data
 
         int m_CurrentIndent;
@@ -220,11 +220,11 @@ namespace Unity.Entities.Serialization
         StreamWriter m_Writer;
 
         #endregion
-        
+
         #region Scope management
 
         public int CurrentIndent => m_CurrentIndent;
-            
+
         void IncrementIndent()
         {
             ++m_CurrentIndent;
@@ -253,6 +253,7 @@ namespace Unity.Entities.Serialization
                     m_Owner.IncrementIndent();
                 }
             }
+
             public void Dispose()
             {
                 m_Owner.DecrementIndent();

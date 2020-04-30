@@ -14,7 +14,7 @@ namespace Unity.Scenes
         private AssetBundleCreateRequest _assetBundleCreateRequest;
         private AssetBundle _assetBundle;
         private readonly string _bundlePath;
-        
+
         internal AssetBundle AssetBundle
         {
             get
@@ -24,7 +24,7 @@ namespace Unity.Scenes
                     _assetBundle = _assetBundleCreateRequest.assetBundle;
                     _assetBundleCreateRequest = null;
                 }
-                
+
                 return _assetBundle;
             }
         }
@@ -58,7 +58,7 @@ namespace Unity.Scenes
             {
                 if (refCount < 0)
                     throw new InvalidOperationException($"SceneBundleHandle refcount is less than zero. It has been corrupted.");
-                
+
                 ReleaseBundle(this);
             }
         }
@@ -75,7 +75,7 @@ namespace Unity.Scenes
         {
             if (bundlePath == null)
                 throw new InvalidOperationException("Bundle Path is null!");
-            
+
             // First Check if we have it loaded
             if (!LoadedBundles.TryGetValue(bundlePath, out var assetBundleHandle))
             {
@@ -84,12 +84,12 @@ namespace Unity.Scenes
                 {
                     assetBundleHandle = new SceneBundleHandle(bundlePath);
                 }
-                
+
                 LoadedBundles[bundlePath] = assetBundleHandle;
             }
-            
+
             assetBundleHandle.Retain();
-            
+
             return assetBundleHandle;
         }
 
@@ -99,8 +99,8 @@ namespace Unity.Scenes
 
             if (UnloadingBundles.ContainsKey(bundlePath))
                 throw new InvalidOperationException($"Attempting to release a bundle that is already unloading! {bundlePath}");
-            
-            if(!LoadedBundles.ContainsKey(bundlePath))
+
+            if (!LoadedBundles.ContainsKey(bundlePath))
                 throw new InvalidOperationException($"Attempting to release a bundle is not contained within LoadedBundles! {bundlePath}");
 
             LoadedBundles.Remove(bundlePath);
@@ -114,7 +114,7 @@ namespace Unity.Scenes
                 if (sceneBundleHandle.Value.IsReady())
                 {
                     sceneBundleHandle.Value.AssetBundle.Unload(true);
-                    
+
                     UnloadingBundles.TryRemove(sceneBundleHandle.Key, out _);
                 }
             }

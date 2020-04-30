@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Collections;
 using System;
 
@@ -188,7 +188,7 @@ namespace Unity.Entities.Tests
 
             VerifyComponentCount<EcsState1>(1);
         }
-        
+
         [Test]
         public void InstantiateResidueEntityThrows()
         {
@@ -200,7 +200,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity0);
             Assert.Throws<ArgumentException>(() => m_Manager.Instantiate(entity0));
         }
-        
+
         [Test]
         public void DeleteFromEntity()
         {
@@ -232,13 +232,13 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsState1>());
-            
+
             for (var i = 0; i < 512; i++)
             {
                 var entity = entities[i];
-                m_Manager.RemoveComponent(entity,typeof(EcsState1));
+                m_Manager.RemoveComponent(entity, typeof(EcsState1));
             }
-            
+
             VerifyComponentCount<EcsState1>(0);
 
             for (var i = 0; i < 512; i++)
@@ -247,7 +247,7 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(m_Manager.Exists(entity));
             }
         }
-        
+
         [Test]
         public void DeleteFromEntityQuery()
         {
@@ -279,9 +279,9 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsState1>());
-            
-            m_Manager.RemoveComponent(group,typeof(EcsState1));
-            
+
+            m_Manager.RemoveComponent(group, typeof(EcsState1));
+
             VerifyComponentCount<EcsState1>(0);
 
             for (var i = 0; i < 512; i++)
@@ -322,7 +322,7 @@ namespace Unity.Entities.Tests
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsStateTag1>());
 
-            m_Manager.RemoveComponent(group,typeof(EcsStateTag1));
+            m_Manager.RemoveComponent(group, typeof(EcsStateTag1));
 
             VerifyComponentCount<EcsStateTag1>(0);
 
@@ -336,27 +336,27 @@ namespace Unity.Entities.Tests
         [Test]
         public void DestroySystemStateEntitySecondTimeIsIgnored()
         {
-                var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsState1));
-                m_Manager.SetComponentData(entity1, new EcsTestData(1));
-                m_Manager.SetComponentData(entity1, new EcsState1(101));
-                m_Manager.SetSharedComponentData(entity1, new EcsTestSharedComp(42));
-                m_Manager.DestroyEntity(entity1);
-                var chunkBefore = m_Manager.GetChunk(entity1);
-                var entity2 = entity1;
-                // fill up chunk
-                for(int i=2; chunkBefore==m_Manager.GetChunk(entity2);++i)
-                {
-                    entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsState1));
-                    m_Manager.SetComponentData(entity2, new EcsTestData(i));
-                    m_Manager.SetComponentData(entity2, new EcsState1(i+100));
-                    m_Manager.SetSharedComponentData(entity2, new EcsTestSharedComp(42));
-                    m_Manager.DestroyEntity(entity2);
-                }
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsState1));
+            m_Manager.SetComponentData(entity1, new EcsTestData(1));
+            m_Manager.SetComponentData(entity1, new EcsState1(101));
+            m_Manager.SetSharedComponentData(entity1, new EcsTestSharedComp(42));
+            m_Manager.DestroyEntity(entity1);
+            var chunkBefore = m_Manager.GetChunk(entity1);
+            var entity2 = entity1;
+            // fill up chunk
+            for (int i = 2; chunkBefore == m_Manager.GetChunk(entity2); ++i)
+            {
+                entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsState1));
+                m_Manager.SetComponentData(entity2, new EcsTestData(i));
+                m_Manager.SetComponentData(entity2, new EcsState1(i + 100));
+                m_Manager.SetSharedComponentData(entity2, new EcsTestSharedComp(42));
+                m_Manager.DestroyEntity(entity2);
+            }
 
-                m_Manager.DestroyEntity(entity1);
-                var chunkAfter = m_Manager.GetChunk(entity1);
+            m_Manager.DestroyEntity(entity1);
+            var chunkAfter = m_Manager.GetChunk(entity1);
 
-                Assert.AreEqual(chunkBefore, chunkAfter);
+            Assert.AreEqual(chunkBefore, chunkAfter);
         }
 
         struct SystemShared : ISystemStateSharedComponentData
@@ -364,6 +364,8 @@ namespace Unity.Entities.Tests
             public int Value;
         }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void SystemStateSharedKeepsValueAfterDestroy()
         {
@@ -372,5 +374,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
             EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<CleanupEntity>(new SystemShared { Value = 123 }));
         }
+
+#endif
     }
 }

@@ -37,11 +37,11 @@ namespace Unity.Core
         public static unsafe uint Hash32(byte* buffer, int bufferLength, uint seed = 0)
         {
             const int stripeLength = 16;
-            
+
             int len = bufferLength;
             int remainingLen = len;
             uint acc;
-           
+
             byte* pInput = buffer;
             if (len >= stripeLength)
             {
@@ -87,7 +87,7 @@ namespace Unity.Core
             int readBytes = stream.Read(buffer, 0, readBufferSize);
             int len = readBytes;
 
-            fixed (byte* inputPtr = buffer)
+            fixed(byte* inputPtr = buffer)
             {
                 byte* pInput = inputPtr;
                 if (readBytes >= stripeLength)
@@ -97,7 +97,7 @@ namespace Unity.Core
                     uint acc2 = seed + prime32v2;
                     uint acc3 = seed;
                     uint acc4 = seed - prime32v1;
-                    
+
                     do
                     {
                         do
@@ -128,6 +128,7 @@ namespace Unity.Core
 
             return avalanche32(acc);
         }
+
 #endif
 
         /// <summary>
@@ -139,7 +140,7 @@ namespace Unity.Core
         public static unsafe ulong Hash64(byte* buffer, int bufferLength, ulong seed = 0)
         {
             const int stripeLength = 32;
-            
+
             int len = bufferLength;
             int remainingLen = len;
             ulong acc;
@@ -148,9 +149,9 @@ namespace Unity.Core
             if (len >= stripeLength)
             {
                 //var (acc1, acc2, acc3, acc4) = initAccumulators64(seed);
-                var acc1 = seed + prime64v1 + prime64v2; 
-                var acc2 = seed + prime64v2; 
-                var acc3 = seed; 
+                var acc1 = seed + prime64v1 + prime64v2;
+                var acc2 = seed + prime64v2;
+                var acc3 = seed;
                 var acc4 = seed - prime64v1;
 
                 do
@@ -167,7 +168,7 @@ namespace Unity.Core
 
             acc += (ulong)len;
             acc = processRemaining64(pInput, acc, remainingLen);
-            
+
 
             return avalanche64(acc);
         }
@@ -183,22 +184,22 @@ namespace Unity.Core
         {
             const int stripeLength = 32;
             const int readBufferSize = stripeLength * 1024; // 32kb buffer length
-            
+
             ulong acc;
 
             var buffer = new byte[readBufferSize];
             int readBytes = stream.Read(buffer, 0, readBufferSize);
             ulong len = (ulong)readBytes;
 
-            fixed (byte* inputPtr = buffer)
+            fixed(byte* inputPtr = buffer)
             {
                 byte* pInput = inputPtr;
                 if (readBytes >= stripeLength)
                 {
                     //var (acc1, acc2, acc3, acc4) = initAccumulators64(seed);
-                    var acc1 = seed + prime64v1 + prime64v2; 
-                    var acc2 = seed + prime64v2; 
-                    var acc3 = seed; 
+                    var acc1 = seed + prime64v1 + prime64v2;
+                    var acc2 = seed + prime64v2;
+                    var acc3 = seed;
                     var acc4 = seed - prime64v1;
 
                     do
@@ -236,6 +237,7 @@ namespace Unity.Core
 
             return avalanche64(acc);
         }
+
 #endif
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -258,9 +260,9 @@ namespace Unity.Core
             processLane64(ref acc4, ref pInput);
 
             ulong acc = Bits.RotateLeft(acc1, 1)
-                      + Bits.RotateLeft(acc2, 7)
-                      + Bits.RotateLeft(acc3, 12)
-                      + Bits.RotateLeft(acc4, 18);
+                + Bits.RotateLeft(acc2, 7)
+                + Bits.RotateLeft(acc3, 12)
+                + Bits.RotateLeft(acc4, 18);
 
             mergeAccumulator64(ref acc, acc1);
             mergeAccumulator64(ref acc, acc2);
@@ -295,7 +297,7 @@ namespace Unity.Core
             for (uint lane32; remainingLen >= 4; remainingLen -= 4, pInput += 4)
             {
                 lane32 = *(uint*)pInput;
-              
+
                 acc ^= lane32 * prime64v1;
                 acc = Bits.RotateLeft(acc, 23) * prime64v2;
                 acc += prime64v3;
@@ -352,16 +354,15 @@ namespace Unity.Core
             ref uint acc3,
             ref uint acc4)
         {
-       
             processLane32(ref pInput, ref acc1);
             processLane32(ref pInput, ref acc2);
             processLane32(ref pInput, ref acc3);
             processLane32(ref pInput, ref acc4);
 
             return Bits.RotateLeft(acc1, 1)
-                 + Bits.RotateLeft(acc2, 7)
-                 + Bits.RotateLeft(acc3, 12)
-                 + Bits.RotateLeft(acc4, 18);
+                + Bits.RotateLeft(acc2, 7)
+                + Bits.RotateLeft(acc3, 12)
+                + Bits.RotateLeft(acc4, 18);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -531,7 +532,7 @@ namespace Unity.Core
             internal static uint SwapBytes32(uint num)
             {
                 return (Bits.RotateLeft(num, 8) & 0x00FF00FFu)
-                     | (Bits.RotateRight(num, 8) & 0xFF00FF00u);
+                    | (Bits.RotateRight(num, 8) & 0xFF00FF00u);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -540,7 +541,7 @@ namespace Unity.Core
                 num = (Bits.RotateLeft(num, 48) & 0xFFFF0000FFFF0000ul)
                     | (Bits.RotateLeft(num, 16) & 0x0000FFFF0000FFFFul);
                 return (Bits.RotateLeft(num, 8) & 0xFF00FF00FF00FF00ul)
-                     | (Bits.RotateRight(num, 8) & 0x00FF00FF00FF00FFul);
+                    | (Bits.RotateRight(num, 8) & 0x00FF00FF00FF00FFul);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -552,7 +553,7 @@ namespace Unity.Core
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static unsafe int ToInt32(byte[] value, int startIndex)
             {
-                fixed (byte* pbyte = &value[startIndex])
+                fixed(byte* pbyte = &value[startIndex])
                 {
                     if ((startIndex & 3) == 0)
                     {

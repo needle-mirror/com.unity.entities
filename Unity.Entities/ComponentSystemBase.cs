@@ -2,13 +2,317 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reflection;
+using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
+using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
+    public unsafe struct SystemState
+    {
+        internal int m_UnmanagedMetaIndex;
+        internal void* m_SystemPtr;
+
+        private UnsafeList m_EntityQueries;
+        private UnsafeList m_RequiredEntityQueries;
+
+        internal ref UnsafeList<EntityQuery> EntityQueries
+        {
+            get
+            {
+                fixed(void* ptr = &m_EntityQueries)
+                {
+                    return ref UnsafeUtilityEx.AsRef<UnsafeList<EntityQuery>>(ptr);
+                }
+            }
+        }
+
+        internal ref UnsafeList<EntityQuery> RequiredEntityQueries
+        {
+            get
+            {
+                fixed(void* ptr = &m_RequiredEntityQueries)
+                {
+                    return ref UnsafeUtilityEx.AsRef<UnsafeList<EntityQuery>>(ptr);
+                }
+            }
+        }
+
+        internal UnsafeIntList m_JobDependencyForReadingSystems;
+        internal UnsafeIntList m_JobDependencyForWritingSystems;
+
+        internal uint m_LastSystemVersion;
+
+        internal EntityManager m_EntityManager;
+        internal EntityComponentStore* m_EntityComponentStore;
+        internal ComponentDependencyManager* m_DependencyManager;
+        internal GCHandle m_World;
+
+        internal bool m_AlwaysUpdateSystem;
+        internal bool m_Enabled;
+        internal bool m_PreviouslyEnabled;
+
+        // SystemBase stuff
+        internal bool      m_GetDependencyFromSafetyManager;
+        internal JobHandle m_JobHandle;
+
+    #if ENABLE_PROFILER
+        internal Profiling.ProfilerMarker m_ProfilerMarker;
+    #endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        internal int                        m_SystemID;
+#endif
+
+        public bool Enabled { get => m_Enabled; set => m_Enabled = value; }
+        public uint GlobalSystemVersion => m_EntityComponentStore->GlobalSystemVersion;
+        public uint LastSystemVersion => m_LastSystemVersion;
+        public EntityManager EntityManager => m_EntityManager;
+
+        public World World => (World)m_World.Target;
+        public ref readonly TimeData Time => ref World.Time;
+
+        internal static SystemState* Allocate()
+        {
+            void* result = UnsafeUtility.Malloc(sizeof(SystemState), 16, Allocator.Persistent);
+            UnsafeUtility.MemClear(result, sizeof(SystemState));
+            return (SystemState*)result;
+        }
+
+        internal static void Deallocate(SystemState* state)
+        {
+            UnsafeUtility.Free(state, Allocator.Persistent);
+        }
+
+        // Apply changes on top of zero-initialized heap allocation
+        internal void Init(World world, Type managedType)
+        {
+            m_Enabled = true;
+            m_UnmanagedMetaIndex = -1;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_SystemID = World.AllocateSystemID();
+#endif
+            m_World = GCHandle.Alloc(world);
+            m_EntityManager = world.EntityManager;
+            m_EntityComponentStore = m_EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+            m_DependencyManager = m_EntityManager.GetCheckedEntityDataAccess()->DependencyManager;
+
+            EntityQueries = new UnsafeList<EntityQuery>(0, Allocator.Persistent);
+            RequiredEntityQueries = new UnsafeList<EntityQuery>(0, Allocator.Persistent);
+
+            m_JobDependencyForReadingSystems = new UnsafeIntList(0, Allocator.Persistent);
+            m_JobDependencyForWritingSystems = new UnsafeIntList(0, Allocator.Persistent);
+
+            m_AlwaysUpdateSystem = false;
+
+            if (managedType != null)
+            {
+ #if !NET_DOTS
+                m_AlwaysUpdateSystem = Attribute.IsDefined(managedType, typeof(AlwaysUpdateSystemAttribute), true);
+#else
+                var attrs = TypeManager.GetSystemAttributes(managedType, typeof(AlwaysUpdateSystemAttribute));
+                if (attrs.Length > 0)
+                    m_AlwaysUpdateSystem = true;
+#endif
+            }
+        }
+
+        internal void Dispose()
+        {
+            DisposeQueries(ref EntityQueries);
+            DisposeQueries(ref RequiredEntityQueries);
+
+            EntityQueries.Dispose();
+            EntityQueries = default;
+
+            RequiredEntityQueries.Dispose();
+            RequiredEntityQueries = default;
+
+            if (m_World.IsAllocated)
+            {
+                m_World.Free();
+            }
+
+            m_JobDependencyForReadingSystems.Dispose();
+            m_JobDependencyForWritingSystems.Dispose();
+        }
+
+        private void DisposeQueries(ref UnsafeList<EntityQuery> queries)
+        {
+            for (var i = 0; i < queries.Length; ++i)
+            {
+                var query = queries[i];
+
+                if (m_EntityManager.IsQueryValid(query))
+                {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    query._GetImpl()->_DisallowDisposing = false;
+#endif
+                    query.Dispose();
+                }
+            }
+        }
+
+        public JobHandle Dependency
+        {
+            get
+            {
+                if (m_GetDependencyFromSafetyManager)
+                {
+                    var depMgr = m_DependencyManager;
+                    m_GetDependencyFromSafetyManager = false;
+                    m_JobHandle = depMgr->GetDependency(m_JobDependencyForReadingSystems.Ptr,
+                        m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
+                        m_JobDependencyForWritingSystems.Length);
+                }
+
+                return m_JobHandle;
+            }
+            set
+            {
+                m_GetDependencyFromSafetyManager = false;
+                m_JobHandle = value;
+            }
+        }
+
+        public void CompleteDependency()
+        {
+            // Previous frame job
+            m_JobHandle.Complete();
+
+            // We need to get more job handles from other systems
+            if (m_GetDependencyFromSafetyManager)
+            {
+                m_GetDependencyFromSafetyManager = false;
+                CompleteDependencyInternal();
+            }
+        }
+
+        internal void CompleteDependencyInternal()
+        {
+            m_DependencyManager->CompleteDependenciesNoChecks(m_JobDependencyForReadingSystems.Ptr,
+                m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
+                m_JobDependencyForWritingSystems.Length);
+        }
+
+        internal void BeforeUpdateVersioning()
+        {
+            m_EntityComponentStore->IncrementGlobalSystemVersion();
+            ref var qs = ref EntityQueries;
+            for (int i = 0; i < qs.Length; ++i)
+            {
+                qs[i].SetChangedFilterRequiredVersion(m_LastSystemVersion);
+            }
+        }
+
+        internal void BeforeOnUpdate()
+        {
+            BeforeUpdateVersioning();
+
+            // We need to wait on all previous frame dependencies, otherwise it is possible that we create infinitely long dependency chains
+            // without anyone ever waiting on it
+            m_JobHandle.Complete();
+            m_GetDependencyFromSafetyManager = true;
+        }
+
+#pragma warning disable 649
+        private unsafe struct JobHandleData
+        {
+            public void* jobGroup;
+            public int version;
+        }
+#pragma warning restore 649
+
+        internal void AfterOnUpdate()
+        {
+            AfterUpdateVersioning();
+
+            var depMgr = m_DependencyManager;
+
+            // If outputJob says no relevant jobs were scheduled,
+            // then no need to batch them up or register them.
+            // This is a big optimization if we only Run methods on main thread...
+            var outputJob = m_JobHandle;
+            if (((JobHandleData*)&outputJob)->jobGroup != null)
+            {
+                JobHandle.ScheduleBatchedJobs();
+                m_JobHandle = depMgr->AddDependency(m_JobDependencyForReadingSystems.Ptr,
+                    m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
+                    m_JobDependencyForWritingSystems.Length, outputJob);
+            }
+        }
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal void CheckSafety(ref SystemDependencySafetyUtility.SafetyErrorDetails details, ref bool errorFound)
+        {
+            var depMgr = m_DependencyManager;
+            if (JobsUtility.JobDebuggerEnabled)
+            {
+                var dependencyError = SystemDependencySafetyUtility.CheckSafetyAfterUpdate(ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems, depMgr, out details);
+
+                if (dependencyError)
+                {
+                    SystemDependencySafetyUtility.EmergencySyncAllJobs(ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems, depMgr);
+                }
+
+                errorFound = dependencyError;
+            }
+        }
+
+#endif
+
+        internal void AfterUpdateVersioning()
+        {
+            m_LastSystemVersion = m_EntityComponentStore->GlobalSystemVersion;
+        }
+
+        internal bool ShouldRunSystem()
+        {
+            if (m_AlwaysUpdateSystem)
+                return true;
+
+            ref var required = ref RequiredEntityQueries;
+
+            if (required.Length > 0)
+            {
+                for (int i = 0; i != required.Length; i++)
+                {
+                    EntityQuery query = required[i];
+                    if (query.IsEmptyIgnoreFilter)
+                        return false;
+                }
+
+                return true;
+            }
+            else
+            {
+                // Systems without queriesDesc should always run. Specifically,
+                // IJobForEach adds its queriesDesc the first time it's run.
+                ref var eqs = ref EntityQueries;
+                var length = eqs.Length;
+                if (length == 0)
+                    return true;
+
+                // If all the queriesDesc are empty, skip it.
+                // (There’s no way to know what the key value is without other markup)
+                for (int i = 0; i != length; i++)
+                {
+                    EntityQuery query = eqs[i];
+                    if (!query.IsEmptyIgnoreFilter)
+                        return true;
+                }
+
+                return false;
+            }
+        }
+    }
+
     /// <summary>
     /// A system provides behavior in an ECS architecture.
     /// </summary>
@@ -17,20 +321,17 @@ namespace Unity.Entities
     /// </remarks>
     public abstract unsafe partial class ComponentSystemBase
     {
-        EntityQuery[] m_EntityQueries;
-        EntityQuery[] m_RequiredEntityQueries;
+        internal SystemState* m_StatePtr;
 
-        internal UnsafeIntList m_JobDependencyForReadingSystems;
-        internal UnsafeIntList m_JobDependencyForWritingSystems;
-
-        uint m_LastSystemVersion;
-
-        internal ComponentDependencyManager* m_DependencyManager;
-        internal EntityManager m_EntityManager;
-        World m_World;
-
-        bool m_AlwaysUpdateSystem;
-        internal bool m_PreviouslyEnabled;
+        internal SystemState* CheckedState()
+        {
+            var state = m_StatePtr;
+            if (state == null)
+            {
+                throw new InvalidOperationException("object is not initialized or has already been destroyed");
+            }
+            return state;
+        }
 
         /// <summary>
         /// Controls whether this system executes when its OnUpdate function is called.
@@ -39,7 +340,7 @@ namespace Unity.Entities
         /// <remarks>The Enabled property is intended for debugging so that you can easily turn on and off systems
         /// from the Entity Debugger window. A system with Enabled set to false will not update, even if its
         /// <see cref="ShouldRunSystem"/> function returns true.</remarks>
-        public bool Enabled { get; set; } = true;
+        public bool Enabled { get => CheckedState()->m_Enabled; set => CheckedState()->m_Enabled = value; }
 
         /// <summary>
         /// The query objects cached by this system.
@@ -49,14 +350,24 @@ namespace Unity.Entities
         /// that you add to the system as a required query with <see cref="RequireForUpdate"/>.
         /// Implicit queries may be created lazily and not exist before a system has run for the first time.</remarks>
         /// <value>A read-only array of the cached <see cref="EntityQuery"/> objects.</value>
-        public EntityQuery[] EntityQueries => m_EntityQueries;
+        public EntityQuery[] EntityQueries => UnsafeListToRefArray(ref CheckedState()->EntityQueries);
+
+        internal static EntityQuery[] UnsafeListToRefArray(ref UnsafeList<EntityQuery> objs)
+        {
+            EntityQuery[] result = new EntityQuery[objs.Length];
+            for (int i = 0; i < result.Length; ++i)
+            {
+                result[i] = objs.Ptr[i];
+            }
+            return result;
+        }
 
         /// <summary>
         /// The current change version number in this <see cref="World"/>.
         /// </summary>
         /// <remarks>The system updates the component version numbers inside any <see cref="ArchetypeChunk"/> instances
         /// that this system accesses with write permissions to this value.</remarks>
-        public uint GlobalSystemVersion => m_EntityManager.GlobalSystemVersion;
+        public uint GlobalSystemVersion => EntityManager.GlobalSystemVersion;
 
         /// <summary>
         /// The current version of this system.
@@ -80,41 +391,40 @@ namespace Unity.Entities
         /// that does contain changes.
         /// </remarks>
         /// <value>The <see cref="GlobalSystemVersion"/> the last time this system ran.</value>
-        public uint LastSystemVersion => m_LastSystemVersion;
+        public uint LastSystemVersion => CheckedState()->m_LastSystemVersion;
 
         /// <summary>
         /// The EntityManager object of the <see cref="World"/> in which this system exists.
         /// </summary>
         /// <value>The EntityManager for this system.</value>
-        public EntityManager EntityManager => m_EntityManager;
+        public EntityManager EntityManager => CheckedState()->m_EntityManager;
 
         /// <summary>
         /// The World in which this system exists.
         /// </summary>
         /// <value>The World of this system.</value>
-        public World World => m_World;
+        public World World => m_StatePtr != null ? (World)m_StatePtr->m_World.Target : null;
 
         /// <summary>
         /// The current Time data for this system's world.
         /// </summary>
-        public ref readonly TimeData Time => ref m_World.Time;
+        public ref readonly TimeData Time => ref World.Time;
 
         // ============
-
-    #if ENABLE_PROFILER
-        internal Profiling.ProfilerMarker m_ProfilerMarker;
-    #endif
 
 
         internal void CreateInstance(World world)
         {
+            m_StatePtr = SystemState.Allocate();
+            m_StatePtr->Init(world, GetType());
+
             OnBeforeCreateInternal(world);
             try
             {
                 OnCreateForCompiler();
                 OnCreate();
         #if ENABLE_PROFILER
-                m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {TypeManager.GetSystemName(GetType())}");
+                m_StatePtr->m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {TypeManager.GetSystemName(GetType())}");
         #endif
             }
             catch
@@ -124,7 +434,6 @@ namespace Unity.Entities
                 throw;
             }
         }
-
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected internal virtual void OnCreateForCompiler()
@@ -208,18 +517,17 @@ namespace Unity.Entities
         // ===================
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal int                        m_SystemID;
         internal static ComponentSystemBase ms_ExecutingSystem;
 
         public static Type ExecutingSystemType => ms_ExecutingSystem?.GetType();
 
         internal ComponentSystemBase GetSystemFromSystemID(World world, int systemID)
         {
-            foreach(var system in world.Systems)
+            foreach (var system in world.Systems)
             {
                 if (system == null) continue;
 
-                if (system.m_SystemID == systemID)
+                if (system.CheckedState()->m_SystemID == systemID)
                 {
                     return system;
                 }
@@ -227,22 +535,17 @@ namespace Unity.Entities
 
             return null;
         }
+
 #endif
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void CheckExists()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (World != null && World.IsCreated) return;
-
-            if (m_SystemID == 0)
-            {
-                throw new InvalidOperationException(
-                    $"{GetType()}.m_systemID is zero (invalid); This usually means it was not created with World.GetOrCreateSystem<{GetType()}>().");
-            }
+            if (m_StatePtr != null && World != null && World.IsCreated) return;
 
             throw new InvalidOperationException(
-                $"{GetType()} has already been destroyed. It may not be used anymore.");
+                $"System {GetType()} is invalid. This usually means it was not created with World.GetOrCreateSystem<{GetType()}>() or has already been destroyed.");
 #endif
         }
 
@@ -255,118 +558,65 @@ namespace Unity.Entities
         /// <remarks>A system without any queries also returns true. Note that even if this function returns true,
         /// other factors may prevent a system from updating. For example, a system will not be updated if its
         /// <see cref="Enabled"/> property is false.</remarks>
-        public bool ShouldRunSystem()
-        {
-            CheckExists();
-
-            if (m_AlwaysUpdateSystem)
-                return true;
-
-            if (m_RequiredEntityQueries != null)
-            {
-                for (int i = 0; i != m_RequiredEntityQueries.Length; i++)
-                {
-                    if (m_RequiredEntityQueries[i].IsEmptyIgnoreFilter)
-                        return false;
-                }
-
-                return true;
-            }
-            else
-            {
-                // Systems without queriesDesc should always run. Specifically,
-                // IJobForEach adds its queriesDesc the first time it's run.
-                var length = m_EntityQueries?.Length ?? 0;
-                if (length == 0)
-                    return true;
-
-                // If all the queriesDesc are empty, skip it.
-                // (There’s no way to know what the key value is without other markup)
-                for (int i = 0; i != length; i++)
-                {
-                    if (!m_EntityQueries[i].IsEmptyIgnoreFilter)
-                        return true;
-                }
-
-                return false;
-            }
-        }
+        public bool ShouldRunSystem() => CheckedState()->ShouldRunSystem();
 
         internal virtual void OnBeforeCreateInternal(World world)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_SystemID = World.AllocateSystemID();
-#endif
-            m_World = world;
-            m_EntityManager = world.EntityManager;
-            m_DependencyManager = m_EntityManager.DependencyManager;
-
-            m_JobDependencyForReadingSystems = new UnsafeIntList(0, Allocator.Persistent);
-            m_JobDependencyForWritingSystems = new UnsafeIntList(0, Allocator.Persistent);
-
-            m_EntityQueries = new EntityQuery[0];
-#if !NET_DOTS
-            m_AlwaysUpdateSystem = Attribute.IsDefined(GetType(), typeof(AlwaysUpdateSystemAttribute), true);
-#else
-            m_AlwaysUpdateSystem = false;
-            var attrs = TypeManager.GetSystemAttributes(GetType(), typeof(AlwaysUpdateSystemAttribute));
-            if (attrs.Length > 0)
-                m_AlwaysUpdateSystem = true;
-#endif
         }
 
         internal void OnAfterDestroyInternal()
         {
-            foreach (var query in m_EntityQueries)
+            var state = CheckedState();
+
+            state->Dispose();
+            SystemState.Deallocate(state);
+            m_StatePtr = null;
+        }
+
+        private static void DisposeQueries(ref UnsafeList<GCHandle> queries)
+        {
+            for (var i = 0; i < queries.Length; ++i)
             {
+                var query = (EntityQuery)queries[i].Target;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                query._DisallowDisposing = null;
+                query._GetImpl()->_DisallowDisposing = false;
 #endif
                 query.Dispose();
+                queries[i].Free();
             }
-
-            m_EntityQueries = null;
-            m_EntityManager = null;
-            m_World = null;
-            m_DependencyManager = null;
-
-            m_JobDependencyForReadingSystems.Dispose();
-            m_JobDependencyForWritingSystems.Dispose();
         }
 
         internal virtual void OnBeforeDestroyInternal()
         {
-            if (m_PreviouslyEnabled)
+            var state = CheckedState();
+
+            if (state->m_PreviouslyEnabled)
             {
-                m_PreviouslyEnabled = false;
+                state->m_PreviouslyEnabled = false;
                 OnStopRunning();
             }
         }
 
         internal void BeforeUpdateVersioning()
         {
-            m_EntityManager.EntityComponentStore->IncrementGlobalSystemVersion();
-            foreach (var query in m_EntityQueries)
-                query.SetChangedFilterRequiredVersion(m_LastSystemVersion);
+            var state = CheckedState();
+            state->m_EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
+            ref var qs = ref state->EntityQueries;
+            for (int i = 0; i < qs.Length; ++i)
+            {
+                qs[i].SetChangedFilterRequiredVersion(state->m_LastSystemVersion);
+            }
         }
 
         internal void AfterUpdateVersioning()
         {
-            m_LastSystemVersion = EntityManager.EntityComponentStore->GlobalSystemVersion;
+            CheckedState()->m_LastSystemVersion = EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->GlobalSystemVersion;
         }
 
         internal void CompleteDependencyInternal()
         {
-            m_DependencyManager->CompleteDependenciesNoChecks(m_JobDependencyForReadingSystems.Ptr,
-                m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
-                m_JobDependencyForWritingSystems.Length);
-        }
-
-        // TODO: this should be made part of UnityEngine?
-        static void ArrayUtilityAdd<T>(ref T[] array, T item)
-        {
-            Array.Resize(ref array, array.Length + 1);
-            array[array.Length - 1] = item;
+            CheckedState()->CompleteDependencyInternal();
         }
 
         /// <summary>
@@ -439,7 +689,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets an array-like container containing all components of type T, indexed by Entity.
+        /// Gets an dictionary-like container containing all components of type T, keyed by Entity.
         /// </summary>
         /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
         /// read-only whenever possible.</param>
@@ -479,15 +729,13 @@ namespace Unity.Entities
         /// vice versa.</remarks>
         public void RequireForUpdate(EntityQuery query)
         {
+            var state = CheckedState();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (m_AlwaysUpdateSystem)
+            if (state->m_AlwaysUpdateSystem)
                 throw new InvalidOperationException($"Cannot require {nameof(EntityQuery)} for update on a system with {nameof(AlwaysSynchronizeSystemAttribute)}");
 #endif
 
-            if (m_RequiredEntityQueries == null)
-                m_RequiredEntityQueries = new EntityQuery[1] {query};
-            else
-                ArrayUtilityAdd(ref m_RequiredEntityQueries, query);
+            state->RequiredEntityQueries.Add(query);
         }
 
         /// <summary>
@@ -557,7 +805,8 @@ namespace Unity.Entities
 
         internal void AddReaderWriter(ComponentType componentType)
         {
-            if (CalculateReaderWriterDependency.Add(componentType, ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems))
+            var state = CheckedState();
+            if (CalculateReaderWriterDependency.Add(componentType, ref state->m_JobDependencyForReadingSystems, ref state->m_JobDependencyForWritingSystems))
             {
                 CompleteDependencyInternal();
             }
@@ -565,7 +814,8 @@ namespace Unity.Entities
 
         internal void AddReaderWriters(EntityQuery query)
         {
-            if (query.AddReaderWritersToLists(ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems))
+            var state = CheckedState();
+            if (query.AddReaderWritersToLists(ref state->m_JobDependencyForReadingSystems, ref state->m_JobDependencyForWritingSystems))
             {
                 CompleteDependencyInternal();
             }
@@ -574,9 +824,13 @@ namespace Unity.Entities
         // Fast path for singletons
         internal EntityQuery GetSingletonEntityQueryInternal(ComponentType type)
         {
-            for (var i = 0; i != m_EntityQueries.Length; i++)
+            var state = CheckedState();
+            ref var handles = ref state->EntityQueries;
+
+            for (var i = 0; i != handles.Length; i++)
             {
-                var queryData = m_EntityQueries[i]._QueryData;
+                var query = handles[i];
+                var queryData = query._GetImpl()->_QueryData;
 
                 // EntityQueries are constructed including the Entity ID
                 if (2 != queryData->RequiredComponentsCount)
@@ -584,37 +838,42 @@ namespace Unity.Entities
 
                 if (queryData->RequiredComponents[1] != type)
                     continue;
-                
-                return m_EntityQueries[i];
+
+                return query;
             }
-            
-            var query = EntityManager.CreateEntityQuery(&type, 1);
 
-            AddReaderWriters(query);
-            AfterQueryCreated(query);
+            var newQuery = EntityManager.CreateEntityQuery(&type, 1);
 
-            return query;
+            AddReaderWriters(newQuery);
+            AfterQueryCreated(newQuery);
+
+            return newQuery;
         }
 
         internal EntityQuery GetEntityQueryInternal(ComponentType* componentTypes, int count)
         {
-            for (var i = 0; i != m_EntityQueries.Length; i++)
+            var state = CheckedState();
+            ref var handles = ref state->EntityQueries;
+
+            for (var i = 0; i != handles.Length; i++)
             {
-                if (m_EntityQueries[i].CompareComponents(componentTypes, count))
-                    return m_EntityQueries[i];
+                var query = handles[i];
+
+                if (query.CompareComponents(componentTypes, count))
+                    return query;
             }
 
-            var query = EntityManager.CreateEntityQuery(componentTypes, count);
+            var newQuery = EntityManager.CreateEntityQuery(componentTypes, count);
 
-            AddReaderWriters(query);
-            AfterQueryCreated(query);
+            AddReaderWriters(newQuery);
+            AfterQueryCreated(newQuery);
 
-            return query;
+            return newQuery;
         }
 
         internal EntityQuery GetEntityQueryInternal(ComponentType[] componentTypes)
         {
-            fixed (ComponentType* componentTypesPtr = componentTypes)
+            fixed(ComponentType* componentTypesPtr = componentTypes)
             {
                 return GetEntityQueryInternal(componentTypesPtr, componentTypes.Length);
             }
@@ -622,28 +881,35 @@ namespace Unity.Entities
 
         internal EntityQuery GetEntityQueryInternal(EntityQueryDesc[] desc)
         {
-            for (var i = 0; i != m_EntityQueries.Length; i++)
+            var state = CheckedState();
+            ref var handles = ref state->EntityQueries;
+
+            for (var i = 0; i != handles.Length; i++)
             {
-                if (m_EntityQueries[i].CompareQuery(desc))
-                    return m_EntityQueries[i];
+                var query = handles[i];
+
+                if (query.CompareQuery(desc))
+                    return query;
             }
 
-            var query = EntityManager.CreateEntityQuery(desc);
+            var newQuery = EntityManager.CreateEntityQuery(desc);
 
-            AddReaderWriters(query);
-            AfterQueryCreated(query);
+            AddReaderWriters(newQuery);
+            AfterQueryCreated(newQuery);
 
-            return query;
+            return newQuery;
         }
 
         void AfterQueryCreated(EntityQuery query)
         {
-            query.SetChangedFilterRequiredVersion(m_LastSystemVersion);
+            var state = CheckedState();
+
+            query.SetChangedFilterRequiredVersion(state->m_LastSystemVersion);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            query._DisallowDisposing = "EntityQuery.Dispose() may not be called on a EntityQuery created with ComponentSystem.GetEntityQuery. The EntityQuery will automatically be disposed by the ComponentSystem.";
+            query._GetImpl()->_DisallowDisposing = true;
 #endif
 
-            ArrayUtilityAdd(ref m_EntityQueries, query);
+            state->EntityQueries.Add(query);
         }
 
         /// <summary>
@@ -665,7 +931,7 @@ namespace Unity.Entities
         /// <returns>The new or cached query.</returns>
         protected EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
         {
-            return GetEntityQueryInternal((ComponentType*) componentTypes.GetUnsafeReadOnlyPtr(),
+            return GetEntityQueryInternal((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(),
                 componentTypes.Length);
         }
 

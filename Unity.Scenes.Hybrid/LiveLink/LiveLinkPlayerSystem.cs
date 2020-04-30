@@ -12,7 +12,7 @@ namespace Unity.Scenes
     {
         public Hash128 Guid;
     }
-    
+
     struct SubSceneGUID : IComponentData, IEquatable<SubSceneGUID>
     {
         public Hash128 Guid;
@@ -45,14 +45,14 @@ namespace Unity.Scenes
             return $"{Guid} | {BuildConfigurationGuid}";
         }
 
-        public static bool operator ==(SubSceneGUID lhs, SubSceneGUID rhs) => lhs.Equals(rhs);
-        public static bool operator !=(SubSceneGUID lhs, SubSceneGUID rhs) => !lhs.Equals(rhs);
+        public static bool operator==(SubSceneGUID lhs, SubSceneGUID rhs) => lhs.Equals(rhs);
+        public static bool operator!=(SubSceneGUID lhs, SubSceneGUID rhs) => !lhs.Equals(rhs);
     }
-    
+
     struct ResourceLoaded : IComponentData
     {
     }
-    
+
 #if UNITY_EDITOR
     [DisableAutoCreation]
 #endif
@@ -67,17 +67,18 @@ namespace Unity.Scenes
         bool                                               m_DidRequestConnection;
         IEditorPlayerConnection                            m_Connection;
         internal IEditorPlayerConnection Connection => m_Connection;
-        
+
 #if UNITY_EDITOR
         internal void SetConnection(IEditorPlayerConnection connection)
         {
             m_Connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
+
 #endif
-        
+
         static double                                      kSessionHandshakeTimeout = 5;
         double                                             m_SessionHandshakeTimeoutTimstamp;
-        bool                                               m_SessionHandshake; 
+        bool                                               m_SessionHandshake;
 
         protected override void OnCreate()
         {
@@ -95,15 +96,15 @@ namespace Unity.Scenes
             m_Connection.Register(LiveLinkMsg.EditorResponseConnectLiveLink, ReceiveInitialScenes);
 
             m_ResourcePacketQueue = new Queue<EntityChangeSetSerialization.ResourcePacket>();
-            m_Resources = GetEntityQuery( new EntityQueryDesc
+            m_Resources = GetEntityQuery(new EntityQueryDesc
             {
-                All = new [] { ComponentType.ReadOnly<ResourceGUID>() }
+                All = new[] { ComponentType.ReadOnly<ResourceGUID>() }
             });
 
             m_Patcher = new LiveLinkPatcher(World);
-            
+
             m_LiveLinkSceneChange = new LiveLinkSceneChangeTracker(EntityManager);
-            
+
             // Send handshake and set timeout
             PlayerConnection.instance.Send(LiveLinkMsg.PlayerRequestHandshakeLiveLink, new byte[0]);
             m_SessionHandshakeTimeoutTimstamp = Time.ElapsedTime + kSessionHandshakeTimeout;
@@ -120,7 +121,7 @@ namespace Unity.Scenes
             m_Connection.Unregister(LiveLinkMsg.EditorLoadScenes, ReceiveLoadScenes);
             m_Connection.Unregister(LiveLinkMsg.EditorResetGame, ReceiveResetGame);
         }
-        
+
         void ResponseSessionHandshake(MessageEventArgs args)
         {
             var editorLiveLinkId = args.Receive<long>();
@@ -150,7 +151,7 @@ namespace Unity.Scenes
             var resourcePacket = new EntityChangeSetSerialization.ResourcePacket(args.data);
 
             LiveLinkMsg.LogReceived($"EntityChangeSet patch: '{args.data.Length}' bytes, " +
-                                    $"object GUIDs: {resourcePacket.GlobalObjectIds.ToDebugString(id => id.AssetGUID.ToString())}");
+                $"object GUIDs: {resourcePacket.GlobalObjectIds.ToDebugString(id => id.AssetGUID.ToString())}");
 
             m_ResourcePacketQueue.Enqueue(resourcePacket);
         }
@@ -178,7 +179,7 @@ namespace Unity.Scenes
                 }
             }
         }
-        
+
         void ReceiveResetGame(MessageEventArgs args)
         {
             LiveLinkMsg.LogReceived("ResetGame");
@@ -195,7 +196,7 @@ namespace Unity.Scenes
 
             EntityManager.DestroyEntity(EntityManager.UniversalQuery);
             LiveLinkPlayerAssetRefreshSystem.Reset();
-            
+
             LiveLinkMsg.LogSend("ConnectLiveLink");
             m_Connection.Send(LiveLinkMsg.PlayerRequestConnectLiveLink, sceneSystem.BuildConfigurationGUID);
 
@@ -233,7 +234,7 @@ namespace Unity.Scenes
             }
         }
 #pragma warning restore 618
-        
+
         public bool IsResourceReady(NativeArray<RuntimeGlobalObjectId> resourceGuids)
         {
             var guidResourceReady = new NativeHashMap<Hash128, bool>(m_Resources.CalculateEntityCount(), Allocator.Persistent);
@@ -243,7 +244,7 @@ namespace Unity.Scenes
                 ResourceLoaded = GetComponentDataFromEntity<ResourceLoaded>(),
                 GuidResourceReady = guidResourceReady
             }.Run(m_Resources);
-            
+
             var isResourceReady = true;
             var archetype = EntityManager.CreateArchetype(typeof(ResourceGUID));
 
@@ -268,7 +269,7 @@ namespace Unity.Scenes
                     isResourceReady = false;
                 }
             }
-            
+
             guidResourceReady.Dispose();
             return isResourceReady;
         }
@@ -289,7 +290,7 @@ namespace Unity.Scenes
 
                     return;
                 }
-                
+
                 m_DidRequestConnection = true;
                 LiveLinkMsg.LogSend("ConnectLiveLink");
                 m_Connection.Send(LiveLinkMsg.PlayerRequestConnectLiveLink, World.GetExistingSystem<SceneSystem>().BuildConfigurationGUID);

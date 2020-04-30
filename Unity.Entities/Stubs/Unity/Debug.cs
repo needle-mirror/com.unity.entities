@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 #if !NET_DOTS
 using UnityObject = UnityEngine.Object;
 #endif

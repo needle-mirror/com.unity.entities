@@ -22,7 +22,7 @@ namespace Unity.Entities.CodeGen.Tests
             void Test()
             {
                 Entities.ForEach(
-                        (string whyAreYouPuttingAStringHereMakesNoSense) => { Console.WriteLine("Hello"); })
+                    (string whyAreYouPuttingAStringHereMakesNoSense) => { Console.WriteLine("Hello"); })
                     .Schedule(default);
             }
         }
@@ -41,13 +41,13 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities
                     .WithName("VeryCommonName")
                     .ForEach(
-                        (ref Translation t) => { })
+                        (ref Translation t) => {})
                     .Schedule(default);
-                
+
                 Entities
                     .WithName("VeryCommonName")
                     .ForEach(
-                        (ref Translation t) => { })
+                        (ref Translation t) => {})
                     .Schedule(default);
             }
         }
@@ -64,13 +64,12 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 Entities
                     .WithNone<Translation>()
-                    .ForEach((in Translation translation) => { })
+                    .ForEach((in Translation translation) => {})
                     .Schedule(default);
             }
         }
 
-        
-        
+
         [Test]
         public void ConflictingWithNoneBufferElementTest()
         {
@@ -83,7 +82,7 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 Entities
                     .WithNone<MyBufferFloat>()
-                    .ForEach((in DynamicBuffer<MyBufferFloat> myBuffer) => { })
+                    .ForEach((in DynamicBuffer<MyBufferFloat> myBuffer) => {})
                     .Run();
             }
         }
@@ -102,12 +101,12 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities
                     .WithNone<Translation>()
                     .WithAny<Translation, Velocity>()
-                    .ForEach((in Boid translation) => { })
+                    .ForEach((in Boid translation) => {})
                     .Schedule(default);
             }
         }
-        
-        
+
+
         [Test]
         public void WithNoneWithInvalidTypeTest()
         {
@@ -123,32 +122,34 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 Entities
                     .WithNone<ANonIComponentDataClass>()
-                    .ForEach((in Boid translation) => { })
+                    .ForEach((in Boid translation) => {})
                     .Schedule(default);
             }
         }
-        
+
         [Test]
         public void WithNoneWithInvalidGenericParameterTest()
         {
             AssertProducesError(typeof(WithNoneWithInvalidGenericParameter), nameof(UserError.DC0025), "TValue");
         }
+
         class WithNoneWithInvalidGenericParameter : TestJobComponentSystem
         {
             void Test<TValue>() where TValue : struct
             {
                 Entities
                     .WithNone<TValue>()
-                    .ForEach((in Boid translation) => { })
+                    .ForEach((in Boid translation) => {})
                     .Schedule(default);
             }
         }
-        
+
         [Test]
         public void WithNoneWithInvalidGenericTypeTest()
         {
             AssertProducesError(typeof(WithNoneWithInvalidGenericType), nameof(UserError.DC0025), "GenericType`1");
         }
+
         class WithNoneWithInvalidGenericType : TestJobComponentSystem
         {
             struct GenericType<TValue> : IComponentData {}
@@ -156,38 +157,40 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 Entities
                     .WithNone<GenericType<int>>()
-                    .ForEach((in Boid translation) => { })
+                    .ForEach((in Boid translation) => {})
                     .Schedule(default);
             }
         }
-        
+
         [Test]
         public void ParameterWithInvalidGenericParameterTest()
         {
             AssertProducesError(typeof(ParameterWithInvalidGenericParameter), nameof(UserError.DC0025), "TValue");
         }
+
         class ParameterWithInvalidGenericParameter : TestJobComponentSystem
         {
             void Test<TValue>() where TValue : struct
             {
                 Entities
-                    .ForEach((in TValue generic) => { })
+                    .ForEach((in TValue generic) => {})
                     .Schedule(default);
             }
         }
-        
+
         [Test]
         public void ParameterWithInvalidGenericTypeTest()
         {
             AssertProducesError(typeof(ParameterWithInvalidGenericType), nameof(UserError.DC0025), "GenericType`1");
         }
+
         class ParameterWithInvalidGenericType : TestJobComponentSystem
         {
             struct GenericType<TValue> : IComponentData {}
             void Test()
             {
                 Entities
-                    .ForEach((in GenericType<int> generic) => { })
+                    .ForEach((in GenericType<int> generic) => {})
                     .Schedule(default);
             }
         }
@@ -197,15 +200,16 @@ namespace Unity.Entities.CodeGen.Tests
         {
             AssertProducesError(typeof(InGenericSystemType<>), nameof(UserError.DC0025), "InGenericSystemType`1");
         }
+
         public class InGenericSystemType<T> : SystemBase
             where T : struct, IComponentData
         {
             protected override void OnUpdate()
             {
-                Entities.WithNone<T>().ForEach((Entity e, ref T n) => { }).Run();
+                Entities.WithNone<T>().ForEach((Entity e, ref T n) => {}).Run();
             }
         }
-        
+
         [Test]
         public void WithReadOnly_IllegalArgument_Test()
         {
@@ -218,7 +222,7 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 Entities
                     .WithReadOnly("stringLiteral")
-                    .ForEach((in Boid translation) => { })
+                    .ForEach((in Boid translation) => {})
                     .Schedule(default);
             }
         }
@@ -237,7 +241,7 @@ namespace Unity.Entities.CodeGen.Tests
 
                 Entities
                     .WithReadOnly(myNativeArray)
-                    .ForEach((in Boid translation) => { })
+                    .ForEach((in Boid translation) => {})
                     .Schedule(default);
             }
         }
@@ -253,7 +257,7 @@ namespace Unity.Entities.CodeGen.Tests
             void Test()
             {
                 Entities
-                    .ForEach((string whoKnowsWhatThisMeans, in Boid translation) => { })
+                    .ForEach((string whoKnowsWhatThisMeans, in Boid translation) => {})
                     .Schedule(default);
             }
         }
@@ -279,7 +283,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(default);
             }
         }
-        
+
         [Test]
         public void NestedScopeWithNonLambdaJobLambdaTest()
         {
@@ -325,7 +329,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(default);
             }
         }
-        
+
         [Test]
         public void InvokeBaseMethodInBurstLambdaTest()
         {
@@ -386,8 +390,8 @@ namespace Unity.Entities.CodeGen.Tests
                 }).Run();
             }
 
-            static void NotAProblem() { }
-            internal static void ActualProblem(JobComponentSystem s) { }
+            static void NotAProblem() {}
+            internal static void ActualProblem(JobComponentSystem s) {}
         }
 
         [Test]
@@ -407,7 +411,7 @@ namespace Unity.Entities.CodeGen.Tests
                 }).Run();
             }
 
-            static void NotAProblem(float x) { }
+            static void NotAProblem(float x) {}
             internal void ActualProblem() {}
         }
 
@@ -422,7 +426,7 @@ namespace Unity.Entities.CodeGen.Tests
             struct MySharedComponentData : ISharedComponentData
             {
             }
-            
+
             void Test()
             {
                 Entities
@@ -430,7 +434,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(default);
             }
         }
-        
+
         [Test]
         public void SharedComponentDataReceivedByRef_ProducesError()
         {
@@ -442,7 +446,7 @@ namespace Unity.Entities.CodeGen.Tests
             struct MySharedComponentData : ISharedComponentData
             {
             }
-            
+
             void Test()
             {
                 Entities
@@ -451,7 +455,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .Run();
             }
         }
-        
+
         [Test]
         public void CustomStructArgumentThatDoesntImplementSupportedInterfaceTest()
         {
@@ -462,18 +466,17 @@ namespace Unity.Entities.CodeGen.Tests
         {
             struct ForgotToAddInterface
             {
-                
             }
-            
+
             void Test()
             {
                 Entities
-                    .ForEach((ref ForgotToAddInterface t) => { })
+                    .ForEach((ref ForgotToAddInterface t) => {})
                     .Schedule(default);
             }
         }
 
-             
+
         [Test]
         public void CaptureFromMultipleScopesTest()
         {
@@ -489,12 +492,12 @@ namespace Unity.Entities.CodeGen.Tests
                     int scope2 = 2;
                     {
                         int scope3 = 3;
-                    Entities
+                        Entities
                             .ForEach((ref Translation t) => { t.Value = scope1 + scope2 + scope3;})
-                        .Schedule(default);
+                            .Schedule(default);
+                    }
                 }
             }
-        }
         }
 
         [Test]
@@ -532,7 +535,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(default);
             }
 
-            static void NotAProblem(ref int a) { }
+            static void NotAProblem(ref int a) {}
         }
 
         [Test]
@@ -573,7 +576,6 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
 
-
         [Test]
         public void LocalFunctionThatWritesBackToCapturedLocalTest()
         {
@@ -587,14 +589,14 @@ namespace Unity.Entities.CodeGen.Tests
                 int capture_me = 123;
                 Entities
                     .ForEach((ref Translation t) =>
+                {
+                    void MyLocalFunction()
                     {
-                        void MyLocalFunction()
-                        {
-                            capture_me++;
-                        }
+                        capture_me++;
+                    }
 
-                        MyLocalFunction();
-                    }).Schedule(default);
+                    MyLocalFunction();
+                }).Schedule(default);
             }
         }
 
@@ -613,7 +615,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .ForEach((ref Translation t) => { capture_me++; }).Schedule(default);
             }
         }
-        
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void ManagedComponentInBurstJobTest()
@@ -630,18 +632,17 @@ namespace Unity.Entities.CodeGen.Tests
 
         class ManagedComponentInBurstJob : TestJobComponentSystem
         {
-           
             void Test()
             {
                 Entities.ForEach((ManagedComponent t) => {}).Run();
             }
         }
-        
+
         public void ManagedComponentInScheduleTest()
         {
             AssertProducesError(typeof(ManagedComponentInSchedule), nameof(UserError.DC0023));
         }
-        
+
         class ManagedComponentInSchedule : TestJobComponentSystem
         {
             void Test()
@@ -649,7 +650,7 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities.ForEach((ManagedComponent t) => {}).Schedule(default);
             }
         }
-        
+
         [Test]
         public void ManagedComponentByReferenceTest()
         {
@@ -683,12 +684,12 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities
                     .WithAll<MySharedComponentData>()
                     .WithSharedComponentFilter(new MySharedComponentData() { Value = 3 })
-                    .ForEach((in Boid translation) => { })
+                    .ForEach((in Boid translation) => {})
                     .Schedule(default);
             }
         }
 
-		
+
         [Test]
         public void WithSwitchStatementTest()
         {
@@ -749,7 +750,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .ForEach((ref RotationInAnotherAssembly a) => {}).Run();
             }
         }
-        
+
         [Test]
         public void LambdaThatMakesNonExplicitStructuralChangesTest()
         {
@@ -786,12 +787,12 @@ namespace Unity.Entities.CodeGen.Tests
                     .WithStructuralChanges()
                     .ForEach((Entity entity, ref Translation t) =>
                     {
-                        float blah = delta + 1.0f; 
-                        EntityManager.RemoveComponent<Translation>(entity); 
+                        float blah = delta + 1.0f;
+                        EntityManager.RemoveComponent<Translation>(entity);
                     }).Schedule(default);
             }
         }
-        
+
         [Test]
         public void LambdaThatHasNestedLambdaTest()
         {
@@ -813,7 +814,7 @@ namespace Unity.Entities.CodeGen.Tests
                     }).Run();
             }
         }
-        
+
         [Test]
         public void LambdaThatTriesToStoreNonValidEntityQueryVariableTest()
         {
@@ -826,7 +827,7 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 public EntityQuery m_Query;
             }
-            
+
             void Test()
             {
                 EntityQueryHolder entityQueryHolder = new EntityQueryHolder();
@@ -837,7 +838,7 @@ namespace Unity.Entities.CodeGen.Tests
                     .ForEach((Entity e2, ref Translation t2) => { delta += 1.0f; }).Run();
             }
         }
-        
+
         [Test]
         public void LambdaThatTriesToStoreLocalEntityQueryVariableTest()
         {
@@ -848,7 +849,7 @@ namespace Unity.Entities.CodeGen.Tests
         {
             void Test()
             {
-                EntityQuery query = null;
+                EntityQuery query = default;
 
                 float delta = 0.0f;
                 Entities
@@ -872,13 +873,13 @@ namespace Unity.Entities.CodeGen.Tests
                 float delta = 0.0f;
                 Entities
                     .ForEach((Entity e1, ref Translation t1) =>
-                    {
-                        delta += 1.0f;
-                    }).Run();
+                {
+                    delta += 1.0f;
+                }).Run();
             }
         }
 #endif
-        
+
         [Test]
         public void CallsMethodInComponentSystemBaseTest()
         {
@@ -894,8 +895,8 @@ namespace Unity.Entities.CodeGen.Tests
                     .Schedule(default);
             }
         }
-        
-        
+
+
         [Test]
         public void IncorrectUsageOfBufferIsDetected()
         {
@@ -907,11 +908,11 @@ namespace Unity.Entities.CodeGen.Tests
             void Test()
             {
                 Entities
-                    .ForEach((MyBufferFloat f) => { })
+                    .ForEach((MyBufferFloat f) => {})
                     .Schedule(default);
             }
         }
-        
+
         [Test]
         public void CorrectUsageOfBufferIsNotDetected()
         {
@@ -923,7 +924,7 @@ namespace Unity.Entities.CodeGen.Tests
             void Test()
             {
                 Entities
-                    .ForEach((DynamicBuffer<MyBufferFloat> f) => { })
+                    .ForEach((DynamicBuffer<MyBufferFloat> f) => {})
                     .Schedule(default);
             }
         }
@@ -940,8 +941,8 @@ namespace Unity.Entities.CodeGen.Tests
             // The important part here is everything following {jobName}.Data.
             var methodToAnalyze = MethodDefinitionForOnlyMethodOf(typeof(ParameterNamesPath));
             var forEachDescriptionConstructions = LambdaJobDescriptionConstruction.FindIn(methodToAnalyze);
-            var (jobStructForLambdaJob, diagnosticMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstructions.First());
-            
+            var(jobStructForLambdaJob, diagnosticMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstructions.First());
+
             Assert.IsEmpty(diagnosticMessages);
 
             const string valueProviderFieldName = "_lambdaParameterValueProviders";
@@ -963,21 +964,21 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 Entities
                     .WithName("ParameterNamesTest")
-                    .ForEach((DynamicBuffer<MyBufferFloat> floatBuffer) => { })
+                    .ForEach((DynamicBuffer<MyBufferFloat> floatBuffer) => {})
                     .Schedule(default);
             }
         }
-        
+
         struct StructWithNativeContainer
         {
             public NativeArray<int> array;
         }
-            
+
         struct StructWithStructWithNativeContainer
         {
             public StructWithNativeContainer innerStruct;
         }
-        
+
         struct StructWithPrimitiveType
         {
             public int field;
@@ -1000,7 +1001,7 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities.WithReadOnly(array).ForEach((ref Translation t) => { t.Value += array[0]; }).Schedule(default);
             }
         }
-        
+
         class CorrectReadOnlyUsageWithStruct : TestJobComponentSystem
         {
             void Test()
@@ -1010,7 +1011,7 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     t.Value += structWithNativeContainer.array[0];
                 }).Schedule(default);
-                
+
                 StructWithStructWithNativeContainer structWithStructWithNativeContainer = default;
                 Entities.WithReadOnly(structWithStructWithNativeContainer).ForEach((ref Translation t) =>
                 {
@@ -1018,7 +1019,7 @@ namespace Unity.Entities.CodeGen.Tests
                 }).Schedule(default);
             }
         }
-        
+
         class IncorrectReadOnlyUsageWithStruct : TestJobComponentSystem
         {
             void Test()
@@ -1054,7 +1055,7 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities.WithReadOnly(array).WithDeallocateOnJobCompletion(array).ForEach((ref Translation t) => { t.Value += array[0]; }).Schedule(default);
             }
         }
-        
+
         class CorrectDeallocateOnJobCompletionUsageWithStruct : TestJobComponentSystem
         {
             void Test()
@@ -1064,7 +1065,7 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     t.Value += structWithNativeContainer.array[0];
                 }).Schedule(default);
-                
+
                 StructWithStructWithNativeContainer structWithStructWithNativeContainer = default;
                 Entities.WithDeallocateOnJobCompletion(structWithStructWithNativeContainer).ForEach((ref Translation t) =>
                 {
@@ -1072,7 +1073,7 @@ namespace Unity.Entities.CodeGen.Tests
                 }).Schedule(default);
             }
         }
-        
+
         class IncorrectDeallocateOnJobCompletionUsageWithStruct : TestJobComponentSystem
         {
             void Test()
@@ -1109,7 +1110,7 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities.WithReadOnly(array).WithNativeDisableContainerSafetyRestriction(array).ForEach((ref Translation t) => { t.Value += array[0]; }).Schedule(default);
             }
         }
-        
+
         class CorrectDisableContainerSafetyRestrictionUsageWithStruct : TestJobComponentSystem
         {
             void Test()
@@ -1120,7 +1121,7 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     t.Value += structWithNativeContainer.array[0];
                 }).Schedule(default);
-                
+
                 StructWithStructWithNativeContainer structWithStructWithNativeContainer = default;
                 Entities.WithNativeDisableContainerSafetyRestriction(structWithStructWithNativeContainer).ForEach((ref Translation t) =>
                 {
@@ -1128,7 +1129,7 @@ namespace Unity.Entities.CodeGen.Tests
                 }).Schedule(default);
             }
         }
-        
+
         class IncorrectDisableContainerSafetyRestrictionUsageWithStruct : TestJobComponentSystem
         {
             void Test()
@@ -1168,7 +1169,7 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities.WithNativeDisableParallelForRestriction(array).ForEach((ref Translation t) => { t.Value += array[0]; }).Schedule(default);
             }
         }
-        
+
         class CorrectDisableParallelForRestrictionUsageWithStruct : TestJobComponentSystem
         {
             void Test()
@@ -1179,7 +1180,7 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     t.Value += structWithNativeContainer.array[0];
                 }).Schedule(default);
-                
+
                 StructWithStructWithNativeContainer structWithStructWithNativeContainer = default;
                 Entities.WithNativeDisableParallelForRestriction(structWithStructWithNativeContainer).ForEach((ref Translation t) =>
                 {
@@ -1200,7 +1201,7 @@ namespace Unity.Entities.CodeGen.Tests
                 }).Schedule(default);
             }
         }
-        
+
         class IncorrectDisableParallelForRestrictionUsageWithPrimitiveType : TestJobComponentSystem
         {
             void Test()
@@ -1226,18 +1227,67 @@ namespace Unity.Entities.CodeGen.Tests
                     .ForEach((ref Translation t) => { t.Value += localStruct.Array[0]; })
                     .Schedule(default);
             }
+
             struct UserStruct
             {
                 public NativeArray<int> Array;
+            }
+        }
+
+        [Test]
+        public void GetComponentDataFromEntityWithMethodAsParam_ProducesError()
+        {
+            AssertProducesError(typeof(GetComponentDataFromEntityWithMethodAsParam), nameof(UserError.DC0048), "GetComponentDataFromEntity");
+        }
+
+        class GetComponentDataFromEntityWithMethodAsParam : TestSystemBase
+        {
+            static bool MethodThatReturnsBool() => false;
+            void Test()
+            {
+                Entities
+                    .ForEach((Entity entity, in Translation tde) =>
+                {
+                    GetComponentDataFromEntity<Velocity>(MethodThatReturnsBool());
+                }).Run();
+            }
+        }
+
+        [Test]
+        public void GetComponentDataFromEntityWithVarAsParam_ProducesError()
+        {
+            AssertProducesError(typeof(GetComponentDataFromEntityWithVarAsParam), nameof(UserError.DC0049), "GetComponentDataFromEntity");
+        }
+
+        class GetComponentDataFromEntityWithVarAsParam : TestSystemBase
+        {
+            void Test()
+            {
+                var localBool = false;
+                Entities.ForEach((Entity entity, in Translation tde) => { GetComponentDataFromEntity<Velocity>(localBool); }).Run();
+            }
+        }
+
+        [Test]
+        public void GetComponentDataFromEntityWithArgAsParam_ProducesError()
+        {
+            AssertProducesError(typeof(GetComponentDataFromEntityWithArgAsParam), nameof(UserError.DC0049), "GetComponentDataFromEntity");
+        }
+
+        class GetComponentDataFromEntityWithArgAsParam : TestSystemBase
+        {
+            void Test(bool argBool)
+            {
+                Entities.ForEach((Entity entity, in Translation tde) => { GetComponentDataFromEntity<Velocity>(argBool); }).Run();
             }
         }
     }
 
     public static class TestJobComponentSystemExtensionMethods
     {
-        public interface ITestInterface { }
+        public interface ITestInterface {}
 
-        public static void MyTestExtension(this TestJobComponentSystem test) { }
-        public static void MyTestExtensionInterface(this ITestInterface test) { }
+        public static void MyTestExtension(this TestJobComponentSystem test) {}
+        public static void MyTestExtensionInterface(this ITestInterface test) {}
     }
 }

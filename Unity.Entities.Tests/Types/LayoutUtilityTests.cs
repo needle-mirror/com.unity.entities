@@ -301,7 +301,7 @@ namespace Unity.Entities.Tests.Types
                     buffer[i] = 0xcc;
                 }
 
-                LayoutUtility.ScatterFullSOA(layout, (byte*) buffer.GetUnsafePtr(), &item, slot, arraySize);
+                LayoutUtility.ScatterFullSOA(layout, (byte*)buffer.GetUnsafePtr(), &item, slot, arraySize);
 
                 int rowOffset = 0;
                 Assert.AreEqual(0x01, buffer[rowOffset + slot]);
@@ -337,7 +337,7 @@ namespace Unity.Entities.Tests.Types
                 Assert.AreEqual(0x08, buffer[rowOffset + 8 * slot + 7]);
 
                 var item2 = default(TestData);
-                LayoutUtility.GatherFullSOA(layout, (byte*) buffer.GetUnsafePtr(), &item2, slot, arraySize);
+                LayoutUtility.GatherFullSOA(layout, (byte*)buffer.GetUnsafePtr(), &item2, slot, arraySize);
 
                 Assert.AreEqual(item, item2);
             }
@@ -367,7 +367,7 @@ namespace Unity.Entities.Tests.Types
                     buffer[i] = 0xcc;
                 }
 
-                LayoutUtility.ScatterChunkedSOA8(layout, memberSizeSum, (byte*) buffer.GetUnsafePtr(), &item, slot);
+                LayoutUtility.ScatterChunkedSOA8(layout, memberSizeSum, (byte*)buffer.GetUnsafePtr(), &item, slot);
 
                 int packetIndex = slot >> 3;
                 int packetOffset = slot & 7;
@@ -407,7 +407,7 @@ namespace Unity.Entities.Tests.Types
                 Assert.AreEqual(0x08, buffer[rowOffset + 8 * packetOffset + 7]);
 
                 var item2 = default(TestData);
-                LayoutUtility.GatherChunkedSOA8(layout, memberSizeSum, (byte*) buffer.GetUnsafePtr(), &item2, slot);
+                LayoutUtility.GatherChunkedSOA8(layout, memberSizeSum, (byte*)buffer.GetUnsafePtr(), &item2, slot);
 
                 Assert.AreEqual(item, item2);
             }

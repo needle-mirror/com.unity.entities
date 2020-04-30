@@ -1,11 +1,9 @@
-﻿using Unity.Collections.LowLevel.Unsafe;
-
-/*    
-
-///*/
+using System.Diagnostics;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
-
 {
     /// <summary>
     /// A [NativeContainer] that provides access to all instances of components of type T, indexed by <see cref="Entity"/>.
@@ -13,16 +11,16 @@ namespace Unity.Entities
     /// <typeparam name="T">The type of <see cref="IComponentData"/> to access.</typeparam>
     /// <remarks>
     /// ComponentDataFromEntity is a native container that provides array-like access to components of a specific
-    /// type. You can use ComponentDataFromEntity to look up data associated with one entity while iterating over a 
-    /// different set of entities. For example, Unity.Transforms stores the <see cref="Entity"/> object of parent entities 
-    /// in a Parent component and looks up the parent's LocalToWorld matrix using 
+    /// type. You can use ComponentDataFromEntity to look up data associated with one entity while iterating over a
+    /// different set of entities. For example, Unity.Transforms stores the <see cref="Entity"/> object of parent entities
+    /// in a Parent component and looks up the parent's LocalToWorld matrix using
     /// ComponentDataFromEntity&lt;LocalToWorld&gt; when calculating the world positions of child entities.
     ///
     /// To get a ComponentDataFromEntity, call <see cref="ComponentSystemBase.GetComponentDataFromEntity"/>.
     ///
     /// Pass a ComponentDataFromEntity container to a job by defining a public field of the appropriate type
     /// in your IJob implementation. You can safely read from ComponentDataFromEntity in any job, but by
-    /// default, you cannot write to components in the container in parallel jobs (including 
+    /// default, you cannot write to components in the container in parallel jobs (including
     /// <see cref="IJobForEach{T0}"/> and <see cref="IJobChunk"/>). If you know that two instances of a parallel
     /// job can never write to the same index in the container, you can disable the restriction on parallel writing
     /// by adding [NativeDisableParallelForRestrictionAttribute] to the ComponentDataFromEntity field definition in the job struct.
@@ -59,6 +57,7 @@ namespace Unity.Entities
             m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
             m_IsZeroSized = ComponentType.FromTypeIndex(typeIndex).IsZeroSized;
         }
+
 #else
         internal ComponentDataFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore)
         {
@@ -67,15 +66,16 @@ namespace Unity.Entities
             m_TypeLookupCache = 0;
             m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
         }
+
 #endif
 
-       
+
         /// <summary>
         /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
         /// component of type T.
         /// </summary>
         /// <param name="entity">The entity.</param>
-        /// <returns>True if the entity has a component of type T, and false if it does not. Also returns false if 
+        /// <returns>True if the entity has a component of type T, and false if it does not. Also returns false if
         /// the Entity instance refers to an entity that has been destroyed.</returns>
         /// <remarks>To report if the provided entity has a component of type T, this function confirms
         /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
@@ -93,7 +93,7 @@ namespace Unity.Entities
         /// component of type T.
         /// </summary>
         /// <param name="entity">The entity.</param>
-        /// <returns>True if the entity has a component of type T, and false if it does not. Also returns false if 
+        /// <returns>True if the entity has a component of type T, and false if it does not. Also returns false if
         /// the Entity instance refers to an entity that has been destroyed.</returns>
         /// <remarks>To report if the provided entity has a component of type T, this function confirms
         /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
@@ -142,9 +142,9 @@ namespace Unity.Entities
         /// Normally, you cannot write to components accessed using a ComponentDataFromEntity instance
         /// in a parallel Job. This restriction is in place because multiple threads could write to the same component,
         /// leading to a race condition and nondeterministic results. However, when you are certain that your algorithm
-        /// cannot write to the same component from different threads, you can manually disable this safety check 
+        /// cannot write to the same component from different threads, you can manually disable this safety check
         /// by putting the [NativeDisableParallelForRestrictions] attribute on the ComponentDataFromEntity field in the Job.
-        /// 
+        ///
         /// [NativeDisableParallelForRestrictionAttribute]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html
         /// </remarks>
         /// <exception cref="System.ArgumentException">Thrown if T is zero-size.</exception>
@@ -159,30 +159,30 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (m_IsZeroSized)
-                   throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not get the component because it is zero sized, you can use Exists instead.");
+                    throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not get the component because it is zero sized, you can use Exists instead.");
 #endif
-                
+
                 T data;
                 void* ptr = m_EntityComponentStore->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_TypeLookupCache);
                 UnsafeUtility.CopyPtrToStructure(ptr, out data);
 
                 return data;
             }
-			set
-			{
+            set
+            {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
                 m_EntityComponentStore->AssertEntityHasComponent(entity, m_TypeIndex);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-			    if (m_IsZeroSized)
-			        throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not set the component because it is zero sized, you can use Exists instead.");
+                if (m_IsZeroSized)
+                    throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not set the component because it is zero sized, you can use Exists instead.");
 #endif
 
                 void* ptr = m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_TypeLookupCache);
                 UnsafeUtility.CopyStructureToPtr(ref value, ptr);
-			}
-		}
-	}
+            }
+        }
+    }
 }

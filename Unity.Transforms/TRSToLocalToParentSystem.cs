@@ -49,6 +49,7 @@ namespace Unity.Transforms
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
                 bool changed =
+                    chunk.DidOrderChange(LastSystemVersion) ||
                     chunk.DidChange(TranslationType, LastSystemVersion) ||
                     chunk.DidChange(RotationType, LastSystemVersion) ||
                     chunk.DidChange(CompositeRotationType, LastSystemVersion) ||

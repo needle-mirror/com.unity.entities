@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -12,7 +12,7 @@ namespace Unity.Scenes.Editor
     [InitializeOnLoad]
     class SubSceneTransformHierarchyHook
     {
-        static SubSceneTransformHierarchyHook( )
+        static SubSceneTransformHierarchyHook()
         {
             SceneHierarchyHooks.provideSubScenes = ProvideSubScenes;
             SceneHierarchyHooks.provideSubSceneName = ProvideSubSceneName;
@@ -25,12 +25,12 @@ namespace Unity.Scenes.Editor
         {
             if (sceneAsset == null)
                 return "Missing SubScene";
-                
+
             var name = sceneAsset.name;
-            
+
             if (scene.isDirty)
                 name += "*";
-            
+
             return name;
         }
 
@@ -49,7 +49,7 @@ namespace Unity.Scenes.Editor
                 {
                     scenes[index].sceneName = $"{subScene.SceneAsset.name}  (Duplicate Scene)";
                 }
- 
+
                 var loadedScene = default(Scene);
                 if (isSubSceneInMainStage && !duplicateSceneAsset)
                 {

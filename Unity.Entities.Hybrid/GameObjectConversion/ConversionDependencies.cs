@@ -5,7 +5,8 @@ using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace Unity.Entities.Conversion {
+namespace Unity.Entities.Conversion
+{
     class ConversionDependencies : IDisposable
     {
         internal UnsafeHashMap<int, int> GameObjectIndexByInstanceId = new UnsafeHashMap<int, int>(0, Allocator.Persistent);

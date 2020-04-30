@@ -27,7 +27,7 @@ namespace Unity.Scenes
 
         unsafe public static LiveLinkSceneMsg FromMsg(byte[] buffer, Allocator allocator)
         {
-            fixed (byte* ptr = buffer)
+            fixed(byte* ptr = buffer)
             {
                 var reader = new UnsafeAppendBuffer.Reader(ptr, buffer.Length);
                 LiveLinkSceneMsg msg = default;
@@ -35,13 +35,13 @@ namespace Unity.Scenes
                 return msg;
             }
         }
-        
+
         void Serialize(ref UnsafeAppendBuffer buffer)
         {
             buffer.Add(LoadedScenes);
             buffer.Add(RemovedScenes);
         }
-        
+
         void Deserialize(ref UnsafeAppendBuffer.Reader buffer, Allocator allocator)
         {
             buffer.ReadNext(out LoadedScenes, allocator);
@@ -77,15 +77,15 @@ namespace Unity.Scenes
             m_PreviousScenes.Clear();
             m_PreviousRemovedScenes.Clear();
         }
-        
+
         public bool GetSceneMessage(out LiveLinkSceneMsg msg)
         {
             msg = default;
-            
-            if (_LoadedScenesQuery.CalculateChunkCount() == 0 && _UnloadedScenesQuery.CalculateChunkCount() == 0 
+
+            if (_LoadedScenesQuery.CalculateChunkCount() == 0 && _UnloadedScenesQuery.CalculateChunkCount() == 0
                 && m_PreviousScenes.Length == 0 && m_PreviousRemovedScenes.Length == 0)
                 return false;
-            
+
             //TODO: Causes allocations in Editor
             var loadedScenes = _LoadedScenesQuery.ToComponentDataArray<SceneReference>(Allocator.TempJob);
             var removedScenes = _UnloadedScenesQuery.ToComponentDataArray<LiveLinkPatcher.LiveLinkedSceneState>(Allocator.TempJob);

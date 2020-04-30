@@ -15,8 +15,8 @@ namespace Unity.Entities.Hybrid
 
             using (var changeScope = new EditorGUI.ChangeCheckScope())
             {
-                var assignedValue = EditorGUI.ObjectField(position, label, property.objectReferenceValue, ((RestrictAuthoringInputToAttribute) this.attribute).Type, true);
-             
+                var assignedValue = EditorGUI.ObjectField(position, label, property.objectReferenceValue, ((RestrictAuthoringInputToAttribute)this.attribute).Type, true);
+
                 if (assignedValue is UnityEngine.Component c && changeScope.changed)
                     property.objectReferenceValue = c.gameObject;
             }

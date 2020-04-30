@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
@@ -15,8 +15,8 @@ namespace Unity.Entities.Editor
 
         public override void OnInspectorGUI()
         {
-            var gameObjectEntity = (GameObjectEntity) target;
-            if (gameObjectEntity.EntityManager == null || !gameObjectEntity.EntityManager.IsCreated || !gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
+            var gameObjectEntity = (GameObjectEntity)target;
+            if (!gameObjectEntity.EntityManager.IsCreated || !gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
                 return;
 
             inclusionList.OnGUI(World.DefaultGameObjectInjectionWorld, gameObjectEntity.Entity);

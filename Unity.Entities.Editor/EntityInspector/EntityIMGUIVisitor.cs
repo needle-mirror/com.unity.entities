@@ -10,13 +10,13 @@ namespace Unity.Entities.Editor
     class EntityIMGUIVisitor : PropertyVisitor
     {
         const int kBufferPageLength = 5;
-        
+
         class ScrollData
         {
             public float PageHeight;
             int m_Page;
             int m_Count;
-            
+
             public int Page
             {
                 get => m_Page;
@@ -32,10 +32,10 @@ namespace Unity.Entities.Editor
                     Page = math.min(Page, LastPage);
                 }
             }
-            
+
             public int LastPage => (Count - 1) / kBufferPageLength;
         }
-        
+
         class Styles
         {
             public GUIContent PageLabel { get; }
@@ -49,7 +49,7 @@ namespace Unity.Entities.Editor
         static Styles s_Styles;
 
         readonly Dictionary<int, ScrollData> m_ScrollData = new Dictionary<int, ScrollData>();
-        
+
         public EntityIMGUIVisitor(SelectEntityButtonCallback selectEntityButtonCallback, ResolveEntityNameCallback resolveEntityNameCallback)
         {
             AddAdapter(new IMGUIAdapter(selectEntityButtonCallback, resolveEntityNameCallback));
@@ -75,7 +75,7 @@ namespace Unity.Entities.Editor
                 {
                     return;
                 }
-                
+
                 EditorGUI.indentLevel++;
                 base.VisitProperty(property, ref container, ref value);
                 EditorGUI.indentLevel--;
@@ -99,13 +99,13 @@ namespace Unity.Entities.Editor
             {
                 EditorGUILayout.LabelField(IMGUIAdapter.GetDisplayName(property));
             }
-            
+
             EditorGUI.indentLevel++;
-            
+
             EditorGUILayout.IntField("Size", value.Count);
 
             property.Visit(this, ref value);
-        
+
             EditorGUI.indentLevel--;
         }
 
@@ -117,25 +117,25 @@ namespace Unity.Entities.Editor
             {
                 var enabled = GUI.enabled;
                 GUI.enabled = true;
-                
+
                 EditorGUILayout.LabelField(property.Name, new GUIStyle(EditorStyles.boldLabel) { fontStyle = FontStyle.Bold });
                 EditorGUI.indentLevel++;
-                
+
                 GUI.enabled = false;
-                
+
                 var hash = value.GetHashCode();
                 if (!m_ScrollData.ContainsKey(hash)) m_ScrollData.Add(hash, new ScrollData());
                 var scrollData = m_ScrollData[hash];
-                
+
                 scrollData.Count = value.Count;
-                
+
                 EditorGUILayout.IntField("Size", value.Count);
-                
+
                 GUILayout.BeginVertical(GUILayout.MinHeight(scrollData.PageHeight));
-                for (var index = scrollData.Page*kBufferPageLength; index < (scrollData.Page+1)*kBufferPageLength && index < value.Count; index++)
+                for (var index = scrollData.Page * kBufferPageLength; index < (scrollData.Page + 1) * kBufferPageLength && index < value.Count; index++)
                 {
                     EditorGUILayout.LabelField($"Element {index}");
-            
+
                     EditorGUI.indentLevel++;
                     PropertyContainer.Visit(value[index], this);
                     EditorGUI.indentLevel--;
@@ -149,19 +149,19 @@ namespace Unity.Entities.Editor
                 EditorGUI.indentLevel--;
                 return;
             }
-            
+
             base.VisitList<TContainer, TList, TElement>(property, ref container, ref value);
         }
 
         static bool IsDynamicBufferContainer(Type type)
         {
             return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(DynamicBufferContainer<>);
-        } 
+        }
 
         static bool IsContainerType<TValue>(ref TValue value)
         {
             var type = typeof(TValue);
-            
+
             if (!type.IsValueType && null != value)
             {
                 type = value.GetType();

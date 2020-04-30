@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Editor")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Editor")]

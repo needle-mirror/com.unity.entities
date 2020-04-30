@@ -16,9 +16,9 @@ namespace Unity.Entities
             },
             Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
         };
-        
+
         World m_ShadowWorld;
-        
+
         EntityManager m_SourceEntityManager;
         EntityManager m_ShadowEntityManager;
         EntityQueryDesc m_EntityQueryDesc;
@@ -28,7 +28,11 @@ namespace Unity.Entities
 
         public EntityManagerDiffer(EntityManager sourceEntityManager, Allocator allocator, EntityQueryDesc entityQueryDesc = null)
         {
-            m_SourceEntityManager = sourceEntityManager ?? throw new ArgumentNullException(nameof(sourceEntityManager));
+            m_SourceEntityManager = sourceEntityManager;
+
+            if (!sourceEntityManager.IsCreated)
+                throw new ArgumentException(nameof(sourceEntityManager));
+
             m_EntityQueryDesc = entityQueryDesc ?? EntityGuidQueryDesc;
             m_ShadowWorld = new World(sourceEntityManager.World.Name + " (Shadow)", sourceEntityManager.World.Flags | WorldFlags.Shadow);
             m_ShadowEntityManager = m_ShadowWorld.EntityManager;
@@ -37,14 +41,14 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            m_SourceEntityManager = null;
-            
+            m_SourceEntityManager = default;
+
             if (m_ShadowWorld != null && m_ShadowWorld.IsCreated)
                 m_ShadowWorld.Dispose();
-            
+
             m_BlobAssetCache.Dispose();
             m_ShadowWorld = null;
-            m_ShadowEntityManager = null;
+            m_ShadowEntityManager = default;
             m_EntityQueryDesc = null;
         }
 
@@ -61,10 +65,10 @@ namespace Unity.Entities
         public EntityChanges GetChanges(EntityManagerDifferOptions options, Allocator allocator)
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (null == m_SourceEntityManager || null == m_ShadowEntityManager)
+            if (!m_SourceEntityManager.IsCreated || !m_ShadowEntityManager.IsCreated)
                 throw new ArgumentException($"The {nameof(EntityManagerDiffer)} has already been Disposed.");
             #endif
-            
+
             var changes = EntityDiffer.GetChanges(
                 srcEntityManager: m_SourceEntityManager,
                 dstEntityManager: m_ShadowEntityManager,

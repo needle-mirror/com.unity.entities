@@ -44,17 +44,17 @@ namespace Unity.Scenes.Editor
         {
             //TODO: Find a better way to enforce Version 2 compatibility
             bool v2Enabled = (bool)typeof(AssetDatabase).GetMethod("IsV2Enabled", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
-            if(!v2Enabled)
+            if (!v2Enabled)
                 throw new System.InvalidOperationException("com.unity.entities requires Asset Pipeline Version 2. Please enable Version 2 in Project Settings / Editor / Asset Pipeline / Mode");
 
             // Custom dependencies are transmitted to the import worker so dont spent time on registering them
             if (UnityEditor.Experimental.AssetDatabaseExperimental.IsAssetImportWorkerProcess())
                 return;
 
-            using(kRegisterComponentTypes.Auto())
+            using (kRegisterComponentTypes.Auto())
                 RegisterComponentTypes();
-        
-            using(kRegisterConversionSystemVersions.Auto())
+
+            using (kRegisterConversionSystemVersions.Auto())
                 RegisterConversionSystems();
 
             int fileFormatVersion = SerializeUtility.CurrentFileFormatVersion;
@@ -62,7 +62,7 @@ namespace Unity.Scenes.Editor
             HashUnsafeUtilities.ComputeHash128(&fileFormatVersion, sizeof(int), &fileFormatHash);
             UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency("EntityBinaryFileFormatVersion", fileFormatHash);
         }
-    
+
         static void RegisterComponentTypes()
         {
             TypeManager.Initialize();
@@ -105,27 +105,27 @@ namespace Unity.Scenes.Editor
 
                 nameAndVersion[count++].Init(behaviours[i], fullName);
             }
-        
+
             Array.Sort(nameAndVersion, 0, count);
 
             UnityEngine.Hash128 hash = default;
             for (int i = 0; i != count; i++)
             {
                 var fullName = nameAndVersion[i].FullName;
-                fixed (char* str = fullName)
+                fixed(char* str = fullName)
                 {
                     HashUnsafeUtilities.ComputeHash128(str, (ulong)(sizeof(char) * fullName.Length), &hash);
                 }
-                
+
                 var userName = nameAndVersion[i].UserName;
                 if (userName != null)
                 {
-                    fixed (char* str = userName)
+                    fixed(char* str = userName)
                     {
                         HashUnsafeUtilities.ComputeHash128(str, (ulong)(sizeof(char) * userName.Length), &hash);
                     }
                 }
-                
+
                 int version = nameAndVersion[i].Version;
                 HashUnsafeUtilities.ComputeHash128(&version, sizeof(int), &hash);
             }
@@ -143,7 +143,7 @@ namespace Unity.Scenes.Editor
         {
             ctx.DependsOnCustomDependency(SystemsVersion);
         }
-    
+
         static string TypeString(Type type) => $"DOTSType/{type.FullName}";
     }
 }

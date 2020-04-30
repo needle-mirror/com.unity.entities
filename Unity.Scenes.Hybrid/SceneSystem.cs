@@ -115,7 +115,7 @@ namespace Unity.Scenes
 
             if (resolvedSectionEntities.Length == 0)
                 return false;
-            
+
             foreach (var s in resolvedSectionEntities)
             {
                 if (!EntityManager.HasComponent<SceneSectionStreamingSystem.StreamingState>(s.SectionEntity))
@@ -132,14 +132,6 @@ namespace Unity.Scenes
         }
 
         public Hash128 BuildConfigurationGUID { get; set; }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("BuildSettingsGUID has been renamed to BuildConfigurationGUID. (RemovedAfter 2020-04-15) (UnityUpgradable) -> BuildConfigurationGUID")]
-        public Hash128 BuildSettingsGUID
-        {
-            get => BuildConfigurationGUID;
-            set => BuildConfigurationGUID = value;
-        }
 
         /// <summary>
         /// Load a scene by its asset GUID.
@@ -172,7 +164,7 @@ namespace Unity.Scenes
             });
 
             var requestSceneLoaded = new RequestSceneLoaded { LoadFlags = parameters.Flags};
-            
+
             if (sceneEntity != Entity.Null)
             {
                 EntityManager.AddComponentData(sceneEntity, requestSceneLoaded);
@@ -180,7 +172,7 @@ namespace Unity.Scenes
                 {
                     if (EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
                     {
-                        foreach(var s in EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity))
+                        foreach (var s in EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity))
                             EntityManager.AddComponentData(s.SectionEntity, requestSceneLoaded);
                     }
                 }
@@ -310,7 +302,7 @@ namespace Unity.Scenes
         {
             var streamingSystem = World.GetExistingSystem<SceneSectionStreamingSystem>();
 
-            // Cleanup all Scenes that were destroyed explicitly 
+            // Cleanup all Scenes that were destroyed explicitly
             Entities.WithNone<SceneReference>().ForEach((Entity sceneEntity, DynamicBuffer<ResolvedSectionEntity> sections) =>
             {
                 foreach (var section in sections.ToNativeArray(Allocator.Temp))
@@ -365,7 +357,7 @@ namespace Unity.Scenes
         {
             LiveLinkMsg.LogInfo($"Unloading all GameObject Scenes.");
             Entities.With(sceneLoadRequestQuery).ForEach((Entity entity, ref GameObjectSceneLoadRequest req) =>
-            {                    
+            {
                 SceneManager.UnloadSceneAsync(req.loadedScene);
                 EntityManager.DestroyEntity(req.dependency);
             });

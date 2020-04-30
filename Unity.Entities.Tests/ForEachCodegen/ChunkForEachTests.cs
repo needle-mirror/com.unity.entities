@@ -1,4 +1,4 @@
-﻿#if ENABLE_DOTS_COMPILER_CHUNKS
+#if ENABLE_DOTS_COMPILER_CHUNKS
 using NUnit.Framework;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -24,7 +24,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
             m_Manager.SetComponentData(TestEntity, new EcsTestData() { value = 3});
             m_Manager.SetComponentData(TestEntity, new EcsTestData2() { value0 = 4});
             m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp() { value = 5 });
-            
         }
 
         [Test]
@@ -33,7 +32,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.SimpleForEach().Complete();
             Assert.AreEqual(12, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
-        
+
         [Test]
         public void ChunkForEachWithNestedEntitiesForEachTest()
         {
@@ -59,7 +58,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         }
                     }).Schedule(default);
             }
-            
+
             public JobHandle ChunkForEachWithNestedEntitiesForEach()
             {
                 int capture_harry = 123;

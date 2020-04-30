@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Entities.Hybrid.Tests;
 using UnityEngine.TestTools;
 

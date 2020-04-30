@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Entities.Serialization;
@@ -26,7 +26,7 @@ namespace Unity.Scenes
         [FormerlySerializedAs("sceneAsset")]
         [SerializeField] SceneAsset _SceneAsset;
         [SerializeField] Color _HierarchyColor = Color.gray;
-    
+
         static List<SubScene> m_AllSubScenes = new List<SubScene>();
         public static IReadOnlyCollection<SubScene> AllSubScenes { get { return m_AllSubScenes; } }
 #endif
@@ -44,7 +44,7 @@ namespace Unity.Scenes
 
         [NonSerialized]
         bool _IsAddedToListOfAllSubScenes;
-        
+
         public SceneAsset SceneAsset
         {
             get { return _SceneAsset; }
@@ -53,7 +53,7 @@ namespace Unity.Scenes
                 if (_SceneAsset == value)
                     return;
 
-                // If the SceneAsset has been loaded we need to close it before changing to a new SceneAsset reference so we 
+                // If the SceneAsset has been loaded we need to close it before changing to a new SceneAsset reference so we
                 // don't end up with loaded scenes which are not visible in the Hierarchy.
                 if (_SceneAsset != null)
                 {
@@ -77,26 +77,26 @@ namespace Unity.Scenes
             get { return _HierarchyColor; }
             set { _HierarchyColor = value; }
         }
-   
+
         public string EditableScenePath
         {
-            get 
-            { 
-                return _SceneAsset != null ? AssetDatabase.GetAssetPath(_SceneAsset) : "";    
+            get
+            {
+                return _SceneAsset != null ? AssetDatabase.GetAssetPath(_SceneAsset) : "";
             }
         }
-        
+
         public Scene EditingScene
         {
             get
             {
                 if (_SceneAsset == null)
                     return default(Scene);
-                
+
                 return EditorSceneManager.GetSceneByPath(AssetDatabase.GetAssetPath(_SceneAsset));
             }
         }
-        
+
         public bool IsLoaded
         {
             get { return EditingScene.isLoaded; }
@@ -122,11 +122,11 @@ namespace Unity.Scenes
                 }
             }
         }
-        
+
         void OnValidate()
         {
             _SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(_SceneAsset)));
-            
+
             if (_IsAddedToListOfAllSubScenes && IsInMainStage())
             {
                 if (_SceneGUID != _AddedSceneGUID)
@@ -159,6 +159,7 @@ namespace Unity.Scenes
         {
             return !EditorUtility.IsPersistent(gameObject) && StageUtility.GetStageHandle(gameObject) == StageUtility.GetMainStageHandle();
         }
+
 #endif
 
         public Hash128 SceneGUID => _SceneGUID;
@@ -167,7 +168,7 @@ namespace Unity.Scenes
         {
 #if UNITY_EDITOR
             WarnIfNeeded();
-            
+
             _IsAddedToListOfAllSubScenes = true;
             m_AllSubScenes.Add(this);
 
@@ -181,14 +182,14 @@ namespace Unity.Scenes
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
             AddSceneEntities();
         }
-        
+
         void OnDisable()
         {
 #if UNITY_EDITOR
             _IsAddedToListOfAllSubScenes = false;
             m_AllSubScenes.Remove(this);
 #endif
-            
+
             RemoveSceneEntities();
         }
 
@@ -208,18 +209,18 @@ namespace Unity.Scenes
                 var sceneSystem = world.GetExistingSystem<SceneSystem>();
                 if (sceneSystem != null)
                 {
-                    
                     var loadParams = new SceneSystem.LoadParameters
                     {
                         Flags = flags
                     };
-                    
+
                     var sceneEntity = sceneSystem.LoadSceneAsync(_SceneGUID, loadParams);
                     sceneSystem.EntityManager.AddComponentObject(sceneEntity, this);
                     _AddedSceneGUID = _SceneGUID;
                 }
             }
         }
+
         void RemoveSceneEntities()
         {
             if (_AddedSceneGUID != default)
@@ -230,7 +231,7 @@ namespace Unity.Scenes
                     if (sceneSystem != null)
                         sceneSystem.UnloadScene(_AddedSceneGUID, SceneSystem.UnloadParameters.DestroySceneProxyEntity | SceneSystem.UnloadParameters.DestroySectionProxyEntities);
                 }
-                
+
                 _AddedSceneGUID = default;
             }
         }
@@ -238,7 +239,7 @@ namespace Unity.Scenes
         //@TODO: Move this into SceneManager
         void UnloadScene()
         {
-        //@TODO: ask to save scene first???
+            //@TODO: ask to save scene first???
 #if UNITY_EDITOR
             var scene = EditingScene;
             if (scene.IsValid())
@@ -250,12 +251,12 @@ namespace Unity.Scenes
                     Debug.Log("Creating new scene");
                     EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Additive);
                 }
-    
-                EditorSceneManager.UnloadSceneAsync(scene);    
+
+                EditorSceneManager.UnloadSceneAsync(scene);
             }
 #endif
         }
-      
+
         private void OnDestroy()
         {
             UnloadScene();

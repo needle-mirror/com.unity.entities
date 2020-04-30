@@ -1,15 +1,17 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Collections;
 using System;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Serialization;
 using Unity.Jobs;
 using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
 using Unity.Mathematics;
 using BinaryReader = Unity.Entities.Serialization.BinaryReader;
 using BinaryWriter = Unity.Entities.Serialization.BinaryWriter;
+#if !UNITY_PORTABLE_TEST_RUNNER
+using System.IO;
+#endif
 
 namespace Unity.Entities.Tests
 {
@@ -22,7 +24,6 @@ namespace Unity.Entities.Tests
             position = 0;
             content = writer.content;
             writer.content = new NativeList<byte>();
-
         }
 
         public void Dispose()
@@ -61,10 +62,11 @@ namespace Unity.Entities.Tests
 
         public void Execute()
         {
-            SerializeUtility.DeserializeWorld(Transaction, Reader); 
+            SerializeUtility.DeserializeWorld(Transaction, Reader);
         }
     }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
     internal class YAMLSerializationHelpers
     {
         /// <summary>
@@ -78,7 +80,7 @@ namespace Unity.Entities.Tests
         /// </remarks>
         public static bool EqualYAMLFiles(Stream fileA, Stream fileB)
         {
-            using (var readerA = new StreamReader(fileA)) 
+            using (var readerA = new StreamReader(fileA))
             using (var readerB = new StreamReader(fileB))
             {
                 string lineA;
@@ -94,6 +96,7 @@ namespace Unity.Entities.Tests
             }
         }
     }
+#endif
 
     class SerializeTests : ECSTestsFixture
     {
@@ -128,7 +131,7 @@ namespace Unity.Entities.Tests
 
             var reader = new TestBinaryReader(writer);
 
-            Assert.Throws<ArgumentException>(()=>
+            Assert.Throws<ArgumentException>(() =>
                 SerializeUtility.DeserializeWorld(m_Manager.BeginExclusiveEntityTransaction(), reader)
             );
             reader.Dispose();
@@ -141,10 +144,10 @@ namespace Unity.Entities.Tests
             var e1 = CreateEntityWithDefaultData(1);
             var e2 = CreateEntityWithDefaultData(2);
             var e3 = CreateEntityWithDefaultData(3);
-            m_Manager.AddComponentData(e1, new TestComponentData1{ value = 10, referencedEntity = e2 });
-            m_Manager.AddComponentData(e2, new TestComponentData2{ value = 20, referencedEntity = e1 });
-            m_Manager.AddComponentData(e3, new TestComponentData1{ value = 30, referencedEntity = Entity.Null });
-            m_Manager.AddComponentData(e3, new TestComponentData2{ value = 40, referencedEntity = Entity.Null });
+            m_Manager.AddComponentData(e1, new TestComponentData1 { value = 10, referencedEntity = e2 });
+            m_Manager.AddComponentData(e2, new TestComponentData2 { value = 20, referencedEntity = e1 });
+            m_Manager.AddComponentData(e3, new TestComponentData1 { value = 30, referencedEntity = Entity.Null });
+            m_Manager.AddComponentData(e3, new TestComponentData2 { value = 40, referencedEntity = Entity.Null });
             m_Manager.AddBuffer<EcsIntElement>(e1);
             m_Manager.RemoveComponent<EcsTestData2>(e3);
             m_Manager.AddBuffer<EcsIntElement>(e3);
@@ -241,7 +244,7 @@ namespace Unity.Entities.Tests
 
                 var buf1 = entityManager.GetBuffer<EcsIntElement>(new_e1);
                 Assert.AreEqual(3, buf1.Length);
-                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e1).GetUnsafePtr(), (UIntPtr)buf1.GetUnsafePtr());
+                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e1).GetUnsafeReadOnlyPtr(), (UIntPtr)buf1.GetUnsafeReadOnlyPtr());
 
                 for (int i = 0; i < 3; ++i)
                 {
@@ -250,7 +253,7 @@ namespace Unity.Entities.Tests
 
                 var buf3 = entityManager.GetBuffer<EcsIntElement>(new_e3);
                 Assert.AreEqual(10, buf3.Length);
-                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e3).GetUnsafePtr(), (UIntPtr)buf3.GetUnsafePtr());
+                Assert.AreNotEqual((UIntPtr)m_Manager.GetBuffer<EcsIntElement>(e3).GetUnsafeReadOnlyPtr(), (UIntPtr)buf3.GetUnsafeReadOnlyPtr());
 
                 for (int i = 0; i < 10; ++i)
                 {
@@ -287,7 +290,7 @@ namespace Unity.Entities.Tests
         public void SerializeEntitiesSupportsNonASCIIComponentTypeNames()
         {
             var e1 = m_Manager.CreateEntity();
-            m_Manager.AddComponentData(e1, new 测试{ value = 7 });
+            m_Manager.AddComponentData(e1, new 测试 { value = 7 });
 
             // disposed via reader
             var writer = new TestBinaryWriter();
@@ -323,7 +326,6 @@ namespace Unity.Entities.Tests
                 deserializedWorld.Dispose();
                 reader.Dispose();
             }
-
         }
 
         [Test]
@@ -338,12 +340,12 @@ namespace Unity.Entities.Tests
 
             m_Manager.AddBuffer<TestBufferElement>(e1);
             var buffer1 = m_Manager.GetBuffer<TestBufferElement>(e1);
-            for(int i=0;i<1024;++i)
+            for (int i = 0; i < 1024; ++i)
                 buffer1.Add(new TestBufferElement {entity = e2, value = 2});
 
             m_Manager.AddBuffer<TestBufferElement>(e2);
             var buffer2 = m_Manager.GetBuffer<TestBufferElement>(e2);
-            for(int i=0;i<8;++i)
+            for (int i = 0; i < 8; ++i)
                 buffer2.Add(new TestBufferElement {entity = e1, value = 1});
 
             m_Manager.DestroyEntity(dummyEntity);
@@ -361,7 +363,6 @@ namespace Unity.Entities.Tests
 
             try
             {
-
                 var group1 = entityManager.CreateEntityQuery(typeof(EcsTestData), typeof(TestBufferElement));
                 var group2 = entityManager.CreateEntityQuery(typeof(EcsTestData2), typeof(TestBufferElement));
 
@@ -469,12 +470,12 @@ namespace Unity.Entities.Tests
 
             m_Manager.AddBuffer<TestBufferElement>(e1);
             var buffer1 = m_Manager.GetBuffer<TestBufferElement>(e1);
-            for(int i=0;i<1024;++i)
+            for (int i = 0; i < 1024; ++i)
                 buffer1.Add(new TestBufferElement {entity = e2, value = 2});
 
             m_Manager.AddBuffer<TestBufferElement>(e2);
             var buffer2 = m_Manager.GetBuffer<TestBufferElement>(e2);
-            for(int i=0;i<8;++i)
+            for (int i = 0; i < 8; ++i)
                 buffer2.Add(new TestBufferElement {entity = e1, value = 1});
 
             m_Manager.DestroyEntity(dummyEntity);
@@ -507,12 +508,13 @@ namespace Unity.Entities.Tests
             public int typeIndex;
         }
 
-        ExternalSharedComponentValue[] ExtractSharedComponentValues(int[] indices, EntityManager manager)
+        unsafe ExternalSharedComponentValue[] ExtractSharedComponentValues(int[] indices, EntityManager manager)
         {
             var values = new ExternalSharedComponentValue[indices.Length];
+            ManagedComponentStore mcs = manager.GetCheckedEntityDataAccess()->ManagedComponentStore;
             for (int i = 0; i < indices.Length; ++i)
             {
-                object value = manager.ManagedComponentStore.GetSharedComponentDataNonDefaultBoxed(indices[i]);
+                object value = mcs.GetSharedComponentDataNonDefaultBoxed(indices[i]);
                 int typeIndex = TypeManager.GetTypeIndex(value.GetType());
                 int hash = TypeManager.GetHashCode(value, typeIndex);
                 values[i] = new ExternalSharedComponentValue {obj = value, hashcode = hash, typeIndex = typeIndex};
@@ -520,14 +522,15 @@ namespace Unity.Entities.Tests
             return values;
         }
 
-        void InsertSharedComponentValues(ExternalSharedComponentValue[] values, EntityManager manager)
+        unsafe void InsertSharedComponentValues(ExternalSharedComponentValue[] values, EntityManager manager)
         {
+            ManagedComponentStore mcs = manager.GetCheckedEntityDataAccess()->ManagedComponentStore;
             for (int i = 0; i < values.Length; ++i)
             {
                 ExternalSharedComponentValue value = values[i];
-                int index = manager.ManagedComponentStore.InsertSharedComponentAssumeNonDefault(value.typeIndex,
+                int index = mcs.InsertSharedComponentAssumeNonDefault(value.typeIndex,
                     value.hashcode, value.obj);
-                Assert.AreEqual(i+1, index);
+                Assert.AreEqual(i + 1, index);
             }
         }
 
@@ -590,8 +593,8 @@ namespace Unity.Entities.Tests
                 {
                     buffer2.Add(new EcsTestDataBlobAssetElement2()
                     {
-                        blobElement = BlobAssetReference<int>.Create(j+1),
-                        blobElement2 = BlobAssetReference<int>.Create(j+2)
+                        blobElement = BlobAssetReference<int>.Create(j + 1),
+                        blobElement2 = BlobAssetReference<int>.Create(j + 2)
                     });
                 }
             }
@@ -619,7 +622,12 @@ namespace Unity.Entities.Tests
             entityManager.EndExclusiveEntityTransaction();
 
             entityManager.Debug.CheckInternalConsistency();
-            Assert.IsTrue(entityManager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(entityManager.EntityComponentStore));
+
+            var access = entityManager.GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
+
+            Assert.IsTrue(mcs.AllSharedComponentReferencesAreFromChunks(ecs));
 
             try
             {
@@ -652,7 +660,7 @@ namespace Unity.Entities.Tests
                 var entities3 = group3.ToEntityArray(Allocator.TempJob);
                 Assert.AreEqual(entityCount, entities3.Length);
 
-                // We can't rely on the entity order matching how we filled the buffers so we instead ensure 
+                // We can't rely on the entity order matching how we filled the buffers so we instead ensure
                 // that we see buffers as many buffers as there are entities and we see buffers with 1 to 'entityCount'
                 // elements in them with ascending values from 0 to bufferLength-1
                 NativeHashMap<int, int> bufferMap = new NativeHashMap<int, int>(entityCount, Allocator.Temp);
@@ -664,7 +672,7 @@ namespace Unity.Entities.Tests
                     {
                         Assert.AreEqual(j, buffer[j].blobElement.Value);
                     }
-                    if(!bufferMap.TryGetValue(buffer.Length, out var count))
+                    if (!bufferMap.TryGetValue(buffer.Length, out var count))
                     {
                         bufferMap.TryAdd(buffer.Length, 1);
                     }
@@ -675,7 +683,7 @@ namespace Unity.Entities.Tests
                 }
                 for (int i = 0; i < entityCount; ++i)
                 {
-                    Assert.IsTrue(bufferMap[i%100] == 10);
+                    Assert.IsTrue(bufferMap[i % 100] == 10);
                 }
                 bufferMap.Dispose();
                 entities3.Dispose();
@@ -691,8 +699,8 @@ namespace Unity.Entities.Tests
 
                     for (int j = 0; j < buffer.Length; ++j)
                     {
-                        Assert.AreEqual(j+1, buffer[j].blobElement.Value);
-                        Assert.AreEqual(j+2, buffer[j].blobElement2.Value);
+                        Assert.AreEqual(j + 1, buffer[j].blobElement.Value);
+                        Assert.AreEqual(j + 2, buffer[j].blobElement2.Value);
                     }
                     if (!bufferMap2.TryGetValue(buffer.Length, out var count))
                     {
@@ -808,7 +816,12 @@ namespace Unity.Entities.Tests
             entityManager.EndExclusiveEntityTransaction();
 
             entityManager.Debug.CheckInternalConsistency();
-            Assert.IsTrue(entityManager.ManagedComponentStore.AllSharedComponentReferencesAreFromChunks(entityManager.EntityComponentStore));
+
+            var access = entityManager.GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            var mcs = access->ManagedComponentStore;
+
+            Assert.IsTrue(mcs.AllSharedComponentReferencesAreFromChunks(ecs));
 
             try
             {
@@ -841,7 +854,7 @@ namespace Unity.Entities.Tests
                 var entities3 = group3.ToEntityArray(Allocator.TempJob);
                 Assert.AreEqual(entityCount, entities3.Length);
 
-                // We can't rely on the entity order matching how we filled the buffers so we instead ensure 
+                // We can't rely on the entity order matching how we filled the buffers so we instead ensure
                 // that we see buffers as many buffers as there are entities and we see buffers with 1 to 'entityCount'
                 // elements in them with ascending values from 0 to bufferLength-1
                 NativeHashMap<int, int> bufferMap = new NativeHashMap<int, int>(entityCount, Allocator.Temp);
@@ -957,7 +970,7 @@ namespace Unity.Entities.Tests
             public int m_Int;
             public byte m_Byte;
         }
-        
+
         public unsafe struct TypeWithPointer
         {
             int m_Pad;
@@ -1019,6 +1032,7 @@ namespace Unity.Entities.Tests
                 );
             }
         }
+
 #endif
 
         [Test]
@@ -1091,7 +1105,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        
         [Test]
         [StandaloneFixme] // DOTS Runtime Managed Component Serialization
         public void SerializeEntities_RemapsEntitiesInManagedComponents()
@@ -1103,7 +1116,7 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(targetArchetype, targetEntities);
             for (int i = 0; i != targetEntities.Length; i++)
                 m_Manager.SetComponentData(targetEntities[i], new EcsTestData(i));
-            
+
             var sourceArchetype = m_Manager.CreateArchetype(typeof(EcsTestManagedDataEntity));
             var sourceEntities = new NativeArray<Entity>(numberOfEntitiesPerManager, Allocator.Temp);
             m_Manager.CreateEntity(sourceArchetype, sourceEntities);
@@ -1114,8 +1127,8 @@ namespace Unity.Entities.Tests
             }
 
             // Destroy ever 2nd target entity to ensure something changes when entity ids are compacted during serialization
-            for (int i = 0; i != targetEntities.Length/2; i++)
-                m_Manager.DestroyEntity(targetEntities[i*2+1]);
+            for (int i = 0; i != targetEntities.Length / 2; i++)
+                m_Manager.DestroyEntity(targetEntities[i * 2 + 1]);
 
             var deserializedWorld = new World("SerializeEntities_HandlesNullManagedComponents Test World");
 
@@ -1128,18 +1141,18 @@ namespace Unity.Entities.Tests
             }
 
             var entityManager = deserializedWorld.EntityManager;
-            
+
             m_Manager.Debug.CheckInternalConsistency();
             entityManager.Debug.CheckInternalConsistency();
 
 
             var group = entityManager.CreateEntityQuery(typeof(EcsTestData));
-            Assert.AreEqual(numberOfEntitiesPerManager/2, group.CalculateEntityCount());
+            Assert.AreEqual(numberOfEntitiesPerManager / 2, group.CalculateEntityCount());
 
             var managedGroup = entityManager.CreateEntityQuery(typeof(EcsTestManagedDataEntity));
             Assert.AreEqual(numberOfEntitiesPerManager, managedGroup.CalculateEntityCount());
 
-            
+
             var managedTestDataArray = managedGroup.ToComponentDataArray<EcsTestManagedDataEntity>();
             for (int i = 0; i != managedTestDataArray.Length; i++)
             {
@@ -1148,9 +1161,8 @@ namespace Unity.Entities.Tests
 
             targetEntities.Dispose();
             sourceEntities.Dispose();
-            deserializedWorld.Dispose();        
+            deserializedWorld.Dispose();
         }
-        
 
         [Test]
         [StandaloneFixme] // DOTS Runtime Managed Component Serialization
@@ -1226,7 +1238,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        public interface InterfaceType { }
+        public interface InterfaceType {}
 
         public class InterfaceImplType : InterfaceType
         {
@@ -1235,13 +1247,13 @@ namespace Unity.Entities.Tests
             {
                 String = null;
             }
-            
+
             public InterfaceImplType(int i)
             {
                 String = i.ToString();
             }
         }
-        
+
         public class InterfaceImplType2 : InterfaceType
         {
             public int Int;
@@ -1250,6 +1262,7 @@ namespace Unity.Entities.Tests
             {
                 NestedInterfaceType = null;
             }
+
             public InterfaceImplType2(int i)
             {
                 Int = i;
@@ -1257,7 +1270,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        public abstract class AbstractType { }
+        public abstract class AbstractType {}
         public class AbstractImplType : AbstractType
         {
             public string String;
@@ -1266,13 +1279,13 @@ namespace Unity.Entities.Tests
             {
                 String = null;
             }
-            
+
             public AbstractImplType(int i)
             {
                 String = i.ToString();
             }
         }
-        
+
         public class NestedAbstractImplType : AbstractImplType
         {
             public int Int;
@@ -1282,7 +1295,7 @@ namespace Unity.Entities.Tests
             {
                 Int = 0;
             }
-            
+
             public NestedAbstractImplType(int i) : base(i)
             {
                 Int = i;
@@ -1313,14 +1326,14 @@ namespace Unity.Entities.Tests
             {
                 String = null;
             }
-            
+
             public ChildType(int i)
                 : base(i)
             {
-                String = (i+1).ToString();
+                String = (i + 1).ToString();
             }
         }
-        
+
         public class GrandChildType : ChildType
         {
             public object BoxedByte;
@@ -1330,17 +1343,17 @@ namespace Unity.Entities.Tests
             {
                 BoxedByte = (byte)0;
             }
-            
+
             public GrandChildType(int i)
                 : base(i)
             {
-                BoxedByte = (byte)(i+2);
+                BoxedByte = (byte)(i + 2);
             }
         }
-        
+
         public class MyClass
         {
-            public const int kIterations = 16; 
+            public const int kIterations = 16;
             public int mId;
             public uint4 mInt4;
             public int[] mArray;
@@ -1365,38 +1378,38 @@ namespace Unity.Entities.Tests
                 mArray = new int[kIterations];
                 for (int i = 0; i < kIterations; ++i)
                     mArray[i] = v + i;
-                
+
                 mInterfaceType = new InterfaceImplType(v);
                 mAbstractType = new AbstractImplType(v);
                 mBaseType = new ChildType(v);
-                
+
                 mInterfaceList = new List<InterfaceType>();
                 for (int i = 0; i < kIterations; ++i)
                 {
-                    if((i & 1) == 0)
-                        mInterfaceList.Add(new InterfaceImplType(v+i));
+                    if ((i & 1) == 0)
+                        mInterfaceList.Add(new InterfaceImplType(v + i));
                     else
-                        mInterfaceList.Add(new InterfaceImplType2(v+i));
+                        mInterfaceList.Add(new InterfaceImplType2(v + i));
                 }
-                
+
                 mAbstractClassList = new List<AbstractType>();
                 for (int i = 0; i < kIterations; ++i)
                 {
-                    if((i & 1) == 0)
-                        mAbstractClassList.Add(new AbstractImplType(v+i));
+                    if ((i & 1) == 0)
+                        mAbstractClassList.Add(new AbstractImplType(v + i));
                     else
-                        mAbstractClassList.Add(new NestedAbstractImplType(v+i));
+                        mAbstractClassList.Add(new NestedAbstractImplType(v + i));
                 }
-                
+
                 mBaseTypeList = new List<BaseType>();
                 for (int i = 0; i < kIterations; ++i)
                 {
-                    if(i % 3 == 0)
-                        mBaseTypeList.Add(new BaseType(v+i));
-                    else if(i % 3 == 1)
-                        mBaseTypeList.Add(new ChildType(v+i));
-                    else if(i % 3 == 2)
-                        mBaseTypeList.Add(new GrandChildType(v+i));
+                    if (i % 3 == 0)
+                        mBaseTypeList.Add(new BaseType(v + i));
+                    else if (i % 3 == 1)
+                        mBaseTypeList.Add(new ChildType(v + i));
+                    else if (i % 3 == 2)
+                        mBaseTypeList.Add(new GrandChildType(v + i));
                 }
             }
 
@@ -1417,7 +1430,7 @@ namespace Unity.Entities.Tests
                 mClass = c;
             }
         }
-        
+
         [Test]
         [StandaloneFixme] // DOTS Runtime Managed Component Serialization
         public void SerializeEntitiesManagedComponentWithCustomClass_ManagedComponents()
@@ -1474,7 +1487,7 @@ namespace Unity.Entities.Tests
                         {
                             Assert.IsTrue(myClass.mArray[j] == id + j);
                         }
-                        
+
                         // Polymorphic types
                         Assert.IsNotNull(myClass.mInterfaceType);
                         var concreteInterfaceType = (InterfaceImplType)myClass.mInterfaceType;
@@ -1487,8 +1500,8 @@ namespace Unity.Entities.Tests
                         Assert.IsNotNull(myClass.mBaseType);
                         var concreteBaseType = (ChildType)myClass.mBaseType;
                         Assert.IsTrue(concreteBaseType.Int == id);
-                        Assert.IsTrue(concreteBaseType.String == (id+1).ToString());
-                        
+                        Assert.IsTrue(concreteBaseType.String == (id + 1).ToString());
+
                         Assert.IsNotNull(myClass.mInterfaceList);
                         Assert.IsTrue(myClass.mInterfaceList.Count == MyClass.kIterations);
                         for (int j = 0; j < MyClass.kIterations; ++j)
@@ -1496,18 +1509,18 @@ namespace Unity.Entities.Tests
                             var interfaceType = myClass.mInterfaceList[j];
                             if ((j & 1) == 0)
                             {
-                                var concreteType = (InterfaceImplType) interfaceType;
+                                var concreteType = (InterfaceImplType)interfaceType;
                                 Assert.AreEqual((id + j).ToString(), concreteType.String);
                             }
                             else
                             {
                                 var concreteType = (InterfaceImplType2)interfaceType;
                                 Assert.IsTrue(concreteType.Int == (id + j));
-                                var nestedConcreteType = (InterfaceImplType) concreteType.NestedInterfaceType;
-                                Assert.IsTrue(nestedConcreteType.String == (id + j).ToString());                                                                
+                                var nestedConcreteType = (InterfaceImplType)concreteType.NestedInterfaceType;
+                                Assert.IsTrue(nestedConcreteType.String == (id + j).ToString());
                             }
                         }
-                        
+
                         Assert.IsNotNull(myClass.mAbstractClassList);
                         Assert.IsTrue(myClass.mAbstractClassList.Count == MyClass.kIterations);
                         for (int j = 0; j < MyClass.kIterations; ++j)
@@ -1520,12 +1533,12 @@ namespace Unity.Entities.Tests
                             }
                             else
                             {
-                                var concreteType = (NestedAbstractImplType) abstractType;
+                                var concreteType = (NestedAbstractImplType)abstractType;
                                 Assert.IsTrue(concreteType.String == (id + j).ToString());
-                                Assert.IsTrue(concreteType.Int == (id + j)); 
+                                Assert.IsTrue(concreteType.Int == (id + j));
                             }
                         }
-                        
+
                         Assert.IsNotNull(myClass.mBaseTypeList);
                         Assert.IsTrue(myClass.mBaseTypeList.Count == MyClass.kIterations);
                         for (int j = 0; j < MyClass.kIterations; ++j)
@@ -1590,7 +1603,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(dummyEntity);
 
             var refFilePathName = @"Packages\com.unity.entities\Unity.Entities.Tests\Serialization\WorldTest.yaml";
-            
+
             // To generate the file we'll test against
             using (var sw = new StreamWriter(refFilePathName))
             {
@@ -1621,7 +1634,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        
         [Test]
         public void WorldYamlSerialization_UsingStreamWriterWithCRLF_ThrowsArgumentException()
         {
@@ -1635,6 +1647,7 @@ namespace Unity.Entities.Tests
                 });
             }
         }
+
 #endif // !NET_DOTS
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
     }

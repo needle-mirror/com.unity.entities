@@ -32,7 +32,6 @@ namespace Unity.Scenes.Editor
         Dictionary<Hash128, LiveLinkDiffGenerator> _SceneGUIDToLiveLink = new Dictionary<Hash128, LiveLinkDiffGenerator>();
         int                                        _PreviousGlobalDirtyID;
         Dictionary<Hash128, Scene>                 _GUIDToEditScene = new Dictionary<Hash128, Scene>();
-        UnsafeHashMap<GUID, byte>                  m_AssetDependencies;
 
         BuildConfiguration                         _BuildConfiguration;
         UnityEngine.Hash128                        _BuildConfigurationArtifactHash;
@@ -54,24 +53,22 @@ namespace Unity.Scenes.Editor
 
             Undo.postprocessModifications += PostprocessModifications;
             Undo.undoRedoPerformed += GlobalDirtyLiveLink;
-            
+
             _RemovedScenes = new NativeList<Hash128>(Allocator.Persistent);
-            m_AssetDependencies = new UnsafeHashMap<GUID, byte>(100, Allocator.Persistent);
             k_AllConnections.Add(this);
         }
-        
+
         public void Dispose()
         {
             k_AllConnections.Remove(this);
             Undo.postprocessModifications -= PostprocessModifications;
             Undo.undoRedoPerformed -= GlobalDirtyLiveLink;
 
-            foreach(var livelink in _SceneGUIDToLiveLink.Values)
+            foreach (var livelink in _SceneGUIDToLiveLink.Values)
                 livelink.Dispose();
             _SceneGUIDToLiveLink.Clear();
             _SceneGUIDToLiveLink = null;
             _RemovedScenes.Dispose();
-            m_AssetDependencies.Dispose();
         }
 
         public NativeArray<Hash128> GetInitialScenes(int playerId, Allocator allocator)
@@ -94,6 +91,17 @@ namespace Unity.Scenes.Editor
             return new NativeArray<Hash128>(0, allocator);
         }
 
+        bool HasAssetDependencies()
+        {
+            foreach (var kvp in _SceneGUIDToLiveLink)
+            {
+                if (kvp.Value.HasAssetDependencies)
+                    return true;
+            }
+
+            return false;
+        }
+
         class GameObjectPrefabLiveLinkSceneTracker : AssetPostprocessor
         {
             static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets,
@@ -114,7 +122,8 @@ namespace Unity.Scenes.Editor
                 {
                     bool hasDependencies = false;
                     foreach (var c in connections)
-                        hasDependencies |= c.m_AssetDependencies.Count() > 0;
+                        hasDependencies |= c.HasAssetDependencies();
+
                     if (!hasDependencies)
                         return;
                 }
@@ -124,22 +133,19 @@ namespace Unity.Scenes.Editor
                     var guid = new GUID(AssetDatabase.AssetPathToGUID(asset));
                     foreach (var connection in connections)
                     {
-                        if (connection.m_AssetDependencies.ContainsKey(guid))
-                        {
-                            GlobalDirtyLiveLink();
-                            break;
-                        }
+                        foreach (var diff in connection._SceneGUIDToLiveLink)
+                            diff.Value.MarkAssetChanged(guid);
                     }
                 }
             }
         }
-        
+
         public static void GlobalDirtyLiveLink()
         {
             GlobalDirtyID++;
             EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
         }
-        
+
         internal static bool IsHotControlActive()
         {
             return GUIUtility.hotControl != 0;
@@ -161,16 +167,15 @@ namespace Unity.Scenes.Editor
                 }
             }
 
-            if (m_AssetDependencies.Count() > 0)
+            if (HasAssetDependencies())
             {
                 foreach (var mod in modifications)
                 {
-                    AssetDatabase.TryGetGUIDAndLocalFileIdentifier(mod.currentValue.target, out var guid, out long _);
-                    if (m_AssetDependencies.ContainsKey(new GUID(guid)))
-                    {
-                        GlobalDirtyLiveLink();
-                        break;
-                    }
+                    if (!AssetDatabase.TryGetGUIDAndLocalFileIdentifier(mod.currentValue.target, out var guidString, out long _))
+                        continue;
+                    var guid = new GUID(guidString);
+                    foreach (var kvp in _SceneGUIDToLiveLink)
+                        kvp.Value.MarkAssetChanged(guid);
                 }
             }
 
@@ -181,12 +186,12 @@ namespace Unity.Scenes.Editor
         {
             if (scene.IsValid())
             {
-                return (int) _GetDirtyIDMethod.Invoke(scene, null);
+                return (int)_GetDirtyIDMethod.Invoke(scene, null);
             }
             else
                 return -1;
         }
-        
+
         static GameObject GetGameObjectFromAny(Object target)
         {
             Component component = target as Component;
@@ -194,13 +199,13 @@ namespace Unity.Scenes.Editor
                 return component.gameObject;
             return target as GameObject;
         }
-        
+
         LiveLinkDiffGenerator GetLiveLink(Hash128 sceneGUID)
         {
             _SceneGUIDToLiveLink.TryGetValue(sceneGUID, out var liveLink);
             return liveLink;
         }
-        
+
         LiveLinkDiffGenerator GetLiveLink(Scene scene)
         {
             //@TODO: Cache _SceneToLiveLink ???
@@ -228,7 +233,7 @@ namespace Unity.Scenes.Editor
         {
             _RemovedScenes.AddRange(removedScenes);
         }
-        
+
         public bool HasScene(Hash128 sceneGuid)
         {
             return _LoadedScenes.Contains(sceneGuid);
@@ -241,15 +246,15 @@ namespace Unity.Scenes.Editor
 
         void RequestCleanConversion()
         {
-            foreach(var liveLink in _SceneGUIDToLiveLink.Values)
+            foreach (var liveLink in _SceneGUIDToLiveLink.Values)
                 liveLink.RequestCleanConversion();
         }
-        
+
         public void Update(List<LiveLinkChangeSet> changeSets, NativeList<Hash128> loadScenes, NativeList<Hash128> unloadScenes, LiveLinkMode mode)
         {
             if (_LoadedScenes.Count == 0 && _SceneGUIDToLiveLink.Count == 0 && _RemovedScenes.Length == 0)
                 return;
-            
+
             // If build configuration changed, we need to trigger a full conversion
             if (_BuildConfigurationGUID != default)
             {
@@ -287,7 +292,7 @@ namespace Unity.Scenes.Editor
                 if (!_GUIDToEditScene.ContainsKey(scene.Key))
                     unloadScenes.Add(scene.Key);
             }
-            
+
             // Process scenes that are no longer loaded
             foreach (var scene in unloadScenes)
             {
@@ -303,16 +308,16 @@ namespace Unity.Scenes.Editor
                     liveLink.Dispose();
                     _SceneGUIDToLiveLink.Remove(scene);
                 }
-                
+
                 unloadScenes.Add(scene);
                 _SentLoadScenes.Remove(scene);
             }
             _RemovedScenes.Clear();
 
             _SentLoadScenes.RemoveWhere(scene => !_LoadedScenes.Contains(scene));
-            
+
             // Process all scenes that the player needs
-            foreach(var sceneGuid in _LoadedScenes)
+            foreach (var sceneGuid in _LoadedScenes)
             {
                 var isLoaded = _GUIDToEditScene.TryGetValue(sceneGuid, out var scene);
 
@@ -332,12 +337,12 @@ namespace Unity.Scenes.Editor
                 }
             }
         }
-	    
+
         void AddLiveLinkChangeSet(Hash128 sceneGUID, List<LiveLinkChangeSet> changeSets, LiveLinkMode mode)
         {
             var liveLink = GetLiveLink(sceneGUID);
             var editScene = _GUIDToEditScene[sceneGUID];
-            
+
             // The current behaviour is that we do incremental conversion until we release the hot control
             // This is to avoid any unexpected stalls
             // Optimally the undo system would tell us if only properties have changed, but currently we don't have such an event stream.
@@ -352,7 +357,7 @@ namespace Unity.Scenes.Editor
                 else
                 {
                     updateLiveLink = false;
-                    EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();    
+                    EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
                 }
             }
             else
@@ -375,14 +380,7 @@ namespace Unity.Scenes.Editor
 
                 try
                 {
-                    changeSets.Add(LiveLinkDiffGenerator.UpdateLiveLink(editScene, sceneGUID, ref liveLink, sceneDirtyID, mode, _BuildConfiguration, out var assetDependencies));
-                    if (assetDependencies.IsCreated)
-                    {
-                        m_AssetDependencies.Clear();
-                        foreach (var asset in assetDependencies)
-                            m_AssetDependencies.Add(asset, 1);
-                        assetDependencies.Dispose();
-                    }
+                    changeSets.Add(LiveLinkDiffGenerator.UpdateLiveLink(editScene, sceneGUID, ref liveLink, sceneDirtyID, mode, _BuildConfiguration));
                 }
                 finally
                 {

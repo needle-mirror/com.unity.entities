@@ -4,6 +4,7 @@ using System.IO;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Build;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Conversion;
 using Unity.Profiling;
 using UnityEditor;
@@ -24,6 +25,7 @@ namespace Unity.Scenes.Editor
         EntityQuery                 _MissingRenderDataQuery;
         EntityQuery                 _MissingSceneQuery;
         EntityManagerDiffer         _LiveLinkDiffer;
+        UnsafeHashMap<GUID, byte>   m_AssetDependencies;
 
         HashSet<GameObject>         _ChangedGameObjects = new HashSet<GameObject>();
         bool                        _RequestCleanConversion;
@@ -32,11 +34,17 @@ namespace Unity.Scenes.Editor
         string                      _SceneName;
 
         BlobAssetStore     m_BlobAssetStore = new BlobAssetStore();
-        
+
         public void AddChanged(GameObject gameObject)
         {
             // Debug.Log("AddChanged");
             _ChangedGameObjects.Add(gameObject);
+        }
+
+        internal void MarkAssetChanged(GUID asset)
+        {
+            if (!_RequestCleanConversion && m_AssetDependencies.ContainsKey(asset))
+                RequestCleanConversion();
         }
 
         public void RequestCleanConversion()
@@ -50,6 +58,8 @@ namespace Unity.Scenes.Editor
             return _RequestCleanConversion || _ChangedGameObjects.Count != 0;
         }
 
+        internal bool HasAssetDependencies => m_AssetDependencies.Count() > 0;
+
         public LiveLinkDiffGenerator(Hash128 sceneGUID, bool liveLinkEnabled)
         {
             _SceneName = Path.GetFileNameWithoutExtension(AssetDatabase.GUIDToAssetPath(sceneGUID.ToString()));
@@ -58,6 +68,7 @@ namespace Unity.Scenes.Editor
             _ConvertedWorld = new World($"Converted Scene: '{_SceneName}", WorldFlags.Editor | WorldFlags.Conversion | WorldFlags.Staging);
             _LiveLinkDiffer = new EntityManagerDiffer(_ConvertedWorld.EntityManager, Allocator.Persistent);
             _RequestCleanConversion = true;
+            m_AssetDependencies = new UnsafeHashMap<GUID, byte>(100, Allocator.Persistent);
 
             _MissingRenderDataQuery = _ConvertedWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
             {
@@ -65,18 +76,19 @@ namespace Unity.Scenes.Editor
                 None = new ComponentType[] {typeof(EditorRenderData)},
                 Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
             });
-            
+
             _MissingSceneQuery = _ConvertedWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
             {
                 None = new ComponentType[] {typeof(SceneTag)},
                 Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
             });
         }
-        
+
         public void Dispose()
         {
             m_BlobAssetStore.Dispose();
-            
+            m_AssetDependencies.Dispose();
+
             try
             {
                 _LiveLinkDiffer.Dispose();
@@ -96,7 +108,7 @@ namespace Unity.Scenes.Editor
             {
                 Debug.LogException(e);
             }
-        
+
             try
             {
                 if (_ConvertedWorld != null && _ConvertedWorld.IsCreated)
@@ -109,23 +121,20 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        static NativeArray<GUID> GetAssetDependencies(ConversionDependencies dependencies, Allocator allocator)
+        static void AddAssetDependencies(ConversionDependencies dependencies, ref UnsafeHashMap<GUID, byte> assets)
         {
             using (var keys = dependencies.AssetDependentsByInstanceId.GetKeyArray(Allocator.Temp))
             {
-                var output = new NativeArray<GUID>(keys.Length, allocator);
                 for (int i = 0; i < keys.Length; i++)
                 {
                     AssetDatabase.TryGetGUIDAndLocalFileIdentifier(keys[i], out var guid, out long _);
-                    output[i] = new GUID(guid);
+                    assets.TryAdd(new GUID(guid), 1);
                 }
-
-                return output;
             }
         }
-        
+
         static ProfilerMarker m_ConvertMarker = new ProfilerMarker("LiveLink.Convert");
-        void Convert(Scene scene, Hash128 sceneGUID, GameObjectConversionUtility.ConversionFlags flags, BuildConfiguration config, out NativeArray<GUID> assetDependencies)
+        void Convert(Scene scene, Hash128 sceneGUID, GameObjectConversionUtility.ConversionFlags flags, BuildConfiguration config)
         {
             using (m_ConvertMarker.Auto())
             {
@@ -142,13 +151,12 @@ namespace Unity.Scenes.Editor
                     catch (Exception e)
                     {
                         _RequestCleanConversion = true;
-                        
+
                         // Debug.Log("Incremental conversion failed. Performing full conversion instead\n" + e.ToString());
                     }
                     #pragma warning restore 168
                 }
 
-                assetDependencies = default;
                 // If anything failed, fall back to clean conversion
                 if (_RequestCleanConversion)
                 {
@@ -159,14 +167,16 @@ namespace Unity.Scenes.Editor
                     conversionSettings.SceneGUID = sceneGUID;
                     conversionSettings.DebugConversionName = _SceneName;
                     conversionSettings.BlobAssetStore = m_BlobAssetStore;
-                    
+                    conversionSettings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
+
                     if (_GameObjectWorld != null && _GameObjectWorld.IsCreated)
                     {
                         _GameObjectWorld.Dispose();
                         _GameObjectWorld = null;
                     }
                     _GameObjectWorld = GameObjectConversionUtility.ConvertIncrementalInitialize(scene, conversionSettings);
-                    assetDependencies = GetAssetDependencies(_GameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>().Dependencies, Allocator.Persistent);
+                    m_AssetDependencies.Clear();
+                    AddAssetDependencies(_GameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>().Dependencies, ref m_AssetDependencies);
                 }
 
                 _ChangedGameObjects.Clear();
@@ -174,7 +184,7 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static LiveLinkChangeSet UpdateLiveLink(Scene scene, Hash128 sceneGUID, ref LiveLinkDiffGenerator liveLinkData, int sceneDirtyID, LiveLinkMode mode, BuildConfiguration config, out NativeArray<GUID> assetDependencies)
+        public static LiveLinkChangeSet UpdateLiveLink(Scene scene, Hash128 sceneGUID, ref LiveLinkDiffGenerator liveLinkData, int sceneDirtyID, LiveLinkMode mode, BuildConfiguration config)
         {
             //Debug.Log("ApplyLiveLink: " + scene.SceneName);
 
@@ -186,14 +196,13 @@ namespace Unity.Scenes.Editor
                 liveLinkData.Dispose();
                 liveLinkData = null;
             }
-            
+
             var unloadAllPreviousEntities = liveLinkData == null;
             if (liveLinkData == null)
                 liveLinkData = new LiveLinkDiffGenerator(sceneGUID, liveLinkEnabled);
-            
+
             if (!liveLinkEnabled)
             {
-                assetDependencies = default;
                 return new LiveLinkChangeSet
                 {
                     UnloadAllPreviousEntities = unloadAllPreviousEntities,
@@ -207,7 +216,7 @@ namespace Unity.Scenes.Editor
             if (mode == LiveLinkMode.LiveConvertSceneView)
                 flags |= GameObjectConversionUtility.ConversionFlags.SceneViewLiveLink;
 
-            liveLinkData.Convert(scene, sceneGUID, flags, config, out assetDependencies);
+            liveLinkData.Convert(scene, sceneGUID, flags, config);
 
             var convertedEntityManager = liveLinkData._ConvertedWorld.EntityManager;
 
@@ -221,10 +230,10 @@ namespace Unity.Scenes.Editor
             convertedEntityManager.AddSharedComponentData(liveLinkData._MissingRenderDataQuery, new EditorRenderData { SceneCullingMask = EditorRenderData.LiveLinkEditGameViewMask, PickableObject = null });
 #endif
 
-            var options = EntityManagerDifferOptions.IncludeForwardChangeSet | 
-                          EntityManagerDifferOptions.FastForwardShadowWorld | 
-                          EntityManagerDifferOptions.ValidateUniqueEntityGuid | 
-                          EntityManagerDifferOptions.ClearMissingReferences;
+            var options = EntityManagerDifferOptions.IncludeForwardChangeSet |
+                EntityManagerDifferOptions.FastForwardShadowWorld |
+                EntityManagerDifferOptions.ValidateUniqueEntityGuid |
+                EntityManagerDifferOptions.ClearMissingReferences;
 
             var changes = new LiveLinkChangeSet
             {
@@ -234,8 +243,8 @@ namespace Unity.Scenes.Editor
                 SceneGUID = sceneGUID,
                 FramesToRetainBlobAssets = framesToRetainBlobAssets
             };
-                
-                
+
+
             liveLinkData.LiveLinkDirtyID = sceneDirtyID;
             // convertedEntityManager.Debug.CheckInternalConsistency();
 

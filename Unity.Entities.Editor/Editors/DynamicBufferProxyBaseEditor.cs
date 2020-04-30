@@ -6,6 +6,7 @@ using UnityEngine;
 namespace Unity.Entities.Editor
 {
     [CustomEditor(typeof(DynamicBufferProxy<>), true), CanEditMultipleObjects]
+    [Obsolete("DynamicBufferProxyBaseEditor has been deprecated. Please use the new GameObject-to-entity conversion workflows instead. (RemovedAfter 2020-07-03).")]
     public class DynamicBufferProxyBaseEditor : ComponentDataProxyBaseEditor
     {
         static class Styles
@@ -73,7 +74,7 @@ namespace Unity.Entities.Editor
             {
                 m_SerializedDataList.elementHeightCallback = index =>
                     EditorGUI.GetPropertyHeight(m_SerializedDataList.serializedProperty.GetArrayElementAtIndex(index))
-                    +EditorGUIUtility.standardVerticalSpacing;
+                    + EditorGUIUtility.standardVerticalSpacing;
                 m_SerializedDataList.drawElementCallback = (rect, index, active, focused) =>
                 {
                     var hierarchyMode = EditorGUIUtility.hierarchyMode;

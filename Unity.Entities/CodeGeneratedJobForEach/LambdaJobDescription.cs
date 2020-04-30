@@ -20,7 +20,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     public interface ILambdaJobDescription
     {
     }
-    
+
     // Deprecated with JobComponentSystem
     public interface ILambdaJobExecutionDescriptionJCS
     {
@@ -29,20 +29,20 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     public interface ILambdaJobExecutionDescription
     {
     }
-    
+
     public interface ILambdaSingleJobExecutionDescription
     {
     }
-    
+
     // Deprecated with JobComponentSystem
     public interface ILambdaSingleJobExecutionDescriptionJCS
     {
     }
-    
+
     public interface ISupportForEachWithUniversalDelegate
     {
     }
-    
+
     // Deprecate with JobComponentSystem
     public struct ForEachLambdaJobDescriptionJCS : ILambdaJobDescription, ILambdaJobExecutionDescriptionJCS, ISupportForEachWithUniversalDelegate
     {
@@ -67,7 +67,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         }
     }
 
-    public interface ISingleJobDescription { }
+    public interface ISingleJobDescription {}
 
     public struct LambdaSingleJobDescriptionJCS : ILambdaJobDescription, ILambdaSingleJobExecutionDescriptionJCS, ISingleJobDescription
     {
@@ -108,17 +108,14 @@ namespace Unity.Entities
     public static class LambdaJobDescriptionConstructionMethods
     {
         [AttributeUsage(AttributeTargets.Method)]
-        internal class AllowMultipleInvocationsAttribute : Attribute { }
-        
+        internal class AllowMultipleInvocationsAttribute : Attribute {}
+
         public static TDescription WithoutBurst<TDescription>(this TDescription description) where TDescription : ILambdaJobDescription => description;
-        
-        [Obsolete("To turn off burst, please use .WithoutBurst() instead of .WithBurst(false). (RemovedAfter 2020-04-09)")]
-        public static TDescription WithBurst<TDescription>(this TDescription description, bool enabled) where TDescription : ILambdaJobDescription => description;
-        
+
         public static TDescription WithBurst<TDescription>(this TDescription description, FloatMode floatMode = FloatMode.Default, FloatPrecision floatPrecision = FloatPrecision.Standard, bool synchronousCompilation = false) where TDescription : ILambdaJobDescription => description;
         public static TDescription WithName<TDescription>(this TDescription description, string name) where TDescription : ILambdaJobDescription => description;
         public static TDescription WithStructuralChanges<TDescription>(this TDescription description) where TDescription : ILambdaJobDescription => description;
-        
+
         [AllowMultipleInvocations]
         public static TDescription WithReadOnly<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
         [AllowMultipleInvocations]
@@ -127,8 +124,6 @@ namespace Unity.Entities
         public static TDescription WithNativeDisableContainerSafetyRestriction<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
         [AllowMultipleInvocations]
         public static unsafe TDescription WithNativeDisableUnsafePtrRestriction<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType* capturedVariable) where TDescription : ILambdaJobDescription where TCapturedVariableType : unmanaged => description;
-        [Obsolete("Use WithNativeDisableUnsafePtrRestriction instead. (RemovedAfter 2020-04-09)", true)] //<-- remove soon, never shipped, only used in a2-dots-shooter
-        public static TDescription WithNativeDisableUnsafePtrRestrictionAttribute<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
         [AllowMultipleInvocations]
         public static TDescription WithNativeDisableParallelForRestriction<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
     }
@@ -140,39 +135,39 @@ namespace Unity.Entities
         //c#'s overload resolution will try to match a completely different Schedule extension method, and explain why that one doesn't work, which results in an error message that sends the user in a wrong direction.
         [Obsolete("You must provide a JobHandle argument to .Schedule(). (DoNotRemove)", true)]
         public static JobHandle Schedule<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescriptionJCS => ThrowCodeGenException();
-        
+
         public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaJobExecutionDescriptionJCS => ThrowCodeGenException();
-        
+
         public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescriptionJCS => ThrowCodeGenException();
 
         static JobHandle ThrowCodeGenException() => throw new Exception("This JobComponentSystem method should have been replaced by codegen");
     }
-        
+
     public static class LambdaJobDescriptionExecutionMethods
     {
         public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
         public static JobHandle ScheduleParallel<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
-        
+
         public static void Schedule<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
         public static void ScheduleParallel<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
         public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaJobExecutionDescription => ThrowCodeGenException();
 
         static JobHandle ThrowCodeGenException() => throw new Exception("This SystemBase method should have been replaced by codegen");
     }
-    
+
     public static class LambdaSingleJobDescriptionExecutionMethodsJCS
     {
         public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaSingleJobExecutionDescriptionJCS => ThrowCodeGenException();
-        
+
         public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaSingleJobExecutionDescriptionJCS => ThrowCodeGenException();
 
         static JobHandle ThrowCodeGenException() => throw new Exception("This SystemBase method should have been replaced by codegen");
     }
-    
+
     public static class LambdaSingleJobDescriptionExecutionMethods
     {
         public static JobHandle Schedule<TDescription>(this TDescription description, [AllowDynamicValue] JobHandle dependency) where TDescription : ILambdaSingleJobExecutionDescription => ThrowCodeGenException();
-        
+
         public static void Schedule<TDescription>(this TDescription description) where TDescription : ILambdaSingleJobExecutionDescription => ThrowCodeGenException();
         public static void Run<TDescription>(this TDescription description) where TDescription : ILambdaSingleJobExecutionDescription => ThrowCodeGenException();
 
@@ -182,16 +177,16 @@ namespace Unity.Entities
     public static class LambdaSingleJobDescriptionConstructionMethods
     {
         public delegate void WithCodeAction();
-        public static TDescription WithCode<TDescription>(this TDescription description,  [AllowDynamicValue] WithCodeAction code) 
+        public static TDescription WithCode<TDescription>(this TDescription description,  [AllowDynamicValue] WithCodeAction code)
             where TDescription : ISingleJobDescription => description;
     }
-    
+
     public static class LambdaJobChunkDescriptionConstructionMethods
     {
         public delegate void JobChunkDelegate(ArchetypeChunk chunk, int chunkIndex, int queryIndexOfFirstEntityInChunk);
         public static LambdaJobChunkDescription ForEach(this LambdaJobChunkDescription description,  [AllowDynamicValue] JobChunkDelegate code) => description;
     }
-    
+
     public static class LambdaJobChunkDescription_SetSharedComponent
     {
         public static LambdaJobChunkDescription SetSharedComponentFilterOnQuery<T>(LambdaJobChunkDescription description, T sharedComponent, EntityQuery query) where T : struct, ISharedComponentData
@@ -200,7 +195,7 @@ namespace Unity.Entities
             return description;
         }
     }
-    
+
     public static class ForEachLambdaJobDescription_SetSharedComponent
     {
         public static TDescription SetSharedComponentFilterOnQuery<TDescription, T>(this TDescription description, T sharedComponent, EntityQuery query)
@@ -214,30 +209,30 @@ namespace Unity.Entities
 
     public static class InternalCompilerInterface
     {
-        public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) => 
+        public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) =>
 #if !NET_DOTS
             BurstCompiler.CompileFunctionPointer(d).Invoke;
 #else
             d;
 #endif
-        
+
         public static JobChunkRunWithoutJobSystemDelegate BurstCompile(JobChunkRunWithoutJobSystemDelegate d) =>
 #if !NET_DOTS
             BurstCompiler.CompileFunctionPointer(d).Invoke;
 #else
             d;
 #endif
-        
+
         public unsafe delegate void JobChunkRunWithoutJobSystemDelegate(ArchetypeChunkIterator* iterator, void* job);
         public unsafe delegate void JobRunWithoutJobSystemDelegate(void* job);
 
 #if NET_DOTS && ENABLE_UNITY_COLLECTIONS_CHECKS && !UNITY_DOTSPLAYER_IL2CPP
         // DOTS Runtime always compiles against the .Net Framework which will re-order structs if they contain non-blittable data (unlike mono which
-        // will keep structs as Layout.Sequential). However, Burst will always assume a struct layout as if Layout.Sequential was used which presents 
-        // a data layout mismatch that must be accounted for. The DOTS Runtime job system handles this problem by marshalling jobData structs already 
-        // but in the case where we are calling RunJob/RunJobChunk we bypass the job system data marshalling by executing the bursted static function directly 
+        // will keep structs as Layout.Sequential). However, Burst will always assume a struct layout as if Layout.Sequential was used which presents
+        // a data layout mismatch that must be accounted for. The DOTS Runtime job system handles this problem by marshalling jobData structs already
+        // but in the case where we are calling RunJob/RunJobChunk we bypass the job system data marshalling by executing the bursted static function directly
         // passing the jobData as a void*. So we must account for this marshalling here. Note we only need to do this when collection checks are on since
-        // job structs must be non-blittable for bursting however collection checks add reference types which Burst internally treates as IntPtr which 
+        // job structs must be non-blittable for bursting however collection checks add reference types which Burst internally treates as IntPtr which
         // allows collection checks enabled code to still burst compile.
         struct JobMarshalFnLookup<T> where T : struct, IJobBase
         {
@@ -246,7 +241,7 @@ namespace Unity.Entities
 
             public static IntPtr GetMarshalToBurstFn()
             {
-                if(MarshalToBurstFn == IntPtr.Zero)
+                if (MarshalToBurstFn == IntPtr.Zero)
                 {
                     var job = default(T);
                     var fn = job.GetMarshalToBurstMethod_Gen();
@@ -293,7 +288,7 @@ namespace Unity.Entities
                 var marshalToBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalToBurstFn();
                 UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
 
-                // In the case of JobStruct we know the jobwrapper doesn't add 
+                // In the case of JobStruct we know the jobwrapper doesn't add
                 // anything to the jobData so just pass it along, no offset required unlike JobChunk
                 functionPointer(alignedUnmanagedJobData);
 
@@ -314,7 +309,7 @@ namespace Unity.Entities
 
             try
             {
-                query._DependencyManager->IsInForEachDisallowStructuralChange++;
+                query._GetImpl()->_Access->DependencyManager->IsInForEachDisallowStructuralChange++;
 
                 var managedJobDataPtr = UnsafeUtility.AddressOf(ref jobData);
                 var unmanagedSize = jobData.GetUnmanagedJobSize_Gen();
@@ -358,9 +353,10 @@ namespace Unity.Entities
             }
             finally
             {
-                query._DependencyManager->IsInForEachDisallowStructuralChange--;
+                query._GetImpl()->_Access->DependencyManager->IsInForEachDisallowStructuralChange--;
             }
         }
+
 #else
         public static unsafe void RunIJob<T>(ref T jobData, JobRunWithoutJobSystemDelegate functionPointer) where T : unmanaged, IJob
         {
@@ -372,19 +368,21 @@ namespace Unity.Entities
             var myIterator = query.GetArchetypeChunkIterator();
 
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var access = query._GetImpl()->_Access;
             try
             {
-                query._DependencyManager->IsInForEachDisallowStructuralChange++;
+                access->DependencyManager->IsInForEachDisallowStructuralChange++;
                 functionPointer(&myIterator, UnsafeUtility.AddressOf(ref jobData));
             }
             finally
             {
-                query._DependencyManager->IsInForEachDisallowStructuralChange--;
+                access->DependencyManager->IsInForEachDisallowStructuralChange--;
             }
             #else
             functionPointer(&myIterator, UnsafeUtility.AddressOf(ref jobData));
             #endif
         }
+
 #endif
     }
 }
@@ -392,4 +390,5 @@ namespace Unity.Entities
 public static partial class LambdaForEachDescriptionConstructionMethods
 {
     static TDescription ThrowCodeGenException<TDescription>() => throw new Exception("This method should have been replaced by codegen");
+    public static void ThrowCodeGenInvalidMethodCalledException() => throw new Exception("This method was replaced during post-processing and should not have been called.  Please file a bug with us!");
 }

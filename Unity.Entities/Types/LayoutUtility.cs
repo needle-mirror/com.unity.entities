@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -60,7 +60,7 @@ namespace Unity.Entities
 
                     for (int i = 0; i < outerFixedArrayLength; ++i)
                     {
-                        result.Add(new SOAFieldInfo {Offset = (ushort) offset, Size = (ushort) sizeOf});
+                        result.Add(new SOAFieldInfo {Offset = (ushort)offset, Size = (ushort)sizeOf});
                         offset += sizeOf;
                     }
                 }

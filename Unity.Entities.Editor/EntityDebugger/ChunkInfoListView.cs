@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityEditor;
@@ -7,7 +7,6 @@ using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-
     internal delegate void SetChunkFilter(ChunkFilter filter);
 
     internal class ChunkFilter
@@ -18,7 +17,6 @@ namespace Unity.Entities.Editor
 
     internal class ChunkInfoListView : TreeView, IDisposable
     {
-
         private static readonly float kHistogramHeight = 60f;
 
         [System.Serializable]
@@ -100,7 +98,7 @@ namespace Unity.Entities.Editor
 
             public void UpdateHistogram()
             {
-                var vertices = new Vector3[counts.Length*4];
+                var vertices = new Vector3[counts.Length * 4];
                 var triangles = new int[counts.Length * 6];
                 var xIncrement = 1f / (counts.Length + 1);
                 var yIncrement = 1f / maxCount;
@@ -112,10 +110,10 @@ namespace Unity.Entities.Editor
                     var barHeight = counts[i] * yIncrement;
                     if (barHeight > 0f && barHeight < minHeight)
                         barHeight = minHeight;
-                    vertices[firstVertexIndex + 0] = new Vector3(i*xIncrement, barHeight, 0f);
-                    vertices[firstVertexIndex + 1] = new Vector3(i*xIncrement, 0f, 0f);
-                    vertices[firstVertexIndex + 2] = new Vector3(i*xIncrement + barWidth, 0f, 0f);
-                    vertices[firstVertexIndex + 3] = new Vector3(i*xIncrement + barWidth, 0f + barHeight, 0f);
+                    vertices[firstVertexIndex + 0] = new Vector3(i * xIncrement, barHeight, 0f);
+                    vertices[firstVertexIndex + 1] = new Vector3(i * xIncrement, 0f, 0f);
+                    vertices[firstVertexIndex + 2] = new Vector3(i * xIncrement + barWidth, 0f, 0f);
+                    vertices[firstVertexIndex + 3] = new Vector3(i * xIncrement + barWidth, 0f + barHeight, 0f);
 
                     var firstTriangleIndex = i * 6;
                     triangles[firstTriangleIndex + 0] = firstVertexIndex + 0;
@@ -150,22 +148,22 @@ namespace Unity.Entities.Editor
                     histogramTexture.height = pixelHeight;
                     histogramTexture.Create();
                 }
-                
+
                 Styles.reusableLabel.text = maxCountString;
                 var xMargin = Mathf.Max(Styles.labelStyleUpperRight.CalcSize(Styles.reusableLabel).x, kMinMargin);
 
                 GUI.Label(new Rect(rect.x, rect.y, xMargin, kMinMargin), Styles.reusableLabel, Styles.labelStyleUpperRight);
-                GUI.Label(new Rect(rect.x, rect.yMax - 2*kMinMargin, xMargin, kMinMargin), Styles.zeroLabel, Styles.labelStyleLowerRight);
+                GUI.Label(new Rect(rect.x, rect.yMax - 2 * kMinMargin, xMargin, kMinMargin), Styles.zeroLabel, Styles.labelStyleLowerRight);
 
                 Styles.reusableLabel.text = maxCountString;
                 GUI.Label(new Rect(rect.xMax - xMargin, rect.yMin, xMargin, kMinMargin), Styles.reusableLabel, Styles.labelStyleUpperLeft);
-                GUI.Label(new Rect(rect.xMax - xMargin, rect.yMax - 2*kMinMargin, xMargin, kMinMargin), Styles.zeroLabel, Styles.labelStyleLowerLeft);
+                GUI.Label(new Rect(rect.xMax - xMargin, rect.yMax - 2 * kMinMargin, xMargin, kMinMargin), Styles.zeroLabel, Styles.labelStyleLowerLeft);
 
                 GUI.Label(new Rect(rect.x + xMargin, rect.yMax - kMinMargin, kMinMargin, kMinMargin), Styles.oneLabel, Styles.labelStyleUpperLeft);
                 Styles.reusableLabel.text = countsLengthString;
-                GUI.Label(new Rect(rect.xMax - xMargin - 3*kMinMargin, rect.yMax - kMinMargin, 3*kMinMargin, kMinMargin), Styles.reusableLabel, Styles.labelStyleUpperRight);
+                GUI.Label(new Rect(rect.xMax - xMargin - 3 * kMinMargin, rect.yMax - kMinMargin, 3 * kMinMargin, kMinMargin), Styles.reusableLabel, Styles.labelStyleUpperRight);
 
-                GUI.Label(new Rect(rect.x + kMinMargin, rect.yMax - kMinMargin, rect.width - 2*kMinMargin, kMinMargin), Styles.xAxisLabel, Styles.labelStyleUpperCenter);
+                GUI.Label(new Rect(rect.x + kMinMargin, rect.yMax - kMinMargin, rect.width - 2 * kMinMargin, kMinMargin), Styles.xAxisLabel, Styles.labelStyleUpperCenter);
 
                 rect.xMin += xMargin;
                 rect.xMax -= xMargin;
@@ -191,7 +189,8 @@ namespace Unity.Entities.Editor
             }
         }
 
-        public ViewMode Mode {
+        public ViewMode Mode
+        {
             get { return listState.mode; }
             set
             {
@@ -276,7 +275,7 @@ namespace Unity.Entities.Editor
             SetupDepthsFromParentsAndChildren(root);
             return root;
         }
-        
+
         protected override void RowGUI(RowGUIArgs args)
         {
             if (Event.current.type == EventType.Repaint)

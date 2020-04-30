@@ -58,8 +58,8 @@ namespace Unity.Entities
 
         static NativeList<DuplicateEntityGuid> GetDuplicateEntityGuids(
             NativeArray<EntityInChunkWithGuid> sortedEntitiesWithGuid,
-            Allocator allocator, 
-            out JobHandle jobHandle, 
+            Allocator allocator,
+            out JobHandle jobHandle,
             JobHandle dependsOn = default)
         {
             var duplicates = new NativeList<DuplicateEntityGuid>(1, allocator);

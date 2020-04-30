@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 
 namespace Unity.Entities.Hybrid
@@ -30,12 +30,12 @@ namespace Unity.Entities.Hybrid
         /// <summary>
         /// The guid of the asset
         /// </summary>
-        public Hash128 ResourceId; 
+        public Hash128 ResourceId;
 
         /// <summary>
         /// Flags to control the behavior of the asset
         /// </summary>
-        public Flags ResourceFlags;         
+        public Flags ResourceFlags;
 
         /// <summary>
         /// The type of resource.
@@ -61,7 +61,7 @@ namespace Unity.Entities.Hybrid
         /// Path information for resources.  This is separate to keep the resources data streamlined as using paths is slow.
         /// </summary>
         public BlobArray<BlobString> paths;
-         
+
         /// <summary>
         /// Slow path to lookup guid from a path.  This first checks the passed in path then just the filename, then the lowercase version of the filename.
         /// </summary>

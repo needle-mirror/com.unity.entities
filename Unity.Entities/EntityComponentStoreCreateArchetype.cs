@@ -152,7 +152,7 @@ namespace Unity.Entities
                 for (int i = 0; i < archetype->NumSharedComponents; i++)
                     SharedComponentValues[i] = sharedComponentValues[i];
             }
-            
+
             public ArchetypeChunkFilter(Archetype* archetype, SharedComponentValues sharedComponentValues)
             {
                 Archetype = archetype;
@@ -165,40 +165,40 @@ namespace Unity.Entities
         {
             if (!Exists(entity))
                 return null;
-            
+
             return GetChunkWithEmptySlotsWithAddedComponent(GetChunk(entity), componentType);
         }
-        
-        Chunk* GetChunkWithEmptySlotsWithAddedComponent(Chunk* srcChunk, ComponentType componentType, int sharedComponentIndex=0)
+
+        Chunk* GetChunkWithEmptySlotsWithAddedComponent(Chunk* srcChunk, ComponentType componentType, int sharedComponentIndex = 0)
         {
             var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponent(srcChunk, componentType, sharedComponentIndex);
             if (archetypeChunkFilter.Archetype == null)
                 return null;
-            
+
             return GetChunkWithEmptySlots(ref archetypeChunkFilter);
         }
-        
+
         Chunk* GetChunkWithEmptySlotsWithRemovedComponent(Entity entity, ComponentType componentType)
         {
             if (!Exists(entity))
                 return null;
-            
+
             return GetChunkWithEmptySlotsWithRemovedComponent(GetChunk(entity), componentType);
         }
-        
+
         Chunk* GetChunkWithEmptySlotsWithRemovedComponent(Chunk* srcChunk, ComponentType componentType)
         {
             var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponent(srcChunk, componentType);
             if (archetypeChunkFilter.Archetype == null)
                 return null;
-            
+
             return GetChunkWithEmptySlots(ref archetypeChunkFilter);
         }
 
         Chunk* GetChunkWithEmptySlots(ref ArchetypeChunkFilter archetypeChunkFilter)
         {
             var archetype = archetypeChunkFilter.Archetype;
-            fixed (int* sharedComponentValues = archetypeChunkFilter.SharedComponentValues)
+            fixed(int* sharedComponentValues = archetypeChunkFilter.SharedComponentValues)
             {
                 var chunk = archetype->GetExistingChunkWithEmptySlots(sharedComponentValues);
                 if (chunk == null)
@@ -222,7 +222,7 @@ namespace Unity.Entities
             var typeIndex = componentType.TypeIndex;
             var srcArchetype = srcChunk->Archetype;
             var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(srcArchetype, typeIndex);
-            
+
             var srcSharedComponentValueArray = srcChunk->SharedComponentValues;
             var sharedComponentOffset = indexInTypeArray - srcArchetype->FirstSharedComponent;
             var srcSharedComponentIndex = srcSharedComponentValueArray[sharedComponentOffset];
@@ -256,7 +256,7 @@ namespace Unity.Entities
 
             return archetypeChunkFilter;
         }
-        
+
         ArchetypeChunkFilter GetArchetypeChunkFilterWithAddedComponent(Chunk* srcChunk, ComponentType componentType, int sharedComponentIndex)
         {
             var srcArchetype = srcChunk->Archetype;
@@ -278,7 +278,7 @@ namespace Unity.Entities
             var srcArchetype = srcChunk->Archetype;
             var srcTypes = srcArchetype->Types;
             var dstTypesCount = srcArchetype->TypesCount + componentTypes.Length;
-            
+
             ComponentTypeInArchetype* dstTypes = stackalloc ComponentTypeInArchetype[dstTypesCount];
 
             // zipper the two sorted arrays "type" and "componentTypeInArchetype" into "componentTypeInArchetype"
@@ -286,8 +286,8 @@ namespace Unity.Entities
 
             var unusedIndices = 0;
             {
-                var oldThings = srcArchetype->TypesCount-1;
-                var newThings = componentTypes.Length-1;
+                var oldThings = srcArchetype->TypesCount - 1;
+                var newThings = componentTypes.Length - 1;
                 var mixedThings = dstTypesCount;
                 while (newThings >= 0) // oldThings[0] has typeIndex 0, newThings can't have anything lower than that
                 {
@@ -323,7 +323,7 @@ namespace Unity.Entities
             var dstArchetype = GetOrCreateArchetype(dstTypes + unusedIndices, dstTypesCount - unusedIndices);
             var archetypeChunkFilter = new ArchetypeChunkFilter();
             archetypeChunkFilter.Archetype = dstArchetype;
-            
+
             if (dstArchetype->NumSharedComponents > srcArchetype->NumSharedComponents)
             {
                 BuildSharedComponentIndicesWithAddedComponents(srcArchetype, dstArchetype, srcChunk->SharedComponentValues, archetypeChunkFilter.SharedComponentValues);
@@ -366,12 +366,12 @@ namespace Unity.Entities
 
             return GetArchetypeChunkFilterWithRemovedComponent(srcChunk, dstArchetype, indexInTypeArray, componentType);
         }
-        
+
         static void BuildSharedComponentIndicesWithAddedComponent(int indexOfNewSharedComponent, int value,
             int newCount, SharedComponentValues srcSharedComponentValues, int* dstSharedComponentValues)
         {
             Assert.IsTrue(newCount <= kMaxSharedComponentCount);
-            
+
             srcSharedComponentValues.CopyTo(dstSharedComponentValues, 0, indexOfNewSharedComponent);
             dstSharedComponentValues[indexOfNewSharedComponent] = value;
             srcSharedComponentValues.CopyTo(dstSharedComponentValues + indexOfNewSharedComponent + 1,
@@ -416,7 +416,7 @@ namespace Unity.Entities
 
             int o = 0;
             int n = 0;
-            
+
             for (; n < newCount && o < oldCount;)
             {
                 int srcType = srcArchetype->Types[o + oldFirstShared].TypeIndex;
@@ -428,8 +428,8 @@ namespace Unity.Entities
                 else
                     dstSharedComponentValues[n++] = 0;
             }
-            
-            for (;n < newCount;n++)
+
+            for (; n < newCount; n++)
                 dstSharedComponentValues[n] = 0;
         }
 

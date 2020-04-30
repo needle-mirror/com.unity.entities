@@ -9,11 +9,11 @@ namespace Unity.Entities.Tests
     public class BlobAssetStoreTests
     {
         protected BlobAssetStore m_Store;
-        
+
         [SetUp]
         public void Setup()
         {
-            m_Store = new BlobAssetStore();    
+            m_Store = new BlobAssetStore();
         }
 
         [TearDown]
@@ -21,36 +21,36 @@ namespace Unity.Entities.Tests
         {
             m_Store.Dispose();
         }
-        
+
         protected Hash128 FromInt(int v) => new Hash128((uint)v, 1, 2, 3);
         protected Hash128 FromByte(byte v) => new Hash128((uint)v, 1, 2, 3);
         protected Hash128 FromFloat(float v) => new Hash128((uint)v.GetHashCode(), 1, 2, 3);
-        
+
         [Test]
         public void TestCacheAccess()
         {
             var a0 = BlobAssetReference<int>.Create(0);
             var a1 = BlobAssetReference<int>.Create(1);
             var a2 = BlobAssetReference<float>.Create(2.0f);
-            
+
             var k0 = FromInt(a0.Value);
             var k1 = FromInt(a1.Value);
             var k2 = FromFloat(a2.Value);
-            
+
             Assert.IsTrue(m_Store.TryAdd(k0, a0));
             Assert.IsFalse(m_Store.TryAdd(k0, a0));
             Assert.IsTrue(m_Store.TryGet<int>(k0, out var ra0));
             Assert.AreEqual(0, ra0.Value);
             Assert.AreEqual(0, m_Store.CacheMiss);
             Assert.AreEqual(1, m_Store.CacheHit);
-            
+
             Assert.IsFalse(m_Store.TryGet<int>(k1, out var ra1));
             Assert.IsTrue(m_Store.TryAdd(k1, a1));
             Assert.IsTrue(m_Store.TryGet<int>(k1, out ra1));
             Assert.AreEqual(1, ra1.Value);
             Assert.AreEqual(1, m_Store.CacheMiss);
             Assert.AreEqual(2, m_Store.CacheHit);
-            
+
             Assert.IsFalse(m_Store.TryGet<float>(k2, out var ra2));
             Assert.IsTrue(m_Store.TryAdd(k2, a2));
             Assert.IsTrue(m_Store.TryGet(k2, out ra2));
@@ -58,67 +58,66 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, m_Store.CacheMiss);
             Assert.AreEqual(3, m_Store.CacheHit);
         }
-        
+
         [Test]
         public void TestCacheAccessWithDifferentTypeSameKey()
         {
             var a0 = BlobAssetReference<int>.Create(10);
             var a1 = BlobAssetReference<byte>.Create(10);
-            
+
             var k = FromInt(a0.Value);
-            
+
             Assert.IsTrue(m_Store.TryAdd(k, a0));
             Assert.IsTrue(m_Store.TryAdd(k, a1));
 
             m_Store.TryGet<int>(k, out var ra0);
             m_Store.TryGet<byte>(k, out var ra1);
-            
+
             Assert.AreEqual(a0, ra0);
             Assert.AreEqual(a1, ra1);
         }
-        
+
         [Test]
         public unsafe void TestCacheClearWithDispose()
         {
             var a0 = BlobAssetReference<int>.Create(0);
             var a1 = BlobAssetReference<int>.Create(1);
             var a2 = BlobAssetReference<float>.Create(2.0f);
-            
+
             var k0 = FromInt(a0.Value);
             var k1 = FromInt(a1.Value);
             var k2 = FromFloat(a2.Value);
-            
+
             Assert.IsTrue(m_Store.TryAdd(k0, a0));
             Assert.IsTrue(m_Store.TryGet<int>(k0, out var ra0));
-            
+
             Assert.IsTrue(m_Store.TryAdd(k1, a1));
             Assert.IsTrue(m_Store.TryGet<int>(k1, out var ra1));
-            
+
             m_Store.ResetCache(true);
 
             Assert.Throws<InvalidOperationException>(() => a0.GetUnsafePtr());
             Assert.Throws<InvalidOperationException>(() => a1.GetUnsafePtr());
-            
+
             Assert.IsFalse(m_Store.TryGet(k0, out ra0));
             Assert.IsFalse(m_Store.TryGet(k0, out ra1));
-            
+
             Assert.IsTrue(m_Store.TryAdd(k2, a2));
             Assert.IsTrue(m_Store.TryGet<float>(k2, out var ra2));
         }
-        
-        
+
         [Test]
         public unsafe void TestCacheClearWithoutDispose()
         {
             var a0 = BlobAssetReference<int>.Create(0);
             var a1 = BlobAssetReference<int>.Create(1);
-            
+
             var k0 = FromInt(a0.Value);
             var k1 = FromInt(a1.Value);
-            
+
             Assert.IsTrue(m_Store.TryAdd(k0, a0));
             Assert.IsTrue(m_Store.TryAdd(k1, a1));
-            
+
             m_Store.ResetCache(false);
 
             Assert.DoesNotThrow(() => a0.GetUnsafePtr());
@@ -146,12 +145,12 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(context.NeedToComputeBlobAsset(k0));
                 var blobAsset = BlobAssetReference<int>.Create(0);
                 context.AddComputedBlobAsset(k0, blobAsset);
-                
+
                 processList.Add(k2);
                 Assert.IsTrue(context.NeedToComputeBlobAsset(k2));
                 blobAsset = BlobAssetReference<int>.Create(2);
                 context.AddComputedBlobAsset(k2, blobAsset);
-                
+
                 processList.Add(k4);
                 Assert.IsTrue(context.NeedToComputeBlobAsset(k4));
                 blobAsset = BlobAssetReference<int>.Create(4);
@@ -160,12 +159,12 @@ namespace Unity.Entities.Tests
                 // Simulate BlobAsset operation with GO1
                 processList.Add(k0);
                 Assert.IsFalse(context.NeedToComputeBlobAsset(k0));
-                
+
                 processList.Add(k1);
                 Assert.IsTrue(context.NeedToComputeBlobAsset(k1));
                 blobAsset = BlobAssetReference<int>.Create(1);
                 context.AddComputedBlobAsset(k1, blobAsset);
-                
+
                 processList.Add(k2);
                 Assert.IsFalse(context.NeedToComputeBlobAsset(k2));
 
@@ -173,7 +172,7 @@ namespace Unity.Entities.Tests
                 context.AssociateBlobAssetWithUnityObject(k0, go0);
                 context.AssociateBlobAssetWithUnityObject(k2, go0);
                 context.AssociateBlobAssetWithUnityObject(k4, go0);
-                
+
                 // Associate the BlobAssets with GO1
                 context.AssociateBlobAssetWithUnityObject(k0, go1);
                 context.AssociateBlobAssetWithUnityObject(k1, go1);
@@ -183,18 +182,18 @@ namespace Unity.Entities.Tests
                 var replayIndex = 0;
                 context.GetBlobAsset(processList[replayIndex++], out var res);
                 Assert.AreEqual(0, res.Value);
-                
+
                 context.GetBlobAsset(processList[replayIndex++], out res);
                 Assert.AreEqual(2, res.Value);
-                
+
                 context.GetBlobAsset(processList[replayIndex++], out res);
                 Assert.AreEqual(4, res.Value);
                 context.GetBlobAsset(processList[replayIndex++], out res);
                 Assert.AreEqual(0, res.Value);
-                
+
                 context.GetBlobAsset(processList[replayIndex++], out res);
                 Assert.AreEqual(1, res.Value);
-                
+
                 context.GetBlobAsset(processList[replayIndex++], out res);
                 Assert.AreEqual(2, res.Value);
             }
@@ -220,7 +219,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter(k2));
             Assert.AreEqual(0, m_Store.GetBlobAssetRefCounter(k3));
             Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter(k4));
-            
+
             // Associate k1, k2, k3 with GO0 and k3, k4 with GO1
             using (var context = new BlobAssetComputationContext<int, int>(m_Store, 16, Allocator.Temp))
             using (var processList = new NativeList<Hash128>(16, Allocator.Temp))
@@ -228,10 +227,10 @@ namespace Unity.Entities.Tests
                 // Simulate BlobAsset operations with GO0
                 processList.Add(k1);
                 Assert.IsFalse(context.NeedToComputeBlobAsset(k1));
-                
+
                 processList.Add(k2);
                 Assert.IsFalse(context.NeedToComputeBlobAsset(k2));
-                
+
                 processList.Add(k3);
                 Assert.IsTrue(context.NeedToComputeBlobAsset(k3));
                 var blobAsset = BlobAssetReference<int>.Create(3);
@@ -240,15 +239,15 @@ namespace Unity.Entities.Tests
                 // Simulate BlobAsset operations with GO1
                 processList.Add(k3);
                 Assert.IsFalse(context.NeedToComputeBlobAsset(k3));
-                
+
                 processList.Add(k4);
                 Assert.IsFalse(context.NeedToComputeBlobAsset(k4));
-                
+
                 // Associate the BlobAssets with GO0
                 context.AssociateBlobAssetWithUnityObject(k1, go0);
                 context.AssociateBlobAssetWithUnityObject(k2, go0);
                 context.AssociateBlobAssetWithUnityObject(k3, go0);
-                
+
                 // Associate the BlobAssets with GO1
                 context.AssociateBlobAssetWithUnityObject(k3, go1);
                 context.AssociateBlobAssetWithUnityObject(k4, go1);
@@ -257,10 +256,10 @@ namespace Unity.Entities.Tests
                 var replayIndex = 0;
                 context.GetBlobAsset(processList[replayIndex++], out var res);
                 Assert.AreEqual(1, res.Value);
-                
+
                 context.GetBlobAsset(processList[replayIndex++], out res);
                 Assert.AreEqual(2, res.Value);
-                
+
                 context.GetBlobAsset(processList[replayIndex++], out res);
                 Assert.AreEqual(3, res.Value);
                 context.GetBlobAsset(processList[replayIndex++], out res);
@@ -290,10 +289,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter(k2));
             Assert.AreEqual(2, m_Store.GetBlobAssetRefCounter(k3));
             Assert.AreEqual(1, m_Store.GetBlobAssetRefCounter(k4));
-            
+
             // BlobAsset of k0 is not used by any UnityObject anymore, is should have been removed from the store
             Assert.IsFalse(m_Store.Contains<int>(k0));
-            
+
             // Cleanup
             Object.DestroyImmediate(go0);
         }

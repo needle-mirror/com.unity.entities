@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests.Conversion
             m_OriginalLogger = UnityDebug.unityLogger.logHandler;
             m_JournalingLogger = new JournalingUnityLogger(m_MappingSystem);
         }
-        
+
         [TearDown]
         public new void TearDown() => UnityDebug.unityLogger.logHandler = m_OriginalLogger;
     }
@@ -39,12 +39,12 @@ namespace Unity.Entities.Tests.Conversion
             Logger.Unhook();
             Assert.That(UnityDebug.unityLogger.logHandler, Is.SameAs(old));
         }
-        
+
         [Test]
         public void Hook_WithAlreadyHooked_Throws()
         {
             Assert.DoesNotThrow(() => Logger.Hook());
-            
+
             var ex = Assert.Throws<InvalidOperationException>(() => Logger.Hook());
             Assert.That(ex.Message, Contains.Substring("double-hook"));
         }
@@ -55,14 +55,14 @@ namespace Unity.Entities.Tests.Conversion
             var ex = Assert.Throws<InvalidOperationException>(() => Logger.Unhook());
             Assert.That(ex.Message, Contains.Substring("not currently hooked").IgnoreCase);
         }
-        
+
         [Test]
         public void Unhook_WithSomethingElseHookedBetween_Throws()
         {
             Assert.DoesNotThrow(() => Logger.Hook());
-            
+
             UnityDebug.unityLogger.logHandler = OriginalLogger;
-            
+
             var ex = Assert.Throws<InvalidOperationException>(() => Logger.Unhook());
             Assert.That(ex.Message, Contains.Substring("not currently hooked").IgnoreCase);
         }

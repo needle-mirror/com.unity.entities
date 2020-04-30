@@ -9,13 +9,13 @@ namespace Unity.Entities.Editor
     {
         public VisitStatus Visit<TContainer>(Property<TContainer, sbyte> property, ref TContainer container, ref sbyte value)
         {
-            value = (sbyte) EditorGUILayout.IntField(GetDisplayName(property), value);
+            value = (sbyte)EditorGUILayout.IntField(GetDisplayName(property), value);
             return VisitStatus.Stop;
         }
 
         public VisitStatus Visit<TContainer>(Property<TContainer, short> property, ref TContainer container, ref short value)
         {
-            value = (short) EditorGUILayout.IntField(GetDisplayName(property), value);
+            value = (short)EditorGUILayout.IntField(GetDisplayName(property), value);
             return VisitStatus.Stop;
         }
 
@@ -33,19 +33,19 @@ namespace Unity.Entities.Editor
 
         public VisitStatus Visit<TContainer>(Property<TContainer, byte> property, ref TContainer container, ref byte value)
         {
-            value = (byte) EditorGUILayout.IntField(GetDisplayName(property), value);
+            value = (byte)EditorGUILayout.IntField(GetDisplayName(property), value);
             return VisitStatus.Stop;
         }
 
         public VisitStatus Visit<TContainer>(Property<TContainer, ushort> property, ref TContainer container, ref ushort value)
         {
-            value = (ushort) EditorGUILayout.IntField(GetDisplayName(property), value);
+            value = (ushort)EditorGUILayout.IntField(GetDisplayName(property), value);
             return VisitStatus.Stop;
         }
 
         public VisitStatus Visit<TContainer>(Property<TContainer, uint> property, ref TContainer container, ref uint value)
         {
-            value = (uint) EditorGUILayout.LongField(GetDisplayName(property), value);
+            value = (uint)EditorGUILayout.LongField(GetDisplayName(property), value);
             return VisitStatus.Stop;
         }
 

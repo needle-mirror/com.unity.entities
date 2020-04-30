@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Threading;
 using Unity.Mathematics;
 
 namespace Unity.Entities
@@ -13,6 +14,13 @@ namespace Unity.Entities
         public MinMaxAABB       BoundingVolume;
     }
 
+    // This component identifies the entity which holds the metadata components belonging to the section with the specified SceneSectionIndex
+    // These metadata components will be serialized into the entity scene header and be added to the section entities after the scene is resolved at runtime
+    public struct SectionMetadataSetup : ISharedComponentData
+    {
+        public int SceneSectionIndex;
+    }
+
     public struct SceneReference : IComponentData, IEquatable<SceneReference>
     {
         public Hash128 SceneGUID;
@@ -21,6 +29,7 @@ namespace Unity.Entities
         {
             return SceneGUID.Equals(other.SceneGUID);
         }
+
         public override int GetHashCode()
         {
             return SceneGUID.GetHashCode();
@@ -43,6 +52,30 @@ namespace Unity.Entities
             return (SceneGUID.GetHashCode() * 397) ^ Section;
         }
     }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    public class PostLoadCommandBuffer : IComponentData, IDisposable, ICloneable
+    {
+        public EntityCommandBuffer CommandBuffer;
+        private int RefCount;
+        public PostLoadCommandBuffer()
+        {
+            RefCount = 1;
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Decrement(ref RefCount) == 0)
+                CommandBuffer.Dispose();
+        }
+
+        public object Clone()
+        {
+            Interlocked.Increment(ref RefCount);
+            return this;
+        }
+    }
+#endif
 
     [Flags]
     public enum SceneLoadFlags

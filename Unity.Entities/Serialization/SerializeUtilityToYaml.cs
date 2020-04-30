@@ -34,12 +34,13 @@ namespace Unity.Entities.Serialization
             {
                 throw new ArgumentException("YAML World serialization must be done with a line ending being \\n on all platforms", nameof(writer));
             }
-            
+
             var yaml = new YamlWriter(writer);
             WriteYAMLHeader(yaml);
             WriteArchetypes(yaml, entityManager);
-            
-            var entityComponentStore = entityManager.EntityComponentStore;
+
+            var access = entityManager.GetCheckedEntityDataAccess();
+            var entityComponentStore = access->EntityComponentStore;
 
             using (var archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp))
             using (yaml.WriteCollection(k_ChunksDataCollectionTag))
@@ -71,9 +72,9 @@ namespace Unity.Entities.Serialization
         const string k_ComponentDataTag = "ComponentData";
 
         #endregion
-        
+
         #region Data type field info extraction
-        
+
         /// <summary>
         /// Helper class that will build for a given type a list of all its data fields with the required information for us to dump these fields data later on
         /// </summary>
@@ -105,7 +106,7 @@ namespace Unity.Entities.Serialization
                 [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
                 public FieldExtractedInfo[] Items => Owner.Fields;
             }
-         
+
             [DebuggerDisplay("Name = {Name}, Offset = {Offset}, Type = {Type}")]
             public class FieldExtractedInfo
             {
@@ -116,6 +117,7 @@ namespace Unity.Entities.Serialization
                     Offset = offset;
                     Size = UnsafeUtility.SizeOf(Type);
                 }
+
                 public string Name { get; }
                 public Type Type { get; }
                 public int Offset { get; }
@@ -123,12 +125,12 @@ namespace Unity.Entities.Serialization
             }
 
             public static TypeExtractedInfo GetTypeExtractedInfo(Type type) => Types.GetOrAdd(type, t => new TypeExtractedInfo(t));
-         
+
             static ConcurrentDictionary<Type, TypeExtractedInfo> Types = new ConcurrentDictionary<Type, TypeExtractedInfo>();
         }
-        
+
         #endregion
-        
+
         #region Internal implementation
 
         struct EntityInfo
@@ -138,39 +140,41 @@ namespace Unity.Entities.Serialization
                 Entity = entity;
                 EntityInChunk = entityInChunk;
             }
+
             public Entity Entity;
             public EntityInChunk EntityInChunk;
         }
-        
+
         static void WriteYAMLHeader(YamlWriter writer)
         {
             if (writer.CurrentIndent != 0)
             {
                 throw new InvalidOperationException("The header can only be written as root element");
             }
-            
+
             writer.WriteLine(@"%YAML 1.1")
-                  .WriteLine(@"---")
-                  .WriteLine(@"# ECS Debugging file");
+                .WriteLine(@"---")
+                .WriteLine(@"# ECS Debugging file");
         }
-        
+
         static unsafe void WriteArchetypes(YamlWriter writer, EntityManager entityManager)
         {
-            var entityComponentStore = entityManager.EntityComponentStore;
+            var access = entityManager.GetCheckedEntityDataAccess();
+            var entityComponentStore = access->EntityComponentStore;
 
             using (var archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp))
             using (writer.WriteCollection(k_ArchetypesCollectionTag))
             {
-                for (int i = 0;i != archetypeArray.Length;i++)
+                for (int i = 0; i != archetypeArray.Length; i++)
                 {
                     var a = archetypeArray.Ptr[i];
                     using (writer.WriteCollection(k_ArchetypeCollectionTag))
                     {
                         writer.WriteKeyValue("name", a->ToString())
-                              .WriteKeyValue(nameof(Archetype.TypesCount), a->TypesCount)
-                              .WriteKeyValue(nameof(EntityArchetype.ChunkCount), a->Chunks.Count)
-                              .WriteKeyValue(nameof(EntityArchetype.ChunkCapacity), a->ChunkCapacity);
-                        
+                            .WriteKeyValue(nameof(Archetype.TypesCount), a->TypesCount)
+                            .WriteKeyValue(nameof(EntityArchetype.ChunkCount), a->Chunks.Count)
+                            .WriteKeyValue(nameof(EntityArchetype.ChunkCapacity), a->ChunkCapacity);
+
                         var props = new List<string>();
                         if (a->SystemStateCleanupComplete)     props.Add(nameof(Archetype.SystemStateCleanupComplete));
                         if (a->SystemStateCleanupNeeded)       props.Add(nameof(Archetype.SystemStateCleanupNeeded));
@@ -181,10 +185,10 @@ namespace Unity.Entities.Serialization
                         if (a->ContainsBlobAssetRefs)          props.Add(nameof(Archetype.ContainsBlobAssetRefs));
                         writer.WriteInlineSequence("properties", props);
                     }
-                } 
+                }
             }
         }
-        
+
         static unsafe void WriteChunkData(YamlWriter writer, EntityManager entityManager, Chunk* initialChunk, Archetype* archetype, bool dumpChunkRawData)
         {
             using (writer.WriteCollection(k_ChunkDataCollectionTag))
@@ -193,7 +197,7 @@ namespace Unity.Entities.Serialization
                 {
                     WriteEntity(writer, nameof(Chunk.metaChunkEntity), initialChunk->metaChunkEntity);
                     writer.WriteKeyValue(nameof(Chunk.Capacity), initialChunk->Capacity)
-                          .WriteKeyValue(nameof(Chunk.Count), initialChunk->Count);
+                        .WriteKeyValue(nameof(Chunk.Count), initialChunk->Count);
 
                     if (dumpChunkRawData)
                     {
@@ -201,7 +205,7 @@ namespace Unity.Entities.Serialization
                     }
                 }
 
-                // First pass to sort by component type 
+                // First pass to sort by component type
                 var entitiesByChunkIndex = new Dictionary<int, Entity>();
                 var componentDataList = new List<int>();
                 var chunkComponentDataList = new List<int>();
@@ -216,7 +220,6 @@ namespace Unity.Entities.Serialization
                     {
                         chunkComponentDataList.Add(typeI);
                     }
-                    
                     // Is it a Component Data ?
                     else if (typeof(IComponentData).IsAssignableFrom(type) || typeof(Entity).IsAssignableFrom(type) || typeof(IBufferElementData).IsAssignableFrom(type))
                     {
@@ -227,9 +230,9 @@ namespace Unity.Entities.Serialization
                         {
                             componentDataList.Insert(0, typeI);
 
-                            for (int i = 0; i < initialChunk->Count; )
+                            for (int i = 0; i < initialChunk->Count;)
                             {
-                                var entity = (Entity)Marshal.PtrToStructure((IntPtr)initialChunk->Buffer + archetype->SizeOfs[0]*i, type);
+                                var entity = (Entity)Marshal.PtrToStructure((IntPtr)initialChunk->Buffer + archetype->SizeOfs[0] * i, type);
                                 if (entityManager.Exists(entity))
                                 {
                                     entitiesByChunkIndex.Add(i, entity);
@@ -258,10 +261,10 @@ namespace Unity.Entities.Serialization
                         {
                             writer.WriteInlineMap("info", new[]
                             {
-                                new KeyValuePair<object, object>(nameof(Type), componentType.Name), 
+                                new KeyValuePair<object, object>(nameof(Type), componentType.Name),
                                 new KeyValuePair<object, object>(nameof(TypeManager.TypeInfo.SizeInChunk), componentTypeInfo.SizeInChunk)
                             });
-                        
+
                             using (writer.WriteCollection("Entities"))
                             {
                                 var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, componentTypeInArchetype->TypeIndex);
@@ -269,7 +272,7 @@ namespace Unity.Entities.Serialization
                                 var componentSize = archetype->SizeOfs[indexInTypeArray];
                                 var componentsBuffer = initialChunk->Buffer + componentOffsetInChunk;
                                 var entityData = new Dictionary<string, string>();
-                                
+
                                 // Dump all entities in this chunk
                                 foreach (var kvp in entitiesByChunkIndex)
                                 {
@@ -303,7 +306,6 @@ namespace Unity.Entities.Serialization
                                             }
                                         }
                                     }
-                                    
                                     // If it's a Component Data
                                     else
                                     {
@@ -334,9 +336,9 @@ namespace Unity.Entities.Serialization
         }
 
         #endregion
-        
+
         #endregion
     }
 }
 
-#endif //UNITY_EDITOR        
+#endif //UNITY_EDITOR

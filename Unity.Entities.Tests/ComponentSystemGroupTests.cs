@@ -1,12 +1,15 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
+
+#if !UNITY_DOTSPLAYER_IL2CPP
+using System.Text.RegularExpressions;
+using System.Linq;
+#endif
 
 namespace Unity.Entities.Tests
 {
@@ -14,11 +17,10 @@ namespace Unity.Entities.Tests
     {
         class TestGroup : ComponentSystemGroup
         {
-
         }
 
 #if NET_DOTS
-        private class TestSystemBase :ComponentSystem
+        private class TestSystemBase : ComponentSystem
         {
             protected override void OnUpdate() => throw new System.NotImplementedException();
         }
@@ -40,7 +42,7 @@ namespace Unity.Entities.Tests
         class TestSystem : TestSystemBase
         {
         }
-        
+
         [Test]
         public void SortOneChildSystem()
         {
@@ -103,6 +105,9 @@ namespace Unity.Entities.Tests
         {
         }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
+
         [Test]
 #if NET_DOTS
         [Ignore("Tiny pre-compiles systems. Many tests will fail if they exist, not just this one.")]
@@ -145,6 +150,7 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(foundCycleMatch);
         }
 
+#endif // UNITY_DOTSPLAYER_IL2CPP
 
         class Unconstrained1System : TestSystemBase
         {
@@ -218,6 +224,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, child2.CompleteUpdateCount);
             Assert.AreEqual(1, child3.CompleteUpdateCount);
         }
+
 #endif
 
 #if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
@@ -234,6 +241,7 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(0, child.CompleteUpdateCount);
         }
+
 #endif
 
 #if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
@@ -265,6 +273,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+NonSibling2System.+belongs to a different ComponentSystemGroup"));
         }
+
 #endif
 
 #if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
@@ -291,6 +300,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateBeforeLateSimulation_LogsWarning()
         {
@@ -300,6 +310,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateBeforeSimulationEnd_LogsWarning()
         {
@@ -309,6 +320,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateBefore\].+already restricted to be last."));
         }
+
         [UpdateBefore(typeof(BeginInitializationEntityCommandBufferSystem))]
         class BeforeInitBeginSystem : TestSystemBase
         {
@@ -330,6 +342,7 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.SortSystemUpdateList(); },
                 Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be first."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateBeforeSimulationBegin_ThrowsError()
         {
@@ -339,6 +352,7 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.SortSystemUpdateList(); },
                 Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be first."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateBeforePresentationBegin_ThrowsError()
         {
@@ -348,6 +362,7 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.SortSystemUpdateList(); },
                 Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be first."));
         }
+
         [UpdateAfter(typeof(BeginInitializationEntityCommandBufferSystem))]
         class AfterInitBeginSystem : TestSystemBase
         {
@@ -369,6 +384,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateAfter\].+already restricted to be first."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateAfterSimulationBegin_LogsWarning()
         {
@@ -378,6 +394,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateAfter\].+already restricted to be first."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateAfterPresentationBegin_LogsWarning()
         {
@@ -387,6 +404,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring redundant \[UpdateAfter\].+already restricted to be first."));
         }
+
         [UpdateAfter(typeof(EndInitializationEntityCommandBufferSystem))]
         class AfterInitEndSystem : TestSystemBase
         {
@@ -408,6 +426,7 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.SortSystemUpdateList(); },
                 Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateAfterLateSimulation_ThrowsError()
         {
@@ -417,6 +436,7 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.SortSystemUpdateList(); },
                 Throws.ArgumentException.With.Message.Contains(", because that system is already restricted to be last."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateAfterSimulationEnd_ThrowsError()
         {
@@ -448,6 +468,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+InvalidUpdateAfterSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateBeforeTargetIsNotSystem_LogsWarning()
         {
@@ -476,6 +497,7 @@ namespace Unity.Entities.Tests
             parent.SortSystemUpdateList();
             LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+UpdateAfterSelfSystem.+cannot be updated after itself."));
         }
+
         [Test]
         public void ComponentSystemGroup_UpdateBeforeTargetIsSelf_LogsWarning()
         {
@@ -501,6 +523,7 @@ namespace Unity.Entities.Tests
             Assert.That(() => { parent.AddSystemToUpdateList(parent); },
                 Throws.ArgumentException.With.Message.Contains("to its own update list"));
         }
+
 #endif
 
         class StartAndStopSystemGroup : ComponentSystemGroup
@@ -516,17 +539,18 @@ namespace Unity.Entities.Tests
                 Operations.Add(0);
                 base.OnStartRunning();
             }
+
             protected override void OnUpdate()
             {
                 Operations.Add(1);
                 base.OnUpdate();
             }
+
             protected override void OnStopRunning()
             {
                 Operations.Add(2);
                 base.OnStopRunning();
             }
-
         }
 
         class StartAndStopSystemA : ComponentSystem
@@ -542,16 +566,17 @@ namespace Unity.Entities.Tests
                 Group.Operations.Add(10);
                 base.OnStartRunning();
             }
+
             protected override void OnUpdate()
             {
                 Group.Operations.Add(11);
             }
+
             protected override void OnStopRunning()
             {
                 Group.Operations.Add(12);
                 base.OnStopRunning();
             }
-
         }
         class StartAndStopSystemB : ComponentSystem
         {
@@ -566,10 +591,12 @@ namespace Unity.Entities.Tests
                 Group.Operations.Add(20);
                 base.OnStartRunning();
             }
+
             protected override void OnUpdate()
             {
                 Group.Operations.Add(21);
             }
+
             protected override void OnStopRunning()
             {
                 Group.Operations.Add(22);
@@ -589,10 +616,12 @@ namespace Unity.Entities.Tests
                 Group.Operations.Add(30);
                 base.OnStartRunning();
             }
+
             protected override void OnUpdate()
             {
                 Group.Operations.Add(31);
             }
+
             protected override void OnStopRunning()
             {
                 Group.Operations.Add(32);
@@ -635,7 +664,7 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(parent.Operations, new[] {0, 1, 10, 11, 20, 21});
             parent.Operations.Clear();
         }
-        
+
         class TrackUpdatedSystem : JobComponentSystem
         {
             public List<ComponentSystemBase> Updated;
@@ -646,14 +675,14 @@ namespace Unity.Entities.Tests
                 return inputDeps;
             }
         }
-        
+
         [Test]
         public void AddAndRemoveTakesEffectBeforeUpdate()
         {
             var parent = World.CreateSystem<TestGroup>();
             var childa = World.CreateSystem<TrackUpdatedSystem>();
             var childb = World.CreateSystem<TrackUpdatedSystem>();
-            
+
             var updates = new List<ComponentSystemBase>();
             childa.Updated = updates;
             childb.Updated = updates;

@@ -31,7 +31,7 @@ namespace Unity.Entities.Tests.Conversion
 
             Assert.That(events, Is.EquivalentTo(new[]
             {
-                 // reversed
+                // reversed
                 JournalDataDebug.Create(2, new LogEventData { Type = LogType.Error, Message = "error" }),
                 JournalDataDebug.Create(1, new LogEventData { Type = LogType.Warning, Message = "warning" })
             }));
@@ -81,9 +81,9 @@ namespace Unity.Entities.Tests.Conversion
 
             const int invalidInstanceId = 0;
             Assert.That(recorded0, Is.True);
-            Assert.That(m_JournalData.SelectJournalDataDebug(), Is.EqualTo(new []
+            Assert.That(m_JournalData.SelectJournalDataDebug(), Is.EqualTo(new[]
             {
-               JournalDataDebug.Create(invalidInstanceId, new LogEventData { Type = LogType.Error, Message = "test error" }) 
+                JournalDataDebug.Create(invalidInstanceId, new LogEventData { Type = LogType.Error, Message = "test error" })
             }));
         }
 
@@ -155,7 +155,7 @@ namespace Unity.Entities.Tests.Conversion
             Assert.That(m_JournalData.SelectLogEventsOrdered(go0), Is.EqualTo(new[]
                 { new LogEventData { Type = LogType.Assert, Message = "test assert0" } }));
             Assert.That(m_JournalData.SelectEntities(go1), Is.EqualTo(new[]
-                { e1 } ));
+                { e1 }));
             Assert.That(m_JournalData.SelectLogEventsFast(go2), Is.Empty);
             Assert.That(m_JournalData.SelectLogEventsOrdered(go2), Is.Empty);
 

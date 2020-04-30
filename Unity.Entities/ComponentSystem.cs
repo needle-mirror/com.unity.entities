@@ -10,7 +10,7 @@ namespace Unity.Entities
     /// <remarks>Implement a ComponentSystem subclass for systems that perform their work on the main thread or that
     /// use Jobs not specifically optimized for ECS. To use the ECS-specific Jobs, such as <see cref="IJobForEach{T0}"/> or
     /// <see cref="IJobChunk"/>, implement <seealso cref="JobComponentSystem"/> instead.</remarks>
-    public abstract partial class ComponentSystem : ComponentSystemBase
+    public unsafe abstract partial class ComponentSystem : ComponentSystemBase
     {
         EntityCommandBuffer m_DeferredEntities;
         EntityQueryCache m_EntityQueryCache;
@@ -83,16 +83,17 @@ namespace Unity.Entities
 
         public sealed override void Update()
         {
+            var state = CheckedState();
 #if ENABLE_PROFILER
-            using (m_ProfilerMarker.Auto())
+            using (state->m_ProfilerMarker.Auto())
 #endif
 
             {
                 if (Enabled && ShouldRunSystem())
                 {
-                    if (!m_PreviouslyEnabled)
+                    if (!state->m_PreviouslyEnabled)
                     {
-                        m_PreviouslyEnabled = true;
+                        state->m_PreviouslyEnabled = true;
                         OnStartRunning();
                     }
 
@@ -115,11 +116,11 @@ namespace Unity.Entities
                         AfterOnUpdate();
                     }
                 }
-                else if (m_PreviouslyEnabled)
+                else if (state->m_PreviouslyEnabled)
                 {
-                    m_PreviouslyEnabled = false;
+                    state->m_PreviouslyEnabled = false;
                     OnStopRunningInternal();
-                }            
+                }
             }
         }
 

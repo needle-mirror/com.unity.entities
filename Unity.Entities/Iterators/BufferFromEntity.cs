@@ -1,5 +1,8 @@
-﻿using System;
+using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Unity.Burst;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
@@ -23,7 +26,7 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal BufferFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore, bool isReadOnly,
-            AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety)
+                                  AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety)
         {
             m_Safety0 = safety;
             m_ArrayInvalidationSafety = arrayInvalidationSafety;
@@ -41,6 +44,7 @@ namespace Unity.Entities
 
             m_InternalCapacity = TypeManager.GetTypeInfo<T>().BufferCapacity;
         }
+
 #else
         internal BufferFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore, bool isReadOnly)
         {
@@ -51,6 +55,7 @@ namespace Unity.Entities
             m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
             m_InternalCapacity = TypeManager.GetTypeInfo<T>().BufferCapacity;
         }
+
 #endif
 
         public bool Exists(Entity entity)
@@ -76,7 +81,7 @@ namespace Unity.Entities
 #endif
 
                 // TODO(dep): We don't really have a way to mark the native array as read only.
-                BufferHeader* header = (BufferHeader*) m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_TypeLookupCache);
+                BufferHeader* header = (BufferHeader*)m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_TypeLookupCache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 return new DynamicBuffer<T>(header, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly, false, 0, m_InternalCapacity);

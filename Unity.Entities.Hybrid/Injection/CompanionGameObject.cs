@@ -1,4 +1,4 @@
-﻿#if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
 using System;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Unity.Entities
 {
-    struct EditorCompanionInPreviewSceneTag : IComponentData { }
+    struct EditorCompanionInPreviewSceneTag : IComponentData {}
 
 #if UNITY_EDITOR
     [UnityEditor.InitializeOnLoad] // ensures type manager is initialized on domain reload when not playing
@@ -76,7 +76,7 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         static void AssignHybridComponentsToCompanionGameObjectsDelegate(EntityManager entityManager, NativeArray<Entity> entities)
         {
             for (int i = 0; i < entities.Length; ++i)

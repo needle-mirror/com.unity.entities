@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -144,8 +144,7 @@ namespace Unity.Scenes.Editor.Tests
             Assert.AreEqual(n, c, $"Expected {n} more messages but found {c} messages:\n{s_Connection.GetMessageString()}");
         }
 
-
-        static IEnumerable WaitForMessage(int numMessages = 1, int maxWaitFrames=10000)
+        static IEnumerable WaitForMessage(int numMessages = 1, int maxWaitFrames = 10000)
         {
             for (int frame = 0; frame < maxWaitFrames; frame++)
             {
@@ -277,7 +276,7 @@ namespace Unity.Scenes.Editor.Tests
         static Hash128 GetLiveLinkArtifactHash(string guid, ImportMode syncMode = ImportMode.NoImport) => AssetDatabaseCompatibility.GetArtifactHash(guid, typeof(LiveLinkBuildImporter), syncMode);
         static Hash128 GetLiveLinkArtifactHash(GUID guid, ImportMode syncMode = ImportMode.NoImport) => GetLiveLinkArtifactHash(guid.ToString(), syncMode);
 
-        IEnumerable WaitForAssets(Dictionary<Hash128, Hash128> outHashesByGUID, int player=1)
+        IEnumerable WaitForAssets(Dictionary<Hash128, Hash128> outHashesByGUID, int player = 1)
         {
             outHashesByGUID.Clear();
             // Receive hashes for assets until all of them are valid
@@ -311,9 +310,10 @@ namespace Unity.Scenes.Editor.Tests
                         outHashesByGUID[assets[i].GUID] = assets[i].TargetHash;
                     }
                 }
-            } while (outHashesByGUID.Any(kvp => !kvp.Value.IsValid));
+            }
+            while (outHashesByGUID.Any(kvp => !kvp.Value.IsValid));
         }
-        
+
         [UnityTest]
         public IEnumerator EditorComputesAssetHashForValidAssets()
         {
@@ -354,12 +354,12 @@ namespace Unity.Scenes.Editor.Tests
             s_TempMaterial.color = Color.cyan;
             AssetDatabase.SaveAssets();
 
-            
+
             foreach (var v in WaitForAssets(hashByGUID))
                 yield return v;
             Assert.IsTrue(hashByGUID.TryGetValue(materialGuid, out var newHash));
             Assert.AreNotEqual(previousHash, newHash);
-            
+
             AssertNumMessages(0);
         }
 
@@ -372,7 +372,7 @@ namespace Unity.Scenes.Editor.Tests
         public IEnumerator EditorTracksAssetChanges_ChangeDependency()
         {
             DoConnect();
-            
+
             s_Connection.PostMessageArray(1, LiveLinkMsg.PlayerRequestAssetTargetHash, new[] { (Hash128)s_TempMaterialGuid });
 
             var hashesByGUID = new Dictionary<Hash128, Hash128>();
@@ -382,7 +382,7 @@ namespace Unity.Scenes.Editor.Tests
             Assert.IsTrue(hashesByGUID.ContainsKey(s_TempTextureGuid), "The editor did not send the hash of the dependency");
 
             yield return null;
-            
+
             var wrapMode = s_TempTexture.wrapMode;
             s_TempTexture.wrapMode = wrapMode == TextureWrapMode.Clamp ? TextureWrapMode.Mirror : TextureWrapMode.Clamp;
             AssetDatabase.SaveAssets();
@@ -398,7 +398,7 @@ namespace Unity.Scenes.Editor.Tests
 
             // check that the updated assets is the texture and that the hash changed
             Assert.IsTrue(hashesByGUID.ContainsKey(s_TempTextureGuid), "The editor did not send the modified texture.");
-            
+
             AssertNumMessages(0);
         }
 
@@ -414,21 +414,21 @@ namespace Unity.Scenes.Editor.Tests
 
             string path = s_Assets.GetNextPath(".mat");
             AssetDatabase.CreateAsset(new Material(Shader.Find("Standard")), path);
-            var materialGuid = (Hash128)new GUID(AssetDatabase.AssetPathToGUID(path));
+            var materialGuid = (Hash128) new GUID(AssetDatabase.AssetPathToGUID(path));
 
             s_Connection.PostMessageArray(1, LiveLinkMsg.PlayerRequestAssetTargetHash, new[] { materialGuid });
             var hashByGUID = new Dictionary<Hash128, Hash128>();
             foreach (var v in WaitForAssets(hashByGUID))
                 yield return v;
             Assert.IsTrue(hashByGUID.TryGetValue(materialGuid, out var previousHash), "The editor did not send the material back");
-            
+
             yield return null;
 
             AssetDatabase.DeleteAsset(path);
 
             foreach (var v in WaitForAssets(hashByGUID))
                 yield return v;
-            
+
             Assert.IsTrue(hashByGUID.TryGetValue(materialGuid, out var newHash), "The editor did not update the material.");
             Assert.IsFalse(newHash.IsValid);
 
@@ -437,7 +437,7 @@ namespace Unity.Scenes.Editor.Tests
 
         static unsafe void Read<T>(byte[] data, out T result) where T : struct
         {
-            fixed (byte* buffer = data)
+            fixed(byte* buffer = data)
             {
                 var reader = new UnsafeAppendBuffer.Reader(buffer, data.Length);
                 reader.ReadNext(out result);
@@ -445,7 +445,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         static unsafe int SizeOf<T>() where T : unmanaged => sizeof(T);
-        
+
         [UnityTest]
         public IEnumerator EditorSendsAssetBundle()
         {
@@ -460,7 +460,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 // if we received any hashes, that means the texture had to be imported and we now need to re-request it
                 Assert.IsTrue(hashByGUID.ContainsKey(s_TempTextureGuid));
-                s_Connection.PostMessage(1, LiveLinkMsg.PlayerRequestAssetForGUID, (Hash128)s_TempTextureGuid);                
+                s_Connection.PostMessage(1, LiveLinkMsg.PlayerRequestAssetForGUID, (Hash128)s_TempTextureGuid);
             }
             var msg = AssertNextMessage(LiveLinkMsg.EditorResponseAssetForGUID, 1);
             Assert.GreaterOrEqual(msg.Data.Length, SizeOf<ResolvedAssetID>(), $"Received an asset bundle message, but it does not start with a {nameof(ResolvedAssetID)}.");
@@ -505,7 +505,7 @@ namespace Unity.Scenes.Editor.Tests
 
         static unsafe void ReadSubSceneResponse(byte[] msg, out ResolvedSubSceneID resolvedSubSceneId, out NativeArray<RuntimeGlobalObjectId> dependencies)
         {
-            fixed (byte* ptr = msg)
+            fixed(byte* ptr = msg)
             {
                 var reader = new UnsafeAppendBuffer.Reader(ptr, msg.Length);
                 reader.ReadNext(out resolvedSubSceneId);
@@ -515,7 +515,7 @@ namespace Unity.Scenes.Editor.Tests
 
         static unsafe string ReadArtifactName(byte[] msg)
         {
-            fixed (byte* ptr = msg)
+            fixed(byte* ptr = msg)
             {
                 var reader = new UnsafeAppendBuffer.Reader(ptr, msg.Length);
                 reader.ReadNext(out string artifactName);
@@ -562,8 +562,8 @@ namespace Unity.Scenes.Editor.Tests
             {
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 Assert.Greater(runtimeGlobalObjectIds.Length, 0, "Runtime references are empty!");
-                Assert.IsTrue(runtimeGlobalObjectIds.Any(x => x.AssetGUID == (Hash128) s_TempMaterialGuid), "Runtime references does not include material");
-                Assert.IsTrue(runtimeGlobalObjectIds.Any(x => x.AssetGUID == (Hash128) s_TempTextureGuid), "Runtime references does not include texture");
+                Assert.IsTrue(runtimeGlobalObjectIds.Any(x => x.AssetGUID == (Hash128)s_TempMaterialGuid), "Runtime references does not include material");
+                Assert.IsTrue(runtimeGlobalObjectIds.Any(x => x.AssetGUID == (Hash128)s_TempTextureGuid), "Runtime references does not include texture");
 #endif
             }
 
@@ -611,13 +611,13 @@ namespace Unity.Scenes.Editor.Tests
             var editorLiveLinkId = LiveLinkUtility.GetEditorLiveLinkId();
             s_Connection.PostConnect(1);
             s_Connection.IncomingMessages.Clear();
-            
+
             s_Connection.PostMessage(1, LiveLinkMsg.PlayerRequestHandshakeLiveLink, s_LiveLinkBuildConfigGuid);
-            
+
             var msg = AssertNextMessage(LiveLinkMsg.EditorResponseHandshakeLiveLink, 1);
             var incomingId = msg.EventArgs.Receive<long>();
             Assert.AreEqual(editorLiveLinkId, incomingId);
-            
+
             AssertNumMessages(0);
 
             s_Connection.PostDisconnect(1);

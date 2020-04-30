@@ -2,12 +2,10 @@ using System;
 using System.Diagnostics;
 using Unity.Jobs;
 using NUnit.Framework;
-using NUnit.Framework.Constraints;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
-
     class ZeroPlayerTests
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -29,7 +27,6 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckReadAndThrow(handle));
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(handle));
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckExistsAndThrow(handle));
-
         }
 
         [Test]
@@ -51,6 +48,7 @@ namespace Unity.Entities.Tests
             AtomicSafetyHandle.Release(handle);
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckDeallocateAndThrow(clone));
         }
+
 #endif
     }
 }

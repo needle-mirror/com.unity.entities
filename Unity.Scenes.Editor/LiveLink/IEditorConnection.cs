@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEditor.Networking.PlayerConnection;
 using UnityEngine.Networking.PlayerConnection;
 
-namespace Unity.Scenes {
+namespace Unity.Scenes
+{
 #if UNITY_EDITOR
     interface IEditorConnection : IEditorPlayerConnection
     {

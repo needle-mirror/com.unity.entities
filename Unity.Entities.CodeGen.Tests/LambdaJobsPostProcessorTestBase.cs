@@ -18,11 +18,11 @@ namespace Unity.Entities.CodeGen.Tests
     {
         class FailResolver : IAssemblyResolver
         {
-            public void Dispose() { }
+            public void Dispose() {}
             public AssemblyDefinition Resolve(AssemblyNameReference name) { return null; }
             public AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters) { return null; }
         }
-        
+
         protected AssemblyDefinition AssemblyDefinitionFor(Type type, bool useFailResolver = false)
         {
             var assemblyLocation = type.Assembly.Location;
@@ -32,8 +32,8 @@ namespace Unity.Entities.CodeGen.Tests
                 resolver = new FailResolver();
             else
                 resolver = new LambdaJobsPostProcessorTestBase.OnDemandResolver();
-            
-            var ad = AssemblyDefinition.ReadAssembly(new MemoryStream(File.ReadAllBytes(assemblyLocation)), 
+
+            var ad = AssemblyDefinition.ReadAssembly(new MemoryStream(File.ReadAllBytes(assemblyLocation)),
                 new ReaderParameters(ReadingMode.Immediate)
                 {
                     ReadSymbols = true,
@@ -71,8 +71,8 @@ namespace Unity.Entities.CodeGen.Tests
 
         protected MethodDefinition MethodDefinitionForOnlyMethodOfDefinition(TypeDefinition typeDefinition)
         {
-            var a = typeDefinition.GetMethods().Where(m => !m.IsConstructor && !m.IsStatic && !m.IsCompilerControlled && 
-                                                           !m.CustomAttributes.Any(c => c.AttributeType.Name == nameof(CompilerGeneratedAttribute))).ToList();
+            var a = typeDefinition.GetMethods().Where(m => !m.IsConstructor && !m.IsStatic && !m.IsCompilerControlled &&
+                !m.CustomAttributes.Any(c => c.AttributeType.Name == nameof(CompilerGeneratedAttribute))).ToList();
             return a.Count == 1 ? a.Single() : a.Single(m => m.Name == "Test");
         }
 
@@ -83,7 +83,7 @@ namespace Unity.Entities.CodeGen.Tests
                 return null;
             return new MemoryStream(File.ReadAllBytes(file));
         }
-        
+
         [MethodImpl(MethodImplOptions.NoInlining)]
         protected static T EnsureNotOptimizedAway<T>(T x) { return x; }
 
@@ -110,7 +110,7 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         protected abstract void AssertProducesInternal(Type systemType, DiagnosticType type, string[] shouldContains, bool useFailResolver = false);
-        
+
         protected void AssertProducesWarning(Type systemType, params string[] shouldContainErrors)
         {
             AssertProducesInternal(systemType, DiagnosticType.Warning, shouldContainErrors);
@@ -123,7 +123,7 @@ namespace Unity.Entities.CodeGen.Tests
 
         protected static void AssertDiagnosticHasSufficientFileAndLineInfo(List<DiagnosticMessage> errors)
         {
-            string diagnostic = errors.Select(dm=>dm.MessageData).SeparateByComma();
+            string diagnostic = errors.Select(dm => dm.MessageData).SeparateByComma();
             if (!diagnostic.Contains(".cs"))
                 Assert.Fail("Diagnostic message had no file info: " + diagnostic);
 
@@ -153,14 +153,14 @@ namespace Unity.Entities.CodeGen.Tests
                 {
                     foreach (var forEachDescriptionConstruction in LambdaJobDescriptionConstruction.FindIn(methodToAnalyze))
                     {
-                        var (jobStructForLambdaJob, diagnosticMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
+                        var(jobStructForLambdaJob, diagnosticMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
                         foreach (var diagnosticMessage in diagnosticMessages)
                             Assert.AreNotEqual(DiagnosticType.Error, diagnosticMessage.DiagnosticType);
                     }
                 }
 
                 // Write out assembly to memory stream
-                // Missing ImportReference errors for types only happens here. 
+                // Missing ImportReference errors for types only happens here.
                 var pe = new MemoryStream();
                 var pdb = new MemoryStream();
                 var writerParameters = new WriterParameters
@@ -172,8 +172,8 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         protected override void AssertProducesInternal(
-            Type systemType, 
-            DiagnosticType type, 
+            Type systemType,
+            DiagnosticType type,
             string[] shouldContains,
             bool useFailResolver = false)
         {
@@ -184,7 +184,7 @@ namespace Unity.Entities.CodeGen.Tests
             {
                 foreach (var forEachDescriptionConstruction in LambdaJobDescriptionConstruction.FindIn(methodToAnalyze))
                 {
-                    var (_, rewriteMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
+                    var(_, rewriteMessages) = LambdaJobsPostProcessor.Rewrite(methodToAnalyze, forEachDescriptionConstruction);
                     diagnosticMessages.AddRange(rewriteMessages);
                 }
             }

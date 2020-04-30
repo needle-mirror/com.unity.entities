@@ -15,4 +15,20 @@ namespace Unity.Entities.Tests
     {
     }
 #endif
+
+#if UNITY_PORTABLE_TEST_RUNNER
+    internal class IgnoreInPortableTests : IgnoreAttribute
+    {
+        public IgnoreInPortableTests(string reason) : base(reason)
+        {
+        }
+    }
+#else
+    internal class IgnoreInPortableTests : Attribute
+    {
+        public IgnoreInPortableTests(string reason)
+        {
+        }
+    }
+#endif
 }

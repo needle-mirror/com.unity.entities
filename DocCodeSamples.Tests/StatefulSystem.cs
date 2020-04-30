@@ -1,4 +1,4 @@
-﻿#region stateful-example
+#region stateful-example
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -101,7 +101,7 @@ public class StatefulSystem : JobComponentSystem
         m_ECBSource.AddJobHandleForProducer(newJobHandle);
 
         var processEntityJob = new ProcessEntityJob()
-            {ConcurrentECB = m_ECBSource.CreateCommandBuffer().ToConcurrent()};
+        {ConcurrentECB = m_ECBSource.CreateCommandBuffer().ToConcurrent()};
         var processJobHandle = processEntityJob.Schedule(m_activeEntities, newJobHandle);
         m_ECBSource.AddJobHandleForProducer(processJobHandle);
 

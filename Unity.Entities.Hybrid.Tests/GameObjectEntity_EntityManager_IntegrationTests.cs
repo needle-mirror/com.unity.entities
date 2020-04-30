@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -18,11 +18,12 @@ namespace Unity.Entities.Tests
         {
             var parent = new GameObject($"{TestContext.CurrentContext.Test.Name}-PARENT");
             m_TestObjects[ActivateTestObject.Parent] = parent;
+#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
             m_GameObjectEntity =
                 new GameObject(TestContext.CurrentContext.Test.Name, typeof(GameObjectEntity), typeof(MockDataProxy)).GetComponent<GameObjectEntity>();
+#pragma warning restore 618 // remove once ComponentDataProxyBase is removed
             m_GameObjectEntity.gameObject.transform.SetParent(parent.transform);
             m_TestObjects[ActivateTestObject.Child] = m_GameObjectEntity.gameObject;
-
         }
 
         [TearDown]
@@ -36,7 +37,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DeactivateGameObjectEntity_EntityManagerEntityDoesNotExist([Values]ActivateTestObject testObject)
+        public void DeactivateGameObjectEntity_EntityManagerEntityDoesNotExist([Values] ActivateTestObject testObject)
         {
             var manager = m_GameObjectEntity.EntityManager;
             Assume.That(manager.Exists(Entity), Is.True);
@@ -47,7 +48,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void ReactivateGameObjectEntity_EntityManagerHasComponent([Values]ActivateTestObject testObject)
+        public void ReactivateGameObjectEntity_EntityManagerHasComponent([Values] ActivateTestObject testObject)
         {
             var manager = m_GameObjectEntity.EntityManager;
             m_TestObjects[testObject].SetActive(false);

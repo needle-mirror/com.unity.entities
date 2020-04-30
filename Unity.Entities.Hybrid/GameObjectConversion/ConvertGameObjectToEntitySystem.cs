@@ -16,7 +16,7 @@ namespace Unity.Entities
     }
 
     [AttributeUsage(AttributeTargets.Class)]
-    public class RequiresEntityConversionAttribute : Attribute {  }
+    public class RequiresEntityConversionAttribute : Attribute {}
 }
 
 namespace Unity.Entities.Conversion

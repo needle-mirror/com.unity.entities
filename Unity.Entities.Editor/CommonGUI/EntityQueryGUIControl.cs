@@ -1,4 +1,3 @@
-﻿
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,11 +27,11 @@ namespace Unity.Entities.Editor
         {
             CalculateDrawingParts(types, readWriteTypes, archetypeQueryMode);
         }
-        
+
         void CalculateDrawingParts(IEnumerable<ComponentType> types, IEnumerable<ComponentType> readWriteTypes, bool archetypeQueryMode)
         {
             var typeList = types.ToList();
-            typeList.Sort((Comparison<ComponentType>) EntityQueryGUI.CompareTypes);
+            typeList.Sort((Comparison<ComponentType>)EntityQueryGUI.CompareTypes);
             styles = new List<GUIStyle>(typeList.Count);
             names = new List<GUIContent>(typeList.Count);
             rects = new List<Rect>(typeList.Count);
@@ -51,7 +50,7 @@ namespace Unity.Entities.Editor
                         {
                             if (readWriteType.TypeIndex == type.TypeIndex)
                             {
-                            style = EntityQueryGUI.StyleForAccessMode(readWriteType.AccessModeType, archetypeQueryMode);
+                                style = EntityQueryGUI.StyleForAccessMode(readWriteType.AccessModeType, archetypeQueryMode);
                                 break;
                             }
                         }
@@ -66,13 +65,13 @@ namespace Unity.Entities.Editor
                 {
                     style = EntityQueryGUI.StyleForAccessMode(type.AccessModeType, archetypeQueryMode);
                 }
-                var content = new GUIContent((string) EntityQueryGUI.SpecifiedTypeName(type.GetManagedType()));
+                var content = new GUIContent((string)EntityQueryGUI.SpecifiedTypeName(type.GetManagedType()));
 
                 styles.Add(style);
                 names.Add(content);
             }
         }
-        
+
         public void OnGUI(Vector2 position)
         {
             if (Event.current.type == EventType.Repaint)
@@ -97,7 +96,7 @@ namespace Unity.Entities.Editor
         public void UpdateSize(float newWidth)
         {
             width = newWidth;
-            
+
             rects.Clear();
             var x = 0f;
             var y = 0f;

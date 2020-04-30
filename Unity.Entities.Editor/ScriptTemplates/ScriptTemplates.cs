@@ -4,11 +4,10 @@ using UnityEditor;
 
 namespace Unity.Entities.Editor
 {
-
     internal class ScriptTemplates
     {
         public const string TemplatesRoot = "Packages/com.unity.entities/Unity.Entities.Editor/ScriptTemplates";
-        
+
         [MenuItem("Assets/Create/ECS/Runtime Component Type")]
         public static void CreateRuntimeComponentType()
         {
@@ -16,7 +15,7 @@ namespace Unity.Entities.Editor
                 $"{TemplatesRoot}/RunTimeComponent.txt",
                 "NewComponent.cs");
         }
-        
+
         [MenuItem("Assets/Create/ECS/Authoring Component Type")]
         public static void CreateAuthoringComponentType()
         {
@@ -33,5 +32,4 @@ namespace Unity.Entities.Editor
                 "NewSystem.cs");
         }
     }
-
 }

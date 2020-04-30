@@ -1,16 +1,14 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-
     internal delegate void CallbackAction();
 
     internal class ComponentTypeChooser : EditorWindow
     {
-
         private static List<ComponentType> types;
         private static HashSet<ComponentType> typeSelections;
         static List<ComponentType> previouslySelected;

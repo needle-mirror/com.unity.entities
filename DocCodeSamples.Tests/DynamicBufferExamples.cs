@@ -217,7 +217,7 @@ namespace Doc.CodeSamples.Tests
                 })
                 .ScheduleParallel();
 
-            // Must use a NativeArray to get data out of a Job.WithCode when scheduled to run on a background thread 
+            // Must use a NativeArray to get data out of a Job.WithCode when scheduled to run on a background thread
             NativeArray<int> sum = new NativeArray<int>(1, Allocator.TempJob);
 
             //Schedule the second job, which depends on the first
@@ -229,10 +229,10 @@ namespace Doc.CodeSamples.Tests
                     {
                         sum[0] += integer;
                     }
-                //if we do not specify dependencies, the job depends on the Dependency property
-                }).Schedule(); 
-                // Likewise, if we don't return a JobHandle, the system adds the job to its Dependency property
-                
+                    //if we do not specify dependencies, the job depends on the Dependency property
+                }).Schedule();
+            // Likewise, if we don't return a JobHandle, the system adds the job to its Dependency property
+
             //sum[0] will contain the result after all the jobs have finished
             this.CompleteDependency(); // Wait for the results now
 
@@ -417,6 +417,13 @@ namespace Doc.CodeSamples.Tests
             int[] sourceArray = {1, 2, 3, 4, 5};
             NativeArray<int> nativeArray = new NativeArray<int>(source, Allocator.Persistent);
             buffer.CopyFrom(nativeArray);
+
+            #endregion
+
+            #region dynamicbuffer.copyfrom.nativeslice
+
+            NativeSlice<int> nativeSlice = new NativeSlice<int>(nativeArray, 1, 3);
+            buffer.CopyFrom(nativeSlice);
 
             #endregion
 

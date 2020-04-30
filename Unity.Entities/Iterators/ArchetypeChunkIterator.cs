@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Assertions;
@@ -43,6 +43,7 @@ namespace Unity.Entities
         {
             Assert.IsTrue((Shared.Count <= SharedComponentData.Capacity && Shared.Count > 0) || (Changed.Count <= ChangedFilter.Capacity && Changed.Count > 0));
         }
+
 #endif
     }
 
@@ -59,25 +60,25 @@ namespace Unity.Entities
         Chunk* m_PreviousMatchingChunk;
         internal EntityQueryFilter m_Filter;
         internal readonly uint m_GlobalSystemVersion;
-        
+
         internal MatchingArchetype* CurrentMatchingArchetype
         {
             get
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if(m_CurrentArchetypeIndex < 0 || m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
+                if (m_CurrentArchetypeIndex < 0 || m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
                     throw new InvalidOperationException("Tried to get an out of bounds Current matching archetype of an ArchetypeChunkIterator. Try calling Reset() and MoveNext().");
 #endif
                 return m_MatchingArchetypeList.Ptr[m_CurrentArchetypeIndex];
             }
         }
-        
-        internal Archetype* CurrentArchetype 
+
+        internal Archetype* CurrentArchetype
         {
             get
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if(m_CurrentArchetypeIndex < 0 || m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
+                if (m_CurrentArchetypeIndex < 0 || m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
                     throw new InvalidOperationException("Tried to get an out of bounds Current matching archetype of an ArchetypeChunkIterator. Try calling Reset() and MoveNext().");
 #endif
                 return CurrentMatchingArchetype->Archetype;
@@ -89,13 +90,13 @@ namespace Unity.Entities
             get
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if(m_CurrentChunkInArchetypeIndex >= CurrentArchetype->Chunks.Count)
+                if (m_CurrentChunkInArchetypeIndex >= CurrentArchetype->Chunks.Count)
                     throw new InvalidOperationException("Tried to get an out of bounds Current chunk of an ArchetypeChunkIterator. Try calling Reset() and MoveNext().");
 #endif
                 return CurrentArchetype->Chunks.p[m_CurrentChunkInArchetypeIndex];
             }
         }
-        
+
         internal ArchetypeChunk CurrentArchetypeChunk
         {
             get
@@ -103,13 +104,13 @@ namespace Unity.Entities
                 return new ArchetypeChunk
                 {
                     m_Chunk = CurrentChunk,
-                    entityComponentStore = m_MatchingArchetypeList.entityComponentStore
+                    m_EntityComponentStore = m_MatchingArchetypeList.entityComponentStore
                 };
             }
         }
-        
+
         internal ArchetypeChunkIterator(UnsafeMatchingArchetypePtrList match, ComponentDependencyManager* safetyManager, uint globalSystemVersion,
-            ref EntityQueryFilter filter)
+                                        ref EntityQueryFilter filter)
         {
             m_MatchingArchetypeList = match;
             m_CurrentArchetypeIndex = 0;
@@ -173,7 +174,7 @@ namespace Unity.Entities
             m_CurrentChunkFirstEntityIndexInQuery = 0;
             m_PreviousMatchingChunk = null;
         }
-        
+
         /// <summary>
         /// The index of the first entity of the current chunk, as if all entities accessed by this iterator were
         /// in a singular array.
@@ -186,7 +187,7 @@ namespace Unity.Entities
                 var dummy = CurrentChunk; // this line throws an exception if we're outside the valid range of chunks in the iterator
 #endif
                 return m_CurrentChunkFirstEntityIndexInQuery;
-            }    
+            }
         }
 
         internal void* GetCurrentChunkComponentDataPtr(bool isWriting, int indexInEntityQuery)
@@ -195,50 +196,10 @@ namespace Unity.Entities
             return ChunkIterationUtility.GetChunkComponentDataPtr(CurrentChunk, isWriting, indexInArchetype, m_GlobalSystemVersion);
         }
 
-        /// <summary>
-        /// Calculates the total number of chunks this iterator can access.
-        /// </summary>
-        /// <returns>Number of chunks that can be accessed.</returns>
-        internal int CalculateChunkCount()
-        {
-            return ChunkIterationUtility.CalculateChunkCount(in m_MatchingArchetypeList, ref m_Filter);
-        }
-
-        /// <summary>
-        /// Confirms if this ArchetypeChunkIterator uses a filter.
-        /// </summary>
-        /// <returns>True if the entity query this ArchetypeChunkIterator was created from uses filters, otherwise false.</returns>
-        internal bool RequiresFilter()
-        {
-            return m_Filter.RequiresMatchesFilter;
-        }
-        
-        internal Entity* GetEntityPtr()
-        {
-            var archetype = CurrentArchetype;
-            var chunk = CurrentChunk;
-            var indexInArchetype = 0;
-            
-            return (Entity*)chunk->Buffer + archetype->Offsets[indexInArchetype];
-        }
-        
-        internal void* GetComponentDataPtr(bool isWriting, int typeIndexInQuery, uint systemVersion)
-        {
-            var archetype = CurrentArchetype;
-            var chunk = CurrentChunk;
-
-            var indexInArchetype = CurrentMatchingArchetype->IndexInArchetype[typeIndexInQuery];
-            
-            if (isWriting)
-                chunk->SetChangeVersion(indexInArchetype, systemVersion);
-
-            return chunk->Buffer + archetype->Offsets[indexInArchetype];
-        }
-
         internal object GetManagedObject(ManagedComponentStore managedComponentStore, int typeIndexInQuery, int entityInChunkIndex)
         {
             var indexInArchetype = CurrentMatchingArchetype->IndexInArchetype[typeIndexInQuery];
-            var managedComponentArray = (int*) ChunkDataUtility.GetComponentDataRW(CurrentChunk, 0, indexInArchetype, m_GlobalSystemVersion);
+            var managedComponentArray = (int*)ChunkDataUtility.GetComponentDataRW(CurrentChunk, 0, indexInArchetype);
             return managedComponentStore.GetManagedComponent(managedComponentArray[entityInChunkIndex]);
         }
     }

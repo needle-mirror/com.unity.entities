@@ -1,4 +1,4 @@
-﻿#if UNITY_DOTSPLAYER
+#if UNITY_DOTSPLAYER
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -73,15 +73,18 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        private static Dictionary<TypeReference, AlignAndSize>[] ValueTypeAlignment = {
+        private static Dictionary<TypeReference, AlignAndSize>[] ValueTypeAlignment =
+        {
             new Dictionary<TypeReference, AlignAndSize>(new TypeReferenceEqualityComparer()), new Dictionary<TypeReference, AlignAndSize>(new TypeReferenceEqualityComparer())
         };
 
-        private static Dictionary<FieldReference, AlignAndSize>[] StructFieldAlignment = {
+        private static Dictionary<FieldReference, AlignAndSize>[] StructFieldAlignment =
+        {
             new Dictionary<FieldReference, AlignAndSize>(new FieldReferenceComparer()), new Dictionary<FieldReference, AlignAndSize>(new FieldReferenceComparer())
         };
 
-        internal static Dictionary<TypeReference, bool>[] ValueTypeIsComplex = {
+        internal static Dictionary<TypeReference, bool>[] ValueTypeIsComplex =
+        {
             new Dictionary<TypeReference, bool>(new TypeReferenceEqualityComparer()), new Dictionary<TypeReference, bool>(new TypeReferenceEqualityComparer())
         };
 
@@ -135,7 +138,7 @@ namespace Unity.Entities.CodeGen
             {
                 var sz = ValueTypeAlignment[bits][typeRef];
 
-                if(sz.IsSentinel)
+                if (sz.IsSentinel)
                     throw new ArgumentException($"Type {typeRef} triggered sentinel; recursive value type definition");
 
                 return sz;
@@ -389,21 +392,21 @@ namespace Unity.Entities.CodeGen
 
             return fieldName;
         }
-        
+
         public static int GetFieldOffsetByFieldPath(string fieldPath, TypeReference type, int archBits, out TypeReference fieldType)
         {
             fieldType = null;
             var resolvedType = type.Resolve();
             var fields = resolvedType.Fields;
             var properties = resolvedType.Properties;
-            
+
             var fieldNames = fieldPath.Split('.');
             var currentFieldIndex = 0;
             var maxFieldIndex = fieldNames.Length - 1;
             var fieldName = AdjustFieldNameForProperties(fieldNames[currentFieldIndex], resolvedType);
-            
+
             int offset = 0;
-            for(int i = 0; i < fields.Count; ++i)
+            for (int i = 0; i < fields.Count; ++i)
             {
                 var f = fields[i];
                 if (f.IsStatic)
@@ -420,21 +423,21 @@ namespace Unity.Entities.CodeGen
                 if (f.Offset != -1)
                     offset = f.Offset;
                 else
-                    offset = (int) alignUp((uint) offset, (uint) tinfo.align);
+                    offset = (int)alignUp((uint)offset, (uint)tinfo.align);
 
                 if (f.Name == fieldName)
                 {
-                    // We found a match to our first fieldName but we now need to look at the next type 
+                    // We found a match to our first fieldName but we now need to look at the next type
                     if (currentFieldIndex < maxFieldIndex)
                     {
                         if (!(f.FieldType.IsValueType && !f.FieldType.IsPrimitive))
                             throw new ArgumentException($"Trying to get the field offset of a primitive type from string '{fieldPath}'. Please confirm your field path string is correct.");
-                        
+
                         // Swap in the found field types field list and reset our iteration counter
                         resolvedType = f.FieldType.Resolve();
                         fields = resolvedType.Fields;
                         i = -1; // we will increment at the top of this loop (to bring us back to 0)
-                        
+
                         // We know we are looking for a new fieldName so set that up
                         fieldName = AdjustFieldNameForProperties(fieldNames[++currentFieldIndex], resolvedType);
                         continue;
@@ -449,7 +452,7 @@ namespace Unity.Entities.CodeGen
 
                 offset += tinfo.size;
             }
-            
+
             return offset;
         }
 

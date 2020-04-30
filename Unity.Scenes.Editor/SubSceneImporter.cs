@@ -10,7 +10,7 @@ using AssetImportContext = UnityEditor.Experimental.AssetImporters.AssetImportCo
 
 namespace Unity.Scenes.Editor
 {
-    [UnityEditor.Experimental.AssetImporters.ScriptedImporter(71, "extDontMatter")]
+    [UnityEditor.Experimental.AssetImporters.ScriptedImporter(72, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : UnityEditor.Experimental.AssetImporters.ScriptedImporter
     {
@@ -23,9 +23,9 @@ namespace Unity.Scenes.Editor
         {
             var globalObjectIds = new GlobalObjectId[referencedUnityObjects.Array.Length];
             var runtimeGlobalObjIDs = new NativeList<RuntimeGlobalObjectId>(globalObjectIds.Length, allocator);
-            
+
             GlobalObjectId.GetGlobalObjectIdsSlow(referencedUnityObjects.Array, globalObjectIds);
-            
+
             for (int i = 0; i != globalObjectIds.Length; i++)
             {
                 var globalObjectId = globalObjectIds[i];
@@ -57,7 +57,7 @@ namespace Unity.Scenes.Editor
             for (var index = 0; index < referencedUnityObjects.Count; index++)
             {
                 var sectionIndex = sectionData[index].SubSectionIndex;
-                
+
                 var objRefs = referencedUnityObjects[index];
                 if (objRefs == null)
                     continue;
@@ -114,6 +114,7 @@ namespace Unity.Scenes.Editor
                     settings.SceneGUID = sceneWithBuildConfiguration.SceneGUID;
                     settings.BuildConfiguration = config;
                     settings.AssetImportContext = ctx;
+                    settings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
 
                     var sectionRefObjs = new List<ReferencedUnityObjects>();
                     var sectionData = EditorEntityScenes.ConvertAndWriteEntityScene(scene, settings, sectionRefObjs);
@@ -126,7 +127,7 @@ namespace Unity.Scenes.Editor
             }
             // Currently it's not acceptable to let the asset database catch the exception since it will create a default asset without any dependencies
             // This means a reimport will not be triggered if the scene is subsequently modified
-            catch(Exception e)
+            catch (Exception e)
             {
                 Debug.Log($"Exception thrown during SubScene import: {e}");
             }

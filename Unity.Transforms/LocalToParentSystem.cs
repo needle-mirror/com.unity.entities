@@ -31,7 +31,7 @@ namespace Unity.Transforms
             {
                 bool transformChanged = LocalToParentFromEntity.DidChange(entity, LastSystemVersion);
                 updateChildrenTransform = updateChildrenTransform || transformChanged;
-                
+
                 float4x4 localToWorldMatrix;
 
                 if (updateChildrenTransform && LocalToWorldWriteGroupMask.Matches(entity))
@@ -57,8 +57,8 @@ namespace Unity.Transforms
 
             public void Execute(ArchetypeChunk chunk, int index, int entityOffset)
             {
-                bool updateChildrenTransform = 
-                    chunk.DidChange<LocalToWorld>(LocalToWorldType, LastSystemVersion) || 
+                bool updateChildrenTransform =
+                    chunk.DidChange<LocalToWorld>(LocalToWorldType, LastSystemVersion) ||
                     chunk.DidChange<Child>(ChildType, LastSystemVersion);
 
                 var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldType);
@@ -81,7 +81,7 @@ namespace Unity.Transforms
             {
                 All = new ComponentType[]
                 {
-                    ComponentType.ReadOnly<LocalToWorld>(), 
+                    ComponentType.ReadOnly<LocalToWorld>(),
                     ComponentType.ReadOnly<Child>()
                 },
                 None = new ComponentType[]
@@ -90,7 +90,7 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
-            
+
             m_LocalToWorldWriteGroupMask = EntityManager.GetEntityQueryMask(GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]

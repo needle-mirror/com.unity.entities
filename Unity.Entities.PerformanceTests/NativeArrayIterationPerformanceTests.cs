@@ -118,19 +118,19 @@ namespace Unity.Entities.PerformanceTests
             int batchSize = 1024;
 
             Measure.Method(() => { SingleIterationWork(source, delta, resetThreshold, batchSize); })
-                .Definition("SingleIteration")
+                .SampleGroup("SingleIteration")
                 .WarmupCount(1)
                 .MeasurementCount(100)
                 .Run();
 
             Measure.Method(() => { SingleIterationWorkPtr(source, delta, resetThreshold, batchSize); })
-                .Definition("SingleIterationPtr")
+                .SampleGroup("SingleIterationPtr")
                 .WarmupCount(1)
                 .MeasurementCount(100)
                 .Run();
 
             Measure.Method(() => { SplitIterationWork(source, delta, resetThreshold, batchSize); })
-                .Definition("SplitIteration")
+                .SampleGroup("SplitIteration")
                 .WarmupCount(1)
                 .MeasurementCount(100)
                 .Run();

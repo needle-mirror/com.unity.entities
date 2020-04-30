@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Scenes
@@ -16,14 +16,16 @@ namespace Unity.Scenes
                 EditorApplication.update += EditorUpdate;
             }
         }
+
         static void EditorUpdate()
         {
             DidRequest = false;
             EditorApplication.update -= EditorUpdate;
             EditorApplication.QueuePlayerLoopUpdate();
         }
-#else    
-        public static void EditModeQueuePlayerLoopUpdate() { }
+
+#else
+        public static void EditModeQueuePlayerLoopUpdate() {}
 #endif
     }
 }

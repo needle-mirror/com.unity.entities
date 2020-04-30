@@ -41,6 +41,7 @@ namespace Unity.Entities.Tests
             {
                 throw new System.Exception();
             }
+
             protected override void OnUpdate()
             {
             }
@@ -54,7 +55,7 @@ namespace Unity.Entities.Tests
             {
                 public NativeArray<int> test;
 
-                public void Execute() { }
+                public void Execute() {}
             }
 
             protected override JobHandle OnUpdate(JobHandle inputDeps)
@@ -112,8 +113,11 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(StackedTestSystem2), system2.FoundTypeDuring);
             Assert.AreEqual(typeof(StackedTestSystem1), system1.FoundTypeAfter);
         }
+
 #endif
 
+#if !UNITY_PORTABLE_TEST_RUNNER
+        // TODO: IL2CPP_TEST_RUNNER can't handle Assert.That Throws
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void ComponentSystem_CheckExistsAfterDestroy_CorrectMessage()
@@ -121,19 +125,21 @@ namespace Unity.Entities.Tests
             var destroyedSystem = World.CreateSystem<TestSystem>();
             World.DestroySystem(destroyedSystem);
             Assert.That(() => { destroyedSystem.ShouldRunSystem(); },
-                Throws.InvalidOperationException.With.Message.Contains("has already been destroyed"));
+                Throws.InvalidOperationException.With.Message.Contains("destroyed"));
         }
+
 #endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void ComponentSystem_CheckExistsBeforeCreate_CorrectMessage()
         {
-
             var incompleteSystem = new TestSystem();
             Assert.That(() => { incompleteSystem.ShouldRunSystem(); },
-                Throws.InvalidOperationException.With.Message.Contains("m_systemID is zero"));
+                Throws.InvalidOperationException.With.Message.Contains("initialized"));
         }
+
+#endif
 #endif
 
         [Test]
@@ -175,10 +181,11 @@ namespace Unity.Entities.Tests
 
             #pragma warning disable 618
             Assert.Throws<ArgumentException>(() => { World.CreateSystem(typeof(Entity), 5); });
-            #pragma warning restore 618 
+            #pragma warning restore 618
         }
+
 #endif
-        
+
         [Test]
         public void GetOrCreateNonSystemThrows()
         {
@@ -213,7 +220,7 @@ namespace Unity.Entities.Tests
         {
             var system = World.CreateSystem<TestSystem>();
             World.DestroySystem(system);
-            Assert.Throws<ArgumentException>(() => World.DestroySystem(system) );
+            Assert.Throws<ArgumentException>(() => World.DestroySystem(system));
         }
 
         [Test]
@@ -288,7 +295,7 @@ namespace Unity.Entities.Tests
         {
             var query1 = new ComponentType[] { typeof(EcsTestData) };
             var query2 = new EntityQueryDesc { All = new ComponentType[] {typeof(EcsTestData)} };
-            var query3 = new EntityQueryDesc { All = new [] {ComponentType.ReadWrite<EcsTestData>()} };
+            var query3 = new EntityQueryDesc { All = new[] {ComponentType.ReadWrite<EcsTestData>()} };
 
             var group1 = EmptySystem.GetEntityQuery(query1);
             var group2 = EmptySystem.GetEntityQuery(query2);
@@ -302,8 +309,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetEntityQuery_RespectsRWAccessInequality()
         {
-            var query1 = new EntityQueryDesc { All = new [] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()} };
-            var query2 = new EntityQueryDesc { All = new [] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()} };
+            var query1 = new EntityQueryDesc { All = new[] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()} };
+            var query2 = new EntityQueryDesc { All = new[] {ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestData2>()} };
 
             var group1 = EmptySystem.GetEntityQuery(query1);
             var group2 = EmptySystem.GetEntityQuery(query2);
@@ -379,7 +386,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-                byte hash = (byte) Index;
+                byte hash = (byte)Index;
                 hashMap.TryAdd(hash, hash);
                 keys.Enqueue(hash);
             }
@@ -440,13 +447,13 @@ namespace Unity.Entities.Tests
         {
             //Non-preserved but valid parameter
             Assert.That(() =>
-                { World.CreateSystem<NonPreservedTestSystem>("test"); },
+            { World.CreateSystem<NonPreservedTestSystem>("test"); },
                 Throws.Exception.With.Message.Contains(
                     "failed because CreateSystem parameters did not match its constructor."));
 
             //Preserved but invalid parameter
             Assert.That(() =>
-                { World.CreateSystem<PreservedTestSystem>(10); },
+            { World.CreateSystem<PreservedTestSystem>(10); },
                 Throws.Exception.With.Message.Contains(
                     "failed because CreateSystem parameters did not match its constructor."));
         }
@@ -460,9 +467,9 @@ namespace Unity.Entities.Tests
                 World.DestroySystem(system);
             });
         }
-#pragma warning restore 618
-        
-#endif
 
+#pragma warning restore 618
+
+#endif
     }
 }

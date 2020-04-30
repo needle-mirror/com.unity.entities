@@ -48,7 +48,7 @@ namespace Unity.Entities
 
         private SharedComponentInfo* SharedComponentInfoPtr
         {
-            get { return (SharedComponentInfo*) m_SharedComponentInfo.Ptr; }
+            get { return (SharedComponentInfo*)m_SharedComponentInfo.Ptr; }
         }
 
         int m_FreeListIndex;
@@ -567,14 +567,14 @@ namespace Unity.Entities
         {
 #if !NET_DOTS
             var firstManagedComponent = archetype->FirstManagedComponent;
-            var numManagedComponents= archetype->NumManagedComponents;
+            var numManagedComponents = archetype->NumManagedComponents;
             for (int i = 0; i < numManagedComponents; ++i)
             {
                 int type = i + firstManagedComponent;
                 var a = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, type);
-                for(int ei=0; ei<entityCount; ++ei)
+                for (int ei = 0; ei < entityCount; ++ei)
                 {
-                    if(a[ei] != 0)
+                    if (a[ei] != 0)
                     {
                         var obj = m_ManagedComponentData[a[ei]];
                         EntityRemapUtility.PatchEntityInBoxedType(obj, remapping);
@@ -589,7 +589,7 @@ namespace Unity.Entities
 #if !NET_DOTS
             for (int i = 0; i < allocatedCount; ++i)
             {
-                for(int c=0;c<numManagedComponents;c++)
+                for (int c = 0; c < numManagedComponents; c++)
                 {
                     var managedComponentIndex = managedComponents[c];
                     if (managedComponentIndex != 0)
@@ -682,7 +682,7 @@ namespace Unity.Entities
                         var dstComponentLinkIndices = (int*)reader.ReadNextArray<int>(out _);
                         var dstArray = (int*)reader.ReadNextArray<int>(out _);
 
-                        if(InstantiateHybridComponent != null)
+                        if (InstantiateHybridComponent != null)
                             InstantiateHybridComponent(srcArray, componentCount, entities, dstComponentLinkIndices, dstArray, instanceCount, this);
                         else
                         {
@@ -716,7 +716,7 @@ namespace Unity.Entities
                         SetManagedComponentCapacity(capacity);
                     }
                     break;
-               }
+                }
             }
 
             managedDeferredCommands.Reset();
@@ -759,6 +759,7 @@ namespace Unity.Entities
             EntityRemapUtility.PatchEntityInBoxedType(clone, remapping);
             return clone;
         }
+
 #endif
 
         private void CloneManagedComponents(int* srcArray, int componentCount, int* dstArray, int instanceCount)
@@ -782,10 +783,10 @@ namespace Unity.Entities
         public void ReserveManagedComponentIndicesDirect(int count, ref EntityComponentStore entityComponentStore)
         {
             int freeCount = entityComponentStore.ManagedComponentFreeCount;
-            if(freeCount >= count)
+            if (freeCount >= count)
                 return;
 
-            int newCapacity = entityComponentStore.GrowManagedComponentCapacity(count-freeCount);
+            int newCapacity = entityComponentStore.GrowManagedComponentCapacity(count - freeCount);
             SetManagedComponentCapacity(newCapacity);
         }
 
@@ -793,10 +794,10 @@ namespace Unity.Entities
         {
             entityComponentStore.AssertNoQueuedManagedDeferredCommands();
             var iManagedComponent = *index;
-            
-            if(iManagedComponent != 0)
+
+            if (iManagedComponent != 0)
                 (m_ManagedComponentData[iManagedComponent] as IDisposable)?.Dispose();
-            
+
             if (value != null)
             {
                 if (iManagedComponent == 0)
@@ -824,6 +825,7 @@ namespace Unity.Entities
                 var obj = srcManagedComponentStore.m_ManagedComponentData[indices[i]];
                 var clone = CloneManagedComponent(obj);
                 int dstIndex = dstEntityComponentStore.AllocateManagedComponentIndex();
+                indices[i] = dstIndex;
                 (m_ManagedComponentData[dstIndex] as IDisposable)?.Dispose();
                 m_ManagedComponentData[dstIndex] = clone;
             }
@@ -844,7 +846,7 @@ namespace Unity.Entities
 
         public static void DisposeManagedObject(object obj)
         {
-            if(obj is IDisposable disposable)
+            if (obj is IDisposable disposable)
                 disposable.Dispose();
         }
     }

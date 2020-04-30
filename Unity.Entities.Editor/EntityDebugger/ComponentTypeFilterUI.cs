@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -83,7 +83,6 @@ namespace Unity.Entities.Editor
 
         public void OnGUI(int matches)
         {
-            
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Filter"))
             {
@@ -102,7 +101,7 @@ namespace Unity.Entities.Editor
                     ComponentFilterChanged
                 );
             }
-            
+
             if (selectedFilterTypes.Count > 0)
             {
                 if (GUILayout.Button("Clear"))
@@ -137,13 +136,13 @@ namespace Unity.Entities.Editor
                     return existingGroup;
             }
 
-            return null;
+            return default;
         }
 
         internal EntityQuery GetEntityQuery(ComponentType[] components)
         {
             var group = GetExistingQuery(components);
-            if (group != null)
+            if (group != default)
                 return group;
             group = getWorldSelection().EntityManager.CreateEntityQuery(components);
             entityQueries.Add(group);

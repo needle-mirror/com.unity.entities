@@ -37,9 +37,9 @@ namespace Unity.Entities.Tests.Conversion
     class ConversionMappingStateTests : ConversionMappingTestFixtureBase
     {
         [Test]
-        public void SetUp_HasExpectedValues()
+        public unsafe void SetUp_HasExpectedValues()
         {
-            Assert.AreSame(m_DstWorld.EntityManager, m_MappingSystem.DstEntityManager);
+            Assert.AreEqual(m_DstWorld.EntityManager, m_MappingSystem.DstEntityManager);
             Assert.IsTrue(m_MappingSystem.AddEntityGUID);
             Assert.IsFalse(m_MappingSystem.ForceStaticOptimization);
             Assert.IsTrue(m_MappingSystem.AssignName);
@@ -74,7 +74,7 @@ namespace Unity.Entities.Tests.Conversion
 
     class ConversionMappingTests : ConversionMappingTestFixtureBase
     {
-        class TestBehaviour : MonoBehaviour { }
+        class TestBehaviour : MonoBehaviour {}
 
         [SetUp]
         public new void Setup()
@@ -340,7 +340,7 @@ namespace Unity.Entities.Tests.Conversion
         [Test]
         public void GetEntities_WithMixed_ReturnsExpected()
         {
-            var (go0, go1) = (CreateGameObject("go0"), CreateGameObject("go1"));
+            var(go0, go1) = (CreateGameObject("go0"), CreateGameObject("go1"));
 
             var entity0 = m_MappingSystem.CreatePrimaryEntity(go0);
             var additional0 = m_MappingSystem.CreateAdditionalEntity(go0);
@@ -356,8 +356,8 @@ namespace Unity.Entities.Tests.Conversion
             Assert.AreEqual(entity0, m_MappingSystem.GetPrimaryEntity(go0));
             Assert.AreEqual(entity1, m_MappingSystem.GetPrimaryEntity(go1));
 
-            CollectionAssert.AreEqual(new [] { entity0, additional0, additional1 }, entities0);
-            CollectionAssert.AreEqual(new [] { entity1 }, entities1);
+            CollectionAssert.AreEqual(new[] { entity0, additional0, additional1 }, entities0);
+            CollectionAssert.AreEqual(new[] { entity1 }, entities1);
         }
 
         // hi! if this test is failing for you, then inheritance support has been added to entity queries. this test
@@ -377,9 +377,9 @@ namespace Unity.Entities.Tests.Conversion
             m_MappingSystem.AddGameObjectOrPrefab(rt);
 
             var ctf = 0;
-            Entities.ForEach((Transform transform) => ++ctf);
+            Entities.ForEach((Transform transform) => ++ ctf);
             var crt = 0;
-            Entities.ForEach((RectTransform transform) => ++crt);
+            Entities.ForEach((RectTransform transform) => ++ crt);
 
             Assert.That(ctf, Is.EqualTo(1)); // when fixed, this should be == 2
             Assert.That(crt, Is.EqualTo(1));

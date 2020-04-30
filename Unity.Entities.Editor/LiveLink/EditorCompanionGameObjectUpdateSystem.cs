@@ -1,4 +1,4 @@
-﻿#if !UNITY_DISABLE_MANAGED_COMPONENTS && !DOTS_HYBRID_COMPONENTS_DEBUG
+#if !UNITY_DISABLE_MANAGED_COMPONENTS && !DOTS_HYBRID_COMPONENTS_DEBUG
 using Unity.Collections;
 using Unity.Entities;
 using UnityEditor.SceneManagement;

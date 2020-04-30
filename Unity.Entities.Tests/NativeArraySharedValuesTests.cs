@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 
@@ -7,7 +7,7 @@ namespace Unity.Entities.Tests
     public class NativeArraySharedValuesTests
     {
         NativeArray<int> Source;
-        NativeArraySharedValues<int> SharedValues;
+        NativeArraySharedInt SharedValues;
 
         [TearDown]
         public void Cleanup()
@@ -26,7 +26,7 @@ namespace Unity.Entities.Tests
             {
                 Source[i] = count - (i / 2);
             }
-            SharedValues = new NativeArraySharedValues<int>(Source, Allocator.TempJob);
+            SharedValues = new NativeArraySharedInt(Source, Allocator.TempJob);
             var sharedValuesJobHandle = SharedValues.Schedule(default(JobHandle));
             sharedValuesJobHandle.Complete();
         }
@@ -38,11 +38,10 @@ namespace Unity.Entities.Tests
             {
                 Source[i] = 71;
             }
-            SharedValues = new NativeArraySharedValues<int>(Source, Allocator.TempJob);
+            SharedValues = new NativeArraySharedInt(Source, Allocator.TempJob);
             var sharedValuesJobHandle = SharedValues.Schedule(default(JobHandle));
             sharedValuesJobHandle.Complete();
         }
-        
 
         [Test]
         public void NativeArraySharedValuesResultInOrderNoRemainder([Values(1, 3, 1204, 1024 + 1023)] int count)
@@ -57,7 +56,7 @@ namespace Unity.Entities.Tests
                 var index = sortedIndices[i];
                 var value = Source[index];
 
-                Assert.GreaterOrEqual(value,lastValue);
+                Assert.GreaterOrEqual(value, lastValue);
 
                 lastValue = value;
             }
@@ -93,32 +92,32 @@ namespace Unity.Entities.Tests
             {
                 var sharedValueIndices = SharedValues.GetSharedValueIndicesBySourceIndex(i);
                 var sourceValue = Source[i];
-                Assert.GreaterOrEqual(sharedValueIndices.Length,1);
+                Assert.GreaterOrEqual(sharedValueIndices.Length, 1);
                 for (int j = 0; j < sharedValueIndices.Length; j++)
                 {
                     var otherIndex = sharedValueIndices[j];
                     var otherValue = Source[otherIndex];
-                    Assert.AreEqual(sourceValue,otherValue);
+                    Assert.AreEqual(sourceValue, otherValue);
                 }
             }
         }
-        
+
         [Test]
         public void NativeArraySharedValuesIndexCount([Values(1, 3, 1024, 1024 + 1023)] int count)
         {
             PrepareReverseHalf(count);
 
-            //@TODO: @macton. It seems like this should be true? But maybe there is a reason why it shouldn't? 
+            //@TODO: @macton. It seems like this should be true? But maybe there is a reason why it shouldn't?
             //Assert.AreEqual(SharedValues.SharedValueCount, sharedCounts.Length);
-            
+
             var sharedCounts = SharedValues.GetSharedValueIndexCountArray();
             for (int i = 0; i < SharedValues.SharedValueCount; i++)
             {
                 if (sharedCounts[i] != 1 && sharedCounts[i] != 2)
-                    throw new AssertionException("Must be 1 or 2 but was: " + sharedCounts[i]);                
+                    throw new AssertionException("Must be 1 or 2 but was: " + sharedCounts[i]);
             }
         }
-        
+
         [Test]
         public void NativeArraySharedValuesAllSameValues([Values(1, 3, 1024, 1024 + 1023)] int count)
         {
@@ -128,14 +127,14 @@ namespace Unity.Entities.Tests
             var indexCountArray = SharedValues.GetSharedValueIndexCountArray();
             Assert.AreEqual(1, indexCountArray.Length);
             Assert.AreEqual(count, indexCountArray[0]);
-            
+
             var sharedValueIndices = SharedValues.GetSharedValueIndicesBySourceIndex(0);
             sharedValueIndices.Sort(); // No guarantee these are sorted.
-            
+
             for (int i = 0; i < count; i++)
                 Assert.AreEqual(i, sharedValueIndices[i]);
         }
-        
+
         [Test]
         public void NativeArraySharedValuesAllEmptyArray()
         {
@@ -144,7 +143,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, SharedValues.SharedValueCount);
             Assert.AreEqual(0, SharedValues.GetSortedIndices().Length);
         }
-        
+
         [Test]
         public void NASV_FoundAllSharedValues()
         {
@@ -154,7 +153,7 @@ namespace Unity.Entities.Tests
             {
                 source[i] = i % 4;
             }
-            var sharedValues = new NativeArraySharedValues<int>(source, Allocator.TempJob);
+            var sharedValues = new NativeArraySharedInt(source, Allocator.TempJob);
             var sharedValuesJobHandle = sharedValues.Schedule(default(JobHandle));
             sharedValuesJobHandle.Complete();
 
@@ -165,7 +164,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, source[sharedIndexArray[1]]);
             Assert.AreEqual(2, source[sharedIndexArray[2]]);
             Assert.AreEqual(3, source[sharedIndexArray[3]]);
-            Assert.AreEqual(4,sharedValueCount);
+            Assert.AreEqual(4, sharedValueCount);
 
             sharedValues.Dispose();
             source.Dispose();

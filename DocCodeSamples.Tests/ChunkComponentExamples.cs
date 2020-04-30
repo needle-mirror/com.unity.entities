@@ -1,4 +1,4 @@
-﻿using Unity.Burst;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -38,7 +38,7 @@ namespace Doc.CodeSamples.Tests
                 //...
                 var squared = compValue.Value * compValue.Value;
                 chunk.SetChunkComponentData(ChunkComponentATypeInfo,
-                            new ChunkComponentA() { Value = squared });
+                    new ChunkComponentA() { Value = squared });
             }
         }
 
@@ -72,6 +72,7 @@ namespace Doc.CodeSamples.Tests
                 None = new ComponentType[] { ComponentType.ChunkComponent<ChunkAABB>() }
             });
         }
+
         protected override void OnUpdate()
         {
             // This is a structural change and a sync point
@@ -91,6 +92,7 @@ namespace Doc.CodeSamples.Tests
                                             ComponentType.ChunkComponent<ChunkAABB>()}
             });
         }
+
         [BurstCompile]
         struct AABBJob : IJobChunk
         {
@@ -140,7 +142,7 @@ namespace Doc.CodeSamples.Tests
         {
             #region component-list-chunk-component
             ComponentType[] compTypes = {ComponentType.ChunkComponent<ChunkComponentA>(),
-                             ComponentType.ReadOnly<GeneralPurposeComponentA>()};
+                                         ComponentType.ReadOnly<GeneralPurposeComponentA>()};
             Entity entity = EntityManager.CreateEntity(compTypes);
             #endregion
 
@@ -156,7 +158,7 @@ namespace Doc.CodeSamples.Tests
             EntityQuery ChunksWithoutChunkComponentA = GetEntityQuery(ChunksWithoutComponentADesc);
 
             EntityManager.AddChunkComponentData<ChunkComponentA>(ChunksWithoutChunkComponentA,
-                    new ChunkComponentA() { Value = 4 });
+                new ChunkComponentA() { Value = 4 });
             #endregion
 
             #region use-chunk-component
@@ -168,12 +170,12 @@ namespace Doc.CodeSamples.Tests
 
             #region archetype-chunk-component
             EntityArchetype ArchetypeWithChunkComponent = EntityManager.CreateArchetype(
-                            ComponentType.ChunkComponent(typeof(ChunkComponentA)),
-                            ComponentType.ReadWrite<GeneralPurposeComponentA>());
+                ComponentType.ChunkComponent(typeof(ChunkComponentA)),
+                ComponentType.ReadWrite<GeneralPurposeComponentA>());
             Entity newEntity = EntityManager.CreateEntity(ArchetypeWithChunkComponent);
             #endregion
             {
-                EntityQuery ChunksWithChunkComponentA = null;
+                EntityQuery ChunksWithChunkComponentA = default;
                 #region read-chunk-component
                 NativeArray<ArchetypeChunk> chunks = ChunksWithChunkComponentA.CreateArchetypeChunkArray(Allocator.TempJob);
                 foreach (var chunk in chunks)
@@ -184,28 +186,26 @@ namespace Doc.CodeSamples.Tests
                 chunks.Dispose();
                 #endregion
             }
-            
+
             #region read-entity-chunk-component
             if (EntityManager.HasChunkComponent<ChunkComponentA>(entity))
             {
                 ChunkComponentA chunkComponentValue = EntityManager.GetChunkComponentData<ChunkComponentA>(entity);
             }
             #endregion
-            
+
             {
-                ArchetypeChunk chunk;
+                ArchetypeChunk chunk = default;
                 #region set-chunk-component
-                EntityManager.SetChunkComponentData<ChunkComponentA>(chunk,
-                        new ChunkComponentA() { Value = 7 });
+                EntityManager.SetChunkComponentData<ChunkComponentA>(chunk, new ChunkComponentA() { Value = 7 });
                 #endregion
             }
 
             #region set-entity-chunk-component
             var entityChunk = EntityManager.GetChunk(entity);
             EntityManager.SetChunkComponentData<ChunkComponentA>(entityChunk,
-                                new ChunkComponentA() { Value = 8 });
+                new ChunkComponentA() { Value = 8 });
             #endregion
-
         }
     }
 }

@@ -1,4 +1,3 @@
-
 #if false // !UNITY_DOTSPLAYER
 using System;
 using NUnit.Framework;
@@ -69,7 +68,7 @@ namespace Unity.Entities.Tests
         [Test, Ignore("CreateArchetypeChunkArray allocs GC")] // this is due to safety sentinels; move to release build playmode test
         public void ForEachSecondRun_DoesNotAlloc()
         {
-            EntityQueryBuilder.F_ED<EcsTestData> emptyFunc = (Entity e, ref EcsTestData d) => { };
+            EntityQueryBuilder.F_ED<EcsTestData> emptyFunc = (Entity e, ref EcsTestData d) => {};
 
             ValidateNoGCAllocs(() => TestSystem.Entities.ForEach(emptyFunc));
         }

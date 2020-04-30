@@ -1,9 +1,9 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
-    internal static class GUIHelpers {
-
+    internal static class GUIHelpers
+    {
         public static void ShowCenteredNotification(Rect area, string message)
         {
             GUILayout.BeginArea(area);

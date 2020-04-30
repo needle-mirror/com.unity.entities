@@ -13,7 +13,7 @@ using Hash128 = UnityEngine.Hash128;
 namespace Unity.Scenes.Editor
 {
     class LiveLinkAssetBundleBuildSystem : ScriptableSingleton<LiveLinkAssetBundleBuildSystem>
-    {        
+    {
         readonly Dictionary<GUID, Hash128> m_TrackedAssets = new Dictionary<GUID, Hash128>();
         readonly Dictionary<SubSceneGUID, Hash128> m_TrackedSubScenes = new Dictionary<SubSceneGUID, Hash128>();
         IEditorConnection m_Connection;
@@ -25,7 +25,6 @@ namespace Unity.Scenes.Editor
             m_Connection = newConnection;
             SetupConnection();
         }
-
 
         public void ClearTrackedAssets()
         {
@@ -60,7 +59,7 @@ namespace Unity.Scenes.Editor
 
                     var targetHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.Guid, subScene.BuildConfigurationGuid, ImportMode.Asynchronous);
                     m_TrackedSubScenes[subScene] = targetHash;
-                    if(targetHash.IsValid)
+                    if (targetHash.IsValid)
                         resolvedScenes.Add(new ResolvedSubSceneID {SubSceneGUID = subScene, TargetHash = targetHash});
                 }
 
@@ -88,16 +87,16 @@ namespace Unity.Scenes.Editor
             {
                 // Set of ready to send (all valid target hashes) assets
                 var resolvedAssets = new HashSet<ResolvedAssetID>();
-                foreach(var asset in assets)
+                foreach (var asset in assets)
                 {
                     LiveLinkMsg.LogReceived($"AssetBundleTargetHash request => {asset}");
 
                     // For each Asset- queue calculating target hash and add to tracked assets
                     Unity.Entities.Hash128 targetHash = LiveLinkBuildPipeline.CalculateTargetHash(asset, buildTarget, ImportMode.Asynchronous);
                     m_TrackedAssets[asset] = targetHash;
-                    
+
                     resolvedAssets.Add(new ResolvedAssetID { GUID = asset, TargetHash = targetHash });
-                    
+
                     // If asset hash is valid (meaning import is ready) then also do the same for dependencies
                     if (targetHash.IsValid)
                     {
@@ -105,19 +104,19 @@ namespace Unity.Scenes.Editor
                         foreach (var dependency in dependencies)
                         {
                             m_TrackedAssets[dependency.GUID] = dependency.TargetHash;
-                            resolvedAssets.Add(new ResolvedAssetID{GUID = dependency.GUID, TargetHash = dependency.TargetHash});
+                            resolvedAssets.Add(new ResolvedAssetID {GUID = dependency.GUID, TargetHash = dependency.TargetHash});
                         }
                     }
                 }
 
                 // Callback to re-send tracked assets when their targethash changes
-                if(m_TrackedAssets.Count > 0)
+                if (m_TrackedAssets.Count > 0)
                     TimeBasedCallbackInvoker.SetCallback(DetectChangedAssets);
-                
+
                 // No assets? Send nothing and set no callback
                 if (resolvedAssets.Count == 0)
                     return;
-                
+
                 var resolved = new NativeArray<ResolvedAssetID>(resolvedAssets.Count, Allocator.Temp);
                 int j = 0;
                 foreach (var id in resolvedAssets)
@@ -136,7 +135,7 @@ namespace Unity.Scenes.Editor
             m_Connection.Register(LiveLinkMsg.PlayerRequestSubSceneTargetHash, RequestSubSceneTargetHash);
             m_Connection.Register(LiveLinkMsg.PlayerRequestSubSceneForGUID, RequestSubSceneByGUID);
         }
-        
+
         void OnEnable()
         {
             var conn = new EditorPlayerConnection(EditorConnection.instance);
@@ -152,7 +151,7 @@ namespace Unity.Scenes.Editor
             m_Connection.Unregister(LiveLinkMsg.PlayerRequestSubSceneTargetHash, RequestSubSceneTargetHash);
             m_Connection.Unregister(LiveLinkMsg.PlayerRequestSubSceneForGUID, RequestSubSceneByGUID);
         }
-        
+
         void OnDisable()
         {
             TearDownConnection();
@@ -208,13 +207,13 @@ namespace Unity.Scenes.Editor
                     Debug.LogError($"File cannot be sent to the player because it exceeds the 2GB size limit. {artifactPath}");
                     return;
                 }
-                
+
                 var buffer = new byte[bufferSize];
-                fixed (byte* data = buffer)
+                fixed(byte* data = buffer)
                 {
                     var writer = new UnsafeAppendBuffer(data, (int)bufferSize);
                     writer.Add(artifactFileName);
-                    
+
                     int numBytesToRead = (int)fs.Length;
                     int numBytesRead = writer.Length;
                     while (numBytesToRead > 0)
@@ -228,7 +227,7 @@ namespace Unity.Scenes.Editor
                         numBytesToRead -= n;
                     }
                 }
-                
+
                 m_Connection.Send(LiveLinkMsg.EditorSendBuildArtifact, buffer, playerId);
             }
         }
@@ -246,18 +245,17 @@ namespace Unity.Scenes.Editor
                 Debug.LogError($"Buffer cannot be sent to the player because it exceeds the 2GB size limit.");
                 return;
             }
-            
+
             var buffer = new byte[bufferSize];
-            fixed (byte* data = buffer)
+            fixed(byte* data = buffer)
             {
                 var writer = new UnsafeAppendBuffer(data, (int)bufferSize);
                 writer.Add(subSceneId);
                 writer.Add(runtimeGlobalObjectIds);
-                
+
                 m_Connection.Send(LiveLinkMsg.EditorResponseSubSceneForGUID, buffer, playerId);
             }
         }
-        
 
         void SendSubScene(ResolvedSubSceneID subSceneId, int playerId)
         {
@@ -267,7 +265,7 @@ namespace Unity.Scenes.Editor
 
             // Send Header build artifact
             SendBuildArtifact(sceneHeaderPath, playerId);
-            
+
             // Process each scene section, gathering runtime global obj IDs and sending EBFs
             if (!BlobAssetReference<SceneMetaData>.TryRead(sceneHeaderPath, SceneMetaDataSerializeUtility.CurrentFileFormatVersion, out var sceneMetaDataRef))
             {
@@ -280,19 +278,19 @@ namespace Unity.Scenes.Editor
             for (int i = 0; i != sceneMetaData.Sections.Length; i++)
             {
                 var sectionIndex = sceneMetaData.Sections[i].SubSectionIndex;
-                
+
                 var binaryPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
                 SendBuildArtifact(binaryPath, playerId);
-                
+
                 if (sceneMetaData.Sections[i].ObjectReferenceCount > 0)
                 {
                     var refGuidsPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesUnityObjectRefGuids, sectionIndex);
                     SendBuildArtifact(refGuidsPath, playerId);
-                    
+
                     var scriptedObjPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
                     var bundleName = $"{(UnityEngine.Hash128)subSceneId.TargetHash}.{sectionIndex}.{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesUnitObjectReferencesBundle)}";
                     var tempPath = Path.GetTempFileName();
-                    
+
                     AssetBundleTypeCache.RegisterMonoScripts();
                     LiveLinkBuildPipeline.BuildSubSceneBundle(scriptedObjPath, bundleName, tempPath,
                         EditorUserBuildSettings.activeBuildTarget, assetDependencies);
@@ -300,9 +298,9 @@ namespace Unity.Scenes.Editor
                     File.Delete(tempPath);
                 }
             }
-            
+
             SendResponseSubSceneForGuid(subSceneId, assetDependencies, playerId);
-        }		
+        }
 
         unsafe void SendAsset(GUID guid, int playerId)
         {
@@ -315,8 +313,9 @@ namespace Unity.Scenes.Editor
                 {
                     var resolvedAssetIds = new NativeArray<ResolvedAssetID>(1, Allocator.Temp);
                     resolvedAssetIds[0] = new ResolvedAssetID { GUID = guid, TargetHash = targetHash };
-                    m_TrackedAssets.Add(guid, targetHash);
-                    if (m_TrackedAssets.Count == 1)
+                    bool wasEmpty = m_TrackedAssets.Count == 0;
+                    m_TrackedAssets[guid] = targetHash;
+                    if (wasEmpty && m_TrackedAssets.Count > 0)
                     {
                         // if there were no tracked assets previously, we have to manually set up the callback that
                         // checks for changes
@@ -326,14 +325,14 @@ namespace Unity.Scenes.Editor
                     SendAssetTargetHash(resolvedAssetIds, 0);
                     resolvedAssetIds.Dispose();
                 }
-                
+
                 return;
             }
 
             var stream = File.OpenRead(path);
             var assetBundleFileLength = stream.Length;
-            var bufferSize = stream.Length + sizeof(Hash128) + sizeof(Hash128); 
-            
+            var bufferSize = stream.Length + sizeof(Hash128) + sizeof(Hash128);
+
             if (bufferSize > int.MaxValue)
             {
                 Debug.LogError($"AssetBundle {guid} can't be sent to the player because it exceeds the 2GB size limit");
@@ -341,7 +340,7 @@ namespace Unity.Scenes.Editor
             }
 
             var bundleAndHeader = new byte[bufferSize];
-            fixed (byte* data = bundleAndHeader)
+            fixed(byte* data = bundleAndHeader)
             {
                 var writer = new UnsafeAppendBuffer(data, bundleAndHeader.Length);
                 writer.Add(guid);
@@ -407,32 +406,32 @@ namespace Unity.Scenes.Editor
                                 continue;
 
                             m_TrackedAssets[dependency.GUID] = dependency.TargetHash;
-                            
+
                             // Invalid hash and not tracking yet, so queue an import
                             if (!dependency.TargetHash.IsValid)
                             {
                                 LiveLinkBuildPipeline.CalculateTargetHash(dependency.GUID, buildTarget, ImportMode.Asynchronous);
                             }
-                            
+
                             // Send asset so the player is tracking it as a dependency before loading all ABs
                             changedAssets.Add(new ResolvedAssetID { GUID = dependency.GUID, TargetHash = dependency.TargetHash });
                         }
                     }
                 }
-                
+
                 // Send changed asset hashes to player
                 if (changedAssets.Length != 0)
                     SendAssetTargetHash(changedAssets, 0);
             }
 
-            using(var changedSubScenes = new NativeList<ResolvedSubSceneID>(Allocator.Temp))
+            using (var changedSubScenes = new NativeList<ResolvedSubSceneID>(Allocator.Temp))
             {
                 foreach (var subScene in m_TrackedSubScenes)
                 {
                     var targetHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.Key.Guid,
                         subScene.Key.BuildConfigurationGuid,
                         ImportMode.NoImport);
-                    if (targetHash.IsValid && (subScene.Value != (Hash128) targetHash))
+                    if (targetHash.IsValid && (subScene.Value != (Hash128)targetHash))
                     {
                         LiveLinkMsg.LogInfo("Detected subscene change: " + subScene.Key);
                         changedSubScenes.Add(new ResolvedSubSceneID
@@ -440,7 +439,7 @@ namespace Unity.Scenes.Editor
                     }
                 }
 
-                if(changedSubScenes.Length > 0)
+                if (changedSubScenes.Length > 0)
                     SendSubSceneTargetHash(changedSubScenes, 0);
             }
         }

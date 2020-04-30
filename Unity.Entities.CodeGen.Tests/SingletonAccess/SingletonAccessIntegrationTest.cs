@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -16,13 +16,13 @@ namespace Unity.Entities.CodeGen.Tests.SingletonAccess.Infrastructure
         {
             get { return "Packages/com.unity.entities/Unity.Entities.CodeGen.Tests/SingletonAccess/IntegrationTests"; }
         }
-        
+
         StringBuilder _methodIL;
         protected override string AdditionalIL
         {
             get { return _methodIL.ToString(); }
         }
-        
+
         protected void RunTest(Type type)
         {
             var methodToAnalyze = MethodDefinitionForOnlyMethodOf(type);

@@ -39,7 +39,7 @@ namespace Unity.Entities
         {
             if (systemType == null)
                 throw new ArgumentNullException(nameof(systemType));
-            
+
             SystemType = systemType;
         }
 
@@ -57,7 +57,7 @@ namespace Unity.Entities
         {
             if (groupType == null)
                 throw new ArgumentNullException(nameof(groupType));
-            
+
             GroupType = groupType;
         }
 
@@ -79,11 +79,9 @@ namespace Unity.Entities
         /// Update the player loop with a world's root-level systems
         /// </summary>
         /// <param name="world">World with root-level systems that need insertion into the player loop</param>
-        /// <param name="existingPlayerLoop">Optional parameter to preserve existing player loops (e.g. ScriptBehaviourUpdateOrder.CurrentPlayerLoop)</param>
+        /// <param name="existingPlayerLoop">Optional parameter to preserve existing player loops (e.g. PlayerLoop.GetCurrentPlayerLoop())</param>
         public static void UpdatePlayerLoop(World world, PlayerLoopSystem? existingPlayerLoop = null)
         {
-            // TODO: PlayerLoop.GetCurrentPlayerLoop was added in 2019.3, so when minspec is updated revisit whether
-            // we can drop the optional parameter
             var playerLoop = existingPlayerLoop ?? PlayerLoop.GetDefaultPlayerLoop();
 
             if (world != null)
@@ -123,7 +121,6 @@ namespace Unity.Entities
             }
 
             PlayerLoop.SetPlayerLoop(playerLoop);
-            currentPlayerLoop = playerLoop;
         }
 
         private static bool IsWorldInSubSystemList(World world, PlayerLoopSystem[] subSystemList)
@@ -174,19 +171,18 @@ namespace Unity.Entities
             return true;
         }
 
-        public static PlayerLoopSystem CurrentPlayerLoop => currentPlayerLoop;
-        private static PlayerLoopSystem currentPlayerLoop;
+        [Obsolete("Please use PlayerLoop.GetCurrentPlayerLoop(). (RemovedAfter 2020-05-12)")]
+        public static PlayerLoopSystem CurrentPlayerLoop => PlayerLoop.GetCurrentPlayerLoop();
 
+        [Obsolete("Please use PlayerLoop.SetPlayerLoop(). (RemovedAfter 2020-05-12)")]
         public static void SetPlayerLoop(PlayerLoopSystem playerLoop)
         {
             PlayerLoop.SetPlayerLoop(playerLoop);
-            currentPlayerLoop = playerLoop;
         }
 
         // FIXME: HACK! - mono 4.6 has problems invoking virtual methods as delegates from native, so wrap the invocation in a non-virtual class
         internal class DummyDelegateWrapper
         {
-
             internal ComponentSystemBase System => m_System;
             private readonly ComponentSystemBase m_System;
 

@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.Serialization;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Conversion;
 using Unity.Entities.Serialization;
@@ -36,7 +38,7 @@ namespace Unity.Scenes.Editor
             var bounds = MinMaxAABB.Empty;
             using (var allBounds = query.ToComponentDataArray<SceneBoundingVolume>(Allocator.TempJob))
             {
-                foreach(var b in allBounds)
+                foreach (var b in allBounds)
                     bounds.Encapsulate(b.Value);
             }
 
@@ -94,41 +96,41 @@ namespace Unity.Scenes.Editor
                 disposeBlobAssetCache = true;
             }
 
-            List<(int, LogEventData)> journalData = null;
-
+            SceneSectionData[] sections = null;
             settings.ConversionWorldPreDispose += conversionWorld =>
             {
                 var mappingSystem = conversionWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
-                journalData = mappingSystem.JournalData.SelectLogEventsOrdered().ToList();
                 if (settings.AssetImportContext != null)
                     RegisterDependencies(settings.AssetImportContext, mappingSystem.Dependencies);
-            };
-            
-            ConvertScene(scene, settings);
-            EntitySceneOptimization.Optimize(world);
 
-            int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(settings.BuildConfiguration);
-            var sections = WriteEntityScene(world.EntityManager, settings.SceneGUID, scene.name, settings.AssetImportContext, framesToRetainBlobAssets, sectionRefObjs);
-            
-            // Save the log of issues that happened during conversion
-            WriteConversionLog(settings.SceneGUID, journalData, scene.name, settings.AssetImportContext);
+                // Optimizing and writing the scene is done here to include potential log messages in the conversion log.
+                EntitySceneOptimization.Optimize(world);
+                int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(settings.BuildConfiguration);
+                sections = WriteEntityScene(world.EntityManager, settings.SceneGUID, scene.name, settings.AssetImportContext, framesToRetainBlobAssets, sectionRefObjs);
+
+                var journalData = mappingSystem.JournalData.SelectLogEventsOrdered().ToList();
+                // Save the log of issues that happened during conversion
+                WriteConversionLog(settings.SceneGUID, journalData, scene.name, settings.AssetImportContext);
+            };
+
+            ConvertScene(scene, settings);
 
             if (disposeBlobAssetCache)
             {
                 settings.BlobAssetStore.Dispose();
             }
-            
+
             world.Dispose();
 
             return sections;
-        }    
-            
+        }
+
         public static SceneSectionData[] WriteEntityScene(EntityManager entityManager, Hash128 sceneGUID, string sceneName, AssetImportContext importContext, int framesToRetainBlobAssets = 0, List<ReferencedUnityObjects> sectionRefObjs = null)
         {
             if (importContext != null)
             {
-                using(var allTypes = new NativeHashMap<ComponentType, int>(100, Allocator.Temp))
-                using(var archetypes = new NativeList<EntityArchetype>(Allocator.Temp))
+                using (var allTypes = new NativeHashMap<ComponentType, int>(100, Allocator.Temp))
+                using (var archetypes = new NativeList<EntityArchetype>(Allocator.Temp))
                 {
                     entityManager.GetAllArchetypes(archetypes);
                     foreach (var archetype in archetypes)
@@ -139,7 +141,7 @@ namespace Unity.Scenes.Editor
                                     TypeDependencyCache.AddDependency(importContext, componentType);
                     }
                 }
-                
+
                 TypeDependencyCache.AddAllSystemsDependency(importContext);
             }
 
@@ -148,10 +150,13 @@ namespace Unity.Scenes.Editor
 
             var subSectionList = new List<SceneSection>();
             entityManager.GetAllUniqueSharedComponentData(subSectionList);
+            //Order sections by section id
+            subSectionList.Sort(Comparer<SceneSection>.Create((a, b) => a.Section.CompareTo(b.Section)));
+
             var extRefInfoEntities = new NativeArray<Entity>(subSectionList.Count, Allocator.Temp);
 
             NativeArray<Entity> entitiesInMainSection;
-            
+
             var sectionQuery = entityManager.CreateEntityQuery(
                 new EntityQueryDesc
                 {
@@ -167,7 +172,7 @@ namespace Unity.Scenes.Editor
                     Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                 }
             );
-            
+
             {
                 var section = new SceneSection {SceneGUID = sceneGUID, Section = 0};
                 sectionQuery.SetSharedComponentFilter(new SceneSection { SceneGUID = sceneGUID, Section = 0 });
@@ -176,12 +181,12 @@ namespace Unity.Scenes.Editor
 
 
                 var bounds = GetBoundsAndRemove(entityManager, sectionBoundsQuery);
-                
+
                 // Each section will be serialized in its own world, entities that don't have a section are part of the main scene.
                 // An entity that holds the array of external references to the main scene is required for each section.
                 // We need to create them all before we start moving entities to section scenes,
                 // otherwise they would reuse entities that have been moved and mess up the remapping tables.
-                for(int sectionIndex = 1; sectionIndex < subSectionList.Count; ++sectionIndex)
+                for (int sectionIndex = 1; sectionIndex < subSectionList.Count; ++sectionIndex)
                 {
                     if (subSectionList[sectionIndex].Section == 0)
                         // Main section, the only one that doesn't need an external ref array
@@ -215,15 +220,15 @@ namespace Unity.Scenes.Editor
 
                 var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
                 sectionManager.MoveEntitiesFrom(entityManager, sectionQuery, entityRemapping);
-                
+
                 AddRetainBlobAssetsEntity(sectionManager, framesToRetainBlobAssets);
-                
+
                 // The section component is only there to break the conversion world into different sections
                 // We don't want to store that on the disk
                 //@TODO: Component should be removed but currently leads to corrupt data file. Figure out why.
                 //sectionManager.RemoveComponent(sectionManager.UniversalQuery, typeof(SceneSection));
 
-                var sectionFileSize = WriteEntitySceneSection(sectionManager,"0", importContext, out var objectRefCount, out var objRefs);
+                var sectionFileSize = WriteEntitySceneSection(sectionManager, "0", importContext, out var objectRefCount, out var objRefs);
                 sectionRefObjs?.Add(objRefs);
                 sceneSections.Add(new SceneSectionData
                 {
@@ -240,7 +245,7 @@ namespace Unity.Scenes.Editor
 
             {
                 // Index 0 is the default value of the shared component, not an actual section
-                for(int subSectionIndex = 0; subSectionIndex < subSectionList.Count; ++subSectionIndex)
+                for (int subSectionIndex = 0; subSectionIndex < subSectionList.Count; ++subSectionIndex)
                 {
                     var subSection = subSectionList[subSectionIndex];
                     if (subSection.Section == 0)
@@ -250,7 +255,7 @@ namespace Unity.Scenes.Editor
                     sectionBoundsQuery.SetSharedComponentFilter(subSection);
 
                     var bounds = GetBoundsAndRemove(entityManager, sectionBoundsQuery);
-                    
+
                     var entitiesInSection = sectionQuery.ToEntityArray(Allocator.TempJob);
 
                     if (entitiesInSection.Length > 0)
@@ -264,7 +269,7 @@ namespace Unity.Scenes.Editor
                         //@TODO maybe we don't need all that? is this worth worrying about?
                         for (int i = 0; i < entitiesInMainSection.Length; ++i)
                         {
-                            ExternalEntityRef.Add(ref externRefs, new ExternalEntityRef{entityIndex = i});
+                            ExternalEntityRef.Add(ref externRefs, new ExternalEntityRef {entityIndex = i});
                         }
 
                         var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
@@ -293,7 +298,7 @@ namespace Unity.Scenes.Editor
                         }
 
                         sectionManager.MoveEntitiesFrom(entityManager, sectionQuery, entityRemapping);
-                        
+
                         AddRetainBlobAssetsEntity(sectionManager, framesToRetainBlobAssets);
                         // Now that all the required entities have been moved over, we can get rid of the gap between
                         // real entities and external references. This allows remapping during load to deal with a
@@ -311,14 +316,14 @@ namespace Unity.Scenes.Editor
                         externEntityIndexStart = highestEntityIndexInUse + 1;
 
                         sectionManager.SetComponentData
-                        (
-                            EntityRemapUtility.RemapEntity(ref entityRemapping, refInfoEntity),
-                            new ExternalEntityRefInfo
-                            {
-                                SceneGUID = sceneGUID,
-                                EntityIndexStart = externEntityIndexStart
-                            }
-                        );
+                            (
+                                EntityRemapUtility.RemapEntity(ref entityRemapping, refInfoEntity),
+                                new ExternalEntityRefInfo
+                                {
+                                    SceneGUID = sceneGUID,
+                                    EntityIndexStart = externEntityIndexStart
+                                }
+                            );
 
                         // When writing the scene, references to missing entities are set to Entity.Null by default
                         // (but only if they have been used, otherwise they remain untouched)
@@ -362,21 +367,29 @@ namespace Unity.Scenes.Editor
                         Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                     }
                 );
-                if (noSectionQuery.CalculateEntityCount() != 0)
-                    Debug.LogWarning($"{noSectionQuery.CalculateEntityCount()} entities in the scene '{sceneName}' had no SceneSection and as a result were not serialized at all.");
+                var sectionEntityQuery = entityManager.CreateEntityQuery(
+                    new EntityQueryDesc
+                    {
+                        None = new[] {ComponentType.ReadWrite<SectionMetadataSetup>()},
+                        Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
+                    }
+                );
+                var notSerializedCount = noSectionQuery.CalculateEntityCount() - sectionEntityQuery.CalculateEntityCount();
+                if (notSerializedCount != 0)
+                    Debug.LogWarning($"{notSerializedCount} entities in the scene '{sceneName}' had no SceneSection and as a result were not serialized at all.");
             }
-            
+
+            // Save the new header
+            var sceneSectionsArray = sceneSections.ToArray();
+            WriteSceneHeader(sceneGUID, sceneSectionsArray, sceneName, importContext, entityManager);
+
             sectionQuery.Dispose();
             sectionBoundsQuery.Dispose();
             entitiesInMainSection.Dispose();
-            
-            // Save the new header
-            var sceneSectionsArray = sceneSections.ToArray();
-            WriteSceneHeader(sceneSectionsArray, sceneName, importContext);
 
             return sceneSectionsArray;
         }
-        
+
         public static void Write(EntityManager scene, string binaryPath, string objectReferencesPath)
         {
             // Write binary entity file
@@ -390,26 +403,26 @@ namespace Unity.Scenes.Editor
             if (File.Exists(objectReferencesPath))
             {
                 var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(objectReferencesPath);
-                referencedUnityObjects = (ReferencedUnityObjects)resourceRequests[0];                
+                referencedUnityObjects = (ReferencedUnityObjects)resourceRequests[0];
             }
 
             using (var reader = new StreamBinaryReader(binaryPath))
                 SerializeUtilityHybrid.Deserialize(scene, reader, referencedUnityObjects);
-            
+
             Object.DestroyImmediate(referencedUnityObjects);
         }
-        
+
         static int WriteEntitySceneSection(EntityManager scene, string subsection, AssetImportContext importContext, out int objectReferenceCount, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos = default)
         {
             k_ProfileEntitiesSceneSave.Begin();
             var entitiesBinaryPath = GetSceneWritePath(EntityScenesPaths.PathType.EntitiesBinary, subsection, importContext);
             var objRefsPath = GetSceneWritePath(EntityScenesPaths.PathType.EntitiesUnityObjectReferences, subsection, importContext);
             objectReferenceCount = 0;
-    
+
             // Write binary entity file
             int entitySceneFileSize = WriteEntityBinary(scene, out objRefs, entityRemapInfos, entitiesBinaryPath);
             objectReferenceCount = WriteObjectReferences(objRefs, objRefsPath);
-            
+
             k_ProfileEntitiesSceneSave.End();
             return entitySceneFileSize;
         }
@@ -444,7 +457,7 @@ namespace Unity.Scenes.Editor
 
                         if (obj is UnityEngine.Component)
                             continue;
-                        
+
                         if ((obj.hideFlags & HideFlags.DontSaveInBuild) == 0)
                             serializedObjectList.Add(obj);
                         else
@@ -455,7 +468,7 @@ namespace Unity.Scenes.Editor
                 UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(serializedObjectList.ToArray(), objRefsPath, false);
 
                 return objRefs.Array.Length;
-            }            
+            }
         }
 
         private static int WriteEntityBinary(EntityManager scene, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, string entitiesBinaryPath)
@@ -467,16 +480,16 @@ namespace Unity.Scenes.Editor
                     SerializeUtilityHybrid.Serialize(scene, writer, out objRefs, entityRemapInfos);
                 else
                     SerializeUtilityHybrid.Serialize(scene, writer, out objRefs);
-                entitySceneFileSize = (int) writer.Length;
+                entitySceneFileSize = (int)writer.Length;
             }
 
             return entitySceneFileSize;
         }
 
-        static void WriteSceneHeader(SceneSectionData[] sections, string sceneName, AssetImportContext ctx)
+        static void WriteSceneHeader(Entities.Hash128 sceneGUID, SceneSectionData[] sections, string sceneName, AssetImportContext ctx, EntityManager entityManager)
         {
             k_ProfileEntitiesSceneSaveHeader.Begin();
-    
+
             string headerPath = GetSceneWritePath(EntityScenesPaths.PathType.EntitiesHeader, "", ctx);
 
             var builder = new BlobBuilder(Allocator.TempJob);
@@ -484,10 +497,62 @@ namespace Unity.Scenes.Editor
             ref var metaData = ref builder.ConstructRoot<SceneMetaData>();
             builder.Construct(ref metaData.Sections, sections);
             builder.AllocateString(ref metaData.SceneName, sceneName);
+
+            SerializeSceneSectionCustomMetadata(sections, ref metaData, builder, sceneName, entityManager);
+
             BlobAssetReference<SceneMetaData>.Write(builder, headerPath, SceneMetaDataSerializeUtility.CurrentFileFormatVersion);
             builder.Dispose();
-            
+
             k_ProfileEntitiesSceneSaveHeader.End();
+        }
+
+        private static void SerializeSceneSectionCustomMetadata(SceneSectionData[] sections, ref SceneMetaData metaData,
+            BlobBuilder builder, string sceneName, EntityManager entityManager)
+        {
+            var metaDataArray = builder.Allocate(ref metaData.SceneSectionCustomMetadata, sections.Length);
+            EntityQuery sectionEntityQuery = default;
+            for (int i = 0; i < sections.Length; ++i)
+            {
+                var sectionEntity = SerializeUtility.GetSceneSectionEntity(sections[i].SubSectionIndex, entityManager, ref sectionEntityQuery, false);
+                if (sectionEntity != Entity.Null)
+                    SerializeSceneSectionCustomMetadata(sectionEntity, ref metaDataArray[i], builder, sections[i], sceneName, entityManager);
+            }
+        }
+
+        private static unsafe void SerializeSceneSectionCustomMetadata(Entity sectionEntity, ref BlobArray<SceneSectionCustomMetadata> metaDataSectionArray,
+            BlobBuilder builder, SceneSectionData sectionData, string sceneName, EntityManager entityManager)
+        {
+            var types = entityManager.GetComponentTypes(sectionEntity);
+            int componentCount = 0;
+            for (int i = 0; i < types.Length; ++i)
+            {
+                var type = types[i];
+                if (type == ComponentType.ReadWrite<SectionMetadataSetup>())
+                    continue;
+                var typeInfo = TypeManager.GetTypeInfo(type.TypeIndex);
+                bool simpleComponentData = !type.IsManagedComponent && !type.IsSystemStateComponent && typeInfo.Category == TypeManager.TypeCategory.ComponentData;
+                if (!simpleComponentData || typeInfo.EntityOffsetCount > 0 || typeInfo.BlobAssetRefOffsetCount > 0)
+                {
+                    UnityEngine.Debug.LogError(
+                        $"Can't serialize Custom Metadata {typeInfo.Type.Name} of SceneSection {sectionData.SubSectionIndex} of SubScene {sceneName}. The component type must contains only blittable/basic data types");
+                    continue;
+                }
+                types[componentCount++] = type;
+            }
+            var metadataArray = builder.Allocate(ref metaDataSectionArray, componentCount);
+            for (int i = 0; i < componentCount; ++i)
+            {
+                var typeIndex = types[i].TypeIndex;
+                var typeInfo = TypeManager.GetTypeInfo(typeIndex);
+                metadataArray[i].StableTypeHash = typeInfo.StableTypeHash;
+                if (types[i].IsZeroSized)
+                    continue;
+
+                var componentData = entityManager.GetComponentDataRawRO(sectionEntity, typeIndex);
+                var data = builder.Allocate(ref metadataArray[i].Data, typeInfo.TypeSize);
+                UnsafeUtility.MemCpy(data.GetUnsafePtr(), componentData, typeInfo.TypeSize);
+            }
+            types.Dispose();
         }
 
         static void WriteConversionLog(Hash128 sceneGUID, List<(int objectInstanceId, LogEventData eventData)> journalData, string sceneName, AssetImportContext ctx)
@@ -501,7 +566,7 @@ namespace Unity.Scenes.Editor
 
                 using (var writer = File.CreateText(conversionLogPath))
                 {
-                    foreach (var (objectInstanceId, eventData) in journalData)
+                    foreach (var(objectInstanceId, eventData) in journalData)
                     {
                         if (eventData.Type != LogType.Exception)
                             writer.Write($"{eventData.Type}: {eventData.Message}");
@@ -522,5 +587,5 @@ namespace Unity.Scenes.Editor
                 }
             }
         }
-    }    
+    }
 }

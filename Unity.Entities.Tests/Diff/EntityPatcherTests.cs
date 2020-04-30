@@ -6,6 +6,9 @@ namespace Unity.Entities.Tests
     [TestFixture]
     sealed class EntityPatcherTests : EntityDifferTestFixture
     {
+#if !UNITY_DOTSPLAYER_IL2CPP
+        // https://unity3d.atlassian.net/browse/DOTSR-1435
+        // These tests cause crashes in the IL2CPP runner. Cause not yet debugged.
         [Test]
         public void EntityPatcher_ApplyChanges_NoChanges()
         {
@@ -511,16 +514,16 @@ namespace Unity.Entities.Tests
             {
                 var rootEntityGuid = CreateEntityGuid();
                 var childEntityGuid = CreateEntityGuid();
-                
+
                 var srcRootEntity = SrcEntityManager.CreateEntity(typeof(EcsTestDataEntity), typeof(Prefab), typeof(LinkedEntityGroup));
-                
+
                 SrcEntityManager.AddComponentData(srcRootEntity, rootEntityGuid);
                 SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcRootEntity).Add(srcRootEntity);
-                    
+
                 PushChanges(differ, DstEntityManager);
-                
+
                 var dstRootEntity = GetEntity(DstEntityManager, rootEntityGuid);
-                
+
                 // Instantiate root in dst world
                 var dstRootInstances = new Entity[instanceCount];
                 for (var i = 0; i != dstRootInstances.Length; i++)
@@ -530,7 +533,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(1, DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootInstance).Length);
                     Assert.AreEqual(dstRootInstance, DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootInstance)[0].Value);
                 }
-                
+
                 // Add a new entity into the prefab
                 var srcChildEntity = SrcEntityManager.CreateEntity(typeof(EcsTestDataEntity), typeof(Prefab));
                 SrcEntityManager.AddComponentData(srcChildEntity, childEntityGuid);
@@ -538,9 +541,9 @@ namespace Unity.Entities.Tests
 
                 SrcEntityManager.SetComponentData(srcRootEntity, new EcsTestDataEntity {value1 = srcChildEntity});
                 SrcEntityManager.SetComponentData(srcChildEntity, new EcsTestDataEntity {value1 = srcRootEntity});
-                
+
                 PushChanges(differ, DstEntityManager);
-                
+
                 for (var i = 0; i != dstRootInstances.Length; i++)
                 {
                     var dstRootInstance = dstRootInstances[i];
@@ -731,6 +734,8 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if !UNITY_DOTSPLAYER_IL2CPP
+// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         [StandaloneFixme] // No support for PinGCObject
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponentCollection()
@@ -766,6 +771,8 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid0), c1.value1[2]);
             }
         }
+
+#endif
 
         [Test]
         public void EntityPatcher_ApplyChanges_AddComponent_ManagedComponents()
@@ -857,28 +864,30 @@ namespace Unity.Entities.Tests
             {
                 var rootEntityGuid = CreateEntityGuid();
                 var childEntityGuid = CreateEntityGuid();
-                
+
                 var srcRootEntity = SrcEntityManager.CreateEntity(typeof(EcsTestDataEntity), typeof(LinkedEntityGroup));
                 var srcChildEntity = SrcEntityManager.CreateEntity(typeof(EcsTestDataEntity));
-                
+
                 SrcEntityManager.AddComponentData(srcRootEntity, rootEntityGuid);
                 SrcEntityManager.AddComponentData(srcChildEntity, childEntityGuid);
-                
+
                 var srcLinkedEntityGroup =  SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcRootEntity);
 
                 srcLinkedEntityGroup.Add(srcRootEntity);
                 srcLinkedEntityGroup.Add(srcChildEntity);
 
                 PushChanges(differ, DstEntityManager);
-                
+
                 var dstRootEntity = GetEntity(DstEntityManager, rootEntityGuid);
                 var dstChildEntity = GetEntity(DstEntityManager, childEntityGuid);
 
                 var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootEntity);
-                Assert.AreEqual(dstLinkedEntityGroup.Length,2);
+                Assert.AreEqual(dstLinkedEntityGroup.Length, 2);
                 Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstRootEntity);
                 Assert.AreEqual(dstLinkedEntityGroup[1].Value, dstChildEntity);
             }
         }
+
+#endif    // !UNITY_DOTSPLAYER_IL2CPP
     }
 }

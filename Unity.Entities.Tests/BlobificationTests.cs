@@ -1,4 +1,4 @@
-﻿#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSPLAYER
 using UnityEngine;
 using NUnit.Framework;
 using System;
@@ -53,7 +53,7 @@ public class BlobTests : ECSTestsFixture
 
         root.embeddedFloat = 4;
         oneVector3 = new Vector3(3, 3, 3);
-        
+
         var blobAsset = builder.CreateBlobAssetReference<MyData>(Allocator.Persistent);
 
         builder.Dispose();
@@ -63,8 +63,8 @@ public class BlobTests : ECSTestsFixture
 
     static void ValidateBlobData(ref MyData root)
     {
-        // not using Assert.AreEqual here because the asserts have to execute in burst jobs 
-        
+        // not using Assert.AreEqual here because the asserts have to execute in burst jobs
+
         if (3 != root.floatArray.Length)
             throw new AssertionException("ValidateBlobData didn't match");
         if (0 != root.floatArray[0])
@@ -75,10 +75,10 @@ public class BlobTests : ECSTestsFixture
             throw new AssertionException("ValidateBlobData didn't match");
         if (new Vector3(3, 3, 3) != root.oneVector3.Value)
             throw new AssertionException("ValidateBlobData didn't match");
-        
+
         if (4 != root.embeddedFloat)
             throw new AssertionException("ValidateBlobData didn't match");
-        
+
         if (1 != root.nestedArray[0].Length)
             throw new AssertionException("ValidateBlobData didn't match");
         if (2 != root.nestedArray[1].Length)
@@ -103,7 +103,6 @@ public class BlobTests : ECSTestsFixture
             throw new AssertionException("ValidateBlobData didn't match");
     }
 
-
     static void ValidateBlobDataBurst(ref MyData root)
     {
         Assert.AreEqual(3, root.floatArray.Length);
@@ -121,7 +120,6 @@ public class BlobTests : ECSTestsFixture
         Assert.AreEqual(2, root.nestedArray[1][1]);
     }
 
-
     [Test]
     public unsafe void CreateBlobData()
     {
@@ -137,7 +135,7 @@ public class BlobTests : ECSTestsFixture
         var blob = ConstructBlobData();
         var blobCopy = blob;
         blob.Dispose();
-        
+
         Assert.Throws<InvalidOperationException>(() => { blobCopy.GetUnsafePtr(); });
         Assert.IsTrue(blob.GetUnsafePtr() == null);
 
@@ -162,7 +160,7 @@ public class BlobTests : ECSTestsFixture
         {
             var blobData = ConstructBlobData();
             ValidateBlobData(ref blobData.Value);
-            blobData.Dispose();            
+            blobData.Dispose();
         }
     }
 
@@ -280,7 +278,7 @@ public class BlobTests : ECSTestsFixture
             //can't access ref variable if it's created outside of the lambda
             ref var root = ref builder.ConstructRoot<MyData>();
             builder.Allocate(ref root.floatArray, 3);
-            
+
             // Throw on access expected here
             root.floatArray[0] = 7;
         });
@@ -295,7 +293,7 @@ public class BlobTests : ECSTestsFixture
         ref MyData root = ref blob.Value;
 
         var floatArray = root.floatArray.ToArray();
-        Assert.AreEqual(new float[]{ 0, 1, 2 }, floatArray);
+        Assert.AreEqual(new float[] { 0, 1, 2 }, floatArray);
 
         blob.Dispose();
     }
@@ -310,7 +308,7 @@ public class BlobTests : ECSTestsFixture
             //can't access ref variable if it's created outside of the lambda
             ref var root = ref builder.ConstructRoot<MyData>();
             builder.Allocate(ref root.oneVector3);
-            
+
             // Throw on access expected here
             root.oneVector3.Value = Vector3.zero;
         });
@@ -328,8 +326,8 @@ public class BlobTests : ECSTestsFixture
 
     static unsafe void AssertAlignment(void* p, int alignment)
     {
-        ulong mask = (ulong) alignment - 1;
-        Assert.IsTrue(((ulong) (IntPtr) p & mask) == 0);
+        ulong mask = (ulong)alignment - 1;
+        Assert.IsTrue(((ulong)(IntPtr)p & mask) == 0);
     }
 
     [Test]
@@ -448,7 +446,6 @@ public class BlobTests : ECSTestsFixture
         blob.Dispose();
     }
 
-
     public unsafe struct TestStruct256bytes
     {
         public BlobArray<int> intArray;
@@ -456,7 +453,7 @@ public class BlobTests : ECSTestsFixture
         public BlobPtr<int> intPointer;
     }
 
-    
+
     [Test]
     public void BlobAssetWithRootLargerThanChunkSizeWorks()
     {
@@ -495,7 +492,7 @@ public class BlobTests : ECSTestsFixture
         }
         return blob;
     }
-    
+
     NativeArray<Entity> CreateUniqueBlob()
     {
         var entities = new NativeArray<Entity>(32, Allocator.Temp);

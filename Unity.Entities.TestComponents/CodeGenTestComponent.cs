@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 
-namespace Unity.Entities.Tests {
+namespace Unity.Entities.Tests
+{
     [GenerateAuthoringComponent]
     public struct CodeGenTestComponent : IComponentData
     {

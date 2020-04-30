@@ -8,20 +8,20 @@ using World = Unity.Entities.World;
 
 namespace Unity.Scenes.Tests
 {
-#if !UNITY_DISABLE_MANAGED_COMPONENTS    
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
     public class EditorEntityScenesTests : ECSTestsFixture
     {
         public class MaterialRefComponent : IComponentData
         {
             public Material Value;
         }
-        
+
         [Test]
         public void TestReadAndWriteWithObjectRef()
         {
             string binPath = "Temp/test.bin";
             string binRefPath = "Temp/test.bin.ref";
-            
+
             var dstWorld = new World("");
             var dstEntitymanager = dstWorld.EntityManager;
             var material = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/Test.mat");
@@ -34,7 +34,7 @@ namespace Unity.Scenes.Tests
             EditorEntityScenes.Read(dstEntitymanager, binPath, binRefPath);
 
             var dstEntity = dstEntitymanager.UniversalQuery.GetSingletonEntity();
-            
+
             Assert.AreEqual(material, m_Manager.GetComponentData<MaterialRefComponent>(entity).Value);
             Assert.AreEqual(material, dstEntitymanager.GetComponentData<MaterialRefComponent>(dstEntity).Value);
 

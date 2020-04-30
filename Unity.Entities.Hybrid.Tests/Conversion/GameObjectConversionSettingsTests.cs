@@ -33,7 +33,7 @@ namespace Unity.Entities.Tests.Conversion
                     BuildConfiguration        = BuildConfiguration.CreateInstance(),
                     //AssetImportContext        = new AssetImportContext(), // << private
 #endif
-                    ExtraSystems              = new [] { typeof(int) },
+                    ExtraSystems              = new[] { typeof(int) },
                     Systems                   = new List<Type> { typeof(int) },
                     NamespaceID               = 123,
                     ConversionWorldCreated    = _ => {},
@@ -93,7 +93,7 @@ namespace Unity.Entities.Tests.Conversion
 #if UNITY_EDITOR
                     BuildConfiguration        = BuildConfiguration.CreateInstance(),
 #endif
-                    Systems                   = new List<Type>{typeof(TestConversionSystem)},
+                    Systems                   = new List<Type> {typeof(TestConversionSystem)},
                     NamespaceID               = 123,
                     ConversionWorldCreated    = _ => {},
                     ConversionWorldPreDispose = _ => {},

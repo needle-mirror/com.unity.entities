@@ -1,4 +1,4 @@
-﻿using Unity.Entities.UniversalDelegates;
+using Unity.Entities.UniversalDelegates;
 
 namespace Doc.CodeSamples.SyBase.Tests
 {
@@ -27,7 +27,7 @@ namespace Doc.CodeSamples.SyBase.Tests
         protected override void OnUpdate()
         {
             // Local variable captured in ForEach
-            float dT = Time.DeltaTime; 
+            float dT = Time.DeltaTime;
 
             Entities
                 .WithName("Update_Displacement")
@@ -126,14 +126,14 @@ namespace Doc.CodeSamples.SyBase.Tests
         protected override void OnUpdate()
         {
             Entities
-                #region lambda-params
+            #region lambda-params
                 .ForEach((Entity entity,
-                    int entityInQueryIndex,
-                    ref WritableComponent aReadwriteComponent,
-                    in ReadonlyComponent aReadonlyComponent) =>
-                    {
-                        /*..*/
-                    })
+                int entityInQueryIndex,
+                ref WritableComponent aReadwriteComponent,
+                in ReadonlyComponent aReadonlyComponent) =>
+                {
+                    /*..*/
+                })
                 #endregion
                 .ScheduleParallel();
         }

@@ -25,13 +25,13 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
         public unsafe Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk)
         {
-            var ptr = (Entity*) chunk.GetNativeArray(_type).GetUnsafeReadOnlyPtr();
+            var ptr = (Entity*)chunk.GetNativeArray(_type).GetUnsafeReadOnlyPtr();
             return new Runtime()
             {
                 arrayPtr = ptr
             };
         }
-        
+
         public struct StructuralChangeRuntime
         {
             public Entity For(Entity e)
@@ -39,13 +39,13 @@ namespace Unity.Entities.CodeGeneratedJobForEach
                 return e;
             }
         }
-        
+
         public StructuralChangeRuntime PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query)
         {
             return new StructuralChangeRuntime();
         }
     }
-    
+
     public struct LambdaParameterValueProvider_DynamicBuffer<T> where T : struct, IBufferElementData
     {
         ArchetypeChunkBufferType<T> _type;
@@ -72,23 +72,23 @@ namespace Unity.Entities.CodeGeneratedJobForEach
                 bufferAccessor = chunk.GetBufferAccessor(_type)
             };
         }
-        
+
         public struct StructuralChangeRuntime
         {
             public EntityManager _entityManager;
-            
+
             public DynamicBuffer<T> For(Entity e)
             {
                 return _entityManager.GetBuffer<T>(e);
             }
         }
-        
+
         public StructuralChangeRuntime PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query)
         {
             return new StructuralChangeRuntime() { _entityManager = componentSystem.EntityManager };
         }
     }
-    
+
     public struct LambdaParameterValueProvider_IComponentData<T>
         where T : struct, IComponentData
     {
@@ -114,12 +114,12 @@ namespace Unity.Entities.CodeGeneratedJobForEach
             var componentDatas = chunk.GetNativeArray(_type);
             return new Runtime()
             {
-                ptr = (byte*) (_type.IsReadOnly
+                ptr = (byte*)(_type.IsReadOnly
                     ? componentDatas.GetUnsafeReadOnlyPtr()
                     : componentDatas.GetUnsafePtr()),
             };
         }
-        
+
         public struct StructuralChangeRuntime
         {
             public EntityManager _manager;
@@ -127,40 +127,43 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
             public unsafe T For(Entity entity, out T originalComponent)
             {
-                UnsafeUtility.CopyPtrToStructure(_manager.EntityComponentStore->GetComponentDataWithTypeRO(entity, _typeIndex), out originalComponent);
+                var access = _manager.GetCheckedEntityDataAccess();
+                var ecs = access->EntityComponentStore;
+                UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, _typeIndex), out originalComponent);
                 return originalComponent;
             }
 
             public unsafe void WriteBack(Entity entity, ref T lambdaComponent, ref T originalComponent)
             {
+                var access = _manager.GetCheckedEntityDataAccess();
+                var ecs = access->EntityComponentStore;
                 // MemCmp check is necessary to ensure we only write-back the value if we changed it in the lambda (or a called function)
                 if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref lambdaComponent), UnsafeUtility.AddressOf(ref originalComponent), UnsafeUtility.SizeOf<T>()) != 0 &&
-                    _manager.EntityComponentStore->HasComponent(entity, _typeIndex))
+                    ecs->HasComponent(entity, _typeIndex))
                 {
-                    UnsafeUtility.CopyStructureToPtr(ref lambdaComponent, _manager.EntityComponentStore->GetComponentDataWithTypeRW(
-                        entity, _typeIndex, _manager.EntityComponentStore->GlobalSystemVersion));
+                    UnsafeUtility.CopyStructureToPtr(ref lambdaComponent, ecs->GetComponentDataWithTypeRW(entity, _typeIndex, ecs->GlobalSystemVersion));
                 }
             }
         }
-        
+
         public StructuralChangeRuntime PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query)
         {
             return new StructuralChangeRuntime() { _manager = componentSystem.EntityManager, _typeIndex = TypeManager.GetTypeIndex<T>() };
         }
     }
-    
+
     // Most of this is unused but it makes the symmetry of codegen easier (from a codegen perspective we can treat tag components the same as normal ones)
     public struct LambdaParameterValueProvider_IComponentData_Tag<T>
         where T : struct, IComponentData
     {
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly) { }
+        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly) {}
 
         public struct Runtime
         {
             public T For(int i) => default;
         }
-        
-        public unsafe Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk) { return new Runtime() { }; }
+
+        public unsafe Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk) { return new Runtime() {}; }
         public struct StructuralChangeRuntime
         {
             public unsafe T For(Entity entity, out T originalComponent)
@@ -170,7 +173,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
             }
 
             public unsafe void WriteBack(Entity entity, ref T lambdaComponent, ref T originalComponent)
-            { }
+            {}
         }
         public StructuralChangeRuntime PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query)
         {
@@ -202,17 +205,17 @@ namespace Unity.Entities.CodeGeneratedJobForEach
                 _objects = chunk.GetComponentObjects(_type, _entityManager)
             };
         }
-        
+
         public struct StructuralChangeRuntime
         {
             public EntityManager _entityManager;
-            
+
             public T For(Entity entity)
             {
                 return _entityManager.GetComponentObject<T>(entity);
             }
         }
-        
+
         public StructuralChangeRuntime PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query)
         {
             return new StructuralChangeRuntime() { _entityManager = componentSystem.EntityManager };
@@ -238,10 +241,10 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
         public Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk) =>
             new Runtime()
-            {
-                _data = chunk.GetSharedComponentData(_type, _entityManager)
-            };
-        
+        {
+            _data = chunk.GetSharedComponentData(_type, _entityManager)
+        };
+
         public struct StructuralChangeRuntime
         {
             public EntityManager _manager;
@@ -257,7 +260,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
             return new StructuralChangeRuntime() { _manager = componentSystem.EntityManager };
         }
     }
-    
+
     public struct LambdaParameterValueProvider_EntityInQueryIndex
     {
         public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
@@ -274,7 +277,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         {
             return new Runtime() {entityInQueryIndexOfFirstEntityInChunk = entityInQueryIndexOfFirstEntity};
         }
-        
+
         public struct StructuralChangeRuntime
         {
             internal int entityInQueryIndexOfFirstEntityInChunk;
@@ -286,11 +289,11 @@ namespace Unity.Entities.CodeGeneratedJobForEach
             return new StructuralChangeRuntime() {entityInQueryIndexOfFirstEntityInChunk = 0};
         }
     }
-    
+
     public struct LambdaParameterValueProvider_NativeThreadIndex
     {
         [NativeSetThreadIndexAttribute] internal int _nativeThreadIndex;
-        
+
         public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
         {
         }
@@ -311,13 +314,13 @@ namespace Unity.Entities.CodeGeneratedJobForEach
             return new Runtime() {_nativeThreadIndex = 0};
         }
     }
-    
+
     public struct StructuralChangeEntityProvider
     {
         EntityManager _manager;
         EntityQuery _query;
         EntityQuery.GatherEntitiesResult _gatherEntitiesResult;
-        
+
         public int EntityCount => _gatherEntitiesResult.EntityCount;
         public unsafe Entity For(int i)
         {
@@ -327,14 +330,14 @@ namespace Unity.Entities.CodeGeneratedJobForEach
             else
                 return entity;
         }
-        
+
         public void PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query)
         {
             _manager = componentSystem.EntityManager;
             _query = query;
             _query.GatherEntitiesToArray(out _gatherEntitiesResult);
         }
-        
+
         public void FinishExecuteWithStructuralChanges()
         {
             _query.ReleaseGatheredEntities(ref _gatherEntitiesResult);

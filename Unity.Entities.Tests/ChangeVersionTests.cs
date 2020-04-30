@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                var updateDataJob = new UpdateData{};
+                var updateDataJob = new UpdateData {};
                 var updateDataJobHandle = updateDataJob.Schedule(m_Group);
                 updateDataJobHandle.Complete();
             }
@@ -110,7 +110,7 @@ namespace Unity.Entities.Tests
                 m_LastAllChanged = true;
                 for (int i = 0; i < chunks.Length; i++)
                 {
-                    m_LastAllChanged &= chunks[i].DidChange(ecsTestDataType,LastSystemVersion);
+                    m_LastAllChanged &= chunks[i].DidChange(ecsTestDataType, LastSystemVersion);
                 }
 
                 chunks.Dispose();
@@ -157,6 +157,7 @@ namespace Unity.Entities.Tests
             system.Update();
             Assert.AreNotEqual(0, system.LastSystemVersion);
         }
+
 #endif
     }
 }

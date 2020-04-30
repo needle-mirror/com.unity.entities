@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using UnityObject = UnityEngine.Object;
@@ -10,13 +10,13 @@ namespace Unity.Entities.Serialization
         public static void Serialize(EntityManager manager, BinaryWriter writer, out ReferencedUnityObjects objRefs)
         {
             SerializeUtility.SerializeWorld(manager, writer, out var referencedObjects);
-            SerializeObjectReferences((UnityEngine.Object[]) referencedObjects, out objRefs);
+            SerializeObjectReferences((UnityEngine.Object[])referencedObjects, out objRefs);
         }
 
         public static void Serialize(EntityManager manager, BinaryWriter writer, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
             SerializeUtility.SerializeWorld(manager, writer, out var referencedObjects, entityRemapInfos);
-            SerializeObjectReferences((UnityEngine.Object[]) referencedObjects, out objRefs);
+            SerializeObjectReferences((UnityEngine.Object[])referencedObjects, out objRefs);
         }
 
         public static void Deserialize(EntityManager manager, BinaryReader reader, ReferencedUnityObjects objRefs)
@@ -62,7 +62,7 @@ namespace Unity.Entities.Serialization
                     }
 
 #if !UNITY_EDITOR || USE_SUBSCENE_EDITORBUNDLES
-                    if(objectReferences[i] is UnityEngine.GameObject source)
+                    if (objectReferences[i] is UnityEngine.GameObject source)
                     {
                         var instance = UnityEngine.GameObject.Instantiate(source);
                         objectReferences[i] = instance;
@@ -74,7 +74,7 @@ namespace Unity.Entities.Serialization
 #if !UNITY_EDITOR || USE_SUBSCENE_EDITORBUNDLES
                 for (int i = 0; i != objectReferences.Length; i++)
                 {
-                    if(objectReferences[i] is UnityEngine.Component component)
+                    if (objectReferences[i] is UnityEngine.Component component)
                     {
                         objectReferences[i] = sourceToInstance[component.gameObject].GetComponent(component.GetType());
                     }

@@ -1,4 +1,5 @@
 using System;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 
 namespace Unity.Scenes
@@ -19,7 +20,7 @@ namespace Unity.Scenes
     #else
             var sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
     #endif
-                
+
             // @TODO: AsyncReadManager currently crashes with empty path.
             //        It should be possible to remove this after that is fixed.
             if (String.IsNullOrEmpty(sceneHeaderPath))
@@ -33,11 +34,11 @@ namespace Unity.Scenes
     #if UNITY_EDITOR
                 Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: guid={sceneGUID} path={sceneHeaderPath}");
     #else
-                    Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: {sceneGUID}\nNOTE: In order to load SubScenes in the player you have to use the new BuildConfiguration asset based workflow to build & run your player.\n{sceneHeaderPath}");
+                Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: {sceneGUID}\nNOTE: In order to load SubScenes in the player you have to use the new BuildConfiguration asset based workflow to build & run your player.\n{sceneHeaderPath}");
     #endif
                 return false;
             }
-            
+
             ref var sceneMetaData = ref sceneMetaDataRef.Value;
 
     #if UNITY_EDITOR
@@ -62,11 +63,12 @@ namespace Unity.Scenes
 
                 EntityManager.AddComponentData(sectionEntity, sceneMetaData.Sections[i]);
                 EntityManager.AddComponentData(sectionEntity, new SceneBoundingVolume { Value = sceneMetaData.Sections[i].BoundingVolume });
+                EntityManager.AddComponentData(sectionEntity, new SceneEntityReference {SceneEntity = sceneEntity});
 
                 var sectionPath = new ResolvedSectionPath();
     #if !UNITY_EDITOR || USE_SUBSCENE_EDITORBUNDLES
-                    var hybridPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
-                    var scenePath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
+                var hybridPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
+                var scenePath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
     #else
                 var scenePath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
                 var hybridPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
@@ -83,6 +85,8 @@ namespace Unity.Scenes
                     EntityManager.AddComponentObject(sectionEntity, EntityManager.GetComponentObject<SubScene>(sceneEntity));
     #endif
 
+                AddSectionMetadataComponents(sectionEntity, ref sceneMetaData.SceneSectionCustomMetadata[i], EntityManager);
+
                 var buffer = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
                 buffer.Add(new ResolvedSectionEntity { SectionEntity = sectionEntity });
             }
@@ -90,6 +94,31 @@ namespace Unity.Scenes
 
             return true;
         }
-    }
-    }
 
+        internal static unsafe void AddSectionMetadataComponents(Entity sectionEntity, ref BlobArray<SceneSectionCustomMetadata> sectionMetaDataArray, EntityManager entityManager)
+        {
+            // Deserialize the SceneSection custom metadata
+            for (var i = 0; i < sectionMetaDataArray.Length; i++)
+            {
+                ref var metadata = ref sectionMetaDataArray[i];
+                var customTypeIndex = TypeManager.GetTypeIndexFromStableTypeHash(metadata.StableTypeHash);
+
+                // Couldn't find the type...
+                if (customTypeIndex == -1)
+                {
+                    UnityEngine.Debug.LogError(
+                        $"Couldn't import SceneSection metadata, couldn't find the type to deserialize with stable hash {metadata.StableTypeHash}");
+                    continue;
+                }
+
+                entityManager.AddComponent(sectionEntity, ComponentType.FromTypeIndex(customTypeIndex));
+
+                if (TypeManager.IsZeroSized(customTypeIndex))
+                    continue;
+
+                void* componentPtr = entityManager.GetComponentDataRawRW(sectionEntity, customTypeIndex);
+                UnsafeUtility.MemCpy(componentPtr, metadata.Data.GetUnsafePtr(), metadata.Data.Length);
+            }
+        }
+    }
+}

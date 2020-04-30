@@ -213,7 +213,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity0);
             Assert.Throws<ArgumentException>(() => m_Manager.Instantiate(entity0));
         }
-        
+
         [Test]
         public void DeleteFromEntity()
         {
@@ -229,7 +229,8 @@ namespace Unity.Entities.Tests
 
                 m_Manager.SetComponentData(entity, new EcsTestData(i));
                 var buffer = m_Manager.GetBuffer<EcsIntStateElement>(entity);
-                buffer.Add(i);          }
+                buffer.Add(i);
+            }
 
             VerifyComponentCount<EcsTestData>(512);
 
@@ -245,13 +246,13 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsIntStateElement>());
-            
+
             for (var i = 0; i < 512; i++)
             {
                 var entity = entities[i];
-                m_Manager.RemoveComponent(entity,typeof(EcsIntStateElement));
+                m_Manager.RemoveComponent(entity, typeof(EcsIntStateElement));
             }
-            
+
             VerifyBufferCount<EcsIntStateElement>(0);
 
             for (var i = 0; i < 512; i++)
@@ -260,7 +261,7 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(m_Manager.Exists(entity));
             }
         }
-        
+
         [Test]
         public void DeleteFromEntityQuery()
         {
@@ -293,9 +294,9 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsIntStateElement>());
-            
-            m_Manager.RemoveComponent(group,typeof(EcsIntStateElement));
-            
+
+            m_Manager.RemoveComponent(group, typeof(EcsIntStateElement));
+
             VerifyBufferCount<EcsIntStateElement>(0);
 
             for (var i = 0; i < 512; i++)
@@ -336,7 +337,7 @@ namespace Unity.Entities.Tests
                 ComponentType.Exclude<EcsTestData>(),
                 ComponentType.ReadWrite<EcsIntStateElement>());
 
-            m_Manager.RemoveComponent(group,typeof(EcsIntStateElement));
+            m_Manager.RemoveComponent(group, typeof(EcsIntStateElement));
 
             VerifyBufferCount<EcsIntStateElement>(0);
 

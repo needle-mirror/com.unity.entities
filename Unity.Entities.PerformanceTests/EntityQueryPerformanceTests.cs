@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
@@ -82,7 +82,7 @@ namespace Unity.Entities.PerformanceTests
         struct TestTag17 : IComponentData
         {
         }
-        
+
         Type[] TagTypes =
         {
             typeof(TestTag0),
@@ -104,7 +104,7 @@ namespace Unity.Entities.PerformanceTests
             typeof(TestTag16),
             typeof(TestTag17),
         };
-    
+
         NativeArray<EntityArchetype> CreateUniqueArchetypes(int size)
         {
             var archetypes = new NativeArray<EntityArchetype>(size, Allocator.Persistent);
@@ -135,30 +135,30 @@ namespace Unity.Entities.PerformanceTests
             var archetypes = CreateUniqueArchetypes(archetypeCount);
             for (int i = 0; i < archetypes.Length; ++i)
             {
-                var entities =new NativeArray<Entity>(archetypes[i].ChunkCapacity * chunkCount, Allocator.Temp);
+                var entities = new NativeArray<Entity>(archetypes[i].ChunkCapacity * chunkCount, Allocator.Temp);
                 m_Manager.CreateEntity(archetypes[i], entities);
             }
-            
+
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestSharedComp>());
-            
+
             Measure.Method(
-                    () =>
-                    {
-                        group.CalculateEntityCount();
-                    })
-                .Definition("CalculateEntityCount")
+                () =>
+                {
+                    group.CalculateEntityCount();
+                })
+                .SampleGroup("CalculateEntityCount")
                 .Run();
-            
-            group.SetSharedComponentFilter(new EcsTestSharedComp{value = archetypeCount + chunkCount});
-            
+
+            group.SetSharedComponentFilter(new EcsTestSharedComp {value = archetypeCount + chunkCount});
+
             Measure.Method(
-                    () =>
-                    {
-                        group.CalculateEntityCount();
-                    })
-                .Definition("CalculateEntityCount with Filtering")
+                () =>
+                {
+                    group.CalculateEntityCount();
+                })
+                .SampleGroup("CalculateEntityCount with Filtering")
                 .Run();
-            
+
             using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
             {
                 m_Manager.DestroyEntity(entities);
@@ -168,4 +168,3 @@ namespace Unity.Entities.PerformanceTests
         }
     }
 }
-

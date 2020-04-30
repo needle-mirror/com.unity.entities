@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 #if !NET_DOTS
 using System.Linq;
@@ -8,7 +8,6 @@ using Unity.Entities;
 
 namespace Unity.Entities
 {
-
     public class ComponentSystemSorter
     {
         public class CircularSystemDependencyException : Exception
@@ -205,6 +204,7 @@ namespace Unity.Entities
                 return lookupDictionary[t];
             return -1;
         }
+
 #else
         private static int LookupSysAndDep<T>(Type t, SysAndDep<T>[] array)
         {
@@ -217,6 +217,7 @@ namespace Unity.Entities
             }
             return -1;
         }
+
 #endif
 
         private static void WarningForBeforeCheck(Type sysType, Type depType)

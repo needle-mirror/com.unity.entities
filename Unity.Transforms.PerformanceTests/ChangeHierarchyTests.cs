@@ -9,7 +9,6 @@ namespace Unity.Entities.PerformanceTests
     [Category("Performance")]
     public sealed unsafe class ChangeHierarchyPerformanceTests : ECSTestsFixture
     {
-
         public void UpdateTransforms()
         {
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
@@ -20,12 +19,12 @@ namespace Unity.Entities.PerformanceTests
             World.GetOrCreateSystem<EndFrameTRSToLocalToParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameWorldToLocalSystem>().Update();
-            
+
             // Force complete so that main thread (tests) can have access to direct editing.
-            m_Manager.CompleteAllJobs();             
+            m_Manager.CompleteAllJobs();
         }
-        
-    [Test, Performance]
+
+        [Test, Performance]
         public void ChangeParents()
         {
             var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld));
@@ -38,11 +37,11 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.Instantiate(childPrefab, children);
 
             var rootIndex = 0;
-            
+
             Measure.Method(() =>
-                {
-                    UpdateTransforms();
-                })
+            {
+                UpdateTransforms();
+            })
                 .SetUp(() =>
                 {
                     var parent = (rootIndex == 0) ? root0 : root1;

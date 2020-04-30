@@ -7,7 +7,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Unity.Scenes.Editor.Tests {
+namespace Unity.Scenes.Editor.Tests
+{
     public class SubSceneConversionTests
     {
         string m_TempAssetDir;

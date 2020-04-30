@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Entities;
@@ -30,7 +30,7 @@ namespace Unity.Scenes.Editor
                     EditorGUILayout.HelpBox(warning, MessageType.Error, true);
             }
         }
-        
+
         static string GetWarning(GameObject gameObject)
         {
             // only care about scene objects
@@ -75,7 +75,7 @@ namespace Unity.Scenes.Editor
                 return
                     $"'{gameObject.name}' will be converted due to being in a {nameof(SubScene)}. {nameof(ConvertToEntity)} " +
                     $"will have no effect. Please remove the {nameof(ConvertToEntity)} component.";
-            
+
             if (isSubScene && gameObject.GetComponent<GameObjectEntity>() != null)
                 return
                     $"'{gameObject.name}' will be converted due to being in a {nameof(SubScene)}. {nameof(GameObjectEntity)} " +

@@ -1,16 +1,19 @@
-﻿using UnityEditor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities.Editor
 {
     public class EntitySelectionProxy : ScriptableObject
     {
+        internal static event EntityDebugger.SelectionChangeCallback OnEntitySelectionChanged;
+
         public delegate void EntityControlSelectButtonHandler(World world, Entity entity);
 
         public event EntityControlSelectButtonHandler EntityControlSelectButton;
 
         public EntityContainer Container { get; private set; }
-        public Entity Entity {
+        public Entity Entity
+        {
             get { return new Entity() {Index = entityIndex, Version = entityVersion}; }
             private set
             {
@@ -18,12 +21,12 @@ namespace Unity.Entities.Editor
                 entityVersion = value.Version;
             }
         }
-        [SerializeField] private int entityIndex;
-        [SerializeField] private int entityVersion;
+        [SerializeField] int entityIndex;
+        [SerializeField] int entityVersion;
         public EntityManager EntityManager { get; private set; }
         public World World { get; private set; }
 
-        public bool Exists => EntityManager != null && EntityManager.IsCreated && EntityManager.Exists(Entity);
+        public bool Exists => EntityManager.IsCreated && EntityManager.Exists(Entity);
 
         public void OnEntityControlSelectButton(World world, Entity entity)
         {
@@ -32,11 +35,12 @@ namespace Unity.Entities.Editor
 
         public void SetEntity(World world, Entity entity)
         {
-            this.World = world;
-            this.Entity = entity;
-            this.EntityManager = world.EntityManager;
-            this.Container = new EntityContainer(EntityManager, Entity);
+            World = world;
+            Entity = entity;
+            EntityManager = world.EntityManager;
+            Container = new EntityContainer(EntityManager, Entity);
             EditorUtility.SetDirty(this);
+            OnEntitySelectionChanged?.Invoke(this);
         }
     }
 }

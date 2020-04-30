@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using NUnit.Framework;
 using Unity.Entities;
@@ -17,7 +17,7 @@ namespace Unity.Scenes.Tests
         // * In playmode test so we test in both editor & player
         // * Using normal default initialized world
         // * Use a scene that is in version control on disk and was manuallly created. Let same pipeline that is used by end users generate the cached data.
-        // 
+        //
         // * Load scene with multiple sections.
         //      * Validate seperate loadability.
         //      * Transform parents are correctly hooked up
@@ -30,8 +30,8 @@ namespace Unity.Scenes.Tests
         [Ignore("Tests must be reimplemented to work at higher level to be truly end to end tests")]
         public void EndToEndTests()
         {
-            
         }
+
 #if false
 
         // Load / unload scene
@@ -48,7 +48,7 @@ namespace Unity.Scenes.Tests
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             var entitySceneData = EditorEntityScenes.WriteEntityScene(temp, guid);
             Assert.AreEqual(1, entitySceneData.Length);
-        
+
             var sceneEntity = m_Manager.CreateEntity();
             m_Manager.AddComponentData(sceneEntity, entitySceneData[0]);
 
@@ -70,7 +70,7 @@ namespace Unity.Scenes.Tests
 
                 // 1. Scene entity
                 // 2. Public ref array
-                // 3. Mesh Renderer 
+                // 3. Mesh Renderer
                 Assert.AreEqual(3, m_Manager.Debug.EntityCount);
 
                 m_Manager.RemoveComponent<RequestSceneLoaded>(sceneEntity);
@@ -102,7 +102,7 @@ namespace Unity.Scenes.Tests
                     DstEntityManager.AddComponentData(entity, new ManagedObjectWithObjectReference()
                     {
                         Texture = new Texture2D(512, 512)
-                    }); ;
+                    });;
                 });
             }
         }
@@ -139,7 +139,7 @@ namespace Unity.Scenes.Tests
 
                 // 1. Scene entity
                 // 2. Public ref array
-                // 3. Mesh Renderer 
+                // 3. Mesh Renderer
                 Assert.AreEqual(3, m_Manager.Debug.EntityCount);
 
                 var entities = query.ToEntityArray(Collections.Allocator.TempJob);
@@ -156,8 +156,8 @@ namespace Unity.Scenes.Tests
                 Assert.AreEqual(1, m_Manager.Debug.EntityCount);
             }
             query.Dispose();
-
         }
+
 #endif
 #endif
     }

@@ -21,6 +21,10 @@ namespace Unity.Entities.PerformanceTests
         NativeArray<EcsIntElement> nativeArraySmall;
         NativeArray<EcsIntElement> nativeArrayTiny;
 
+        NativeSlice<EcsIntElement> nativeSliceLarge;
+        NativeSlice<EcsIntElement> nativeSliceSmall;
+        NativeSlice<EcsIntElement> nativeSliceTiny;
+
         EcsIntElement[] arrayLarge;
         EcsIntElement[] arraySmall;
         EcsIntElement[] arrayTiny;
@@ -28,10 +32,15 @@ namespace Unity.Entities.PerformanceTests
         public override void Setup()
         {
             base.Setup();
-            
+
             nativeArrayLarge = new NativeArray<EcsIntElement>(kLargeAllocation, Allocator.Persistent);
             nativeArraySmall = new NativeArray<EcsIntElement>(kSmallAllocation, Allocator.Persistent);
             nativeArrayTiny = new NativeArray<EcsIntElement>(kTinyAllocation, Allocator.Persistent);
+
+            nativeSliceLarge = new NativeSlice<EcsIntElement>(nativeArrayLarge);
+            nativeSliceSmall = new NativeSlice<EcsIntElement>(nativeArraySmall);
+            nativeSliceTiny = new NativeSlice<EcsIntElement>(nativeArrayTiny);
+
             arrayLarge = new EcsIntElement[kLargeAllocation];
             arraySmall = new EcsIntElement[kSmallAllocation];
             arrayTiny = new EcsIntElement[kTinyAllocation];
@@ -101,12 +110,12 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        for(var i = 0; i < kTimesToCopyInManyTest; ++i)
-                            dst.CopyFrom(src);
-                    })
-                .Definition("Tiny")
+                () =>
+                {
+                    for (var i = 0; i < kTimesToCopyInManyTest; ++i)
+                        dst.CopyFrom(src);
+                })
+                .SampleGroup("Tiny")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
@@ -121,12 +130,12 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        for(var i = 0; i < kTimesToCopyInManyTest; ++i)
-                            dst.CopyFrom(src);
-                    })
-                .Definition("Small")
+                () =>
+                {
+                    for (var i = 0; i < kTimesToCopyInManyTest; ++i)
+                        dst.CopyFrom(src);
+                })
+                .SampleGroup("Small")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
@@ -141,18 +150,17 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        dst.CopyFrom(src);
-                    })
-                .Definition("Large")
+                () =>
+                {
+                    dst.CopyFrom(src);
+                })
+                .SampleGroup("Large")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
 
             m_Manager.DestroyEntity(e);
             m_Manager.DestroyEntity(f);
-
         }
 
         [Test, Performance]
@@ -172,12 +180,12 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        for(var i = 0; i < kTimesToCopyInManyTest; ++i)
-                            dst.CopyFrom(nativeArrayTiny);
-                    })
-                .Definition("Tiny")
+                () =>
+                {
+                    for (var i = 0; i < kTimesToCopyInManyTest; ++i)
+                        dst.CopyFrom(nativeArrayTiny);
+                })
+                .SampleGroup("Tiny")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
@@ -190,12 +198,12 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        for(var i = 0; i < kTimesToCopyInManyTest; ++i)
-                            dst.CopyFrom(nativeArraySmall);
-                    })
-                .Definition("Small")
+                () =>
+                {
+                    for (var i = 0; i < kTimesToCopyInManyTest; ++i)
+                        dst.CopyFrom(nativeArraySmall);
+                })
+                .SampleGroup("Small")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
@@ -208,11 +216,76 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        dst.CopyFrom(nativeArrayLarge);
-                    })
-                .Definition("Large")
+                () =>
+                {
+                    dst.CopyFrom(nativeArrayLarge);
+                })
+                .SampleGroup("Large")
+                .WarmupCount(100)
+                .MeasurementCount(500)
+                .Run();
+
+            m_Manager.DestroyEntity(e);
+        }
+
+        [Test, Performance]
+        public void CopyFromNativeSlice()
+        {
+            var e = m_Manager.CreateEntity();
+
+            m_Manager.AddBuffer<EcsIntElement>(e);
+
+            var dst = m_Manager.GetBuffer<EcsIntElement>(e);
+
+            dst.EnsureCapacity(kTinyAllocation);
+
+            for (var i = 0; i < kTinyAllocation; ++i)
+            {
+                dst.Add(0);
+            }
+
+            Measure.Method(
+                () =>
+                {
+                    for (var i = 0; i < kTimesToCopyInManyTest; ++i)
+                        dst.CopyFrom(nativeSliceTiny);
+                })
+                .SampleGroup("Tiny")
+                .WarmupCount(100)
+                .MeasurementCount(500)
+                .Run();
+
+            dst.EnsureCapacity(kSmallAllocation);
+
+            for (var i = kTinyAllocation; i < kSmallAllocation; ++i)
+            {
+                dst.Add(1);
+            }
+
+            Measure.Method(
+                () =>
+                {
+                    for (var i = 0; i < kTimesToCopyInManyTest; ++i)
+                        dst.CopyFrom(nativeSliceSmall);
+                })
+                .SampleGroup("Small")
+                .WarmupCount(100)
+                .MeasurementCount(500)
+                .Run();
+
+            dst.EnsureCapacity(kLargeAllocation);
+
+            for (var i = kSmallAllocation; i < kLargeAllocation; ++i)
+            {
+                dst.Add(2);
+            }
+
+            Measure.Method(
+                () =>
+                {
+                    dst.CopyFrom(nativeSliceLarge);
+                })
+                .SampleGroup("Large")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
@@ -237,12 +310,12 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        for(var i = 0; i < kTimesToCopyInManyTest; ++i)
-                            dst.CopyFrom(arrayTiny);
-                    })
-                .Definition("Tiny")
+                () =>
+                {
+                    for (var i = 0; i < kTimesToCopyInManyTest; ++i)
+                        dst.CopyFrom(arrayTiny);
+                })
+                .SampleGroup("Tiny")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
@@ -255,12 +328,12 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        for(var i = 0; i < kTimesToCopyInManyTest; ++i)
-                            dst.CopyFrom(arraySmall);
-                    })
-                .Definition("Small")
+                () =>
+                {
+                    for (var i = 0; i < kTimesToCopyInManyTest; ++i)
+                        dst.CopyFrom(arraySmall);
+                })
+                .SampleGroup("Small")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
@@ -273,17 +346,16 @@ namespace Unity.Entities.PerformanceTests
             }
 
             Measure.Method(
-                    () =>
-                    {
-                        dst.CopyFrom(arrayLarge);
-                    })
-                .Definition("Large")
+                () =>
+                {
+                    dst.CopyFrom(arrayLarge);
+                })
+                .SampleGroup("Large")
                 .WarmupCount(100)
                 .MeasurementCount(500)
                 .Run();
 
             m_Manager.DestroyEntity(e);
         }
-
     }
 }

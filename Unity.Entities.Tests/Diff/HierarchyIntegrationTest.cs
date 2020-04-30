@@ -3,6 +3,10 @@ using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
+#if !UNITY_DOTSPLAYER_IL2CPP
+    // https://unity3d.atlassian.net/browse/DOTSR-1435
+    // These tests cause crashes in the IL2CPP runner. Cause not yet debugged.
+
     [TestFixture]
     internal sealed class HierarchyIntegrationTest : EntityDifferTestFixture
     {
@@ -20,8 +24,8 @@ namespace Unity.Entities.Tests
             var srcPrefabLevel0Guid = CreateEntityGuid();
             var prefabLevel1Guid = CreateEntityGuid();
 
-            const EntityManagerDifferOptions options = EntityManagerDifferOptions.IncludeForwardChangeSet | 
-                                                       EntityManagerDifferOptions.FastForwardShadowWorld;
+            const EntityManagerDifferOptions options = EntityManagerDifferOptions.IncludeForwardChangeSet |
+                EntityManagerDifferOptions.FastForwardShadowWorld;
 
             using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
             {
@@ -31,12 +35,12 @@ namespace Unity.Entities.Tests
                 SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcPrefabRoot).Add(srcPrefabRoot);
 
                 PushChanges(differ, DstEntityManager);
-                
+
                 using (var changes = differ.GetChanges(options, Allocator.TempJob))
                 {
                     EntityPatcher.ApplyChangeSet(DstEntityManager, changes.ForwardChangeSet);
                 }
-                
+
                 // Instantiate root prefab in dst world 10 times
                 var dstPrefabRoot = GetEntity(DstEntityManager, srcPrefabRootGuid);
                 var dstInstanceRoots = new Entity[instanceCount];
@@ -59,7 +63,7 @@ namespace Unity.Entities.Tests
                 // Synchronize worlds, we now should have 10 instances in the world along with a level0 for each
                 // and hierarchy matching the relationships create
                 PushChanges(differ, DstEntityManager);
-                
+
                 for (var i = 0; i != dstInstanceRoots.Length; i++)
                 {
                     var dstInstanceRoot = dstInstanceRoots[i];
@@ -76,7 +80,7 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(dstInstanceRoot, hierarchyLevel0.Parent);
                     Assert.AreEqual(dstInstanceLevel0, hierarchyRoot.Child);
                 }
-                
+
                 // Add level 1 entity to the prefab
                 var srcLevel1Prefab = SrcEntityManager.CreateEntity(typeof(HierarchyComponent), typeof(Prefab));
                 SrcEntityManager.AddComponentData(srcLevel1Prefab, prefabLevel1Guid);
@@ -98,10 +102,10 @@ namespace Unity.Entities.Tests
                     var dstInstanceLevel0 = dstInstanceGroup[1].Value;
                     var dstInstanceLevel1 = dstInstanceGroup[2].Value;
 
-                    Assert.AreEqual(dstInstanceLevel0,DstEntityManager.GetComponentData<HierarchyComponent>(dstRootInstance).Child);
-                    Assert.AreEqual(dstRootInstance,DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel0).Parent);
-                    Assert.AreEqual(dstInstanceLevel1,DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel0).Child);
-                    Assert.AreEqual(dstInstanceLevel0,DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel1).Parent);
+                    Assert.AreEqual(dstInstanceLevel0, DstEntityManager.GetComponentData<HierarchyComponent>(dstRootInstance).Child);
+                    Assert.AreEqual(dstRootInstance, DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel0).Parent);
+                    Assert.AreEqual(dstInstanceLevel1, DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel0).Child);
+                    Assert.AreEqual(dstInstanceLevel0, DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel1).Parent);
                 }
 
                 // Remove level 1 entity from the prefab
@@ -123,9 +127,9 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(dstRootInstance, dstInstanceGroup[0].Value);
                     var dstInstanceLevel1 = dstInstanceGroup[1].Value;
 
-                    Assert.AreEqual(dstInstanceLevel1,DstEntityManager.GetComponentData<HierarchyComponent>(dstRootInstance).Child);
-                    Assert.AreEqual(dstRootInstance,DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel1).Parent);
-                    Assert.AreEqual(Entity.Null,DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel1).Child);
+                    Assert.AreEqual(dstInstanceLevel1, DstEntityManager.GetComponentData<HierarchyComponent>(dstRootInstance).Child);
+                    Assert.AreEqual(dstRootInstance, DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel1).Parent);
+                    Assert.AreEqual(Entity.Null, DstEntityManager.GetComponentData<HierarchyComponent>(dstInstanceLevel1).Child);
                 }
 
                 // Add again level 1 as a Child of level 0
@@ -155,4 +159,5 @@ namespace Unity.Entities.Tests
             }
         }
     }
+#endif
 }

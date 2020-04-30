@@ -1,4 +1,4 @@
-﻿using Unity.Collections.LowLevel.Unsafe;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace Unity.Entities.Hybrid
@@ -12,7 +12,7 @@ namespace Unity.Entities.Hybrid
         public TWrappedValue[] Values;
 
         public unsafe void Convert(
-            Entity entity, 
+            Entity entity,
             EntityManager destinationManager,
             GameObjectConversionSystem _)
         {
@@ -23,8 +23,8 @@ namespace Unity.Entities.Hybrid
             {
                 return;
             }
-                
-            fixed (void* sourcePtr = &Values[0])
+
+            fixed(void* sourcePtr = &Values[0])
             {
                 UnsafeUtility.MemCpy(
                     destination: dynamicBuffer.GetUnsafePtr(),

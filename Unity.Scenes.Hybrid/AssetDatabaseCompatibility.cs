@@ -1,10 +1,11 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using System;
 using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Experimental;
 
-namespace Unity.Scenes {
+namespace Unity.Scenes
+{
     enum ImportMode
     {
         Synchronous,
@@ -41,9 +42,9 @@ namespace Unity.Scenes {
         internal static bool GetArtifactPaths(Hash128 artifactHash, out string[] paths)
         {
 #if UNITY_2020_2_OR_NEWER
-            return AssetDatabaseExperimental.GetArtifactPaths(new ArtifactID {
+            return AssetDatabaseExperimental.GetArtifactPaths(new ArtifactID
+            {
                 value = artifactHash
-
             }, out paths);
 #else
             return AssetDatabaseExperimental.GetArtifactPaths(artifactHash, out paths);

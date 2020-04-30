@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -24,7 +24,7 @@ namespace Unity.Entities.Tests
 
         static TestCaseData[] k_AccessorTestCases =
         {
-            new TestCaseData((Func<GameObjectEntity, object>)(goe => goe.EntityManager)).Returns(null).SetName("EntityManager"),
+            new TestCaseData((Func<GameObjectEntity, object>)(goe => goe.EntityManager)).Returns(default(EntityManager)).SetName("EntityManager"),
             new TestCaseData((Func<GameObjectEntity, object>)(goe => goe.Entity)).Returns(default(Entity)).SetName("Entity")
         };
 

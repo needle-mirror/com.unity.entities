@@ -1,7 +1,6 @@
-using System;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Jobs;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
@@ -31,7 +30,7 @@ namespace Unity.Entities.Tests
             ChangeVersionUtility.IncrementGlobalSystemVersion(ref lastVersionPlus);
 
             // In order to support wrap around we wrap numbers
-            Assert.IsTrue(ChangeVersionUtility.DidChange(initial+1, initial));
+            Assert.IsTrue(ChangeVersionUtility.DidChange(initial + 1, initial));
             Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersion / 2 - 10U, initial));
             Assert.IsFalse(ChangeVersionUtility.DidChange(lastVersion / 2 + 10U, initial));
             Assert.IsFalse(ChangeVersionUtility.DidChange(lastVersion, initial));
@@ -41,173 +40,199 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersionPlus, lastVersion));
             Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersionPlus, lastVersion - 1000));
             Assert.IsFalse(ChangeVersionUtility.DidChange(lastVersionPlus, 10));
-            
+
             // first frame is always changed
             Assert.IsTrue(ChangeVersionUtility.DidChange(initial, firstSystemFrame));
             Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersion, firstSystemFrame));
             Assert.IsTrue(ChangeVersionUtility.DidChange(lastVersion / 2, firstSystemFrame));
         }
-        
+
+        // Version Change Case 1:
+        //   - Component ChangeVersion: All ComponentType(s) in archetype set to GlobalChangeVersion
+        //   - Chunk OrderVersion: Destination chunk version set to GlobalChangeVersion.
+        //   - Sources:
+        //     - AddExistingChunk
+        //     - AddEmptyChunk
+        //     - Allocate
+        //     - AllocateClone
+        //     - MoveArchetype
+        //     - RemapAllArchetypesJob (direct access GetChangeVersionArrayForType)
+
         [Test]
-        public void NewlyCreatedChunkGetsCurrentVersion()
+        public void Allocate_Via_CreateEntity()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            AssertHasVersion<EcsTestData>(e0, OldVersion);
-            AssertHasVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChunkOrderVersion(e0, OldVersion);
+
             BumpGlobalSystemVersion();
+
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+
+            AssertSameChunk(e0, e1);
+            AssetHasChangeVersion<EcsTestData>(e1, NewVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void Allocate_Via_CreateEntity_ManagedComponent()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            AssetHasChangeVersion<EcsTestManagedComponent>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestManagedComponent2>(e0, OldVersion);
+            AssetHasChunkOrderVersion(e0, OldVersion);
+
+            BumpGlobalSystemVersion();
+
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+
+            AssertSameChunk(e0, e1);
+            AssetHasChangeVersion<EcsTestManagedComponent>(e1, NewVersion);
+            AssetHasChangeVersion<EcsTestManagedComponent2>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
+        }
+
+#endif
+
+        [Test]
+        public void AddEmptyChunk_Via_CreateEntity()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChunkOrderVersion(e0, OldVersion);
+
+            BumpGlobalSystemVersion();
+
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData3));
-            AssertHasVersion<EcsTestData3>(e1, NewVersion);
+
+            AssetHasChangeVersion<EcsTestData3>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
         }
 
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        public void CreateEntityMarksDestChunkAsChanged()
+        public void AddEmptyChunk_Via_CreateEntity_ManagedComponent()
         {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
+            AssetHasChangeVersion<EcsTestManagedComponent>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestManagedComponent2>(e0, OldVersion);
+            AssetHasChunkOrderVersion(e0, OldVersion);
+
             BumpGlobalSystemVersion();
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            AssertSameChunk(e0, e1);
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
+
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent3));
+
+            AssetHasChangeVersion<EcsTestManagedComponent3>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
         }
 
-        [Test]
-        public void AddComponentMarksSrcAndDestChunkAsChanged()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            BumpGlobalSystemVersion();
-            m_Manager.AddComponentData(e1, new EcsTestData3(7));
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasVersion<EcsTestData2>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
-            AssertHasVersion<EcsTestData2>(e1, NewVersion);
-            AssertHasVersion<EcsTestData3>(e1, NewVersion);
-        }
+#endif
+
+        // Version Change Case 2:
+        //   - Component ChangeVersion: Only specified ComponentType(s) set to GlobalChangeVersion
+        //   - Chunk OrderVersion: Unchanged.
+        //   - Sources:
+        //     - GetComponentDataWithTypeRW
+        //     - GetComponentDataRW
+        //     - SwapComponents
+        //     - SetSharedComponentDataIndex
 
         [Test]
-        public void AddTagMarksSrcAndDestChunkAsChanged()
+        public void GetComponentRW_Via_SetComponentData()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            BumpGlobalSystemVersion();
-            m_Manager.AddComponentData(e1, new EcsTestTag());
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasVersion<EcsTestData2>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
-            AssertHasVersion<EcsTestData2>(e1, NewVersion);
-            AssertHasVersion<EcsTestTag>(e1, NewVersion);
-        }
-        
-        [Test]
-        public void AddTagWithQueryKeepsVersion()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
-            
-            BumpGlobalSystemVersion();
-            m_Manager.AddComponent(m_Manager.UniversalQuery, typeof(EcsTestTag));
-            
-            AssertHasVersion<EcsTestData>(e0, OldVersion);
-            AssertHasVersion<EcsTestTag>(e0, NewVersion);
-        }
 
-        [Test]
-        public void AddSharedWithQueryKeepsVersion()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
-            
             BumpGlobalSystemVersion();
-            m_Manager.AddSharedComponentData(m_Manager.UniversalQuery, new SharedData1(5));
-            
-            AssertHasVersion<EcsTestData>(e0, OldVersion);
-            AssertHasSharedVersion<SharedData1>(e0, NewVersion);
-        }
-        
-        [Test]
-        public void AddComponentWithDefaultValueMarksSrcAndDestChunkAsChanged()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            BumpGlobalSystemVersion();
-            m_Manager.AddComponent(e1, typeof(EcsTestData3));
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasVersion<EcsTestData2>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
-            AssertHasVersion<EcsTestData2>(e1, NewVersion);
-            AssertHasVersion<EcsTestData3>(e1, NewVersion);
-        }
-        
-        [Test]
-        public void AddComponentWithDefaultValueMarksSrcAndDestChunkAsChangedEntityArray()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            BumpGlobalSystemVersion();
-            var entities = new NativeArray<Entity>(1, Allocator.TempJob);
-            entities[0] = e1;
-            m_Manager.AddComponent(entities, typeof(EcsTestData3));
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasVersion<EcsTestData2>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
-            AssertHasVersion<EcsTestData2>(e1, NewVersion);
-            AssertHasVersion<EcsTestData3>(e1, NewVersion);
-            entities.Dispose();
-        }
 
-        [Test]
-        public void SetComponentDataMarksOnlySetTypeAsChanged()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            BumpGlobalSystemVersion();
             m_Manager.SetComponentData(e1, new EcsTestData(1));
+
             AssertSameChunk(e0, e1);
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e0, NewVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChunkOrderVersion(e1, OldVersion);
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void GetComponentRW_Via_SetComponentData_ManagedComponent()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestData2));
+
+            BumpGlobalSystemVersion();
+
+            m_Manager.SetComponentData(e1, new EcsTestManagedComponent {value = "SomeString"});
+
+            AssertSameChunk(e0, e1);
+            AssetHasChangeVersion<EcsTestManagedComponent>(e0, NewVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChunkOrderVersion(e1, OldVersion);
         }
 
         [Test]
-        public void ModifyingBufferComponentMarksOnlySetTypeAsChanged()
+        public void GetComponentRW_Via_GetComponentData_ManagedComponent()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestData2));
+
+            m_Manager.SetComponentData(e0, new EcsTestManagedComponent {value = "e0"});
+            m_Manager.SetComponentData(e1, new EcsTestManagedComponent {value = "e1"});
+
+            BumpGlobalSystemVersion();
+
+            m_Manager.GetComponentData<EcsTestManagedComponent>(e1).value = "SomeString";
+
+            AssertSameChunk(e0, e1);
+            AssetHasChangeVersion<EcsTestManagedComponent>(e0, NewVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChunkOrderVersion(e1, OldVersion);
+        }
+
+#endif
+
+        [Test]
+        public void GetComponentRW_Via_GetBuffer()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsIntElement));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsIntElement));
+
             BumpGlobalSystemVersion();
+
             var buffer = m_Manager.GetBuffer<EcsIntElement>(e1);
             buffer.Add(7);
+
             AssertSameChunk(e0, e1);
-            AssertHasVersion<EcsTestData>(e0, OldVersion);
-            AssertHasBufferVersion<EcsIntElement>(e0, NewVersion);
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasBufferChangeVersion<EcsIntElement>(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, OldVersion);
         }
 
         [Test]
-        public void AddSharedComponentMarksSrcAndDestChunkAsChanged()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-            BumpGlobalSystemVersion();
-            m_Manager.AddSharedComponentData(e1, new EcsTestSharedComp(7));
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasVersion<EcsTestData2>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
-            AssertHasVersion<EcsTestData2>(e1, NewVersion);
-            AssertHasSharedVersion<EcsTestSharedComp>(e1, NewVersion);
-        }
-
-
-        [Test]
-        public void SetSharedComponentMarksSrcAndDestChunkAsChanged()
+        public void SetSharedComponentDataIndex_Via_Entity()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
             BumpGlobalSystemVersion();
+
+            // Individual Entity not changed in place.
             m_Manager.SetSharedComponentData(e1, new EcsTestSharedComp(7));
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasSharedVersion<EcsTestSharedComp>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
-            AssertHasSharedVersion<EcsTestSharedComp>(e1, NewVersion);
+
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasSharedChangeVersion<EcsTestSharedComp>(e0, OldVersion);
+            AssetHasSharedChangeVersion<EcsTestSharedComp>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
         }
 
         [Test]
-        public void SwapComponentsMarksSrcAndDestChunkAsChanged()
+        public void SwapComponents()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -222,104 +247,303 @@ namespace Unity.Entities.Tests
             BumpGlobalSystemVersion();
 
             m_Manager.SwapComponents(chunk0, 0, chunk1, 0);
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasSharedVersion<EcsTestSharedComp>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
-            AssertHasSharedVersion<EcsTestSharedComp>(e1, NewVersion);
+
+            AssetHasChangeVersion<EcsTestData>(e0, NewVersion);
+            AssetHasSharedChangeVersion<EcsTestSharedComp>(e0, NewVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, NewVersion);
+            AssetHasSharedChangeVersion<EcsTestSharedComp>(e1, NewVersion);
+
+            AssetHasChunkOrderVersion(e0, OldVersion);
+            AssetHasChunkOrderVersion(e1, OldVersion);
+        }
+
+        // Version Change Case 3:
+        //   - Component ChangeVersion: All ComponentType(s) with EntityReference in archetype set to GlobalChangeVersion
+        //   - Chunk OrderVersion: Unchanged.
+        //   - Sources:
+        //     - ClearMissingReferences
+
+        [Test]
+        public unsafe void ClearMissingReferences()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEntity));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEntity));
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEntity));
+
+            m_Manager.SetComponentData(e1, new EcsTestDataEntity {value0 = 0, value1 = e0});
+            m_Manager.SetComponentData(e2, new EcsTestDataEntity {value0 = 0, value1 = e0});
+            m_Manager.DestroyEntity(e0);
+
+            var chunk0 = m_Manager.GetChunk(e1);
+            var chunk1 = m_Manager.GetChunk(e2);
+            Assert.AreEqual(chunk0, chunk1);
+
+            BumpGlobalSystemVersion();
+
+            ChunkDataUtility.ClearMissingReferences(chunk0.m_Chunk);
+
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestDataEntity>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e1, OldVersion);
+            AssetHasChunkOrderVersion(e2, OldVersion);
+        }
+
+        // Version Change Case 4:
+        //   - Component ChangeVersion: ComponentTypes(s) that exist in destination archetype but not source archetype set to GlobalChangeVersion
+        //   - Chunk OrderVersion: Unchanged.
+        //   - Sources:
+        //     - CloneChangeVersions via ChangeArchetypeInPlace
+        //     - CloneChangeVersions via PatchAndAddClonedChunks
+
+        [Test]
+        public void CloneChangeVia_AddComponent_Tag_Via_Query()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            BumpGlobalSystemVersion();
+
+            m_Manager.AddComponent(m_Manager.UniversalQuery, typeof(EcsTestTag));
+
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestTag>(e0, NewVersion);
+            AssetHasChunkOrderVersion(e0, OldVersion);
         }
 
         [Test]
-        public void AddChunkComponentMarksSrcAndDestChunkAsChanged()
+        public void CloneChangeVia_AddSharedComponent_Via_Query()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            BumpGlobalSystemVersion();
+
+            m_Manager.AddSharedComponentData(m_Manager.UniversalQuery, new SharedData1(5));
+
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasSharedChangeVersion<SharedData1>(e0, NewVersion);
+            AssetHasChunkOrderVersion(e0, OldVersion);
+        }
+
+        // Version Change Case 5:
+        //   - Component ChangeVersion: Unchanged.
+        //   - Chunk OrderVersion: Destination chunk version set to GlobalChangeVersion.
+        //   - Sources:
+        //     - Deallocate
+        //     - Remove
+
+        [Test]
+        public void Remove_Via_AddComponent_Tag_Via_Entity()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            BumpGlobalSystemVersion();
+
+            // Individual Entity not changed in place.
+            m_Manager.AddComponent(e0, typeof(EcsTestTag));
+
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestTag>(e0, NewVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+        }
+
+        [Test]
+        public void Remove_Via_AddSharedComponent_Via_Entity()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            BumpGlobalSystemVersion();
+
+            // Individual Entity not changed in place.
+            m_Manager.AddSharedComponentData(e0, new SharedData1(5));
+
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasSharedChangeVersion<SharedData1>(e0, NewVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+        }
+
+        [Test]
+        public void Remove_Via_AddComponent()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             BumpGlobalSystemVersion();
-            m_Manager.AddChunkComponentData<EcsTestData3>(e1);
-            AssertHasVersion<EcsTestData>(e0, NewVersion);
-            AssertHasVersion<EcsTestData2>(e0, NewVersion);
-            AssertHasVersion<EcsTestData>(e1, NewVersion);
-            AssertHasVersion<EcsTestData2>(e1, NewVersion);
+            m_Manager.AddComponentData(e1, new EcsTestData3(7));
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData3>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        public void NewlyCreatedChunkGetsCurrentVersion_ManagedComponents()
+        public void Remove_Via_AddComponent_ManagedComponent()
         {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            AssertHasVersion<EcsTestManagedComponent>(e0, OldVersion);
-            AssertHasVersion<EcsTestManagedComponent2>(e0, OldVersion);
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             BumpGlobalSystemVersion();
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent3));
-            AssertHasVersion<EcsTestManagedComponent3>(e1, NewVersion);
-        }
-
-        [Test]
-        public void CreateEntityMarksDestChunkAsChanged_ManagedComponents()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            BumpGlobalSystemVersion();
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            AssertSameChunk(e0, e1);
-            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent>(e1, NewVersion);
-        }
-
-        [Test]
-        public void AddComponentMarksSrcAndDestChunkAsChanged_ManagedComponents()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            BumpGlobalSystemVersion();
-            m_Manager.AddComponentData(e1, new EcsTestManagedComponent3() { value = "SomeString" });
-            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent2>(e0, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent>(e1, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent2>(e1, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent3>(e1, NewVersion);
-        }
-
-        [Test]
-        public void AddSharedComponentMarksSrcAndDestChunkAsChanged_ManagedComponents()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            BumpGlobalSystemVersion();
-            m_Manager.AddSharedComponentData(e1, new EcsTestSharedComp(7));
-            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent2>(e0, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent>(e1, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent2>(e1, NewVersion);
-            AssertHasSharedVersion<EcsTestSharedComp>(e1, NewVersion);
-        }
-
-        [Test]
-        public void SetComponentDataMarksOnlySetTypeAsChanged_ManagedComponents()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            BumpGlobalSystemVersion();
-            m_Manager.SetComponentData(e1, new EcsTestManagedComponent {value = "SomeString"});
-            AssertSameChunk(e0, e1);
-            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent2>(e0, OldVersion);
-        }
-
-        [Test]
-        public void GetComponentDataMarksOnlySetTypeAsChanged_ManagedComponents()
-        {
-            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestManagedComponent2));
-            m_Manager.SetComponentData(e0, new EcsTestManagedComponent{value = "e0"});
-            m_Manager.SetComponentData(e1, new EcsTestManagedComponent{value = "e1"});
-            m_Manager.SetComponentData(e0, new EcsTestManagedComponent2{value = "e0"});
-            m_Manager.SetComponentData(e1, new EcsTestManagedComponent2{value = "e1"});
-            BumpGlobalSystemVersion();
-            m_Manager.GetComponentData<EcsTestManagedComponent>(e1).value = "SomeString";
-            AssertSameChunk(e0, e1);
-            AssertHasVersion<EcsTestManagedComponent>(e0, NewVersion);
-            AssertHasVersion<EcsTestManagedComponent2>(e0, OldVersion);
+            m_Manager.AddComponentData(e1, new EcsTestManagedComponent {value = "SomeString"});
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestManagedComponent>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
         }
 
 #endif
+
+        [Test]
+        public void Remove_Via_AddComponent_DefaultValue()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            BumpGlobalSystemVersion();
+            m_Manager.AddComponent<EcsTestData3>(e1);
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData3>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
+        }
+
+        [Test]
+        public void Remove_Via_AddComponent_DefaultValue_Via_EntityArray()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var entities = new NativeArray<Entity>(1, Allocator.TempJob);
+            entities[0] = e1;
+
+            BumpGlobalSystemVersion();
+            m_Manager.AddComponent<EcsTestData3>(entities);
+
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData3>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
+
+            entities.Dispose();
+        }
+
+        [Test]
+        public void Remove_Via_AddComponent_Tag()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            BumpGlobalSystemVersion();
+            m_Manager.AddComponentData(e1, new EcsTestTag());
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestTag>(e1, NewVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
+        }
+
+        [Test]
+        public void Remove_Via_AddChunkComponent()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+
+            BumpGlobalSystemVersion();
+
+            m_Manager.AddChunkComponentData<EcsTestData3>(e1);
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, OldVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
+        }
+
+        [Test]
+        public void Remove_Via_AddSharedComponent()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+
+            BumpGlobalSystemVersion();
+
+            m_Manager.AddSharedComponentData(e1, new EcsTestSharedComp {value = 2});
+
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, OldVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void Remove_Via_AddSharedComponent_With_ManagedComponent()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestData2));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestManagedComponent), typeof(EcsTestData2));
+
+            BumpGlobalSystemVersion();
+
+            m_Manager.AddSharedComponentData(e1, new EcsTestSharedComp {value = 2});
+
+            AssetHasChangeVersion<EcsTestManagedComponent>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e0, OldVersion);
+            AssetHasChangeVersion<EcsTestManagedComponent>(e1, OldVersion);
+            AssetHasChangeVersion<EcsTestData2>(e1, OldVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion);
+            AssetHasChunkOrderVersion(e1, NewVersion);
+        }
+
+#endif
+
+        //
+        // No version changes
+        //
+
+        unsafe struct CollectBufferLength : IJobChunk
+        {
+            [ReadOnly] public ArchetypeChunkBufferType<EcsIntElement> EcsIntElementType;
+            [NativeDisableUnsafePtrRestriction] public int* Count;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                var buffer = chunk.GetBufferAccessor(EcsIntElementType);
+                *Count = buffer.Length;
+            }
+        }
+
+        [Test]
+        public unsafe void GetComponentRO_Via_GetBuffer()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsIntElement));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsIntElement));
+
+            BumpGlobalSystemVersion();
+
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
+
+            int* count = stackalloc int[1];
+            var collectBufferLengthJob = new CollectBufferLength
+            {
+                EcsIntElementType = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(true),
+                Count = count
+            };
+            collectBufferLengthJob.Run(query);
+
+            AssertSameChunk(e0, e1);
+            AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
+            AssetHasBufferChangeVersion<EcsIntElement>(e0, OldVersion);
+            AssetHasChunkOrderVersion(e1, OldVersion);
+        }
     }
 }

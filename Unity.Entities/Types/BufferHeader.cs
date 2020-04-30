@@ -19,7 +19,7 @@ namespace Unity.Entities
             if (header->Pointer != null)
                 return header->Pointer;
 
-            return (byte*) (header + 1);
+            return (byte*)(header + 1);
         }
 
         public enum TrashMode
@@ -35,7 +35,6 @@ namespace Unity.Entities
             var adjustedCount = Math.Max(kMinimumCapacity, Math.Max(2 * header->Capacity, count)); // stop pathological performance of ++Capacity allocating every time, tiny Capacities
             SetCapacity(header, adjustedCount, typeSize, alignment, trashMode, useMemoryInitPattern, memoryInitPattern, 0);
         }
-        
 
         public static void SetCapacity(BufferHeader* header, int count, int typeSize, int alignment, TrashMode trashMode, bool useMemoryInitPattern, byte memoryInitPattern, int internalCapacity)
         {
@@ -46,7 +45,7 @@ namespace Unity.Entities
             long newSizeInBytes = (long)newCapacity * typeSize;
 
             byte* oldData = GetElementPointer(header);
-            byte* newData = (newCapacity <= internalCapacity) ? (byte*)(header + 1) : (byte*) UnsafeUtility.Malloc(newSizeInBytes, alignment, Allocator.Persistent);
+            byte* newData = (newCapacity <= internalCapacity) ? (byte*)(header + 1) : (byte*)UnsafeUtility.Malloc(newSizeInBytes, alignment, Allocator.Persistent);
 
             if (oldData != newData) // if at least one of them isn't the internal pointer...
             {
@@ -70,7 +69,7 @@ namespace Unity.Entities
 #endif
                 if (trashMode == TrashMode.RetainOldData)
                 {
-                    long bytesToCopy = Math.Min((long) header->Capacity, count) * typeSize;
+                    long bytesToCopy = Math.Min((long)header->Capacity, count) * typeSize;
                     UnsafeUtility.MemCpy(newData, oldData, bytesToCopy);
                 }
                 // Note we're freeing the old buffer only if it was not using the internal capacity. Don't change this to 'oldData', because that would be a bug.

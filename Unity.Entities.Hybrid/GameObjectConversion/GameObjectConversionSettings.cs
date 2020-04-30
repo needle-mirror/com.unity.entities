@@ -20,12 +20,8 @@ namespace Unity.Entities
 #if UNITY_EDITOR
         public Build.BuildConfiguration BuildConfiguration;
         public AssetImportContext       AssetImportContext;
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("BuildSettings has been renamed to BuildConfiguration. (RemovedAfter 2020-04-15) (UnityUpgradable) -> BuildConfiguration")]
-        public Build.BuildConfiguration BuildSettings;
 #endif
-
+        public WorldSystemFilterFlags FilterFlags = WorldSystemFilterFlags.GameObjectConversion;
         // not carried forward into a fork
         public Type[]                   ExtraSystems = Array.Empty<Type>();
         public List<Type>               Systems;
@@ -34,8 +30,8 @@ namespace Unity.Entities
         public Action<World>            ConversionWorldPreDispose;     // get a callback right before the conversion world gets disposed (good for tests that want to validate world contents)
 
         public BlobAssetStore BlobAssetStore { get; protected internal set; }
-        
-        public GameObjectConversionSettings() { }
+
+        public GameObjectConversionSettings() {}
 
         // not a clone - only copies what makes sense for creating entities into a separate guid namespace
         public GameObjectConversionSettings Fork(byte entityGuidNamespaceID)
@@ -60,7 +56,7 @@ namespace Unity.Entities
 
         // ** CONFIGURATION **
 
-        public GameObjectConversionSettings(World destinationWorld, ConversionFlags conversionFlags, BlobAssetStore blobAssetStore=null)
+        public GameObjectConversionSettings(World destinationWorld, ConversionFlags conversionFlags, BlobAssetStore blobAssetStore = null)
         {
             DestinationWorld = destinationWorld;
             ConversionFlags = conversionFlags;
@@ -95,16 +91,15 @@ namespace Unity.Entities
             => WithExtraSystems(typeof(T1), typeof(T2), typeof(T3));
 
         // ** CONVERSION **
-        
+
         public World CreateConversionWorld()
             => GameObjectConversionUtility.CreateConversionWorld(this);
 
-        
         // ** EXPORTING **
-        
+
         public bool SupportsExporting
-            => GetType() == typeof(GameObjectConversionSettings); 
-        
+            => GetType() == typeof(GameObjectConversionSettings);
+
         public virtual Guid GetGuidForAssetExport(UnityObject uobject)
         {
             if (uobject == null)

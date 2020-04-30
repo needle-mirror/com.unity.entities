@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -7,6 +8,7 @@ using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine.Profiling;
 using UnityEngine.Scripting;
@@ -17,9 +19,12 @@ using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
-    //@TODO: There is nothing prevent non-main thread (non-job thread) access of EntityManager.
-    //       Static Analysis or runtime checks?
-    
+    // Exists to allow `EntityManager mgr = null` to compile, as it required by existing packages (Physics)
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public struct EntityManagerNullShim
+    {
+    }
+
     /// <summary>
     /// The EntityManager manages entities and components in a World.
     /// </summary>
@@ -38,22 +43,35 @@ namespace Unity.Entities
     /// they all occur at one time in the frame.
     /// </remarks>
     [Preserve]
+    [NativeContainer]
     [DebuggerTypeProxy(typeof(EntityManagerDebugView))]
-    public sealed unsafe partial class EntityManager
+    public unsafe partial struct EntityManager : IEquatable<EntityManager>
     {
-        ComponentDependencyManager* m_DependencyManager;
-        EntityDataAccess            m_EntityDataAccess;
-        EntityComponentStore*       m_EntityComponentStore;
-        ManagedComponentStore       m_ManagedComponentStore;
-        EntityQueryManager*         m_EntityQueryManager;
-        ExclusiveEntityTransaction  m_ExclusiveEntityTransaction;
-        World                       m_World;
-        EntityQuery                 m_UniversalQuery; // matches all components
-        EntityManagerDebug          m_Debug;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        private AtomicSafetyHandle m_Safety;
+        private bool m_JobMode;
+#endif
+
+        [NativeDisableUnsafePtrRestriction]
+        private EntityDataAccess* m_EntityDataAccess;
+
+        // This is extremely unfortunate but needed because of the IsCreated API
+        private GCHandle m_AliveHandle;
+
+        internal EntityDataAccess* GetCheckedEntityDataAccess()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+            if (m_JobMode != m_EntityDataAccess->m_JobMode)
+            {
+                throw new InvalidOperationException($"EntityManager cannot be used from this context job mode {m_JobMode} != current mode {m_EntityDataAccess->m_JobMode}");
+            }
+#endif
+            return m_EntityDataAccess;
+        }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        int m_InsideForEach;
-        internal bool IsInsideForEach => m_InsideForEach != 0;
+        internal bool IsInsideForEach => GetCheckedEntityDataAccess()->m_InsideForEach != 0;
 
         internal struct InsideForEach : IDisposable
         {
@@ -63,27 +81,22 @@ namespace Unity.Entities
             public InsideForEach(EntityManager manager)
             {
                 m_Manager = manager;
-                m_InsideForEachSafety = m_Manager.m_InsideForEach;
-                ++m_Manager.m_InsideForEach;
+                EntityDataAccess* g = manager.GetCheckedEntityDataAccess();
+                m_InsideForEachSafety = g->m_InsideForEach++;
             }
 
             public void Dispose()
             {
-                --m_Manager.m_InsideForEach;
-                Assert.AreEqual(m_InsideForEachSafety, m_Manager.m_InsideForEach);
+                EntityDataAccess* g = m_Manager.GetCheckedEntityDataAccess();
+                int newValue = --g->m_InsideForEach;
+                if (m_InsideForEachSafety != newValue)
+                {
+                    throw new InvalidOperationException("for each unbalanced");
+                }
             }
         }
 #endif
 
-        internal ref EntityDataAccess EntityDataAccess => ref m_EntityDataAccess;
-        internal EntityComponentStore* EntityComponentStore => m_EntityComponentStore;
-        internal ComponentDependencyManager* DependencyManager => m_DependencyManager;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS        
-        internal ComponentSafetyHandles* SafetyHandles => &m_DependencyManager->Safety;
-#endif
-        internal EntityQueryManager* EntityQueryManager => m_EntityQueryManager;
-        internal ManagedComponentStore ManagedComponentStore => m_ManagedComponentStore;
-        
         // Attribute to indicate an EntityManager method makes structural changes.
         // Do not remove form EntityManager and please apply to all appropriate methods.
         [AttributeUsage(AttributeTargets.Method)]
@@ -95,13 +108,13 @@ namespace Unity.Entities
         /// The <see cref="World"/> of this EntityManager.
         /// </summary>
         /// <value>A World has one EntityManager and an EntityManager manages the entities of one World.</value>
-        public World World => m_World;
+        public World World => GetCheckedEntityDataAccess()->ManagedEntityDataAccess.m_World;
 
         /// <summary>
         /// The latest entity generational version.
         /// </summary>
         /// <value>This is the version number that is assigned to a new entity. See <see cref="Entity.Version"/>.</value>
-        public int Version => IsCreated ? m_EntityComponentStore->EntityOrderVersion : 0;
+        public int Version => IsCreated? GetCheckedEntityDataAccess()->EntityComponentStore->EntityOrderVersion : 0;
 
         /// <summary>
         /// A counter that increments after every system update.
@@ -112,13 +125,13 @@ namespace Unity.Entities
         /// </remarks>
         /// <seealso cref="ArchetypeChunk.DidChange"/>
         /// <seealso cref="ChangedFilterAttribute"/>
-        public uint GlobalSystemVersion => IsCreated ? EntityComponentStore->GlobalSystemVersion : 0;
+        public uint GlobalSystemVersion => IsCreated? GetCheckedEntityDataAccess()->EntityComponentStore->GlobalSystemVersion : 0;
 
         /// <summary>
         /// Reports whether the EntityManager has been initialized yet.
         /// </summary>
         /// <value>True, if the EntityManager's OnCreateManager() function has finished.</value>
-        public bool IsCreated => m_EntityComponentStore != null;
+        public bool IsCreated => m_AliveHandle.IsAllocated && m_AliveHandle.Target != null;
 
         /// <summary>
         /// The capacity of the internal entities array.
@@ -132,123 +145,112 @@ namespace Unity.Entities
         /// first ensures that all Jobs finish. This can prevent the Job scheduler from utilizing available CPU
         /// cores and threads, resulting in a temporary performance drop.
         /// </remarks>
-        public int EntityCapacity => EntityComponentStore->EntitiesCapacity;
+        public int EntityCapacity => GetCheckedEntityDataAccess()->EntityComponentStore->EntitiesCapacity;
 
-        /// <summary>
-        /// The Job dependencies of the exclusive entity transaction.
-        /// </summary>
-        /// <value></value>
-        public JobHandle ExclusiveEntityTransactionDependency
-        {
-            get { return DependencyManager->ExclusiveTransactionDependency; }
-            set { DependencyManager->ExclusiveTransactionDependency = value; }
-        }
-        
         /// <summary>
         /// A EntityQuery instance that matches all components.
         /// </summary>
-        public EntityQuery UniversalQuery => m_UniversalQuery;
-        
-        EntityQuery m_UniversalQueryWithChunks;
-        
+        public EntityQuery UniversalQuery => GetCheckedEntityDataAccess()->ManagedEntityDataAccess.m_UniversalQuery;
+
         /// <summary>
         /// An object providing debugging information and operations.
         /// </summary>
-        public EntityManagerDebug Debug => m_Debug ?? (m_Debug = new EntityManagerDebug(this));
+        public EntityManagerDebug Debug
+        {
+            get
+            {
+                var guts = GetCheckedEntityDataAccess()->ManagedEntityDataAccess;
+                if (guts.m_Debug == null)
+                    guts.m_Debug = new EntityManagerDebug(this);
+                return guts.m_Debug;
+            }
+        }
 
-        internal EntityManager(World world)
+        internal void Initialize(World world, GCHandle boxedAliveBool)
         {
             TypeManager.Initialize();
             StructuralChange.Initialize();
             EntityCommandBuffer.Initialize();
 
-            m_World = world;
-
-            m_DependencyManager =
-                (ComponentDependencyManager*) UnsafeUtility.Malloc(sizeof(ComponentDependencyManager), 64,
-                    Allocator.Persistent);
-            m_DependencyManager->OnCreate();
-
-            m_EntityComponentStore = Entities.EntityComponentStore.Create(world.SequenceNumber << 32);
-            m_EntityQueryManager = Unity.Entities.EntityQueryManager.Create(m_DependencyManager);
-            m_ManagedComponentStore = new ManagedComponentStore();
-
-            m_EntityDataAccess = new EntityDataAccess(this, true);
-
-            m_ExclusiveEntityTransaction = new ExclusiveEntityTransaction(this);
-
-            m_UniversalQuery = CreateEntityQuery(
-                new EntityQueryDesc
-                {
-                    Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
-                }
-            );
-
-            m_UniversalQueryWithChunks = CreateEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[] {ComponentType.ReadWrite<ChunkHeader>()},
-                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
-                },
-                new EntityQueryDesc
-                {
-                    Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
-                }
-            );
-
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_UniversalQuery._DisallowDisposing = "EntityManager.UniversalQuery may not be disposed";
-            m_UniversalQueryWithChunks._DisallowDisposing = "EntityManager.UniversalQuery may not be disposed";
-            #endif
+            m_Safety = AtomicSafetyHandle.Create();
+            m_JobMode = false;
+#endif
+
+            m_AliveHandle = boxedAliveBool;
+
+            m_EntityDataAccess = (EntityDataAccess*)UnsafeUtility.Malloc(sizeof(EntityDataAccess), 16, Allocator.Persistent);
+            UnsafeUtility.MemClear(m_EntityDataAccess, sizeof(EntityDataAccess));
+            EntityDataAccess.Initialize(m_EntityDataAccess, world);
         }
 
         internal void PreDisposeCheck()
         {
             EndExclusiveEntityTransaction();
-            m_DependencyManager->PreDisposeCheck();
+            GetCheckedEntityDataAccess()->DependencyManager->PreDisposeCheck();
         }
-        
+
         internal void DestroyInstance()
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+#endif
+
             PreDisposeCheck();
 
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            m_UniversalQuery._DisallowDisposing = null;
-            m_UniversalQueryWithChunks._DisallowDisposing = null;
-            #endif
-            m_UniversalQuery.Dispose();
-            m_UniversalQueryWithChunks.Dispose();
-            m_UniversalQuery = null;
-            m_UniversalQueryWithChunks = null;
+            GetCheckedEntityDataAccess()->Dispose();
+            UnsafeUtility.Free(m_EntityDataAccess, Allocator.Persistent);
+            m_EntityDataAccess = null;
 
-            m_DependencyManager->Dispose();
-            UnsafeUtility.Free(m_DependencyManager, Allocator.Persistent);
-            m_DependencyManager = null;
-
-            Entities.EntityComponentStore.Destroy(m_EntityComponentStore);
-            m_EntityComponentStore = null;
-            
-            Entities.EntityQueryManager.Destroy(m_EntityQueryManager);
-            m_EntityQueryManager = null;
-
-            m_EntityQueryManager = null;
-            m_ExclusiveEntityTransaction.OnDestroy();
-
-            m_ManagedComponentStore.Dispose();
-
-            m_World = null;
-            m_Debug = null;
-        }
-
-        private EntityManager()
-        {
-            // for tests only
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.Release(m_Safety);
+            m_Safety = default;
+#endif
         }
 
         internal static EntityManager CreateEntityManagerInUninitializedState()
         {
             return new EntityManager();
         }
+
+        public bool Equals(EntityManager other)
+        {
+            return m_EntityDataAccess == other.m_EntityDataAccess;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is EntityManager other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return unchecked((int)(long)m_EntityDataAccess);
+        }
+
+        public static bool operator==(EntityManager lhs, EntityManager rhs)
+        {
+            return lhs.m_EntityDataAccess == rhs.m_EntityDataAccess;
+        }
+
+        public static bool operator!=(EntityManager lhs, EntityManager rhs)
+        {
+            return lhs.m_EntityDataAccess != rhs.m_EntityDataAccess;
+        }
+
+        // Temporarily allow conversion from null reference to allow existing packages to compile.
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("EntityManager is a struct. Please use `default` instead of `null`. (RemovedAfter 2020-07-01)")]
+        public static implicit operator EntityManager(EntityManagerNullShim? shim) => default(EntityManager);
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("This is slow. Use The EntityDataAccess directly in new code.")]
+        internal EntityComponentStore* EntityComponentStore => GetCheckedEntityDataAccess()->EntityComponentStore;
+
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("This is slow. Use The EntityDataAccess directly in new code.")]
+        internal ComponentSafetyHandles* SafetyHandles => &GetCheckedEntityDataAccess()->DependencyManager->Safety;
+        #endif
     }
 }
-

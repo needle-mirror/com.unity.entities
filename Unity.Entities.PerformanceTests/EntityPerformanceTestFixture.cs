@@ -7,8 +7,8 @@ namespace Unity.Entities.PerformanceTests
         protected World m_PreviousWorld;
         protected World m_World;
         protected EntityManager m_Manager;
-        
-        
+
+
         [SetUp]
         virtual public void Setup()
         {
@@ -20,14 +20,14 @@ namespace Unity.Entities.PerformanceTests
         [TearDown]
         virtual public void TearDown()
         {
-            if (m_Manager != null)
+            if (m_Manager.IsCreated)
             {
                 m_World.Dispose();
                 m_World = null;
 
                 World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
                 m_PreviousWorld = null;
-                m_Manager = null;
+                m_Manager = default;
             }
         }
     }

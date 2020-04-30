@@ -82,9 +82,9 @@ namespace Unity.Entities.IL2CPPProcessing
             return filePathName;
         }
 
-        static string ToCecilName (string fullTypeName)
+        static string ToCecilName(string fullTypeName)
         {
-            return fullTypeName.Replace ('+', '/');
+            return fullTypeName.Replace('+', '/');
         }
 
         static string FormatForXml(string value)

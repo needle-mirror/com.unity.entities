@@ -1,14 +1,14 @@
-﻿using System;
+using System;
 using UnityEngine;
 
-namespace Unity.Entities.Tests {
-
+namespace Unity.Entities.Tests
+{
     [ConverterVersion("sschoener", 1)]
     public class TestPrefabComponentAuthoring : MonoBehaviour, IConvertGameObjectToEntity
     {
         public int IntValue;
         public Material Material;
-        
+
         public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
         {
             dstManager.AddComponentData(entity, new TestPrefabComponent
@@ -30,7 +30,7 @@ namespace Unity.Entities.Tests {
         public Material Material;
     }
 #endif
-    
+
     public struct TestPrefabComponent : IComponentData
     {
         public int IntValue;

@@ -14,10 +14,10 @@ namespace Unity.Entities.Tests
             var root = CreateGameObject();
             var values = new[] { 123, 234, 345 };
 
-            foreach(var value in values)
+            foreach (var value in values)
             {
                 var gameObject = CreateGameObject().ParentTo(root);
-                gameObject.AddComponent<EcsTestMonoBehaviourComponent>().SomeValue = value;
+                gameObject.AddComponent<ConversionTestHybridComponent>().SomeValue = value;
             }
 
             GameObjectConversionUtility.ConvertGameObjectHierarchy(root, MakeDefaultSettings().WithExtraSystem<ConversionHybridTests.MonoBehaviourComponentConversionSystem>());
@@ -31,8 +31,8 @@ namespace Unity.Entities.Tests
             var reader = new TestBinaryReader(writer);
             SerializeUtilityHybrid.Deserialize(world.EntityManager, reader, objRefs);
 
-            var query = world.EntityManager.CreateEntityQuery(typeof(EcsTestMonoBehaviourComponent));
-            var components = query.ToComponentArray<EcsTestMonoBehaviourComponent>();
+            var query = world.EntityManager.CreateEntityQuery(typeof(ConversionTestHybridComponent));
+            var components = query.ToComponentArray<ConversionTestHybridComponent>();
 
             CollectionAssert.AreEquivalent(components.Select(c => c.SomeValue), values);
 
