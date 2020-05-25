@@ -330,7 +330,6 @@ namespace Unity.Entities.Editor
                         AddNodeIgnoreNulls(ref rootNode.Children, BuildNodesForComponentSystem(system, ref currentID));
                 }
             }
-            return;
         }
 
         bool GetDefaultExpandedIds(HideNode parent, List<int> ids)

@@ -152,6 +152,11 @@ namespace Unity.Entities
                 return m_Manager.GetChunk(entity).m_Chunk->metaChunkEntity;
             }
 
+            internal Entity GetMetaChunkEntity(ArchetypeChunk chunk)
+            {
+                return chunk.m_Chunk->metaChunkEntity;
+            }
+
             public void LogEntityInfo(Entity entity)
             {
                 Unity.Debug.Log(GetEntityInfo(entity));

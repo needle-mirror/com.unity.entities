@@ -309,7 +309,7 @@ namespace Unity.Entities
                     hash *= FNV_32_PRIME;
                     hash ^= *(byte*)(bufferPtrAtEndOfAlignedData + i);
                 }
-                foreach (var obj in writer.GetObjectTable())
+                foreach (var obj in writer.GetUnityObjects())
                 {
                     hash *= FNV_32_PRIME;
                     hash ^= obj.GetHashCode();
@@ -378,28 +378,7 @@ namespace Unity.Entities
             if (fn != null)
                 return fn(lhs, rhs);
 
-            using (var bufferLHS = new UnsafeAppendBuffer(512, 16, Allocator.Temp))
-            using (var bufferRHS = new UnsafeAppendBuffer(512, 16, Allocator.Temp))
-            {
-                var writerLHS = new ManagedObjectBinaryWriter(&bufferLHS);
-                writerLHS.WriteObject(lhs);
-
-                var writerRHS = new ManagedObjectBinaryWriter(&bufferRHS);
-                writerRHS.WriteObject(rhs);
-
-                if (UnsafeUtility.MemCmp(bufferLHS.Ptr, bufferRHS.Ptr, bufferLHS.Length) != 0)
-                    return false;
-
-                var objectTableLHS = writerLHS.GetObjectTable();
-                var objectTableRHS = writerRHS.GetObjectTable();
-                Assertions.Assert.AreEqual(objectTableLHS.Length, objectTableRHS.Length);
-
-                for (int i = 0; i < objectTableLHS.Length; ++i)
-                    if (!objectTableLHS[i].Equals(objectTableRHS[i]))
-                        return false;
-            }
-
-            return true;
+            return new ManagedObjectEqual().CompareEqual(lhs, rhs);
         }
 
 #endif

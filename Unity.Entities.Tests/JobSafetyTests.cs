@@ -7,7 +7,7 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
-    [StandaloneFixme]  // Tiny needs nativejobs and unified thread path
+    [DotsRuntimeFixme]  // Tiny needs nativejobs and unified thread path
     class JobSafetyTests : ECSTestsFixture
     {
         struct TestIncrementJob : IJob

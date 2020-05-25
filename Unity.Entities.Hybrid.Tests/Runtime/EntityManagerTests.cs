@@ -13,12 +13,13 @@ namespace Unity.Entities.Tests
     public class EcsTestProxy : ComponentDataProxy<EcsTestData> {}
 #pragma warning restore 618
 
-    class EntityManagerTests : ECSTestsFixture
+    class EntityManagerTests : HybridRuntimeTestFixture
     {
         [Test]
         public void GetComponentObjectReturnsTheCorrectType()
         {
             var go = new GameObject();
+            MarkForAutoDestructionAfterTest(go);
             go.AddComponent<EcsTestProxy>();
 
             var component = m_Manager.GetComponentObject<Transform>(go.GetComponent<GameObjectEntity>().Entity);
@@ -32,6 +33,7 @@ namespace Unity.Entities.Tests
         public void GetComponentObjectThrowsIfComponentDoesNotExist()
         {
             var go = new GameObject();
+            MarkForAutoDestructionAfterTest(go);
             go.AddComponent<EcsTestProxy>();
 
             Assert.Throws<System.ArgumentException>(() => m_Manager.GetComponentObject<Rigidbody>(go.GetComponent<GameObjectEntity>().Entity));

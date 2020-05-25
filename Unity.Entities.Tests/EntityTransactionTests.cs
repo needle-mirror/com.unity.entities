@@ -117,7 +117,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // Needs NativeJobs schedule path
+        [DotsRuntimeFixme] // Needs NativeJobs schedule path
         public void MissingJobCreationDependency()
         {
             var job = new CreateEntityJob();
@@ -130,7 +130,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // Needs NativeJobs + Safety Handles support
+        [DotsRuntimeFixme] // Needs NativeJobs + Safety Handles support
         public void CreationJobAndMainThreadNotAllowedInParallel()
         {
             var job = new CreateEntityJob();
@@ -250,7 +250,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void TransactionSync1()
         {
             var top = new SyncIJobChunk {}.Schedule(m_Manager.UniversalQuery);
@@ -264,7 +264,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void TransactionSync2()
         {
             var exclusive = m_Manager.BeginExclusiveEntityTransaction();

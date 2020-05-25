@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
+using Unity.Profiling;
 using UnityEngine.Profiling;
 
 namespace Unity.Entities
@@ -48,6 +49,8 @@ namespace Unity.Entities
 
         JobHandle              m_ExclusiveTransactionDependency;
         bool                   _IsInTransaction;
+
+        private ProfilerMarker m_Marker;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public ComponentSafetyHandles Safety;
@@ -101,6 +104,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.OnCreate();
 #endif
+            m_Marker = new ProfilerMarker("CompleteAllJobs");
         }
 
         public void CompleteAllJobsAndInvalidateArrays()
@@ -117,7 +121,7 @@ namespace Unity.Entities
                         "Jobs accessing the entity manager must issue a complete sync point");
                 }
 
-                Profiler.BeginSample("CompleteAllJobs");
+                m_Marker.Begin();
                 for (int t = 0; t < m_DependencyHandlesCount; ++t)
                 {
                     m_DependencyHandles[t].WriteFence.Complete();
@@ -129,7 +133,7 @@ namespace Unity.Entities
                     m_DependencyHandles[t].NumReadFences = 0;
                 }
                 ClearDependencies();
-                Profiler.EndSample();
+                m_Marker.End();
             }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

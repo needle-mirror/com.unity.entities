@@ -147,12 +147,9 @@ namespace Unity.Entities
         {
             AssertCanAddComponent(archetypeList, componentType);
 
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList,
-                Collections.Allocator.TempJob,
-                ref filter, dependencyManager))
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
+            if (chunks.Length > 0)
             {
-                if (chunks.Length == 0)
-                    return;
 
                 //@TODO the fast path for a chunk that contains a single entity is only possible if the chunk doesn't have a Locked Entity Order
                 //but we should still be allowed to add zero sized components to chunks with a Locked Entity Order, even ones that only contain a single entity
@@ -172,6 +169,7 @@ namespace Unity.Entities
                 }
                 */
             }
+            chunks.Dispose();
         }
 
         public bool RemoveComponentWithValidation(Entity entity, ComponentType componentType)
@@ -186,10 +184,9 @@ namespace Unity.Entities
         public void RemoveComponentWithValidation(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
             ComponentType componentType, ComponentDependencyManager* dependencyManager)
         {
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager))
-            {
-                RemoveComponentWithValidation(chunks, componentType);
-            }
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
+            RemoveComponentWithValidation(chunks, componentType);
+            chunks.Dispose();
         }
 
         public void RemoveComponentWithValidation(Collections.NativeArray<ArchetypeChunk> chunks, ComponentType componentType)

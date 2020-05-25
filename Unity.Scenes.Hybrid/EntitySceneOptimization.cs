@@ -40,7 +40,7 @@ namespace Unity.Entities.Streaming
             var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.EntitySceneOptimizations);
             foreach (var systemType in systemTypes)
                 AddSystemAndLogException(world, group, systemType);
-            group.SortSystemUpdateList();
+            group.SortSystems();
 
             // foreach (var system in group.Systems)
             //    Debug.Log(system.GetType());

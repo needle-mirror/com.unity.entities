@@ -737,7 +737,7 @@ namespace Unity.Entities.Tests
 #if !UNITY_DOTSPLAYER_IL2CPP
 // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
-        [StandaloneFixme] // No support for PinGCObject
+        [DotsRuntimeFixme] // No support for PinGCObject
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponentCollection()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))

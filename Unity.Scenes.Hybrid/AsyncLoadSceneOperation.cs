@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -93,7 +94,7 @@ namespace Unity.Scenes
                 var loadingOperation = (AsyncLoadSceneOperation)LoadingOperationHandle.Target;
                 LoadingOperationHandle.Free();
 
-                var objectReferences = (UnityEngine.Object[])ObjectReferencesHandle.Target;
+                var objectReferences = (UnityEngine.Object[]) ObjectReferencesHandle.Target;
                 ObjectReferencesHandle.Free();
 
                 try
@@ -132,7 +133,7 @@ namespace Unity.Scenes
         ReadHandle               _ReadHandle;
 
         private double _StartTime;
-
+        
         public AsyncLoadSceneOperation(AsyncLoadSceneData asyncLoadSceneData)
         {
             _Data = asyncLoadSceneData;
@@ -182,7 +183,14 @@ namespace Unity.Scenes
                 cmd.Buffer = _FileContent;
                 cmd.Offset = 0;
                 cmd.Size = _SceneSize;
+                Assert.IsFalse(string.IsNullOrEmpty(_ScenePath));
+#if ENABLE_PROFILER && UNITY_2020_2_OR_NEWER
+                // When AsyncReadManagerMetrics are available, mark up the file read for more informative IO metrics.
+                // Metrics can be retrieved by AsyncReadManagerMetrics.GetMetrics
+                _ReadHandle = AsyncReadManager.Read(_ScenePath, &cmd, 1, subsystem: AssetLoadingSubsystem.EntitiesScene);
+#else
                 _ReadHandle = AsyncReadManager.Read(_ScenePath, &cmd, 1);
+#endif
 
                 if (_ExpectedObjectReferenceCount != 0)
                 {
@@ -194,7 +202,7 @@ namespace Unity.Scenes
                     _ResourceObjRefs = _SceneBundleHandle.AssetBundle.LoadAsset<ReferencedUnityObjects>(Path.GetFileName(_ResourcesPathObjRefs));
 #endif
                 }
-
+                
                 ScheduleSceneRead(_ResourceObjRefs);
                 _EntityManager.EndExclusiveEntityTransaction();
                 PostProcessScene();
@@ -226,7 +234,14 @@ namespace Unity.Scenes
                     cmd.Buffer = _FileContent;
                     cmd.Offset = 0;
                     cmd.Size = _SceneSize;
+                    Assert.IsFalse(string.IsNullOrEmpty(_ScenePath));
+#if ENABLE_PROFILER && UNITY_2020_2_OR_NEWER
+                    // When AsyncReadManagerMetrics are available, mark up the file read for more informative IO metrics.
+                    // Metrics can be retrieved by AsyncReadManagerMetrics.GetMetrics
+                    _ReadHandle = AsyncReadManager.Read(_ScenePath, &cmd, 1, subsystem: AssetLoadingSubsystem.EntitiesScene);
+#else
                     _ReadHandle = AsyncReadManager.Read(_ScenePath, &cmd, 1);
+#endif
 
                     if (_ExpectedObjectReferenceCount != 0)
                     {
@@ -266,7 +281,7 @@ namespace Unity.Scenes
                 }
 
                 var fileName = Path.GetFileName(_ResourcesPathObjRefs);
-
+                
                 _AssetRequest = _SceneBundleHandle.AssetBundle.LoadAssetAsync(fileName);
                 _LoadingStatus = LoadingStatus.WaitingForAssetLoad;
             }
@@ -342,7 +357,7 @@ namespace Unity.Scenes
                 }
             }
         }
-
+        
         public void Update()
         {
             if (_BlockUntilFullyLoaded)

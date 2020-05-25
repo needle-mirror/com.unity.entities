@@ -301,7 +301,7 @@ namespace Unity.Entities
                     if (index < s_TypeNames.Count)
                         return s_TypeNames[index];
                     else
-                        return "<unavailable>";
+                        return $"StableTypeHash: {m_TypeInfo.StableTypeHash}";
 #endif
                 }
             }
@@ -521,7 +521,7 @@ namespace Unity.Entities
 #endif
 
             if (!s_Initialized)
-                throw new InvalidOperationException($"{nameof(TypeManager)} cannot be double-freed");
+                return;
 
             s_Initialized = false;
 
@@ -591,7 +591,7 @@ namespace Unity.Entities
             // Otherwise it wasn't registered at all
             else
 #endif
-                throw new ArgumentException($"Unknown Type:`{type}` All ComponentType must be known at compile time. For generic components, each concrete type must be registered with [RegisterGenericComponentType].");
+            throw new ArgumentException($"Unknown Type:`{type}` All ComponentType must be known at compile time. For generic components, each concrete type must be registered with [RegisterGenericComponentType].");
         }
 
         public static int GetTypeIndex<T>()

@@ -550,7 +550,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // After NativeJobs and CheckDidSyncFence in Runtime
+        [DotsRuntimeFixme] // After NativeJobs and CheckDidSyncFence in Runtime
         public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -643,14 +643,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // After NativeJobs
+        [DotsRuntimeFixme] // After NativeJobs
         public void ReadOnlyDynamicBufferReadOnly()
         {
             ReadOnlyDynamicBufferImpl(true);
         }
 
         [Test]
-        [StandaloneFixme] // After NativeJobs
+        [DotsRuntimeFixme] // After NativeJobs
         public void ReadOnlyDynamicBufferWritable()
         {
             ReadOnlyDynamicBufferImpl(false);
@@ -666,7 +666,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // After NativeJobs
+        [DotsRuntimeFixme] // After NativeJobs
         public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -698,7 +698,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // After NativeJobs
+        [DotsRuntimeFixme] // After NativeJobs
         public void NativeArrayInJobReadOnly()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));

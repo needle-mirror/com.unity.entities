@@ -178,7 +178,7 @@ namespace Unity.Entities.Editor
 
         public override void OnGUI(Rect rect)
         {
-            if (getWorldSelection()?.EntityManager.IsCreated == true)
+            if (getWorldSelection()?.IsCreated == true)
             {
                 if (Event.current.type == EventType.Repaint)
                 {

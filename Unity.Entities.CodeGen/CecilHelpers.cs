@@ -5,6 +5,7 @@ using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using Unity.Entities.CodeGeneratedJobForEach;
 #if !UNITY_DOTSPLAYER
 using UnityEngine.Scripting;
 #endif
@@ -66,7 +67,7 @@ namespace Unity.Entities.CodeGen
             if (sequencePoints == null || !sequencePoints.Any())
                 return null;
 
-            for (int i = 0; i != sequencePoints.Count - 1; i++)
+            for (int i = 0; i != sequencePoints.Count-1; i++)
             {
                 if (sequencePoints[i].Offset < instruction.Offset &&
                     sequencePoints[i + 1].Offset > instruction.Offset)
@@ -105,19 +106,19 @@ namespace Unity.Entities.CodeGen
         }
 
         public static (MethodDefinition[], Dictionary<FieldReference, CapturedVariableDescription> capturedVariables) CloneClosureExecuteMethodAndItsLocalFunctions(
-            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName,
+            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName, 
             Func<IEnumerable<MethodDefinition>, IEnumerable<Instruction>> permittedCapturingInstructionsGenerator)
         {
             Dictionary<FieldReference, CapturedVariableDescription> capturedVariables = new Dictionary<FieldReference, CapturedVariableDescription>();
 
             // Construct list of all DisplayClasses under our declaring type (we need to do this as other delegates might use generate their own DisplayClasses)
             var lambdaDisplayClasses = DisplayClassDescendants(methodsToClone.First().DeclaringType);
-
+            
             // Find all instructions that load or store a variable in one of our DisplayClasses
             // We use these instructions to discover variables that are captured by our lambda.
             // Note: we have to look for Stfld instructions as well for the case where a captured variable is only stored into.
             var instructionsThatLoadsOrStoresVariableInDisplayClass =
-                methodsToClone.SelectMany(method => method.Body.Instructions)
+                methodsToClone.SelectMany(method=>method.Body.Instructions)
                     .Where(i => (i.IsLoadFieldOrLoadFieldAddress() || i.IsStoreField()) && i.Operand is FieldReference &&
                         !(i.Operand as FieldReference).FieldType.IsDisplayClass() && lambdaDisplayClasses.Contains((i.Operand as FieldReference).DeclaringType))
                     .ToArray();
@@ -131,14 +132,14 @@ namespace Unity.Entities.CodeGen
                 // We need to ignore cases where we are permitted to capture (generally for a method that we are going to stub out later)
                 if (permittedCapturingInstructions.Contains(instructionThatLoadsOrStoresVariableInDisplayClass))
                     continue;
-
+                
                 var oldField = instructionThatLoadsOrStoresVariableInDisplayClass.Operand as FieldReference;
                 if (capturedVariables.ContainsKey(oldField))
                     continue;
 
                 var oldFields = new List<FieldReference>();
                 oldFields.Add(oldField);
-
+                
                 var containingMethod = methodsToClone.Single(m => m.Body.Instructions.Contains(instructionThatLoadsOrStoresVariableInDisplayClass));
                 var initialLdFldInstruction = FindInstructionThatPushedArg(containingMethod, 0, instructionThatLoadsOrStoresVariableInDisplayClass);
                 foreach (var instruction in WalkBackLdFldInstructionsToLdarg0(containingMethod, initialLdFldInstruction))
@@ -156,12 +157,12 @@ namespace Unity.Entities.CodeGen
                 };
                 targetType.Fields.Add(newField);
             }
-
+            
             // Walk through all instructions that load or store are captured variables and nop out nested DisplayClasses
             var instructionsThatLoadOrStoreCapturedVariable =
                 methodsToClone.SelectMany(method => method.Body.Instructions)
                     .Where(i => ((i.IsLoadFieldOrLoadFieldAddress() || i.IsStoreField()) &&
-                        capturedVariables.Keys.Any(fr => fr == (i.Operand as FieldReference)))).ToArray();
+                                 capturedVariables.Keys.Any(fr => fr == (i.Operand as FieldReference)))).ToArray();
             foreach (var instructionThatLoadOrStoreCapturedVariable in instructionsThatLoadOrStoreCapturedVariable)
             {
                 var containingMethod = methodsToClone.Single(m => m.Body.Instructions.Contains(instructionThatLoadOrStoreCapturedVariable));
@@ -178,14 +179,14 @@ namespace Unity.Entities.CodeGen
                 throw new ArgumentException();
 
             var clonedMethods = methodsToClone.ToDictionary(m => m, m =>
-            {
+                {
                 var clonedMethod = new MethodDefinition(m == executeMethod ? newMethodName : m.Name, m.Attributes, m.ReturnType)
-                {HasThis = m.HasThis, DeclaringType = targetType};
-                clonedMethod.DebugInformation.Scope = m.DebugInformation.Scope;
-
-                targetType.Methods.Add(clonedMethod);
-                return clonedMethod;
-            }
+                            {HasThis = m.HasThis, DeclaringType = targetType};
+                    clonedMethod.DebugInformation.Scope = m.DebugInformation.Scope;
+                    
+                    targetType.Methods.Add(clonedMethod);
+                    return clonedMethod;
+                }
             );
 
             foreach (var methodToClone in methodsToClone)
@@ -209,7 +210,7 @@ namespace Unity.Entities.CodeGen
                 {
                     var newVd = new VariableDefinition(vd.VariableType);
                     methodDefinition.Body.Variables.Add(newVd);
-
+                    
                     var sourceVariable = methodToClone.DebugInformation?.Scope?.Variables?.FirstOrDefault(v => v.Index == vd.Index);
                     if (sourceVariable != null)
                         methodDefinition.DebugInformation.Scope.Variables.Add(new VariableDebugInformation(newVd, sourceVariable.Name));
@@ -229,7 +230,7 @@ namespace Unity.Entities.CodeGen
                     if (clonedOperand is FieldReference fr)
                     {
                         if (capturedVariables.TryGetValue(clonedOperand as FieldReference, out var capturedVariableForField))
-                            clonedOperand = capturedVariableForField.NewField;
+                        clonedOperand = capturedVariableForField.NewField;
                     }
 
                     if (clonedOperand is VariableDefinition vd)
@@ -259,7 +260,7 @@ namespace Unity.Entities.CodeGen
                 var newDebugInfo = methodDefinition.DebugInformation;
                 foreach (var seq in oldDebugInfo.SequencePoints)
                     newDebugInfo.SequencePoints.Add(seq);
-
+                
                 // Need to clear variables and sequence points in old method or VS debugger gets confused.
                 // It is also only safe to clear the execute method and not other called methods (fortunately issue only seems to occur in lambda).
                 if (methodToClone == executeMethod)
@@ -425,8 +426,8 @@ namespace Unity.Entities.CodeGen
             {
                 var instruction = instructions.FirstOrDefault(i => i.OpCode == OpCodes.Ldftn);
                 if (instruction == null)
-                    throw new ArgumentException("Instruction array did not have ldftn opcode. Instruction array way: " + instructions.Select(i => i.ToString()).SeparateBy(Environment.NewLine));
-                return ((MethodReference)instruction.Operand).Resolve();
+                    throw new ArgumentException("Instruction array did not have ldftn opcode. Instruction array way: "+instructions.Select(i=>i.ToString()).SeparateBy(Environment.NewLine));
+                return ((MethodReference) instruction.Operand).Resolve();
             }
         }
 
@@ -560,7 +561,7 @@ namespace Unity.Entities.CodeGen
 
             var results = new List<Instruction>(50);
             int patternIndex = 0;
-            while (true)
+            while(true)
             {
                 if (cursor == null)
                     return false;
@@ -581,14 +582,14 @@ namespace Unity.Entities.CodeGen
             return true;
         }
 
-        internal static bool IsEndOfSequence(Instruction instruction, Func<Instruction, bool>[] pattern, out List<Instruction> instructions)
+        internal static bool IsEndOfSequence(Instruction instruction, Func<Instruction, bool>[] pattern,out List<Instruction> instructions)
         {
             Instruction cursor = instruction;
             instructions = null;
 
             var result = new List<Instruction>(50);
-            int patternIndex = pattern.Length - 1;
-            while (true)
+            int patternIndex = pattern.Length-1;
+            while(true)
             {
                 if (cursor == null)
                     return false;
@@ -635,8 +636,6 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        static readonly string _universalDelegatesNamespace = nameof(Unity) + "." + nameof(Unity.Entities) + "." + nameof(Unity.Entities.UniversalDelegates);
-
         public static bool AllDelegatesAreGuaranteedNotToOutliveMethodFor(MethodDefinition methodToAnalyze)
         {
             //in order to make lambda jobs be able to not allocate GC memory, we want to change the DisplayClass that stores the variables from a class to a struct.
@@ -648,7 +647,7 @@ namespace Unity.Entities.CodeGen
                 //we'll find all occurrences of delegates by scanning all constructor invocations.
                 if (instruction.OpCode != OpCodes.Newobj)
                     continue;
-                var mr = (MethodReference)instruction.Operand;
+                var mr = (MethodReference) instruction.Operand;
 
                 //to avoid a potentially expensive resolve, we'll first try to rule out this instruction as delegate creating by doing some pattern checks:
 
@@ -656,21 +655,21 @@ namespace Unity.Entities.CodeGen
                 if (mr.Parameters.Count != 2)
                     continue;
 
-                //if this delegate is one of our UniversalDelegates we'll assume we're cool. This is not waterproof, as you could imagine a situation where someone
-                //makes an instance of our delegate manually, and intentionally leaks that. We'll consider that scenario near-malice for now, and assume that the UniversalDelegates
-                //are exclusively used as arguments for lambda jobs that do not leak.
-                if (mr.DeclaringType.Namespace == _universalDelegatesNamespace)
+                if (mr.DeclaringType.Name == nameof(LambdaJobChunkDescriptionConstructionMethods.JobChunkDelegate) && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaJobChunkDescriptionConstructionMethods))
                     continue;
 
-                if (mr.DeclaringType.Name == typeof(LambdaJobChunkDescriptionConstructionMethods.JobChunkDelegate).Name && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaJobChunkDescriptionConstructionMethods))
+                if (mr.DeclaringType.Name == nameof(LambdaSingleJobDescriptionConstructionMethods.WithCodeAction) && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaSingleJobDescriptionConstructionMethods))
                     continue;
-
-                if (mr.DeclaringType.Name == typeof(LambdaSingleJobDescriptionConstructionMethods.WithCodeAction).Name && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaSingleJobDescriptionConstructionMethods))
-                    continue;
-
+                
                 //ok, it walks like a delegate constructor invocation, let's see if it talks like one:
                 var constructedType = mr.DeclaringType.Resolve();
-                if (constructedType.BaseType.Name == nameof(MulticastDelegate))
+                
+                if (constructedType.BaseType.Name != nameof(MulticastDelegate)) 
+                    continue;
+                
+                if (constructedType.CustomAttributes.Any(c => c.Constructor.DeclaringType.Name == nameof(EntitiesForEachCompatibleAttribute)))
+                    continue;
+
                     return false;
             }
 
@@ -704,7 +703,7 @@ namespace Unity.Entities.CodeGen
                     instruction.OpCode = OpCodes.Ldloca;
                     instruction.Operand = body.Variables[loadIndex];
                 }
-
+                
                 // We also need to replace and ldfld a nested DisplayClass that we turned into a struct with ldflda
                 if (instruction.OpCode == OpCodes.Ldfld && ((FieldReference)instruction.Operand).IsNestedDisplayClassField())
                     instruction.OpCode = OpCodes.Ldflda;
@@ -717,7 +716,7 @@ namespace Unity.Entities.CodeGen
 
                 bool IsInstructionNewObjOfDisplayClass(Instruction thisInstruction)
                 {
-                    return thisInstruction.OpCode.Code == Code.Newobj && ((MethodReference)thisInstruction.Operand).DeclaringType.TypeReferenceEquals(displayClassTypeReference);
+                    return thisInstruction.OpCode.Code == Code.Newobj && ((MethodReference) thisInstruction.Operand).DeclaringType.TypeReferenceEquals(displayClassTypeReference);
                 }
 
                 // We need to replace the creation of the displayclass object on the heap, with a initobj of the displayclass on the stack.
@@ -799,7 +798,7 @@ namespace Unity.Entities.CodeGen
                 {
                     if (breakWhenBranchDetected)
                         return null;
-                    var target = (Instruction)cursor.Operand;
+                    var target = (Instruction) cursor.Operand;
                     if (!seenInstructions.Contains(target))
                     {
                         if (IsUnsupportedBranch(cursor))
@@ -857,7 +856,7 @@ namespace Unity.Entities.CodeGen
             type.Methods.Add(newMethod);
             return newMethod;
         }
-
+        
 #if !UNITY_DOTSPLAYER
         /// <summary>
         /// Adds the [Preserve] attribute to the MethodDefinition instance
@@ -868,7 +867,7 @@ namespace Unity.Entities.CodeGen
             var preserveAttributeCtor = moduleDef.ImportReference(typeof(PreserveAttribute).GetConstructor(Type.EmptyTypes));
             methodDef.CustomAttributes.Add(new CustomAttribute(preserveAttributeCtor));
         }
-
+        
         /// <summary>
         /// Adds the [Preserve] attribute to the TypeDefinition instance
         /// </summary>

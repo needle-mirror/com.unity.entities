@@ -59,7 +59,8 @@ namespace Unity.Entities
                     for (int i = 0; i < instanceCount; i++)
                     {
                         var componentInInstance = dstCompanionGameObjects[i].GetComponent(componentType);
-                        managedComponentStore.SetManagedComponentValue(dstArray[i], componentInInstance);
+                        var dstIndex = src * instanceCount + i;
+                        managedComponentStore.SetManagedComponentValue(dstArray[dstIndex], componentInInstance);
                     }
                 }
             }
@@ -71,7 +72,8 @@ namespace Unity.Entities
 
                     for (int i = 0; i < instanceCount; i++)
                     {
-                        managedComponentStore.SetManagedComponentValue(dstArray[i], component);
+                        var dstIndex = src * instanceCount + i;
+                        managedComponentStore.SetManagedComponentValue(dstArray[dstIndex], component);
                     }
                 }
             }

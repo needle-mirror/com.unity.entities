@@ -16,10 +16,6 @@ namespace Unity.Scenes.Editor
         const string k_TempBuildPath = "Temp/LLBP";
         private const int AssetBundleBuildVersion = 8;
 
-        internal static GUID k_UnityEditorResources = new GUID("0000000000000000d000000000000000");
-        internal static GUID k_UnityBuiltinResources = new GUID("0000000000000000e000000000000000");
-        internal static GUID k_UnityBuiltinExtraResources = new GUID("0000000000000000f000000000000000");
-
         // TODO: This should be part of the IDeterministicIdentifiers api.
         static string GenerateAssetBundleInternalFileName(this IDeterministicIdentifiers generator, string name)
         {
@@ -103,7 +99,7 @@ namespace Unity.Scenes.Editor
                 var temp = asHash->Value.w;
                 asHash->Value.w = 0;
 
-                if (guid == k_UnityBuiltinExtraResources)
+                if (guid == GUIDHelper.UnityBuiltinExtraResources)
                 {
                     fileIdent = temp;
                     return true;
@@ -130,7 +126,7 @@ namespace Unity.Scenes.Editor
             var guid = new GUID(assetGUID);
             TryRemapBuiltinExtraGuid(ref guid, out _);
 
-            if (guid == k_UnityBuiltinResources || guid == k_UnityEditorResources || guid == k_UnityBuiltinExtraResources)
+            if (GUIDHelper.IsBuiltinAsset(in guid))
             {
                 var tempPath = $"Assets/TempAssetCache/{assetGUID}.txt";
                 if (!File.Exists(tempPath))
@@ -149,7 +145,7 @@ namespace Unity.Scenes.Editor
             TryRemapBuiltinExtraGuid(ref guid, out var ident);
 
             // Update ADBv2 to allow extra artifacts to be generated for BuiltIn types
-            if (guid == k_UnityBuiltinResources || guid == k_UnityEditorResources || guid == k_UnityBuiltinExtraResources)
+            if (GUIDHelper.IsBuiltinAsset(in guid))
             {
                 var newPath = AssetDatabase.GUIDToAssetPath(guid.ToString());
                 if (!string.IsNullOrEmpty(newPath))
@@ -237,7 +233,7 @@ namespace Unity.Scenes.Editor
                 {
                     // MonoScripts need to live beside the MonoBehavior (in this case ScriptableObject) and loaded first. We could move it to it's own bundle, but this is safer and it's a lightweight object
                     var type = ContentBuildInterface.GetTypeForObject(obj);
-                    if (obj.guid == k_UnityBuiltinResources)
+                    if (obj.guid == GUIDHelper.UnityBuiltinResources)
                     {
                         // For Builtin Resources, we can reference them directly
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
@@ -253,7 +249,7 @@ namespace Unity.Scenes.Editor
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
                     }
-                    else if (obj.guid == k_UnityBuiltinExtraResources)
+                    else if (obj.guid == GUIDHelper.UnityBuiltinExtraResources)
                     {
                         GUID convGUID = obj.guid;
                         PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
@@ -266,7 +262,7 @@ namespace Unity.Scenes.Editor
                         writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(obj.guid.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
 
                     // This will be solvable after we move SBP into the asset pipeline as importers.
-                    if (!obj.guid.Empty() && obj.guid != sceneGuid && type != typeof(MonoScript) && obj.guid != k_UnityBuiltinExtraResources)
+                    if (!obj.guid.Empty() && obj.guid != sceneGuid && type != typeof(MonoScript) && obj.guid != GUIDHelper.UnityBuiltinExtraResources)
                     {
                         dependencies?.Add(obj.guid);
                     }
@@ -396,7 +392,7 @@ namespace Unity.Scenes.Editor
                 {
                     // MonoScripts need to live beside the MonoBehavior (in this case ScriptableObject) and loaded first. We could move it to it's own bundle, but this is safer and it's a lightweight object
                     var type = ContentBuildInterface.GetTypeForObject(obj);
-                    if (obj.guid == k_UnityBuiltinResources)
+                    if (obj.guid == GUIDHelper.UnityBuiltinResources)
                     {
                         // For Builtin Resources, we can reference them directly
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
@@ -413,10 +409,10 @@ namespace Unity.Scenes.Editor
                             generator.SerializationIndexFromObjectIdentifier(obj), obj);
 
                     // This will be solvable after we move SBP into the asset pipeline as importers.
-                    if (!obj.guid.Empty() && type != typeof(MonoScript))
+                    if (!obj.guid.Empty() && type != typeof(MonoScript) && obj.guid != GUIDHelper.UnityBuiltinResources && obj.guid != GUIDHelper.UnityEditorResources)
                     {
                         var convGUID = obj.guid;
-                        if (obj.guid == k_UnityBuiltinExtraResources)
+                        if (obj.guid == GUIDHelper.UnityBuiltinExtraResources)
                         {
                             PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
                         }
@@ -472,10 +468,10 @@ namespace Unity.Scenes.Editor
                     typeDB = null
                 };
 
-                if (assetGuid == k_UnityBuiltinResources)
+                if (assetGuid == GUIDHelper.UnityBuiltinResources)
                     FilterBuiltinResourcesObjectManifest(manifestPath);
 
-                if (assetGuid == k_UnityBuiltinExtraResources)
+                if (assetGuid == GUIDHelper.UnityBuiltinExtraResources)
                     FilterBuiltinExtraResourcesObjectManifest(manifestPath);
 
 #if UNITY_2020_1_OR_NEWER
@@ -556,7 +552,7 @@ namespace Unity.Scenes.Editor
                 {
                     // MonoScripts need to live beside the MonoBehavior (in this case ScriptableObject) and loaded first. We could move it to it's own bundle, but this is safer and it's a lightweight object
                     var type = ContentBuildInterface.GetTypeForObject(obj);
-                    if (obj.guid == k_UnityBuiltinResources)
+                    if (obj.guid == GUIDHelper.UnityBuiltinResources)
                     {
                         // For Builtin Resources, we can reference them directly
                         // TODO: Once we switch to using GlobalObjectId for SBP, we will need a mapping for certain special cases of GUID <> FilePath for Builtin Resources
@@ -576,7 +572,7 @@ namespace Unity.Scenes.Editor
                         writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
                         writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
                     }
-                    else if (obj.guid == k_UnityBuiltinExtraResources)
+                    else if (obj.guid == GUIDHelper.UnityBuiltinExtraResources)
                     {
                         GUID convGUID = obj.guid;
                         PackBuiltinExtraWithFileIdent(ref convGUID, obj.localIdentifierInFile);
@@ -589,7 +585,7 @@ namespace Unity.Scenes.Editor
                         writeParams.referenceMap.AddMapping(generator.GenerateAssetBundleInternalFileName(obj.guid.ToString()), generator.SerializationIndexFromObjectIdentifier(obj), obj);
 
                     // This will be solvable after we move SBP into the asset pipeline as importers.
-                    if (!obj.guid.Empty() && obj.guid != assetGuid && type != typeof(MonoScript) && obj.guid != k_UnityBuiltinExtraResources)
+                    if (!obj.guid.Empty() && obj.guid != assetGuid && type != typeof(MonoScript) && obj.guid != GUIDHelper.UnityBuiltinExtraResources)
                     {
                         dependencies?.Add(obj.guid);
                     }

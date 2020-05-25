@@ -58,11 +58,14 @@ namespace Unity.Entities
             var gameObjectEntity = GetComponent<GameObjectEntity>();
             if (gameObjectEntity == null)
                 return false;
-            if (!gameObjectEntity.EntityManager.IsCreated)
+            var world = gameObjectEntity.World;
+            if (world == null || !world.IsCreated)
                 return false;
-            if (!gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
+
+            var em = world.EntityManager;
+            if (!em.Exists(gameObjectEntity.Entity))
                 return false;
-            entityManager = gameObjectEntity.EntityManager;
+            entityManager = em;
             entity = gameObjectEntity.Entity;
             return true;
         }

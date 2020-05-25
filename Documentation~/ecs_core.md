@@ -25,6 +25,7 @@ In this diagram, entities A and B share archetype M, while entity C has archetyp
 
 To smoothly change the archetype of an entity, you can add or remove components at runtime. For example, if you remove the `Renderer` component from entity B, it then moves to archetype N.
 
+<a name="chunk"></a>
 ## Memory Chunks
 
 The archetype of an entity determines where ECS stores the components of that entity. ECS allocates memory in "chunks", each represented by an [ArchetypeChunk](xref:Unity.Entities.ArchetypeChunk) object. A chunk always contains entities of a single archetype. When a chunk of memory becomes full, ECS allocates a new chunk of memory for any new entities created with the same archetype. If you add or remove components, which then changes an entity archetype, ECS moves the components for that entity to a different chunk. 

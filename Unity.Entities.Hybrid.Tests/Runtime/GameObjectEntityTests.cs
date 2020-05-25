@@ -7,7 +7,7 @@ namespace Unity.Entities.Tests
 {
     //@TODO: Test for prevent adding proxy component to type system...
 
-    class GameObjectEntityTests : ECSTestsFixture
+    class GameObjectEntityTests : HybridRuntimeTestFixture
     {
         [Test]
         [Ignore("not implemented")]
@@ -23,6 +23,7 @@ namespace Unity.Entities.Tests
         public void GameObjectEntityNotAdded()
         {
             var go = new GameObject("test", typeof(GameObjectEntity));
+            MarkForAutoDestructionAfterTest(go);
             var entity = GameObjectEntity.AddToEntityManager(m_Manager, go);
 
             var x = Assert.Throws<ArgumentException>(() => { m_Manager.HasComponent<GameObjectEntity>(entity); });

@@ -50,6 +50,7 @@ namespace Unity.Entities.CodeGen
             var diagnostics = new List<DiagnosticMessage>();
             foreach (var postProcessor in postProcessors)
             {
+                postProcessor.Defines = Defines;
                 diagnostics.AddRange(postProcessor.PostProcess(assemblyDefinition, componentSystemTypes, out var madeChange));
                 madeAnyChange |= madeChange;
             }
@@ -233,7 +234,7 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        private static AssemblyDefinition AssemblyDefinitionFor(ICompiledAssembly compiledAssembly)
+        internal static AssemblyDefinition AssemblyDefinitionFor(ICompiledAssembly compiledAssembly)
         {
             var resolver = new PostProcessorAssemblyResolver(compiledAssembly);
             var readerParameters = new ReaderParameters
@@ -288,6 +289,7 @@ namespace Unity.Entities.CodeGen
     abstract class EntitiesILPostProcessor
     {
         protected AssemblyDefinition AssemblyDefinition;
+        public string[] Defines { get; set; }
 
         protected List<DiagnosticMessage> _diagnosticMessages = new List<DiagnosticMessage>();
 

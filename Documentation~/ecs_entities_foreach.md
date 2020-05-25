@@ -68,7 +68,7 @@ A typical lambda function looks like:
 
 [!code-cs[lambda-params](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#lambda-params)]
 
-You can pass up to eight parameters to an Entities.ForEach lambda function. The parameters must be grouped in the following order:
+By default, you can pass up to eight parameters to an Entities.ForEach lambda function. (If you need to pass more parameters, you can [define a custom delegate](#custom-delegates).) When using the standard delegates, you must group the parameters in the following order:
 
     1. Parameters passed-by-value first (no parameter modifiers)
     2. Writable parameters second (`ref` parameter modifier)
@@ -76,11 +76,22 @@ You can pass up to eight parameters to an Entities.ForEach lambda function. The 
 
 All components should use either the `ref` or the `in` parameter modifier keywords. Otherwise, the component struct passed to your function is a copy instead of a reference. This means an extra memory copy for read-only parameters and means that any changes to components you intended to update are silently thrown when the copied struct goes out of scope after the function returns.
 
-If your function does not obey these rules, the compiler provides an error similar to:
+If your function does not obey these rules and you have not created a suitable delegate, the compiler provides an error similar to:
 
 `error CS1593: Delegate 'Invalid_ForEach_Signature_See_ForEach_Documentation_For_Rules_And_Restrictions' does not take N arguments`
 
 (Note that the error message cites the number of arguments as the issue even when the problem is the parameter order.)
+
+<a name="custom-delegates"></a>
+### Custom delegates
+
+You can use more than 8 arguments in a ForEach lambda function. by declaring your own delegate type and ForEach overload. This allows you to use as many arguments as you want and to put the ref/in/value parameters in any order you want.
+
+You can declare the three [special, named parameters](#named-parameters) `entity`, `entityInQueryIndex`, and `nativeThreadIndex` anywhere in your parameter list. Do not use `ref` or `in` modifiers for these parameters. 
+
+[!code-cs[lambda-params](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#lambda-params-many)]
+
+**Note:** The default limit of eight arguments for a ForEach lambda function was chosen because declaring too many delegates and overloads has a negative effect on IDE performance. A unique delegate type and ForEach overload is required for each combination of ref/in/value and number of arguments. 
 
 <a name="component-parameters"></a>
 ### Component parameters

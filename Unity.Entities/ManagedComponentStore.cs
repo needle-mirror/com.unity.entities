@@ -4,10 +4,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Assertions;
 using Unity.Burst;
-using Unity.Entities.Serialization;
-#if !NET_DOTS
-using Unity.Properties;
-#endif
 
 namespace Unity.Entities
 {
@@ -19,6 +15,9 @@ namespace Unity.Entities
 
     internal unsafe class ManagedComponentStore
     {
+        readonly ManagedObjectClone m_ManagedObjectClone = new ManagedObjectClone();
+        readonly ManagedObjectRemap m_ManagedObjectRemap = new ManagedObjectRemap();
+
         UnsafeMultiHashMap<int, int> m_HashLookup = new UnsafeMultiHashMap<int, int>(128, Allocator.Persistent);
 
         List<object> m_SharedComponentData = new List<object>();
@@ -577,7 +576,7 @@ namespace Unity.Entities
                     if (a[ei] != 0)
                     {
                         var obj = m_ManagedComponentData[a[ei]];
-                        EntityRemapUtility.PatchEntityInBoxedType(obj, remapping);
+                        m_ManagedObjectRemap.RemapEntityReferences(ref obj, remapping);
                     }
                 }
             }
@@ -595,7 +594,7 @@ namespace Unity.Entities
                     if (managedComponentIndex != 0)
                     {
                         var obj = m_ManagedComponentData[managedComponentIndex];
-                        EntityRemapUtility.PatchEntityForPrefabInBoxedType(obj, remapSrc, remapDst, remappingCount);
+                        m_ManagedObjectRemap.RemapEntityReferencesForPrefab(ref obj, remapSrc, remapDst, remappingCount);
                     }
                 }
                 managedComponents += numManagedComponents;
@@ -722,53 +721,13 @@ namespace Unity.Entities
             managedDeferredCommands.Reset();
         }
 
-        public static object CloneManagedComponent(object obj)
-        {
-            if (obj == null)
-            {
-                return null;
-            }
-            if (obj is ICloneable cloneable)
-            {
-                return cloneable.Clone();
-            }
-
-            {
-#if !NET_DOTS
-                var type = obj.GetType();
-                var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp);
-                var writer = new ManagedObjectBinaryWriter(&buffer);
-                writer.WriteObject(obj);
-
-                var readBuffer = buffer.AsReader();
-                var r2 = new ManagedObjectBinaryReader(&readBuffer, writer.GetObjectTable());
-                var newObj = r2.ReadObject(type);
-                buffer.Dispose();
-                return newObj;
-#else
-                // Until DOTS Runtime supports Properties just reuse the same instance
-                return obj;
-#endif
-            }
-        }
-
-#if !NET_DOTS
-        internal static object CloneAndPatchManagedComponent(object obj, EntityRemapUtility.EntityRemapInfo* remapping)
-        {
-            var clone = CloneManagedComponent(obj);
-            EntityRemapUtility.PatchEntityInBoxedType(clone, remapping);
-            return clone;
-        }
-
-#endif
-
         private void CloneManagedComponents(int* srcArray, int componentCount, int* dstArray, int instanceCount)
         {
             for (int src = 0; src < componentCount; ++src)
             {
                 object sourceComponent = m_ManagedComponentData[srcArray[src]];
                 for (int i = 0; i < instanceCount; ++i)
-                    m_ManagedComponentData[dstArray[i]] = CloneManagedComponent(sourceComponent);
+                    m_ManagedComponentData[dstArray[i]] = m_ManagedObjectClone.Clone(sourceComponent);
                 dstArray += instanceCount;
             }
         }
@@ -823,7 +782,7 @@ namespace Unity.Entities
             for (int i = 0; i < count; ++i)
             {
                 var obj = srcManagedComponentStore.m_ManagedComponentData[indices[i]];
-                var clone = CloneManagedComponent(obj);
+                var clone = m_ManagedObjectClone.Clone(obj);
                 int dstIndex = dstEntityComponentStore.AllocateManagedComponentIndex();
                 indices[i] = dstIndex;
                 (m_ManagedComponentData[dstIndex] as IDisposable)?.Dispose();

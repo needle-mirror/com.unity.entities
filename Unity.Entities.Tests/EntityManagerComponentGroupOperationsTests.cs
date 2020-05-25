@@ -378,7 +378,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // ISharedComponentData
+        [DotsRuntimeFixme] // ISharedComponentData
         public void AddRemoveComponentWithGroupPreservesChangeVersions_ManagedComponents()
         {
             m_ManagerDebug.SetGlobalSystemVersion(10);

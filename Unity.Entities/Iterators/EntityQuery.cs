@@ -211,6 +211,7 @@ namespace Unity.Entities
         internal EntityDataAccess*              _Access;
         internal EntityQueryData* _QueryData;
         internal EntityQueryFilter          _Filter;
+        internal ulong _SeqNo;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal bool                    _DisallowDisposing;
@@ -223,11 +224,12 @@ namespace Unity.Entities
         internal ComponentSafetyHandles* SafetyHandles => &_Access->DependencyManager->Safety;
 #endif
 
-        internal void Construct(EntityQueryData* queryData, EntityDataAccess* access)
+        internal void Construct(EntityQueryData* queryData, EntityDataAccess* access, ulong seqno)
         {
             _Access = access;
             _QueryData = queryData;
             _Filter = default(EntityQueryFilter);
+            _SeqNo = seqno;
             fixed(EntityQueryImpl* self = &this)
             {
                 access->AliveEntityQueries.Add((ulong)(IntPtr)self, default);
@@ -356,6 +358,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list./param>
         /// <returns>AtomicSafetyHandle for a ComponentType</returns>
+        [BurstCompatible]
         internal AtomicSafetyHandle GetSafetyHandle(int indexInEntityQuery)
         {
             var type = _QueryData->RequiredComponents + indexInEntityQuery;
@@ -368,6 +371,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list./param>
         /// <returns>AtomicSafetyHandle for a buffer</returns>
+        [BurstCompatible]
         internal AtomicSafetyHandle GetBufferSafetyHandle(int indexInEntityQuery)
         {
             var type = _QueryData->RequiredComponents + indexInEntityQuery;
@@ -701,13 +705,8 @@ namespace Unity.Entities
                 if (archetypeEntityCount != 1)
                     throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {archetypeEntityCount}.");
        #endif
-                var archetype = _QueryData->MatchingArchetypes.Ptr[archetypeIndex]->Archetype;
-                for (var typeIndexInArchetype = 0; typeIndexInArchetype < archetype->TypesCount; ++typeIndexInArchetype)
-                {
-                    if (archetype->Types[typeIndexInArchetype].TypeIndex == typeIndex)
-                        return UnsafeUtilityEx.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(archetype->Chunks.p[0], typeIndexInArchetype));
-                }
-                return default;
+                var match = _QueryData->MatchingArchetypes.Ptr[archetypeIndex];
+                return UnsafeUtilityEx.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(match->Archetype->Chunks.p[0], match->IndexInArchetype[1]));
             }
 
             // Slow path with filter, can't just use first matching archetype/chunk
@@ -718,7 +717,7 @@ namespace Unity.Entities
        #endif
             var iterator = GetArchetypeChunkIterator();
             iterator.MoveNext();
-            return UnsafeUtilityEx.AsRef<T>(iterator.GetCurrentChunkComponentDataPtr(false, 1));
+            return UnsafeUtilityEx.AsRef<T>(iterator.GetCurrentChunkComponentDataPtr(false, GetIndexInEntityQuery(typeIndex)));
         }
 
         public void SetSingleton<T>(T value) where T : struct, IComponentData
@@ -1039,8 +1038,8 @@ namespace Unity.Entities
         {
             EntityQuery _result = default;
             var _ptr = EntityQueryImpl.Allocate();
-            _ptr->Construct(queryData, access);
             _result.__seqno = World.ms_NextSequenceNumber.Data++;
+            _ptr->Construct(queryData, access, _result.__seqno);
             _result.__impl = _ptr;
             _CreateSafetyHandle(ref _result);
             return _result;
@@ -1437,14 +1436,6 @@ namespace Unity.Entities
         /// </summary>
         /// <returns>Returns true if the query has a filter, returns false if the query does not have a filter.</returns>
         public bool HasFilter() => _GetImpl()->HasFilter();
-        [Obsolete("CreateArchetypeChunkArray with out JobHandle parameter renamed to CreateArchetypeChunkArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> CreateArchetypeChunkArrayAsync(*)", false)]
-        public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator, out JobHandle jobhandle) => CreateArchetypeChunkArrayAsync(allocator, out jobhandle);
-        [Obsolete("ToEntityArray with out JobHandle parameter renamed to ToEntityArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> ToEntityArrayAsync(*)", false)]
-        public NativeArray<Entity> ToEntityArray(Allocator allocator, out JobHandle jobhandle) => ToEntityArrayAsync(allocator, out jobhandle);
-        [Obsolete("ToComponentDataArray with out JobHandle parameter renamed to ToComponentDataArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> ToComponentDataArrayAsync(*)", false)]
-        public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, out JobHandle jobhandle) where T : struct, IComponentData  => ToComponentDataArrayAsync<T>(allocator, out jobhandle);
-        [Obsolete("CopyFromComponentDataArray with out JobHandle parameter renamed to CopyFromComponentDataArrayAsync (RemovedAfter 2020-04-13). (UnityUpgradable) -> CopyFromComponentDataArrayAsync(*)", false)]
-        public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle) where T : struct, IComponentData  => CopyFromComponentDataArrayAsync<T>(componentDataArray, out jobhandle);
 
         /// <summary>
         ///  Internal gen impl

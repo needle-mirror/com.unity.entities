@@ -9,6 +9,12 @@ namespace Unity.Scenes.Editor
 {
     class LiveLinkClassicBuildCustomizer : ClassicBuildPipelineCustomizer
     {
+        // This is a dirty dirty hack to do type preservation only for LL IL2CPP builds
+        // TODO: Currently don't have a BuildContext in IUnityLinkerProcessor to know if we're doing a LiveLink build
+        // incremental team/build settings team need to add this, or give a better way to do preservation for IL2CPP
+        // That can be customised per build
+        public static bool IsLiveLinkBuild = false;
+
         public override Type[] UsedComponents { get; } =
         {
             typeof(LiveLink)
@@ -46,6 +52,14 @@ namespace Unity.Scenes.Editor
             return BuildTarget == BuildTarget.Android
                 ? BuildOptions.WaitForPlayerConnection
                 : BuildOptions.ConnectToHost;
+        }
+
+        public override void OnBeforeBuild()
+        {
+            if (Context.HasComponent<LiveLink>())
+            {
+                IsLiveLinkBuild = true;
+            }
         }
     }
 }

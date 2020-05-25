@@ -14,16 +14,27 @@ namespace Unity.Entities
     [AddComponentMenu("")]
     public class GameObjectEntity : MonoBehaviour
     {
-        public EntityManager EntityManager
+        public World World
         {
             get
             {
                 if (enabled && gameObject.activeInHierarchy)
                     ReInitializeEntityManagerAndEntityIfNecessary();
-                return m_EntityManager;
+                return m_World;
             }
         }
-        EntityManager m_EntityManager;
+
+        private World m_World;
+
+        public EntityManager EntityManager
+        {
+            get
+            {
+                World w = World;
+                if (w != null && w.IsCreated) return w.EntityManager;
+                else return default;
+            }
+        }
 
         public Entity Entity
         {
@@ -39,8 +50,8 @@ namespace Unity.Entities
         void ReInitializeEntityManagerAndEntityIfNecessary()
         {
             // in case e.g., on a prefab that was open for edit when domain was unloaded
-            // existing m_EntityManager lost all its data, so simply create a new one
-            if (!m_EntityManager.IsCreated && !m_Entity.Equals(default))
+            // existing EntityManager lost all its data, so simply create a new one
+            if (m_World != null && !m_World.IsCreated && !m_Entity.Equals(default))
                 Initialize();
         }
 
@@ -76,8 +87,8 @@ namespace Unity.Entities
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
             if (World.DefaultGameObjectInjectionWorld != null)
             {
-                m_EntityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
-                m_Entity = AddToEntityManager(m_EntityManager, gameObject);
+                m_World = World.DefaultGameObjectInjectionWorld;
+                m_Entity = AddToEntityManager(m_World.EntityManager, gameObject);
             }
         }
 
@@ -88,10 +99,14 @@ namespace Unity.Entities
 
         protected virtual void OnDisable()
         {
-            if (EntityManager.IsCreated && EntityManager.Exists(Entity))
-                EntityManager.DestroyEntity(Entity);
+            if (m_World != null && m_World.IsCreated)
+            {
+                var em = m_World.EntityManager;
+                if (em.Exists(Entity))
+                    em.DestroyEntity(Entity);
+            }
 
-            m_EntityManager = default;
+            m_World = null;
             m_Entity = Entity.Null;
         }
 

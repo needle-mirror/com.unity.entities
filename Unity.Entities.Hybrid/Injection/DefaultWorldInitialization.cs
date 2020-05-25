@@ -185,9 +185,9 @@ namespace Unity.Entities
             }
 
             // Update player loop
-            initializationSystemGroup.SortSystemUpdateList();
-            simulationSystemGroup.SortSystemUpdateList();
-            presentationSystemGroup.SortSystemUpdateList();
+            initializationSystemGroup.SortSystems();
+            simulationSystemGroup.SortSystems();
+            presentationSystemGroup.SortSystems();
         }
 
         /// <summary>

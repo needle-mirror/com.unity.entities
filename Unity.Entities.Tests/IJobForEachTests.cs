@@ -167,7 +167,7 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
-        [StandaloneFixme]  // Need nativejobs and unified threading path
+        [DotsRuntimeFixme]  // Need nativejobs and unified threading path
         public void JobWithMissingDependency()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));

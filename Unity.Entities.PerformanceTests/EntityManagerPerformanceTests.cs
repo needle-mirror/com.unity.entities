@@ -141,7 +141,7 @@ namespace Unity.Entities.PerformanceTests
         [TearDown]
         public override void TearDown()
         {
-            if (m_Manager.IsCreated)
+            if (m_World.IsCreated)
             {
                 entities1.Dispose();
                 entities2.Dispose();

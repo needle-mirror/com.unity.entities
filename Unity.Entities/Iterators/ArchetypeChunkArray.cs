@@ -83,7 +83,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Two ArchetypeChunk instances are equal if they reference the same block of chunk memory.
+        /// Two ArchetypeChunk instances are equal if they reference the same block of chunk and entity component store memory.
         /// </summary>
         /// <param name="lhs">An ArchetypeChunk</param>
         /// <param name="rhs">Another ArchetypeChunk</param>
@@ -91,18 +91,18 @@ namespace Unity.Entities
         /// references.</returns>
         public static bool operator==(ArchetypeChunk lhs, ArchetypeChunk rhs)
         {
-            return lhs.m_Chunk == rhs.m_Chunk;
+            return lhs.m_Chunk == rhs.m_Chunk && lhs.m_EntityComponentStore == rhs.m_EntityComponentStore;
         }
 
         /// <summary>
-        /// Two ArchetypeChunk instances are only equal if they reference the same block of chunk memory.
+        /// Two ArchetypeChunk instances are only equal if they reference the same block of chunk and entity component store memory.
         /// </summary>
         /// <param name="lhs">An ArchetypeChunk</param>
         /// <param name="rhs">Another ArchetypeChunk</param>
         /// <returns>True, if the ArchetypeChunk instances reference different blocks of memory.</returns>
         public static bool operator!=(ArchetypeChunk lhs, ArchetypeChunk rhs)
         {
-            return lhs.m_Chunk != rhs.m_Chunk;
+            return lhs.m_Chunk != rhs.m_Chunk || lhs.m_EntityComponentStore != rhs.m_EntityComponentStore;
         }
 
         /// <summary>
@@ -154,14 +154,14 @@ namespace Unity.Entities
         public static ArchetypeChunk Null => new ArchetypeChunk();
 
         /// <summary>
-        /// Two ArchetypeChunk instances are equal if they reference the same block of chunk memory.
+        /// Two ArchetypeChunk instances are equal if they reference the same block of chunk and entity component store memory.
         /// </summary>
         /// <param name="archetypeChunk">Another ArchetypeChunk instance</param>
         /// <returns>True, if both ArchetypeChunk instances reference the same memory or both contain null memory
         /// references.</returns>
         public bool Equals(ArchetypeChunk archetypeChunk)
         {
-            return this.m_Chunk == archetypeChunk.m_Chunk;
+            return m_Chunk == archetypeChunk.m_Chunk && m_EntityComponentStore == archetypeChunk.m_EntityComponentStore;
         }
 
         /// <summary>
@@ -336,27 +336,6 @@ namespace Unity.Entities
         public bool DidChange<T>(ArchetypeChunkSharedComponentType<T> chunkSharedComponentData, uint version) where T : struct, ISharedComponentData
         {
             return ChangeVersionUtility.DidChange(GetChangeVersion(chunkSharedComponentData), version);
-        }
-
-        [Obsolete("Use GetChangeVersion instead. GetComponentVersion will be (RemovedAfter 2020-05-19). (UnityUpgradable) -> GetChangeVersion(*)")]
-        public uint GetComponentVersion<T>(ArchetypeChunkComponentType<T> chunkComponentType)
-            where T : IComponentData
-        {
-            return GetChangeVersion(chunkComponentType);
-        }
-
-        [Obsolete("Use GetChangeVersion instead. GetComponentVersion will be (RemovedAfter 2020-05-19). (UnityUpgradable) -> GetChangeVersion(*)")]
-        public uint GetComponentVersion<T>(ArchetypeChunkBufferType<T> chunkBufferType)
-            where T : struct, IBufferElementData
-        {
-            return GetChangeVersion(chunkBufferType);
-        }
-
-        [Obsolete("Use GetChangeVersion instead. GetComponentVersion will be (RemovedAfter 2020-05-19). (UnityUpgradable) -> GetChangeVersion(*)")]
-        public uint GetComponentVersion<T>(ArchetypeChunkSharedComponentType<T> chunkSharedComponentData)
-            where T : struct, ISharedComponentData
-        {
-            return GetChangeVersion(chunkSharedComponentData);
         }
 
         /// <summary>
@@ -1289,5 +1268,7 @@ namespace Unity.Entities
                 m_IndexArray[index] = iManagedComponent;
             }
         }
+
+        public int Length => m_IndexArray.Length;
     }
 }

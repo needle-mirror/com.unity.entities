@@ -48,10 +48,9 @@ namespace Unity.Entities
 #endif
         }
 
-        private class Heap<T>
-            where T : IComparable<T>
+        private class Heap
         {
-            private readonly T[] _elements;
+            private readonly TypeHeapElement[] _elements;
             private int _size;
             private readonly int _capacity;
             private static readonly int BaseIndex = 1;
@@ -60,12 +59,12 @@ namespace Unity.Entities
             {
                 _capacity = capacity;
                 _size = 0;
-                _elements = new T[capacity + BaseIndex];
+                _elements = new TypeHeapElement[capacity + BaseIndex];
             }
 
             public bool Empty => _size <= 0;
 
-            public void Insert(T e)
+            public void Insert(TypeHeapElement e)
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (_size >= _capacity)
@@ -90,7 +89,7 @@ namespace Unity.Entities
                 _elements[i] = e;
             }
 
-            public T Peek()
+            public TypeHeapElement Peek()
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (Empty)
@@ -101,7 +100,7 @@ namespace Unity.Entities
                 return _elements[BaseIndex];
             }
 
-            public T Extract()
+            public TypeHeapElement Extract()
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (Empty)
@@ -109,7 +108,7 @@ namespace Unity.Entities
                     throw new InvalidOperationException($"Attempted to Extract() from an empty heap.");
                 }
 #endif
-                T top = _elements[BaseIndex];
+                var top = _elements[BaseIndex];
                 _elements[BaseIndex] = _elements[_size--];
                 if (!Empty)
                 {
@@ -124,7 +123,7 @@ namespace Unity.Entities
                 // The index taken by this function is expected to be already biased by BaseIndex.
                 // Thus, m_Heap[size] is a valid element (specifically, the final element in the heap)
                 //Debug.Assert(i >= BaseIndex && i < (_size+BaseIndex), $"heap index {i} is out of range with size={_size}");
-                T val = _elements[i];
+                var val = _elements[i];
                 while (i <= _size / 2)
                 {
                     var child = 2 * i;
@@ -146,10 +145,10 @@ namespace Unity.Entities
             }
         }
 
-        private struct SysAndDep<T>
+        private struct SysAndDep
         {
-            public T item;
             public Type type;
+            public UpdateIndex externalIndex;
             public List<Type> updateBefore;
             public int nAfter;
         }
@@ -189,7 +188,7 @@ namespace Unity.Entities
 #if !NET_DOTS
         private static Dictionary<Type, int> lookupDictionary = null;
 
-        private static int LookupSysAndDep<T>(Type t, SysAndDep<T>[] array)
+        private static int LookupSysAndDep(Type t, SysAndDep[] array)
         {
             if (lookupDictionary == null)
             {
@@ -206,11 +205,11 @@ namespace Unity.Entities
         }
 
 #else
-        private static int LookupSysAndDep<T>(Type t, SysAndDep<T>[] array)
+        private static int LookupSysAndDep(Type t, SysAndDep[] array)
         {
             for (int i = 0; i < array.Length; ++i)
             {
-                if (array[i].item != null && array[i].type == t)
+                if (array[i].type == t)
                 {
                     return i;
                 }
@@ -222,37 +221,25 @@ namespace Unity.Entities
 
         private static void WarningForBeforeCheck(Type sysType, Type depType)
         {
-#if !NET_DOTS
             Debug.LogWarning(
                 $"Ignoring redundant [UpdateBefore] attribute on {sysType} because {depType} is already restricted to be last.\n"
                 + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {sysType}.");
-#else
-            Debug.LogWarning($"WARNING: invalid [UpdateBefore] attribute:");
-            Debug.LogWarning(TypeManager.GetSystemName(sysType));
-            Debug.LogWarning("  is a redundant update before a system that is restricted to be last: ");
-            Debug.LogWarning(TypeManager.GetSystemName(depType));
-            Debug.LogWarning("Set the target parameter of [UpdateBefore] to a system class in the same ComponentSystemGroup.");
-#endif
         }
 
         private static void WarningForAfterCheck(Type sysType, Type depType)
         {
-#if !NET_DOTS
             Debug.LogWarning(
                 $"Ignoring redundant [UpdateAfter] attribute on {sysType} because {depType} is already restricted to be first.\n"
                 + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {sysType}.");
-#else
-            Debug.LogWarning($"WARNING: invalid [UpdateAfter] attribute:");
-            Debug.LogWarning(TypeManager.GetSystemName(sysType));
-            Debug.LogWarning("  is a redundant update before a system that is restricted to be first: ");
-            Debug.LogWarning(TypeManager.GetSystemName(depType));
-            Debug.LogWarning("Set the target parameter of [UpdateBefore] to a system class in the same ComponentSystemGroup.");
-#endif
         }
 
-        internal delegate Type GetSystemType<T>(T item);
+        internal struct SystemElement
+        {
+            public Type Type;
+            public UpdateIndex Index;
+        }
 
-        internal static void Sort<T>(List<T> items, GetSystemType<T> getType, Type parentType)
+        internal static void Sort(List<SystemElement> elements, Type parentType)
         {
 #if !NET_DOTS
             lookupDictionary = null;
@@ -265,251 +252,27 @@ namespace Unity.Entities
             // Likewise, this is important shared code. It can be done cleaner with 2 versions, but then...
             // 2 sets of bugs and slightly different behavior will creep in.
             //
-            var sysAndDep = new SysAndDep<T>[items.Count];
+            var sysAndDep = new SysAndDep[elements.Count];
 
-            for (int i = 0; i < items.Count; ++i)
+            for (int i = 0; i < elements.Count; ++i)
             {
-                var sys = items[i];
+                var elem = elements[i];
 
-                sysAndDep[i] = new SysAndDep<T>
+                sysAndDep[i] = new SysAndDep
                 {
-                    item = sys,
-                    type = getType(sys),
+                    type = elem.Type,
+                    externalIndex = elem.Index,
                     updateBefore = new List<Type>(),
                     nAfter = 0,
                 };
             }
 
-            for (int i = 0; i < sysAndDep.Length; ++i)
-            {
-                var systemType = sysAndDep[i].type;
-
-                var before = TypeManager.GetSystemAttributes(systemType, typeof(UpdateBeforeAttribute));
-                var after = TypeManager.GetSystemAttributes(systemType, typeof(UpdateAfterAttribute));
-                foreach (var attr in before)
-                {
-                    var dep = attr as UpdateBeforeAttribute;
-                    if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
-                    {
-#if !NET_DOTS
-                        Debug.LogWarning(
-                            $"Ignoring invalid [UpdateBefore] attribute on {systemType} because {dep.SystemType} is not a subclass of {nameof(ComponentSystemBase)}.\n"
-                            + $"Set the target parameter of [UpdateBefore] to a system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
-#else
-                        Debug.LogWarning($"WARNING: invalid [UpdateBefore] attribute:");
-                        Debug.LogWarning(TypeManager.GetSystemName(dep.SystemType));
-                        Debug.LogWarning(" is not derived from ComponentSystemBase. Set the target parameter of [UpdateBefore] to a system class in the same ComponentSystemGroup.");
-#endif
-                        continue;
-                    }
-
-                    if (dep.SystemType == systemType)
-                    {
-#if !NET_DOTS
-                        Debug.LogWarning(
-                            $"Ignoring invalid [UpdateBefore] attribute on {systemType} because a system cannot be updated before itself.\n"
-                            + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
-#else
-                        Debug.LogWarning($"WARNING: invalid [UpdateBefore] attribute:");
-                        Debug.LogWarning(TypeManager.GetSystemName(systemType));
-                        Debug.LogWarning("  depends on itself. Set the target parameter of [UpdateBefore] to a system class in the same ComponentSystemGroup.");
-#endif
-                        continue;
-                    }
-
-                    if (parentType == typeof(InitializationSystemGroup))
-                    {
-                        if (dep.SystemType == typeof(BeginInitializationEntityCommandBufferSystem))
-                        {
-#if !NET_DOTS
-                            throw new ArgumentException(
-                                $"Invalid [UpdateBefore] {dep.SystemType} attribute on {systemType}, because that system is already restricted to be first.");
-#else
-                            throw new ArgumentException($"Invalid [UpdateBefore] BeginInitializationEntityCommandBufferSystem, because that system is already restricted to be first.");
-#endif
-                        }
-
-                        if (dep.SystemType == typeof(EndInitializationEntityCommandBufferSystem))
-                        {
-                            WarningForBeforeCheck(systemType, dep.SystemType);
-                            continue;
-                        }
-                    }
-
-                    if (parentType == typeof(SimulationSystemGroup))
-                    {
-                        if (dep.SystemType == typeof(BeginSimulationEntityCommandBufferSystem))
-                        {
-#if !NET_DOTS
-                            throw new ArgumentException(
-                                $"Invalid [UpdateBefore] {dep.SystemType} attribute on {systemType}, because that system is already restricted to be first.");
-#else
-                            throw new ArgumentException($"Invalid [UpdateBefore] BeginSimulationEntityCommandBufferSystem, because that system is already restricted to be first.");
-#endif
-                        }
-
-                        if (dep.SystemType == typeof(LateSimulationSystemGroup))
-                        {
-                            WarningForBeforeCheck(systemType, dep.SystemType);
-                            continue;
-                        }
-
-                        if (dep.SystemType == typeof(EndSimulationEntityCommandBufferSystem))
-                        {
-                            WarningForBeforeCheck(systemType, dep.SystemType);
-                            continue;
-                        }
-                    }
-
-                    if (parentType == typeof(PresentationSystemGroup))
-                    {
-                        if (dep.SystemType == typeof(BeginPresentationEntityCommandBufferSystem))
-                        {
-#if !NET_DOTS
-                            throw new ArgumentException(
-                                $"Invalid [UpdateBefore] {dep.SystemType} attribute on {systemType}, because that system is already restricted to be first.");
-#else
-                            throw new ArgumentException($"Invalid [UpdateBefore] BeginPreesntationEntityCommandBufferSystem, because that system is already restricted to be first.");
-#endif
-                        }
-                    }
-
-                    int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
-                    if (depIndex < 0)
-                    {
-#if !NET_DOTS
-                        Debug.LogWarning(
-                            $"Ignoring invalid [UpdateBefore] attribute on {systemType} because {dep.SystemType} belongs to a different {nameof(ComponentSystemGroup)}.\n"
-                            + $"This attribute can only order systems that are children of the same {nameof(ComponentSystemGroup)}.\n"
-                            + $"Make sure that both systems are in the same parent group with [UpdateInGroup(typeof({parentType})].\n"
-                            + $"You can also change the relative order of groups when appropriate, by using [UpdateBefore] and [UpdateAfter] attributes at the group level.");
-#else
-                        Debug.LogWarning("WARNING: invalid [UpdateBefore] dependency:");
-                        Debug.LogWarning(TypeManager.GetSystemName(systemType));
-                        Debug.LogWarning("  depends on a non-sibling system: ");
-                        Debug.LogWarning(TypeManager.GetSystemName(dep.SystemType));
-#endif
-                        continue;
-                    }
-
-                    sysAndDep[i].updateBefore.Add(dep.SystemType);
-                    sysAndDep[depIndex].nAfter++;
-                }
-
-                foreach (var attr in after)
-                {
-                    var dep = attr as UpdateAfterAttribute;
-                    if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
-                    {
-#if !NET_DOTS
-                        Debug.LogWarning(
-                            $"Ignoring invalid [UpdateAfter] attribute on {systemType} because {dep.SystemType} is not a subclass of {nameof(ComponentSystemBase)}.\n"
-                            + $"Set the target parameter of [UpdateAfter] to a system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
-#else
-                        Debug.LogWarning($"WARNING: invalid [UpdateAfter] attribute:");
-                        Debug.LogWarning(TypeManager.GetSystemName(dep.SystemType));
-                        Debug.LogWarning(" is not derived from ComponentSystemBase. Set the target parameter of [UpdateAfter] to a system class in the same ComponentSystemGroup.");
-#endif
-                        continue;
-                    }
-
-                    if (dep.SystemType == systemType)
-                    {
-#if !NET_DOTS
-                        Debug.LogWarning(
-                            $"Ignoring invalid [UpdateAfter] attribute on {systemType} because a system cannot be updated after itself.\n"
-                            + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
-#else
-                        Debug.LogWarning($"WARNING: invalid [UpdateAfter] attribute:");
-                        Debug.LogWarning(TypeManager.GetSystemName(systemType));
-                        Debug.LogWarning("  depends on itself. Set the target parameter of [UpdateAfter] to a system class in the same ComponentSystemGroup.");
-#endif
-                        continue;
-                    }
-
-                    if (parentType == typeof(InitializationSystemGroup))
-                    {
-                        if (dep.SystemType == typeof(BeginInitializationEntityCommandBufferSystem))
-                        {
-                            WarningForAfterCheck(systemType, dep.SystemType);
-                            continue;
-                        }
-
-                        if (dep.SystemType == typeof(EndInitializationEntityCommandBufferSystem))
-                        {
-#if !NET_DOTS
-                            throw new ArgumentException(
-                                $"Invalid [UpdateAfter] {dep.SystemType} attribute on {systemType}, because that system is already restricted to be last.");
-#else
-                            throw new ArgumentException($"Invalid [UpdateAfter] EndInitializationEntityCommandBufferSystem, because that system is already restricted to be last.");
-#endif
-                        }
-                    }
-
-                    if (parentType == typeof(SimulationSystemGroup))
-                    {
-                        if (dep.SystemType == typeof(BeginSimulationEntityCommandBufferSystem))
-                        {
-                            WarningForAfterCheck(systemType, dep.SystemType);
-                            continue;
-                        }
-
-                        if (dep.SystemType == typeof(LateSimulationSystemGroup))
-                        {
-#if !NET_DOTS
-                            throw new ArgumentException(
-                                $"Invalid [UpdateAfter] {dep.SystemType} attribute on {systemType}, because that system is already restricted to be last.");
-#else
-                            throw new ArgumentException($"Invalid [UpdateAfter] EndLateSimulationEntityCommandBufferSystem, because that system is already restricted to be last.");
-#endif
-                        }
-
-                        if (dep.SystemType == typeof(EndSimulationEntityCommandBufferSystem))
-                        {
-#if !NET_DOTS
-                            throw new ArgumentException(
-                                $"Invalid [UpdateAfter] {dep.SystemType} attribute on {systemType}, because that system is already restricted to be last.");
-#else
-                            throw new ArgumentException($"Invalid [UpdateAfter] EndSimulationEntityCommandBufferSystem, because that system is already restricted to be last.");
-#endif
-                        }
-                    }
-
-                    if (parentType == typeof(PresentationSystemGroup))
-                    {
-                        if (dep.SystemType == typeof(BeginPresentationEntityCommandBufferSystem))
-                        {
-                            WarningForAfterCheck(systemType, dep.SystemType);
-                            continue;
-                        }
-                    }
-
-                    int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
-                    if (depIndex < 0)
-                    {
-#if !NET_DOTS
-                        Debug.LogWarning(
-                            $"Ignoring invalid [UpdateAfter] attribute on {systemType} because {dep.SystemType} belongs to a different {nameof(ComponentSystemGroup)}.\n"
-                            + $"This attribute can only order systems that are children of the same {nameof(ComponentSystemGroup)}.\n"
-                            + $"Make sure that both systems are in the same parent group with [UpdateInGroup(typeof({parentType})].\n"
-                            + $"You can also change the relative order of groups when appropriate, by using [UpdateBefore] and [UpdateAfter] attributes at the group level.");
-#else
-                        Debug.LogWarning("WARNING: invalid [UpdateAfter] dependency:");
-                        Debug.LogWarning(TypeManager.GetSystemName(systemType));
-                        Debug.LogWarning("  depends on a non-sibling system: ");
-                        Debug.LogWarning(TypeManager.GetSystemName(dep.SystemType));
-#endif
-                        continue;
-                    }
-
-                    sysAndDep[depIndex].updateBefore.Add(systemType);
-                    sysAndDep[i].nAfter++;
-                }
-            }
+            FindConstraints(parentType, sysAndDep);
 
             // Clear the systems list and rebuild it in sorted order from the lookup table
-            var readySystems = new Heap<TypeHeapElement>(items.Count);
-            items.Clear();
+            elements.Clear();
+
+            var readySystems = new Heap(sysAndDep.Length);
             for (int i = 0; i < sysAndDep.Length; ++i)
             {
                 if (sysAndDep[i].nAfter == 0)
@@ -523,8 +286,8 @@ namespace Unity.Entities
                 var sysIndex = readySystems.Extract().unsortedIndex;
                 var sd = sysAndDep[sysIndex];
 
-                sysAndDep[sysIndex] = new SysAndDep<T>(); // "Remove()"
-                items.Add(sd.item);
+                sysAndDep[sysIndex] = default; // "Remove()"
+                elements.Add(new SystemElement {Type = sd.type, Index = sd.externalIndex});
                 foreach (var beforeType in sd.updateBefore)
                 {
                     int beforeIndex = LookupSysAndDep(beforeType, sysAndDep);
@@ -542,7 +305,7 @@ namespace Unity.Entities
 
             for (int i = 0; i < sysAndDep.Length; ++i)
             {
-                if (sysAndDep[i].item != null)
+                if (sysAndDep[i].type != null)
                 {
                     // Since no System in the circular dependency would have ever been added
                     // to the heap, we should have values for everything in sysAndDep. Check,
@@ -553,20 +316,116 @@ namespace Unity.Entities
                     var currentIndex = i;
                     while (true)
                     {
-                        if (sysAndDep[currentIndex].item != null)
+                        if (sysAndDep[currentIndex].type != null)
                             visitedSystems.Add(sysAndDep[currentIndex].type);
 
                         currentIndex = LookupSysAndDep(sysAndDep[currentIndex].updateBefore[0], sysAndDep);
-                        if (currentIndex < 0 || currentIndex == startIndex || sysAndDep[currentIndex].item == null)
+                        if (currentIndex < 0 || currentIndex == startIndex || sysAndDep[currentIndex].type == null)
                         {
                             throw new CircularSystemDependencyException(visitedSystems);
                         }
                     }
 #else
-                    sysAndDep[i] = new SysAndDep<T>();
+                    sysAndDep[i] = default;
 #endif
                 }
             }
+        }
+
+        private static void FindConstraints(Type parentType, SysAndDep[] sysAndDep)
+        {
+            for (int i = 0; i < sysAndDep.Length; ++i)
+            {
+                var systemType = sysAndDep[i].type;
+
+                var before = TypeManager.GetSystemAttributes(systemType, typeof(UpdateBeforeAttribute));
+                var after = TypeManager.GetSystemAttributes(systemType, typeof(UpdateAfterAttribute));
+                foreach (var attr in before)
+                {
+                    var dep = attr as UpdateBeforeAttribute;
+
+                    if (CheckBeforeConstraints(parentType, dep, systemType))
+                        continue;
+
+                    int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
+                    if (depIndex < 0)
+                    {
+                        Debug.LogWarning(
+                            $"Ignoring invalid [UpdateBefore] attribute on {systemType} because {dep.SystemType} belongs to a different {nameof(ComponentSystemGroup)}.\n"
+                            + $"This attribute can only order systems that are children of the same {nameof(ComponentSystemGroup)}.\n"
+                            + $"Make sure that both systems are in the same parent group with [UpdateInGroup(typeof({parentType})].\n"
+                            + $"You can also change the relative order of groups when appropriate, by using [UpdateBefore] and [UpdateAfter] attributes at the group level.");
+                        continue;
+                    }
+
+                    sysAndDep[i].updateBefore.Add(dep.SystemType);
+                    sysAndDep[depIndex].nAfter++;
+                }
+
+                foreach (var attr in after)
+                {
+                    var dep = attr as UpdateAfterAttribute;
+
+                    if (CheckAfterConstraints(parentType, dep, systemType))
+                        continue;
+
+                    int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
+                    if (depIndex < 0)
+                    {
+                        Debug.LogWarning(
+                            $"Ignoring invalid [UpdateAfter] attribute on {systemType} because {dep.SystemType} belongs to a different {nameof(ComponentSystemGroup)}.\n"
+                            + $"This attribute can only order systems that are children of the same {nameof(ComponentSystemGroup)}.\n"
+                            + $"Make sure that both systems are in the same parent group with [UpdateInGroup(typeof({parentType})].\n"
+                            + $"You can also change the relative order of groups when appropriate, by using [UpdateBefore] and [UpdateAfter] attributes at the group level.");
+                        continue;
+                    }
+
+                    sysAndDep[depIndex].updateBefore.Add(systemType);
+                    sysAndDep[i].nAfter++;
+                }
+            }
+        }
+
+        private static bool CheckBeforeConstraints(Type parentType, UpdateBeforeAttribute dep, Type systemType)
+        {
+            if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
+            {
+                Debug.LogWarning(
+                    $"Ignoring invalid [UpdateBefore] attribute on {systemType} because {dep.SystemType} is not a subclass of {nameof(ComponentSystemBase)}.\n"
+                    + $"Set the target parameter of [UpdateBefore] to a system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                return true;
+            }
+
+            if (dep.SystemType == systemType)
+            {
+                Debug.LogWarning(
+                    $"Ignoring invalid [UpdateBefore] attribute on {systemType} because a system cannot be updated before itself.\n"
+                    + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool CheckAfterConstraints(Type parentType, UpdateAfterAttribute dep, Type systemType)
+        {
+            if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
+            {
+                Debug.LogWarning(
+                    $"Ignoring invalid [UpdateAfter] attribute on {systemType} because {dep.SystemType} is not a subclass of {nameof(ComponentSystemBase)}.\n"
+                    + $"Set the target parameter of [UpdateAfter] to a system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                return true;
+            }
+
+            if (dep.SystemType == systemType)
+            {
+                Debug.LogWarning(
+                    $"Ignoring invalid [UpdateAfter] attribute on {systemType} because a system cannot be updated after itself.\n"
+                    + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                return true;
+            }
+
+            return false;
         }
     }
 }

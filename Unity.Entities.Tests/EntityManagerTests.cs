@@ -92,9 +92,13 @@ namespace Unity.Entities.Tests
             using (var world = new World("Temp"))
             {
                 testy = world.EntityManager;
+#pragma warning disable 618
                 Assert.IsTrue(testy.IsCreated);
+#pragma warning restore 618
             }
+#pragma warning disable 618
             Assert.IsFalse(testy.IsCreated);
+#pragma warning restore 618
         }
 
         [Test]
@@ -232,7 +236,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void GetComponentBoxedSupportsInterface()
         {
             var entity = m_Manager.CreateEntity();
@@ -245,7 +249,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void GetComponentBoxedThrowsWhenInterfaceNotFound()
         {
             var entity = m_Manager.CreateEntity();
@@ -647,6 +651,19 @@ namespace Unity.Entities.Tests
             endGroup.Dispose();
         }
 
+#if UNITY_2020_1_OR_NEWER
+        [Test]
+        [DotsRuntimeFixme]
+        public void EntityManager_DoubleDispose_UsesCustomOwnerTypeName()
+        {
+            World tempWorld = new World("TestWorld");
+            var entityManager = tempWorld.EntityManager;
+            tempWorld.Dispose();
+            Assert.That(() => entityManager.DestroyInstance(), Throws.InvalidOperationException.With.Message.Contains("EntityManager"));
+        }
+
+#endif
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         class TestInterfaceManagedComponent : TestInterface, IComponentData
         {
@@ -681,7 +698,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void GetComponentBoxedSupportsInterface_ManagedComponent()
         {
             var entity = m_Manager.CreateEntity();
@@ -694,7 +711,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // UnsafeUtility.CopyObjectAddressToPtr not implemented
+        [DotsRuntimeFixme] // UnsafeUtility.CopyObjectAddressToPtr not implemented
         public unsafe void ManagedComponents()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestManagedComponent));
@@ -715,6 +732,8 @@ namespace Unity.Entities.Tests
                     var components = chunk.GetComponentObjects(ManagedComponentType, m_Manager);
                     var entities = chunk.GetNativeArray(entsType);
 
+                    Assert.AreEqual(chunk.Count, components.Length);
+
                     for (var i = 0; i < chunk.Count; ++i)
                     {
                         components[i] = new EcsTestManagedComponent { value = entities[i].Index.ToString() };
@@ -731,6 +750,29 @@ namespace Unity.Entities.Tests
 
             array.Dispose();
             hash.Dispose();
+        }
+
+        [Test]
+        public void GetComponentObjects_ReturnsEmptyArray_IfTypeIsMissing()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData4), typeof(EcsTestData5));
+            var count = 128;
+            using(var array = new NativeArray<Entity>(count, Allocator.Temp))
+            {
+                m_Manager.CreateEntity(archetype, array);
+
+                var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData4>());
+                using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
+                {
+                    var managedComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestManagedComponent>(false);
+
+                    foreach (var chunk in chunks)
+                    {
+                        var components = chunk.GetComponentObjects(managedComponentType, m_Manager);
+                        Assert.AreEqual(0, components.Length);
+                    }
+                }
+            }
         }
 
         public class ComplexManagedComponent : IComponentData
@@ -755,7 +797,7 @@ namespace Unity.Entities.Tests
         // https://unity3d.atlassian.net/browse/DOTSR-1432
         // TODO the il2cpp test runner doesn't Assert.AreSame/AreNotSame
         [Test]
-        [StandaloneFixme] // Unity.Properties support
+        [DotsRuntimeFixme] // Unity.Properties support
         public void Instantiate_DeepClone_ManagedComponents()
         {
             var entity = m_Manager.CreateEntity();
@@ -810,10 +852,10 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_PORTABLE_TEST_RUNNER
         // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER doesn't broadly support the That / Constraint Model. Note this test case is also flagged StandaloneFixme.
+        // TODO: IL2CPP_TEST_RUNNER doesn't broadly support the That / Constraint Model. Note this test case is also flagged DotsRuntimeFixme.
 
         [Test]
-        [StandaloneFixme] // Requires Unity.Properties support
+        [DotsRuntimeFixme] // Requires Unity.Properties support
         public void Instantiate_DeepClone_ManagedComponentWithZeroSizedArray()
         {
             var originalEntity = m_Manager.CreateEntity();
@@ -829,7 +871,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // Requires Unity.Properties support
+        [DotsRuntimeFixme] // Requires Unity.Properties support
         public void Instantiate_DeepClone_ManagedComponentWithNullArray()
         {
             var originalEntity = m_Manager.CreateEntity();
@@ -859,9 +901,9 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_PORTABLE_TEST_RUNNER
         // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER doesn't broadly support the That / Constraint Model. Note this is also flagged StandaloneFixme.
+        // TODO: IL2CPP_TEST_RUNNER doesn't broadly support the That / Constraint Model. Note this is also flagged DotsRuntimeFixme.
         [Test]
-        [StandaloneFixme] // Requires Unity.Properties support
+        [DotsRuntimeFixme] // Requires Unity.Properties support
         public void Instantiate_DeepClone_ManagedComponentWithNullReferenceType()
         {
             var originalEntity = m_Manager.CreateEntity();

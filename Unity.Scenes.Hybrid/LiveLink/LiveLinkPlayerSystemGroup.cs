@@ -15,6 +15,8 @@ namespace Unity.Scenes
     {
         protected override void OnCreate()
         {
+            base.OnCreate();
+
             LiveLinkUtility.LiveLinkBoot();
             Enabled = LiveLinkUtility.LiveLinkEnabled;
             if (Enabled)

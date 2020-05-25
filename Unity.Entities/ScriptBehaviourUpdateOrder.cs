@@ -16,7 +16,7 @@ namespace Unity.Entities
 {
     // Updating before or after a system constrains the scheduler ordering of these systems within a ComponentSystemGroup.
     // Both the before & after system must be a members of the same ComponentSystemGroup.
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Class|AttributeTargets.Struct, AllowMultiple = true)]
     public class UpdateBeforeAttribute : Attribute
     {
         public UpdateBeforeAttribute(Type systemType)
@@ -32,7 +32,7 @@ namespace Unity.Entities
 
     // Updating before or after a system constrains the scheduler ordering of these systems within a ComponentSystemGroup.
     // Both the before & after system must be a members of the same ComponentSystemGroup.
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Class|AttributeTargets.Struct, AllowMultiple = true)]
     public class UpdateAfterAttribute : Attribute
     {
         public UpdateAfterAttribute(Type systemType)
@@ -50,9 +50,12 @@ namespace Unity.Entities
     // Updating in a group means this system will be automatically updated by the specified ComponentSystemGroup.
     // The system may order itself relative to other systems in the group with UpdateBegin and UpdateEnd,
     // There is nothing preventing systems from being in multiple groups, it can be added if there is a use-case for it
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Class|AttributeTargets.Struct)]
     public class UpdateInGroupAttribute : Attribute
     {
+        public bool OrderFirst = false;
+        public bool OrderLast = false;
+
         public UpdateInGroupAttribute(Type groupType)
         {
             if (groupType == null)
@@ -171,15 +174,6 @@ namespace Unity.Entities
             return true;
         }
 
-        [Obsolete("Please use PlayerLoop.GetCurrentPlayerLoop(). (RemovedAfter 2020-05-12)")]
-        public static PlayerLoopSystem CurrentPlayerLoop => PlayerLoop.GetCurrentPlayerLoop();
-
-        [Obsolete("Please use PlayerLoop.SetPlayerLoop(). (RemovedAfter 2020-05-12)")]
-        public static void SetPlayerLoop(PlayerLoopSystem playerLoop)
-        {
-            PlayerLoop.SetPlayerLoop(playerLoop);
-        }
-
         // FIXME: HACK! - mono 4.6 has problems invoking virtual methods as delegates from native, so wrap the invocation in a non-virtual class
         internal class DummyDelegateWrapper
         {
@@ -191,9 +185,12 @@ namespace Unity.Entities
                 m_System = sys;
             }
 
-            public void TriggerUpdate()
+            public unsafe void TriggerUpdate()
             {
-                m_System.Update();
+                if (m_System.m_StatePtr != null)
+                {
+                    m_System.Update();
+                }
             }
         }
     }

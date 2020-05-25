@@ -167,7 +167,7 @@ namespace Unity.Entities.Tests
                 RequireForUpdate(query);
                 var entity = EntityManager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
                 EntityManager.SetComponentData(entity, new EcsTestData() { value = 3 });
-                
+
                 Assert.AreEqual(3, query.GetSingleton<EcsTestData>().value);
             }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -147,14 +148,28 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy(remapSrcCopy, remapSrc, remapSrcSize);
             UnsafeUtility.MemCpy(remapDstCopy, remapDst, remapDstSize);
 
+            var hasHybridComponents = archetype->HasHybridComponents;
+            var types = archetype->Types;
+
             var firstManagedComponent = archetype->FirstManagedComponent;
             for (int i = 0; i < numManagedComponents; ++i)
             {
                 int type = i + firstManagedComponent;
-                var a = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, type);
-                for (int ei = 0; ei < allocatedCount; ++ei)
+
+                if (hasHybridComponents && TypeManager.GetTypeInfo(types[type].TypeIndex).Category == TypeManager.TypeCategory.Class)
                 {
-                    managedComponents[ei * numManagedComponents + i] = a[ei + indexInChunk];
+                    for (int ei = 0; ei < allocatedCount; ++ei)
+                    {
+                        managedComponents[ei * numManagedComponents + i] = 0; // 0 means do not remap
+                    }
+                }
+                else
+                {
+                    var a = (int*) ChunkDataUtility.GetComponentDataRO(chunk, 0, type);
+                    for (int ei = 0; ei < allocatedCount; ++ei)
+                    {
+                        managedComponents[ei * numManagedComponents + i] = a[ei + indexInChunk];
+                    }
                 }
             }
 
@@ -500,7 +515,7 @@ namespace Unity.Entities
                     var chunk = archetype->Chunks.p[c];
 
                     ChunkDataUtility.DeallocateBuffers(chunk);
-                    UnsafeUtility.Free(archetype->Chunks.p[c], Allocator.Persistent);
+                    s_chunkStore.Data.FreeChunk(archetype->Chunks.p[c]);
                 }
 
                 archetype->Chunks.Dispose();
@@ -514,8 +529,9 @@ namespace Unity.Entities
             for (var i = 0; i != m_EmptyChunks.Length; ++i)
             {
                 var chunk = m_EmptyChunks.Ptr[i];
-                UnsafeUtility.Free(chunk, Allocator.Persistent);
+                s_chunkStore.Data.FreeChunk(chunk);
             }
+
 
             m_EmptyChunks.Dispose();
 
@@ -1104,6 +1120,203 @@ namespace Unity.Entities
             return sequenceNumber;
         }
 
+        struct Ulong16
+        {
+            private ulong p00;
+            private ulong p01;
+            private ulong p02;
+            private ulong p03;
+            private ulong p04;
+            private ulong p05;
+            private ulong p06;
+            private ulong p07;
+            private ulong p08;
+            private ulong p09;
+            private ulong p10;
+            private ulong p11;
+            private ulong p12;
+            private ulong p13;
+            private ulong p14;
+            private ulong p15;
+        }
+
+        struct Ulong256
+        {
+            private Ulong16 p00;
+            private Ulong16 p01;
+            private Ulong16 p02;
+            private Ulong16 p03;
+            private Ulong16 p04;
+            private Ulong16 p05;
+            private Ulong16 p06;
+            private Ulong16 p07;
+            private Ulong16 p08;
+            private Ulong16 p09;
+            private Ulong16 p10;
+            private Ulong16 p11;
+            private Ulong16 p12;
+            private Ulong16 p13;
+            private Ulong16 p14;
+            private Ulong16 p15;
+        }
+
+        struct Ulong4096
+        {
+            private Ulong256 p00;
+            private Ulong256 p01;
+            private Ulong256 p02;
+            private Ulong256 p03;
+            private Ulong256 p04;
+            private Ulong256 p05;
+            private Ulong256 p06;
+            private Ulong256 p07;
+            private Ulong256 p08;
+            private Ulong256 p09;
+            private Ulong256 p10;
+            private Ulong256 p11;
+            private Ulong256 p12;
+            private Ulong256 p13;
+            private Ulong256 p14;
+            private Ulong256 p15;
+        }
+
+        struct Ulong16384
+        {
+            private Ulong4096 p00;
+            private Ulong4096 p01;
+            private Ulong4096 p02;
+            private Ulong4096 p03;
+        }
+
+        struct ChunkStore
+        {
+            Ulong16384 m_megachunk;
+            Ulong16384 m_chunkInUse;
+            static readonly int megachunks = 16384;
+
+            public static readonly int kErrorNone = 0;
+            public static readonly int kErrorAllocationFailed = -1;
+            public static readonly int kErrorChunkAlreadyFreed = -2;
+            public static readonly int kErrorChunkAlreadyMarkedFree = -3;
+            public static readonly int kErrorChunkNotFound = -4;
+            public static readonly int kErrorNoChunksAvailable = -5;
+
+            static readonly int ChunkSizeInBytesRoundedUpToPow2 = math.ceilpow2(Chunk.kChunkSize);
+            static readonly int Log2ChunkSizeInBytesRoundedUpToPow2 = math.tzcnt(ChunkSizeInBytesRoundedUpToPow2);
+            static readonly int MegachunkSizeInBytes = 1 << (Log2ChunkSizeInBytesRoundedUpToPow2 + 6);
+
+            int AllocationFailed(int m, int bit)
+            {
+                fixed(Ulong16384 * b = &m_chunkInUse)
+                {
+                    long* chunkInUse = (long*)b;
+                    long mask = 1L << bit;
+                    while (true) // back out our change to the bitmask
+                    {
+                        long originalValue = Interlocked.Read(ref chunkInUse[m]); // get a mask word.
+                        if ((originalValue & mask) == 0)
+                            return kErrorChunkAlreadyMarkedFree; // someone already zeroed our bit! shouldn't happen but might.
+                        long newValue = originalValue & ~mask; // zero our bit.
+                        if (originalValue == Interlocked.CompareExchange(ref chunkInUse[m], newValue, originalValue))
+                            return kErrorAllocationFailed; // report that the allocation itself failed (it did).
+                    }
+                }
+            }
+
+            public int AllocateChunk(out Chunk* value)
+            {
+                value = null;
+                fixed(Ulong16384* a = &m_megachunk)
+                fixed(Ulong16384 * b = &m_chunkInUse)
+                {
+                    long* megachunk = (long*)a;
+                    long* chunkInUse = (long*)b;
+                    for (int m = 0; m < megachunks; ++m)
+                    {
+                        long originalValue = Interlocked.Read(ref chunkInUse[m]); // get a word.
+                        while (originalValue != ~0L) // while this word isn't totally full...
+                        {
+                            int bit = math.tzcnt(~originalValue); // find the index of its first empty bit
+                            long mask = 1L << bit;
+                            long newValue = originalValue | mask;
+                            if (originalValue == Interlocked.CompareExchange(ref chunkInUse[m], newValue, originalValue)) // try to set that bit...
+                            {
+                                if (newValue == 1) // we are the one who allocates this megachunk! we set the first bit in the mask
+                                {
+                                    long allocated = (long)UnsafeUtility.Malloc(MegachunkSizeInBytes, CollectionHelper.CacheLineSize, Allocator.Persistent);
+                                    if (allocated == 0) // if the allocation failed...
+                                        return AllocationFailed(m, bit);
+                                    while (0L != Interlocked.CompareExchange(ref megachunk[m], allocated, 0L))
+                                    {
+                                        // FreeChunk might have set bitmask to 0, without setting pointer to zero yet. wait for FreeChunk to proceed.
+                                        // This will deadlock if we'd otherwise leak memory, which is by design.
+                                    }
+                                }
+                                else
+                                {
+                                    while (Interlocked.Read(ref megachunk[m]) == 0L)
+                                    {
+                                        // we didn't get to set bit 0, so we're not responsible for allocating. but the pointer is still zero so the guy
+                                        // we expect to allocate on our behalf either isn't done, or failed and gave up.
+                                        if ((Interlocked.Read(ref chunkInUse[m]) & 1) == 0) // did my leader fail and give up?
+                                            return AllocationFailed(m, bit);
+                                        // AllocateChunk might have set bitmask to non-0, without writing allocated pointer yet. wait for AllocateChunk to proceed.
+                                        // This will deadlock if we'd otherwise dereference a null pointer, which is by design.
+                                    }
+                                }
+                                value = (Chunk*)((byte*)megachunk[m] + (bit << Log2ChunkSizeInBytesRoundedUpToPow2));
+                                return kErrorNone;
+                            }
+                            originalValue = Interlocked.Read(ref chunkInUse[m]);
+                            // failed to set bit! read the word again and try again...
+                        }
+                    }
+                    return kErrorNoChunksAvailable;
+                }
+            }
+
+            public int FreeChunk(Chunk* value)
+            {
+                fixed(Ulong16384* a = &m_megachunk)
+                fixed(Ulong16384 * b = &m_chunkInUse)
+                {
+                    long* megachunk = (long*)a;
+                    long* chunkInUse = (long*)b;
+                    for (int m = 0; m < megachunks; ++m)
+                    {
+                        byte* begin = (byte*)Interlocked.Read(ref megachunk[m]);
+                        byte* end = begin + MegachunkSizeInBytes;
+                        if (value >= begin && value < end) // we found our chunk! nobody's allowed to compete with us for freeing it.
+                        {
+                            int bit = (int)((byte*)value - begin) >> Log2ChunkSizeInBytesRoundedUpToPow2;
+                            long mask = 1L << bit;
+                            while (true)
+                            {
+                                long originalValue = Interlocked.Read(ref chunkInUse[m]);
+                                if ((originalValue & mask) == 0) // is our bit already 0? that'd mean someone already freed my pointer
+                                    return kErrorChunkAlreadyMarkedFree; // yeah, it's zero. somebody already freed it. shouldn'tve happened
+                                long newValue = originalValue & ~mask; // zero out our bit
+                                if (originalValue == Interlocked.CompareExchange(ref chunkInUse[m], newValue, originalValue)) // try to clear the bit.
+                                {
+                                    if (newValue == 0L) // we successfully set a ulong with 1 bit set, to a ulong with 0 bits set.
+                                    {
+                                        long allocated = Interlocked.Exchange(ref megachunk[m], 0L); // swap the pointer with null
+                                        if (allocated == 0L) // but if it was already null,
+                                            return kErrorChunkAlreadyFreed; // someone already freed our pointer? that's uncool
+                                        UnsafeUtility.Free((void*)allocated, Allocator.Persistent); // no need to hurry, nobody depends on this finishing
+                                    }
+                                    return kErrorNone;
+                                }
+                            } // fail! try to clear the bit again...
+                        }
+                    }
+                    return kErrorChunkNotFound;
+                }
+            }
+        }
+
+        private static readonly SharedStatic<ChunkStore> s_chunkStore = SharedStatic<ChunkStore>.GetOrCreate<EntityComponentStore>();
+
         public Chunk* AllocateChunk()
         {
             Chunk* newChunk;
@@ -1111,7 +1324,7 @@ namespace Unity.Entities
             if (m_EmptyChunks.Length == 0)
             {
                 // Allocate new chunk
-                newChunk = Chunk.MallocChunk(Allocator.Persistent);
+                s_chunkStore.Data.AllocateChunk(out newChunk);
 
                 if (useMemoryInitPattern != 0)
                 {
@@ -1134,7 +1347,7 @@ namespace Unity.Entities
         {
             if (m_EmptyChunks.Length == kMaximumEmptyChunksInPool)
             {
-                UnsafeUtility.Free(chunk, Allocator.Persistent);
+                s_chunkStore.Data.FreeChunk(chunk);
             }
             else
             {

@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests
                 for (int i = 0; i < N; ++i)
                     result[i] = a + b;
 
-#if UNITY_DOTSPLAYER    // TODO: Don't have the library in the editor that grants access.
+#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS    // TODO: Don't have the library in the editor that grants access.
                 AssertOnThread(result.m_Safety.IsAllowedToWrite());
                 AssertOnThread(!result.m_Safety.IsAllowedToRead());
 #endif
@@ -106,7 +106,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSPLAYER    // Don't have the C# version in the editor.
+#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS    // Don't have the C# version in the editor.
                 AssertOnThread(!input.m_Safety.IsAllowedToWrite());
                 AssertOnThread(input.m_Safety.IsAllowedToRead());
                 AssertOnThread(result.m_Safety.IsAllowedToWrite());
@@ -187,10 +187,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if UNITY_DOTSPLAYER_IL2CPP
-        // https://unity3d.atlassian.net/browse/DOTSR-1365
-        [Ignore("Crash because of array pinning.")]
-#endif
         [Test]
         public void Schedule3SimpleJobsInParallel()
         {
@@ -244,7 +240,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSPLAYER    // Don't have the C# version in the editor.
+#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS   // Don't have the C# version in the editor.
                 AssertOnThread(!input.m_Safety.IsAllowedToWrite());
                 AssertOnThread(input.m_Safety.IsAllowedToRead());
                 AssertOnThread(result.m_Safety.IsAllowedToWrite());
@@ -255,10 +251,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if UNITY_DOTSPLAYER_IL2CPP
-        // https://unity3d.atlassian.net/browse/DOTSR-1365
-        [Ignore("Crash because of array pinning.")]
-#endif
         [Test]
         public void Schedule3SimpleListJobsInParallel()
         {
@@ -317,7 +309,7 @@ namespace Unity.Entities.Tests
 
             public void Execute(int i)
             {
-#if UNITY_DOTSPLAYER    // Don't have the C# version in the editor.
+#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS    // Don't have the C# version in the editor.
                 AssertOnThread(!a.m_Safety.IsAllowedToWrite());
                 AssertOnThread(a.m_Safety.IsAllowedToRead());
                 AssertOnThread(!b.m_Safety.IsAllowedToWrite());
@@ -572,7 +564,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSPLAYER    // Don't have the C# version in the editor.
+#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS   // Don't have the C# version in the editor.
                 Assert.IsTrue(result.m_Safety.IsAllowedToWrite());
                 Assert.IsTrue(!result.m_Safety.IsAllowedToRead());
 #endif
@@ -620,15 +612,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void ScheduleSimpleIJobChunk()
+        public void TestSimpleIJobChunk([Values(0, 1, 2, 3)] int mode, [Values(1, 100)] int n)
         {
-            const int N = 1000;
-            NativeArray<Entity> eArr = new NativeArray<Entity>(N, Allocator.TempJob);
+            NativeArray<Entity> eArr = new NativeArray<Entity>(n, Allocator.TempJob);
             var arch = m_Manager.CreateArchetype(typeof(EcsTestData));
 
             m_Manager.CreateEntity(arch, eArr);
 
-            for (int i = 0; i < N; ++i)
+            for (int i = 0; i < n; ++i)
             {
                 m_Manager.SetComponentData(eArr[i], new EcsTestData() {value = 10 + i});
             }
@@ -641,43 +632,23 @@ namespace Unity.Entities.Tests
                 testType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false),
                 listOfT = listOfInt
             };
-            job.Schedule(query).Complete();
-
-            for (int i = 0; i < N; ++i)
+            switch (mode)
             {
-                EcsTestData data = m_Manager.GetComponentData<EcsTestData>(eArr[i]);
-                Assert.AreEqual(10 + i + 100, data.value);
+                case 0:
+                    job.Schedule(query).Complete();
+                    break;
+                case 1:
+                    job.ScheduleParallel(query).Complete();
+                    break;
+                case 2:
+                    job.ScheduleSingle(query).Complete();
+                    break;
+                case 3:
+                    job.Run(query);
+                    break;
             }
 
-            listOfInt.Dispose();
-            eArr.Dispose();
-        }
-
-        [Test]
-        public void RunSimpleIJobChunk()
-        {
-            const int N = 1000;
-            NativeArray<Entity> eArr = new NativeArray<Entity>(N, Allocator.TempJob);
-            var arch = m_Manager.CreateArchetype(typeof(EcsTestData));
-
-            m_Manager.CreateEntity(arch, eArr);
-
-            for (int i = 0; i < N; ++i)
-            {
-                m_Manager.SetComponentData(eArr[i], new EcsTestData() {value = 10 + i});
-            }
-
-            NativeList<int> listOfInt = new NativeList<int>(1, Allocator.TempJob);
-
-            EntityQuery query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
-            var job = new SimpleChunk<int>
-            {
-                testType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false),
-                listOfT = listOfInt
-            };
-            job.Run(query);
-
-            for (int i = 0; i < N; ++i)
+            for (int i = 0; i < n; ++i)
             {
                 EcsTestData data = m_Manager.GetComponentData<EcsTestData>(eArr[i]);
                 Assert.AreEqual(10 + i + 100, data.value);

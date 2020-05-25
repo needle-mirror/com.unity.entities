@@ -33,6 +33,16 @@ namespace Unity.Entities
             return FromTypeIndex(TypeManager.GetTypeIndex<T>());
         }
 
+        public static ComponentType ReadWrite(Type type)
+        {
+            return FromTypeIndex(TypeManager.GetTypeIndex(type));
+        }
+
+        public static ComponentType ReadWrite(int typeIndex)
+        {
+            return FromTypeIndex(typeIndex);
+        }
+
         public static ComponentType FromTypeIndex(int typeIndex)
         {
             ComponentType type;
@@ -80,18 +90,39 @@ namespace Unity.Entities
             return ReadOnly(typeIndex);
         }
 
+        public static ComponentType ChunkComponentReadOnly(Type type)
+        {
+            var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex(type));
+            return ReadOnly(typeIndex);
+        }
+
+        public static ComponentType ChunkComponentExclude<T>()
+        {
+            var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex<T>());
+            return Exclude(typeIndex);
+        }
+
+        public static ComponentType ChunkComponentExclude(Type type)
+        {
+            var typeIndex = TypeManager.MakeChunkComponentTypeIndex(TypeManager.GetTypeIndex(type));
+            return Exclude(typeIndex);
+        }
+
         public static ComponentType Exclude(Type type)
         {
-            ComponentType t = FromTypeIndex(TypeManager.GetTypeIndex(type));
+            return Exclude(TypeManager.GetTypeIndex(type));
+        }
+
+        public static ComponentType Exclude(int typeIndex)
+        {
+            ComponentType t = FromTypeIndex(typeIndex);
             t.AccessModeType = AccessMode.Exclude;
             return t;
         }
 
         public static ComponentType Exclude<T>()
         {
-            ComponentType t = ReadWrite<T>();
-            t.AccessModeType = AccessMode.Exclude;
-            return t;
+            return Exclude(TypeManager.GetTypeIndex<T>());
         }
 
         public ComponentType(Type type, AccessMode accessModeType = AccessMode.ReadWrite)
@@ -148,7 +179,7 @@ namespace Unity.Entities
         public override string ToString()
         {
 #if NET_DOTS
-            var name = TypeManager.GetTypeInfo(TypeIndex).StableTypeHash.ToString();
+            var name = TypeManager.GetTypeInfo(TypeIndex).Debug.TypeName;
 #else
             var name = GetManagedType().Name;
             if (IsBuffer)

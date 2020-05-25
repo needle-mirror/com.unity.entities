@@ -1,6 +1,7 @@
 using System;
 #if !NET_DOTS
 using System.IO;
+using Unity.Assertions;
 using Unity.IO.LowLevel.Unsafe;
 #endif
 using Unity.Collections;
@@ -38,12 +39,12 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        public static void WriteArray<T>(this BinaryWriter writer, NativeArray<T> data) where T : struct
+        public static void WriteArray<T>(this BinaryWriter writer, NativeArray<T> data) where T: struct
         {
             writer.WriteBytes(data.GetUnsafeReadOnlyPtr(), data.Length * UnsafeUtility.SizeOf<T>());
         }
 
-        public static void WriteList<T>(this BinaryWriter writer, NativeList<T> data) where T : struct
+        public static void WriteList<T>(this BinaryWriter writer, NativeList<T> data) where T: struct
         {
             writer.WriteBytes(data.GetUnsafePtr(), data.Length * UnsafeUtility.SizeOf<T>());
         }
@@ -83,7 +84,7 @@ namespace Unity.Entities.Serialization
             writer.ReadBytes(destination, count);
         }
 
-        public static void ReadArray<T>(this BinaryReader reader, NativeArray<T> elements, int count) where T : struct
+        public static void ReadArray<T>(this BinaryReader reader, NativeArray<T> elements, int count) where T: struct
         {
             reader.ReadBytes((byte*)elements.GetUnsafePtr(), count * UnsafeUtility.SizeOf<T>());
         }
@@ -104,6 +105,8 @@ namespace Unity.Entities.Serialization
         {
             bytesRead = 0;
             this.filePath = filePath;
+            if (string.IsNullOrEmpty(filePath))
+                throw new ArgumentException("The filepath can neither be null nor empty", nameof(filePath));
         }
 
         public void Dispose()
@@ -116,7 +119,14 @@ namespace Unity.Entities.Serialization
             {
                 Size = bytes, Offset = bytesRead, Buffer = data
             };
+            Assert.IsFalse(string.IsNullOrEmpty(filePath));
+#if ENABLE_PROFILER && UNITY_2020_2_OR_NEWER
+            // When AsyncReadManagerMetrics are available, mark up the file read for more informative IO metrics.
+            // Metrics can be retrieved by AsyncReadManagerMetrics.GetMetrics
+            var readHandle = AsyncReadManager.Read(filePath, &readCmd, 1, subsystem: AssetLoadingSubsystem.EntitiesStreamBinaryReader);
+#else
             var readHandle = AsyncReadManager.Read(filePath, &readCmd, 1);
+#endif
             readHandle.JobHandle.Complete();
 
             if (readHandle.Status != ReadStatus.Complete)
@@ -148,14 +158,14 @@ namespace Unity.Entities.Serialization
             int remaining = bytes;
             int bufferSize = buffer.Length;
 
-            fixed(byte* fixedBuffer = buffer)
+            fixed (byte* fixedBuffer = buffer)
             {
                 while (remaining != 0)
                 {
                     int bytesToWrite = Math.Min(remaining, bufferSize);
                     UnsafeUtility.MemCpy(fixedBuffer, data, bytesToWrite);
                     stream.Write(buffer, 0, bytesToWrite);
-                    data = (byte*)data + bytesToWrite;
+                    data = (byte*) data + bytesToWrite;
                     remaining -= bytesToWrite;
                 }
             }

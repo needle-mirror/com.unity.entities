@@ -92,7 +92,7 @@ namespace Unity.Entities.Tests
         [TearDown]
         public virtual void TearDown()
         {
-            if (m_Manager.IsCreated)
+            if (World != null && World.IsCreated)
             {
                 // Clean up systems before calling CheckInternalConsistency because we might have filters etc
                 // holding on SharedComponentData making checks fail

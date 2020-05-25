@@ -49,6 +49,26 @@ namespace Unity.Entities.Tests.Conversion
                 {
                     AddHybridComponent(component);
                 });
+
+                Entities.ForEach((ConversionTestHybridComponentWithEntity component) =>
+                {
+                    AddHybridComponent(component);
+                });
+
+                Entities.ForEach((ConversionTestHybridComponentA component) =>
+                {
+                    AddHybridComponent(component);
+                });
+
+                Entities.ForEach((ConversionTestHybridComponentB component) =>
+                {
+                    AddHybridComponent(component);
+                });
+
+                Entities.ForEach((ConversionTestHybridComponentC component) =>
+                {
+                    AddHybridComponent(component);
+                });
             }
         }
 
@@ -158,8 +178,8 @@ namespace Unity.Entities.Tests.Conversion
             gameObject.GetComponent<ConversionTestHybridComponentPrefabReference>().Prefab = prefab;
 
             // Run the actual conversion, we only care about the prefab so we destroy the other entity
-            var setting = MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>();
-            var dummy = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, setting);
+            var settings = MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>();
+            var dummy = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, settings);
             m_Manager.DestroyEntity(dummy);
             EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<CompanionLink, ConversionTestHybridComponent, Prefab, LinkedEntityGroup>(k_CommonComponents));
 
@@ -205,6 +225,107 @@ namespace Unity.Entities.Tests.Conversion
             World.Update();
             Assert.IsFalse(prefabCompanion.activeSelf);
             Assert.IsTrue(instanceCompanion.activeSelf);
+        }
+
+        public class ConversionTestHybridComponentWithEntity : UnityEngine.MonoBehaviour, UnityEngine.ISerializationCallbackReceiver
+        {
+            public static Entity DefaultEntity;
+            public Entity SomeEntity;
+
+            public void OnBeforeSerialize()
+            {
+            }
+
+            public void OnAfterDeserialize()
+            {
+                SomeEntity = DefaultEntity;
+            }
+        }
+
+        [Test]
+        public void HybridComponents_AreNotBeRemapped_WhenInstantiated()
+        {
+            // Setup a simple entity with a hybrid component that contains an Entity field
+            var gameObjectPrefab = CreateGameObject("prefab", typeof(ConversionTestHybridComponentWithEntity));
+            var settings = MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>();
+            var entityPrefab = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObjectPrefab, settings);
+
+            // Add a managed and an unmanaged component, each with an entity field pointing to their own entity
+            m_Manager.AddComponentData(entityPrefab, new EcsTestDataEntity {value1 = entityPrefab});
+            m_Manager.AddComponentData(entityPrefab, new EcsTestManagedDataEntity {value1 = entityPrefab});
+
+            // Since Entity contents aren't serialized, GameObject.Instantiate won't copy the Entity field
+            // But we need that field to be set to the prefab entity in order to check if the remapping happens
+            // So we're abusing ISerializationCallbackReceiver with a static field to pretend it got cloned
+            ConversionTestHybridComponentWithEntity.DefaultEntity = entityPrefab;
+
+            // Create a bunch of instances
+            var instances = m_Manager.Instantiate(entityPrefab, 10, Allocator.Temp);
+
+            foreach (var instance in instances)
+            {
+                var hybrid = m_Manager.GetComponentObject<ConversionTestHybridComponentWithEntity>(instance);
+                var unmanaged = m_Manager.GetComponentData<EcsTestDataEntity>(instance);
+                var managed = m_Manager.GetComponentData<EcsTestManagedDataEntity>(instance);
+
+                // The hybrid component SHOULD NOT be remapped, so it still contains the prefab entity
+                Assert.AreEqual(hybrid.SomeEntity, entityPrefab);
+
+                // The other two components SHOULD be remapped, so they now point to the instanced entity
+                Assert.AreEqual(unmanaged.value1, instance);
+                Assert.AreEqual(managed.value1, instance);
+            }
+        }
+
+        public class ConversionTestHybridComponentA : UnityEngine.MonoBehaviour
+        {
+            public int SomeValue;
+        }
+        public class ConversionTestHybridComponentB : UnityEngine.MonoBehaviour
+        {
+            public int SomeValue;
+        }
+        public class ConversionTestHybridComponentC : UnityEngine.MonoBehaviour
+        {
+            public int SomeValue;
+        }
+
+        [Test]
+        public void MultipleHybridComponents_DontGetMixedUp_WhenInstantiated()
+        {
+            // Setup a simple entity with multiple hybrid components
+            var gameObjectPrefab = CreateGameObject("prefab",
+                typeof(ConversionTestHybridComponentA),
+                typeof(ConversionTestHybridComponentB),
+                typeof(ConversionTestHybridComponentC));
+            var settings = MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>();
+            var entityPrefab = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObjectPrefab, settings);
+
+            // Create a bunch of instances
+            var instances = m_Manager.Instantiate(entityPrefab, 10, Allocator.Temp);
+
+            var query = EmptySystem.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<ConversionTestHybridComponentA>(),
+                    ComponentType.ReadOnly<ConversionTestHybridComponentB>(),
+                    ComponentType.ReadOnly<ConversionTestHybridComponentC>(),
+                }
+            });
+
+            var a = query.ToComponentArray<ConversionTestHybridComponentA>();
+            var b = query.ToComponentArray<ConversionTestHybridComponentB>();
+            var c = query.ToComponentArray<ConversionTestHybridComponentC>();
+
+            // The source doesn't have the Prefab tag, so it also gets picked up by the query
+            Assert.AreEqual(instances.Length + 1, a.Length);
+            Assert.AreEqual(instances.Length + 1, b.Length);
+            Assert.AreEqual(instances.Length + 1, c.Length);
+
+            CollectionAssert.AllItemsAreUnique(a);
+            CollectionAssert.AllItemsAreUnique(b);
+            CollectionAssert.AllItemsAreUnique(c);
         }
     }
 }

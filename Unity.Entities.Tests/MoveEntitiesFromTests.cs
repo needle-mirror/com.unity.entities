@@ -99,6 +99,56 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void MoveEntitiesWithChunkComponentsWithQuery()
+        {
+            var creationWorld = new World("CreationWorld");
+            var creationManager = creationWorld.EntityManager;
+
+            var archetype = creationManager.CreateArchetype(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>());
+
+            var entities = new NativeArray<Entity>(10000, Allocator.Temp);
+            creationManager.CreateEntity(archetype, entities);
+            ArchetypeChunk currentChunk = ArchetypeChunk.Null;
+            int chunkCount = 0;
+            for (int i = 0; i != entities.Length; i++)
+            {
+                if (creationManager.GetChunk(entities[i]) != currentChunk)
+                {
+                    currentChunk = creationManager.GetChunk(entities[i]);
+                    creationManager.SetChunkComponentData(currentChunk, new EcsTestData2(++chunkCount));
+                }
+                creationManager.SetComponentData(entities[i], new EcsTestData(chunkCount));
+            }
+
+            m_Manager.Debug.CheckInternalConsistency();
+            creationManager.Debug.CheckInternalConsistency();
+
+            var query = creationManager.CreateEntityQuery(typeof(EcsTestData));
+
+            m_Manager.MoveEntitiesFrom(creationManager, query);
+
+            m_Manager.Debug.CheckInternalConsistency();
+            creationManager.Debug.CheckInternalConsistency();
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>());
+            Assert.AreEqual(entities.Length, group.CalculateEntityCount());
+            Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
+
+            var movedEntities = group.ToEntityArray(Allocator.TempJob);
+            for (int i = 0; i < movedEntities.Length; ++i)
+            {
+                var entity = movedEntities[i];
+                var valueFromComponent = m_Manager.GetComponentData<EcsTestData>(entity).value;
+                var valueFromChunkComponent = m_Manager.GetChunkComponentData<EcsTestData2>(entity).value0;
+                Assert.AreEqual(valueFromComponent, valueFromChunkComponent);
+            }
+
+            movedEntities.Dispose();
+            entities.Dispose();
+            creationWorld.Dispose();
+        }
+
+        [Test]
         public void MoveEntitiesWithChunkComponents()
         {
             var creationWorld = new World("CreationWorld");
@@ -615,7 +665,7 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        [StandaloneFixme] // No Unity.Properties Support
+        [DotsRuntimeFixme] // No Unity.Properties Support
         public void MoveEntitiesPatchesEntityReferences_ManagedComponents([Values] bool useFilteredMove)
         {
             int numberOfEntitiesPerManager = 10000;
@@ -673,7 +723,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // No Unity.Properties Support
+        [DotsRuntimeFixme] // No Unity.Properties Support
         public void MoveEntitiesPatchesEntityReferencesInCollections_ManagedComponents()
         {
             int numberOfEntitiesPerManager = 100;

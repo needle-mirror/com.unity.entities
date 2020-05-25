@@ -58,13 +58,6 @@ namespace Unity.Entities
         /// </remarks>
         public void CopyAndReplaceEntitiesFrom(EntityManager srcEntityManager)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!srcEntityManager.IsCreated)
-                throw new ArgumentNullException(nameof(srcEntityManager));
-            if (!IsCreated)
-                throw new ArgumentException("This EntityManager has been destroyed");
-#endif
-
             srcEntityManager.CompleteAllJobs();
             CompleteAllJobs();
 

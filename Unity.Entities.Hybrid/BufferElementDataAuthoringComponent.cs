@@ -21,7 +21,6 @@ namespace Unity.Entities.Hybrid
 
             if (Values.Length == 0)
             {
-                return;
             }
 
             fixed(void* sourcePtr = &Values[0])

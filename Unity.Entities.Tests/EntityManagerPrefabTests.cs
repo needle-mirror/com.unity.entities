@@ -126,6 +126,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [IgnoreInPortableTests("Throws a NotImplemented exception")]
         public void InstantiateExplicitEntitySet([Values] bool instantiate)
         {
             var external = m_Manager.CreateEntity();
@@ -216,7 +217,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // No Unity.Properties support
+        [DotsRuntimeFixme] // No Unity.Properties support
         public void InstantiateLinkedGroup_ManagedComponents()
         {
             var external = m_Manager.CreateEntity();
@@ -235,7 +236,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // No Unity.Properties support
+        [DotsRuntimeFixme] // No Unity.Properties support
         public void InstantiateLinkedGroupStressTest_ManagedComponents([Values(1, 1023)] int count)
         {
             var external = m_Manager.CreateEntity();

@@ -207,7 +207,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual("Hello there Sailor!", TestSystem.CaptureAndOperateOnReferenceType());
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !UNITY_PORTABLE_TEST_RUNNER
 // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void IterateSharedComponentDataTest()
@@ -289,7 +289,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        [StandaloneFixme] // UnsafeUtility.CopyObjectAddressToPtr not implemented
+        [DotsRuntimeFixme] // UnsafeUtility.CopyObjectAddressToPtr not implemented
         public void ManyManagedComponents()
         {
             var entity = m_Manager.CreateEntity();
@@ -317,7 +317,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 #endif
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void JobDebuggerSafetyThrowsInRun()
         {
             var jobHandle = TestSystem.ScheduleEcsTestData();
@@ -326,13 +326,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void JobDebuggerSafetyThrowsInSchedule()
         {
             var jobHandle = TestSystem.ScheduleEcsTestData();
             Assert.Throws<InvalidOperationException>(() => { TestSystem.ScheduleEcsTestData(); });
             jobHandle.Complete();
         }
+
+        [Test]
+        public void ForEachWithCustomDelegateTypeWithMoreThan8Parameters()
+        {
+            TestSystem.RunForEachWithCustomDelegateTypeWithMoreThan8Parameters();
+        }
+
 
         class MyTestSystem : TestJobComponentSystem
         {
@@ -725,7 +732,18 @@ namespace Unity.Entities.Tests.ForEachCodegen
             }
 
 #endif
+            public void RunForEachWithCustomDelegateTypeWithMoreThan8Parameters()
+            {
+                int grabbedData = -1;
+                Entities.ForEach((Entity e0, Entity e1, Entity e2, Entity e3, Entity e4, Entity e5, Entity e6, Entity e7, Entity e8, Entity e9, Entity e10, in EcsTestData data) =>
+                {
+                    grabbedData = data.value;
+                }).Run();
+                Assert.AreEqual(3,  grabbedData);
+            }
         }
+
+
 
         void AssertNothingChanged() => Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
     }
@@ -734,4 +752,15 @@ namespace Unity.Entities.Tests.ForEachCodegen
     {
         protected override JobHandle OnUpdate(JobHandle inputDeps) => inputDeps;
     }
+}
+
+
+static class BringYourOwnDelegate
+{
+    [EntitiesForEachCompatible]
+    public delegate void CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7, T8 t8, T9 t9, T10 t10, in T11 t11);
+
+    public static TDescription ForEach<TDescription, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(this TDescription description, CustomForEachDelegate<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> codeToRun)
+        where TDescription : struct, ISupportForEachWithUniversalDelegate =>
+        LambdaForEachDescriptionConstructionMethods.ThrowCodeGenException<TDescription>();
 }

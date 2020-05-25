@@ -26,7 +26,7 @@ namespace Unity.Entities.Tests
         [TearDown]
         public override void TearDown()
         {
-            if (m_Manager2.IsCreated)
+            if (m_World2.IsCreated)
             {
                 // Clean up systems before calling CheckInternalConsistency because we might have filters etc
                 // holding on SharedComponentData making checks fail
@@ -94,7 +94,7 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void EntityCommandBufferSystem_DisposeAfterPlaybackError_Succeeds()
         {
             TestEntityCommandBufferSystem barrier = World.GetOrCreateSystem<TestEntityCommandBufferSystem>();
@@ -121,7 +121,7 @@ namespace Unity.Entities.Tests
 
 #if UNITY_2020_1_OR_NEWER
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void EntityCommandBufferConcurrent_PlaybackDuringWrite_UsesCustomOwnerTypeName()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -140,7 +140,7 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void SingleWriterEnforced()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
@@ -178,7 +178,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void DisposeWhileJobRunningThrows()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -194,7 +194,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void ModifiesWhileJobRunningThrows()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -210,7 +210,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [DotsRuntimeFixme] // IJob
         public void PlaybackWhileJobRunningThrows()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -292,7 +292,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void EntityCommandBufferConcurrent_PlaybackDuringWrite_ThrowsInvalidOperation()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -307,7 +307,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme]
+        [DotsRuntimeFixme]
         public void EntityCommandBufferConcurrent_DisposeDuringWrite_ThrowsInvalidOperation()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -2279,7 +2279,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !UNITY_PORTABLE_TEST_RUNNER
 // https://unity3d.atlassian.net/browse/DOTSR-1432
         void VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(bool shouldThrow, TestDelegate code)
         {

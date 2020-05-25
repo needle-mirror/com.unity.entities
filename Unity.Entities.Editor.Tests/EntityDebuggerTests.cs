@@ -53,7 +53,7 @@ namespace Unity.Entities.Editor.Tests
             World2 = new World(World2Name);
             var emptySys = World2.GetOrCreateSystem<EmptySystem>();
             World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(emptySys);
-            World.GetOrCreateSystem<SimulationSystemGroup>().SortSystemUpdateList();
+            World.GetOrCreateSystem<SimulationSystemGroup>().SortSystems();
 
             entityQuery = m_System.EntityQueries[0];
 

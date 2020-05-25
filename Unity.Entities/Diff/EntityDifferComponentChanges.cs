@@ -909,6 +909,7 @@ namespace Unity.Entities
 
             var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
             var result = new List<PackedManagedComponentDataChange>();
+            var managedObjectClone = new ManagedObjectClone();
 
             for (var i = 0; i < changes.Length; i++)
             {
@@ -946,7 +947,7 @@ namespace Unity.Entities
                     PackedTypeIndex = packedTypeIndex
                 };
 
-                afterValue = ManagedComponentStore.CloneManagedComponent(afterValue);
+                afterValue = managedObjectClone.Clone(afterValue);
 
                 result.Add(new PackedManagedComponentDataChange
                 {

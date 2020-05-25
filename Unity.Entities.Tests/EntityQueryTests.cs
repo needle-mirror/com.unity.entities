@@ -954,6 +954,28 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void CopyFromComponentDataArray_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var values = new NativeArray<EcsTestData>(archetype.ChunkCapacity * 2, Allocator.TempJob);
+            for (int i = 0; i < archetype.ChunkCapacity * 2; ++i)
+            {
+                values[i] = new EcsTestData{value = i};
+            }
+
+            m_Manager.CreateEntity(archetype, archetype.ChunkCapacity * 2, Allocator.Temp);
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
+            query.CopyFromComponentDataArray(values);
+
+            var dataArray = query.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            CollectionAssert.AreEquivalent(values, dataArray);
+
+            dataArray.Dispose();
+            values.Dispose();
+        }
+
+        [Test]
         public void CopyFromComponentDataArrayWithUnrelatedQueryThrows()
         {
             var query = EmptySystem.GetEntityQuery(typeof(EcsTestData));

@@ -1257,9 +1257,6 @@ namespace Unity.Entities
         /// <param name="mgr">The entity manager that will receive the operations</param>
         public void Playback(EntityManager mgr)
         {
-            if (!mgr.IsCreated)
-                throw new NullReferenceException($"{nameof(mgr)} must be valid");
-
             PlaybackInternal(mgr.GetCheckedEntityDataAccess());
         }
 

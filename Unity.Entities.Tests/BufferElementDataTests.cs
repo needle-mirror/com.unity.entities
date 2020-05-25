@@ -555,7 +555,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [DotsRuntimeFixme] // IJob
         public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -662,14 +662,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob. Turned on, and seems to work locally, failed in CI.
+        [DotsRuntimeFixme] // IJob. Turned on, and seems to work locally, failed in CI.
         public void ReadOnlyDynamicBufferReadOnly()
         {
             ReadOnlyDynamicBufferImpl(true);
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [DotsRuntimeFixme] // IJob
         public void ReadOnlyDynamicBufferWritable()
         {
             ReadOnlyDynamicBufferImpl(false);
@@ -685,7 +685,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob + Safety Handles
+        [DotsRuntimeFixme] // IJob + Safety Handles
         public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -716,7 +716,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [StandaloneFixme] // IJob
+        [DotsRuntimeFixme] // IJob
         public void NativeArrayInJobReadOnly()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntElement));

@@ -1,7 +1,9 @@
 #if UNITY_DOTSPLAYER
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Mono.Cecil;
 using Unity.Cecil.Awesome;
 
@@ -50,69 +52,61 @@ namespace Unity.Entities.CodeGen
             return hash;
         }
 
-        static string GetSanitizedFullName(TypeReference typeRef)
+        // Todo: Remove this. DOTS Runtime currently doesn't conform to these system types so don't inspect their fields
+        static readonly string[] WorkaroundTypeNames = new string[] { "System.Guid" };
+
+        private static ulong HashType(TypeReference typeRef, Dictionary<TypeReference, ulong> cache)
         {
-            string name = typeRef.FullName;
-
-            if (typeRef.IsGenericInstance)
-            {
-                // Cecil produces a different field name than System.Reflection when a field contains a generic,
-                // so we convert the name to System.Reflection's form since it is a more precise string
-                var genericField = typeRef as GenericInstanceType;
-                name = genericField.FullName.Substring(0, typeRef.FullName.IndexOf('<'));
-                name += "[";
-                for (int i = 0; i < genericField.GenericArguments.Count; ++i)
-                {
-                    var genericType = genericField.GenericArguments[i].Resolve();
-                    name += "[";
-                    name += Assembly.CreateQualifiedName(genericType.Module.Assembly.FullName, genericType.FullName);
-                    name += "]";
-
-                    if (i < genericField.GenericArguments.Count - 1)
-                        name += ",";
-                }
-                name += "]";
-            }
-
-            // Reflection uses '+' as a delimiter for nested classes whereas cecil uses ECMA notation which uses '/'
-            name = name.Replace('/', '+');
-
-            return name;
-        }
-
-        public static ulong HashType(TypeReference typeRef, int fieldIndex = 0)
-        {
-            ulong hash = kFNV1A64OffsetBasis;
+            var hash = HashTypeName(typeRef);
             var typeResolver = TypeResolver.For(typeRef);
             var typeDef = typeRef.Resolve();
+
+            // UnityEngine objects have their own serialization mechanism so exclude hashing the type's
+            // internals and just hash its name which is stable and important to how Entities will serialize
+            if (typeRef.IsPointer || typeDef.IsPrimitive || typeDef.IsEnum || typeDef.IsUnityEngineObject() || WorkaroundTypeNames.Contains(typeRef.FullName))
+                return hash;
+
             foreach (var field in typeDef.Fields)
             {
-                if (!field.IsStatic)
+                if (!field.IsStatic) // statics have no effect on data layout
                 {
-                    string fieldName = GetSanitizedFullName(typeResolver.Resolve(field.FieldType));
-                    hash = CombineFNV1A64(hash, FNV1A64(fieldName));
-                    hash = CombineFNV1A64(hash, FNV1A64(fieldIndex));
-                    ++fieldIndex;
+                    var fieldTypeRef = typeResolver.Resolve(field.FieldType);
+
+                    // Classes can have cyclical type definitions so prevent recursion if we've seen the type already
+                    if (!cache.TryGetValue(fieldTypeRef, out ulong fieldTypeHash))
+                    {
+                        // Classes can have cyclical type definitions so to prevent a potential stackoverflow
+                        // we make all future occurence of fieldType resolve to the hash of its field type name
+                        cache.Add(fieldTypeRef, HashTypeName(fieldTypeRef));
+                        fieldTypeHash = HashType(fieldTypeRef, cache);
+                        cache[fieldTypeRef] =  fieldTypeHash;
+                    }
+
+                    if (field.HasLayoutInfo)
+                    {
+                        var offset = field.Offset;
+                        hash = CombineFNV1A64(hash, (ulong)offset);
+                    }
+                    hash = CombineFNV1A64(hash, fieldTypeHash);
                 }
             }
 
-            return hash;
-        }
-
-        public static ulong HashType(Type type, int fieldIndex = 0)
-        {
-            ulong hash = kFNV1A64OffsetBasis;
-
-            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
+            // TODO: Enable this. Currently IL2CPP gives totally inconsistent results to Mono.
+            /*
+            if (typeDef.HasLayoutInfo)
             {
-                if (!field.IsStatic)
-                {
-                    var fieldName = field.FieldType.FullName;
-                    hash = CombineFNV1A64(hash, FNV1A64(fieldName));
-                    hash = CombineFNV1A64(hash, FNV1A64(fieldIndex));
-                    ++fieldIndex;
-                }
+                var explicitSize = typeDef.ClassSize;
+                if (explicitSize > 0)
+                    hash = CombineFNV1A64(hash, (ulong)explicitSize);
+
+                // Todo: Enable this. We cannot support Pack at the moment since a type's Packing will
+                // change based on its field's explicit packing which will fail for Tiny mscorlib
+                // as it's not in sync with dotnet
+                //var packingSize = typeDef.PackingSize;
+                //if (packingSize > 0)
+                //    hash = CombineFNV1A64(hash, (ulong)packingSize);
             }
+            */
 
             return hash;
         }
@@ -135,41 +129,72 @@ namespace Unity.Entities.CodeGen
             return FNV1A64(version);
         }
 
-        private static ulong HashVersionAttribute(Type type)
+        private static ulong HashNamespace(TypeReference typeRef)
         {
-            int version = 0;
-            if (type.CustomAttributes.Count() > 0)
+            var hash = kFNV1A64OffsetBasis;
+
+            // System.Reflection and Cecil don't report namespaces the same way so do an alternative:
+            // Find the namespace of an un-nested parent type, then hash each of the nested children names
+            if (typeRef.IsNested)
             {
-                var versionAttribute = type.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == nameof(TypeManager.TypeVersionAttribute));
-                if (versionAttribute != null)
+                hash = CombineFNV1A64(hash, HashNamespace(typeRef.DeclaringType));
+                hash = CombineFNV1A64(hash, FNV1A64(typeRef.DeclaringType.Name));
+            }
+            else if (!string.IsNullOrEmpty(typeRef.Namespace))
+                hash = CombineFNV1A64(hash, FNV1A64(typeRef.Namespace));
+
+            return hash;
+        }
+
+        private static ulong HashTypeName(TypeReference typeRef)
+        {
+            ulong hash = HashNamespace(typeRef);
+            hash = CombineFNV1A64(hash, FNV1A64(typeRef.Name));
+            if (typeRef.IsGenericInstance)
+            {
+                var gi = (GenericInstanceType)typeRef;
+                foreach (var ga in gi.GenericArguments)
                 {
-                    version = (int)versionAttribute.ConstructorArguments
-                        .First(arg => arg.ArgumentType.Name == "Int32")
-                        .Value;
+                    if (ga.IsGenericParameter)
+                        throw new ArgumentException($"Found GenericParameter in {typeRef.FullName}. This is not supported. Please correct your type to fully qualify its GenericArguments");
+                    hash = CombineFNV1A64(hash, HashTypeName(ga));
                 }
             }
 
-            return FNV1A64(version);
+            return hash;
         }
 
+        // Our StableTypeHashes purpose is to provide a version linking serialized component data to its runtime representation
+        // As such the type hash has a few requirements:
+        // R0 - TypeHashes apply to types serialized by Unity.Entities. The internals of a UnityEngine.Object reference
+        //      contained in a component must not have an effect on the type hash as the internals of the
+        //      UnityEngine.Object reference are fine to change safely since they are serialized outside of Unity.Entities
+        // R1 - Types with the same data layout, but are still different types, should have different hashes
+        // R2 - If a type's data layout changes, so should the type hash. This includes:
+        //      - Nested field's data layout changes (e.g. new member added)
+        //      - FieldOffsets, explicit size, or pack alignment are changed
+        //      - Different types of the same width swap places (e.g. uint <-> int)
+        //      - NOTE: we cannot detect if fields of the same type swap (e.g. mInt1 <-> mInt2) This would be a semantic
+        //        difference which the user should increase their component [TypeVersion(1)] attribute. We explicitly do
+        //        not want to try to handle this case by hashing field names, as users do not control all field names,
+        //        and field names have no effect on how we serialize and should not effect our hashes.
+        // R3 - The hash should be user versioned should the semantics of a type change, but the data layout is unchanged
+        // R4 - DOTS Runtime will rely on hashes generated from the editor (used in serialized data) and hashes generated
+        //      during compilation. These hashes must match. This rule exists due to the non-obvious gotchas:
+        //      - DOTS Runtime will swap out assemblies for 'tiny' versions, this means any hashing using the AssemblyName
+        //        should be avoided or handled specially for the known swapped assemblies.
+        //        - Of course this means Type.AssemblyQualifiedName should be avoided in hashes, but as well, closed-form
+        //          generic types will include the assembly qualified name for GenericArguments in Type.FullName which will
+        //          cause issues. e.g. typeof(ComponentWithGeneric.GenericField).FullName ==
+        //          Unity.Entities.ComponentWithGeneric.GenericField`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]
+        //      - System.Reflection and Mono.Cecil will provide different Type names (they use a different format).
+        //        Generating hashes from System.Reflection and to match hashes using Mono.Cecil must account for this difference
         public static ulong CalculateStableTypeHash(TypeReference typeRef)
         {
-            ulong asmNameHash = FNV1A64(Assembly.CreateQualifiedName(typeRef.Module.Assembly.FullName, typeRef.FullName));
-            ulong typeHash = HashType(typeRef);
             ulong versionHash = HashVersionAttribute(typeRef);
+            ulong typeHash = HashType(typeRef, new Dictionary<TypeReference, ulong>());
 
-            return CombineFNV1A64(asmNameHash, typeHash, versionHash);
-        }
-
-        // Note: We do not use method overloading for Type/TypeDefinition because overloading the method would force users
-        // of the method to require an assembly reference on System.Reflection AND Mono.Cecil
-        public static ulong CalculateStableTypeHashRefl(Type type)
-        {
-            ulong asmNameHash = FNV1A64(type.AssemblyQualifiedName);
-            ulong typeHash = HashType(type);
-            ulong versionHash = HashVersionAttribute(type);
-
-            return CombineFNV1A64(asmNameHash, typeHash, versionHash);
+            return CombineFNV1A64(versionHash, typeHash);
         }
 
         public static ulong CalculateMemoryOrdering(TypeReference typeRef)
@@ -194,31 +219,6 @@ namespace Unity.Entities.CodeGen
             }
 
             return CalculateStableTypeHash(typeRef);
-        }
-
-        // Note: We do not use method overloading for Type/TypeDefinition because overloading the method would force users
-        // of the method to require an assembly reference on System.Reflection AND Mono.Cecil
-        public static ulong CalculateMemoryOrderingRefl(Type type)
-        {
-            if (type == null || type.FullName == "Unity.Entities.Entity")
-            {
-                return 0;
-            }
-
-            if (type.CustomAttributes.Count() > 0)
-            {
-                var forcedMemoryOrderAttribute = type.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == nameof(TypeManager.ForcedMemoryOrderingAttribute));
-                if (forcedMemoryOrderAttribute != null)
-                {
-                    ulong memoryOrder = (ulong)forcedMemoryOrderAttribute.ConstructorArguments
-                        .First(arg => arg.ArgumentType.Name == "UInt64")
-                        .Value;
-
-                    return memoryOrder;
-                }
-            }
-
-            return CalculateStableTypeHashRefl(type);
         }
     }
 }

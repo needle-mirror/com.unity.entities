@@ -1,19 +1,58 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Entities;
 using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
-using UnityEngine.Profiling;
+using Unity.Profiling;
+
+#if !NET_DOTS
+using IJob = Unity.Jobs.IJobBurstScheduable;
+#endif
 
 namespace Unity.Entities
 {
     class ManagedEntityDataAccess
     {
+        volatile static ManagedEntityDataAccess[] s_Instances = {null, null, null, null};
+
+        // AllocHandle and FreeHandle must be called from the main thread
+        public static int AllocHandle(ManagedEntityDataAccess instance)
+        {
+            var count = s_Instances.Length;
+            for(int i=0; i<count; ++i)
+            {
+                if (s_Instances[i] == null)
+                {
+                    s_Instances[i] = instance;
+                    return i;
+                }
+            }
+
+            var newInstances = new ManagedEntityDataAccess[count*2];
+            for (int i = 0; i < count; ++i)
+                newInstances[i] = s_Instances[i];
+            newInstances[count] = instance;
+
+            s_Instances = newInstances;
+            return count;
+        }
+
+        public static void FreeHandle(int i)
+        {
+            s_Instances[i] = null;
+        }
+
+        // This is thread safe even if s_Instances is being resized concurrently since both the old and new versions
+        // will have the same value at s_Instances[handle] and the reference is updated atomically
+        public static ManagedEntityDataAccess GetInstance(int handle)
+        {
+            return s_Instances[handle];
+        }
+
         public World                       m_World;
         public EntityQuery                 m_UniversalQuery; // matches all components
         public EntityManager.EntityManagerDebug m_Debug;
@@ -22,9 +61,15 @@ namespace Unity.Entities
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    [BurstCompatible]
     unsafe struct EntityDataAccess : IDisposable
     {
-        internal ManagedEntityDataAccess ManagedEntityDataAccess => (ManagedEntityDataAccess)m_ManagedAccess.Target;
+        private delegate void PlaybackManagedDelegate(IntPtr self);
+
+        private static readonly SharedStatic<IntPtr> s_ManagedPlaybackTrampoline = SharedStatic<IntPtr>.GetOrCreate<PlaybackManagedDelegate>();
+        private static object s_DelegateGCPrevention;
+
+        internal ManagedEntityDataAccess ManagedEntityDataAccess => ManagedEntityDataAccess.GetInstance(m_ManagedAccessHandle);
         internal ManagedComponentStore ManagedComponentStore => ManagedEntityDataAccess.m_ManagedComponentStore;
 
         // These pointer attributes freak debuggers out because they take
@@ -37,7 +82,7 @@ namespace Unity.Entities
         internal EntityComponentStore* EntityComponentStore
         {
             // This is always safe as the EntityDataAccess is always unsafe heap allocated.
-            get { fixed(EntityComponentStore* ptr = &m_EntityComponentStore) { return ptr; } }
+            get { fixed (EntityComponentStore* ptr = &m_EntityComponentStore) { return ptr; } }
         }
 
 #if !NET_DOTS
@@ -46,7 +91,7 @@ namespace Unity.Entities
         internal EntityQueryManager* EntityQueryManager
         {
             // This is always safe as the EntityDataAccess is always unsafe heap allocated.
-            get { fixed(EntityQueryManager* ptr = &m_EntityQueryManager) { return ptr; } }
+            get { fixed (EntityQueryManager* ptr = &m_EntityQueryManager) { return ptr; } }
         }
 
 #if !NET_DOTS
@@ -55,7 +100,7 @@ namespace Unity.Entities
         internal ComponentDependencyManager* DependencyManager
         {
             // This is always safe as the EntityDataAccess is always unsafe heap allocated.
-            get { fixed(ComponentDependencyManager* ptr = &m_DependencyManager) { return ptr; } }
+            get { fixed (ComponentDependencyManager* ptr = &m_DependencyManager) { return ptr; } }
         }
 
         [NativeDisableUnsafePtrRestriction]
@@ -65,7 +110,7 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction]
         private ComponentDependencyManager m_DependencyManager;
 
-        private GCHandle m_ManagedAccess;
+        private int m_ManagedAccessHandle;
 
         EntityArchetype m_EntityOnlyArchetype;
 
@@ -79,7 +124,7 @@ namespace Unity.Entities
         {
             get
             {
-                fixed(void* ptr = &m_AliveEntityQueries)
+                fixed (void* ptr = &m_AliveEntityQueries)
                 {
                     return ref UnsafeUtilityEx.AsRef<UnsafeHashMap<ulong, byte>>(ptr);
                 }
@@ -108,7 +153,7 @@ namespace Unity.Entities
             var managedGuts = new ManagedEntityDataAccess();
 
             self->m_EntityOnlyArchetype = default;
-            self->m_ManagedAccess = GCHandle.Alloc(managedGuts);
+            self->m_ManagedAccessHandle = ManagedEntityDataAccess.AllocHandle(managedGuts);
 
             self->AliveEntityQueries = new UnsafeHashMap<ulong, byte>(32, Allocator.Persistent);
 
@@ -143,12 +188,42 @@ namespace Unity.Entities
                     }
                 });
 
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             managedGuts.m_UniversalQuery._GetImpl()->_DisallowDisposing = true;
             managedGuts.m_UniversalQueryWithChunks._GetImpl()->_DisallowDisposing = true;
-            #endif
+#endif
+
+            if (s_ManagedPlaybackTrampoline.Data == IntPtr.Zero)
+            {
+                var trampoline = new PlaybackManagedDelegate(PlaybackManagedDelegateInMonoWithWrappedExceptions);
+                s_DelegateGCPrevention = trampoline; // Need to hold on to this
+                s_ManagedPlaybackTrampoline.Data = Marshal.GetFunctionPointerForDelegate(trampoline);
+            }
+
+#if ENABLE_PROFILER
+            self->marker_DestroyEntity = new ProfilerMarker("DestroyEntity(EntityQuery entityQueryFilter)");
+            self->marker_GetAllMatchingChunks = new ProfilerMarker("GetAllMatchingChunks");
+            self->marker_EditorOnlyChecks = new ProfilerMarker("EditorOnlyChecks");
+            self->marker_DestroyChunks = new ProfilerMarker("DestroyChunks");
+            self->marker_ManagedPlayback = new ProfilerMarker("Managed Playback");
+#endif
         }
 
+        [NotBurstCompatible]
+        [MonoPInvokeCallback(typeof(PlaybackManagedDelegate))]
+        private static void PlaybackManagedDelegateInMonoWithWrappedExceptions(IntPtr target)
+        {
+            try
+            {
+                ((EntityDataAccess*) target.ToPointer())->PlaybackManagedChanges();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
+        }
+
+        [NotBurstCompatible]
         public void Dispose()
         {
             ManagedEntityDataAccess managedGuts = ManagedEntityDataAccess;
@@ -170,13 +245,14 @@ namespace Unity.Entities
             managedGuts.m_World = null;
             managedGuts.m_Debug = null;
 
-            m_ManagedAccess.Free();
-            m_ManagedAccess = default;
+            ManagedEntityDataAccess.FreeHandle(m_ManagedAccessHandle);
+            m_ManagedAccessHandle = -1;
 
             AliveEntityQueries.Dispose();
             AliveEntityQueries = default;
         }
 
+        [BurstCompatible]
         public bool Exists(Entity entity)
         {
             return EntityComponentStore->Exists(entity);
@@ -211,38 +287,85 @@ namespace Unity.Entities
             DependencyManager->CompleteAllJobsAndInvalidateArrays();
         }
 
+        private ProfilerMarker marker_DestroyEntity;  // Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
+        private ProfilerMarker marker_GetAllMatchingChunks; // Profiler.BeginSample("GetAllMatchingChunks");
+        private ProfilerMarker marker_EditorOnlyChecks; // Profiler.BeginSample("EditorOnlyChecks");
+        private ProfilerMarker marker_DestroyChunks; //  Profiler.BeginSample("DestroyChunks");
+        private ProfilerMarker marker_ManagedPlayback; // Profiler.BeginSample("Managed Playback");
+
+        [Conditional("ENABLE_PROFILER")]
+        static void BeginMarker(ref ProfilerMarker marker)
+        {
+            marker.Begin();
+        }
+
+        [Conditional("ENABLE_PROFILER")]
+        static void EndMarker(ref ProfilerMarker marker)
+        {
+            marker.End();
+        }
+
+
         public void DestroyEntity(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter)
         {
             if (!IsMainThread)
                 throw new InvalidOperationException("Must be called from the main thread");
 
-            Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
+            BeginMarker(ref marker_DestroyEntity);
 
-            Profiler.BeginSample("GetAllMatchingChunks");
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager))
+            BeginMarker(ref marker_GetAllMatchingChunks);
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager);
+            EndMarker(ref marker_GetAllMatchingChunks);
+
+            var errorEntity = Entity.Null;
+            var errorReferencedEntity = Entity.Null;
+
+            if (chunks.Length != 0)
             {
-                Profiler.EndSample();
+                BeforeStructuralChange();
 
-                if (chunks.Length != 0)
+                BeginMarker(ref marker_EditorOnlyChecks);
+                EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks, GetArchetypeChunkBufferType<LinkedEntityGroup>(false), ref errorEntity, ref errorReferencedEntity);
+                EndMarker(ref marker_EditorOnlyChecks);
+
+                if (errorEntity == Entity.Null)
                 {
-                    BeforeStructuralChange();
-
-                    Profiler.BeginSample("EditorOnlyChecks");
-                    EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks, GetArchetypeChunkBufferType<LinkedEntityGroup>(false));
-                    Profiler.EndSample();
-
                     // #todo @macton DestroyEntities should support IJobChunk. But internal writes need to be handled.
-                    Profiler.BeginSample("DestroyChunks");
-                    new DestroyChunks { EntityComponentStore = EntityComponentStore, Chunks = chunks }.Run();
-                    Profiler.EndSample();
+                    BeginMarker(ref marker_DestroyChunks);
+                    RunDestroyChunks(chunks);
+                    EndMarker(ref marker_DestroyChunks);
 
-                    Profiler.BeginSample("Managed Playback");
+                    BeginMarker(ref marker_ManagedPlayback);
                     PlaybackManagedChanges();
-                    Profiler.EndSample();
+                    EndMarker(ref marker_ManagedPlayback);
                 }
             }
+            chunks.Dispose();
 
-            Profiler.EndSample();
+            EndMarker(ref marker_DestroyEntity);
+
+            // Defer throwing so we don't leak native arrays unnecessarily
+            if (errorEntity != Entity.Null)
+            {
+                EntityComponentStore->ThrowDestroyEntityError(errorEntity, errorReferencedEntity);
+            }
+        }
+
+        [BurstDiscard]
+        private void RunDestroyChunksMono(NativeArray<ArchetypeChunk> chunks, ref bool didTheThing)
+        {
+            new DestroyChunks { EntityComponentStore = EntityComponentStore, Chunks = chunks }.Run();
+            didTheThing = true;
+        }
+
+        private void RunDestroyChunks(NativeArray<ArchetypeChunk> chunks)
+        {
+            bool didTheThing = false;
+            RunDestroyChunksMono(chunks, ref didTheThing);
+            if (didTheThing)
+                return;
+
+            EntityComponentStore->DestroyEntities(chunks);
         }
 
         /// <summary>
@@ -259,27 +382,37 @@ namespace Unity.Entities
             if (!IsMainThread)
                 throw new InvalidOperationException("Must be called from the main thread");
 
-            Profiler.BeginSample("DestroyEntity(EntityQuery entityQueryFilter)");
+            BeginMarker(ref marker_DestroyEntity);
 
-            Profiler.BeginSample("GetAllMatchingChunks");
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager))
+            BeginMarker(ref marker_GetAllMatchingChunks);
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager);
+            EndMarker(ref marker_GetAllMatchingChunks);
+
+            var errorEntity = Entity.Null;
+            var errorReferencedEntity = Entity.Null;
+
+            if (chunks.Length != 0)
             {
-                Profiler.EndSample();
+                BeginMarker(ref marker_EditorOnlyChecks);
+                EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks, GetArchetypeChunkBufferType<LinkedEntityGroup>(false), ref errorEntity, ref errorReferencedEntity);
+                EndMarker(ref marker_EditorOnlyChecks);
 
-                if (chunks.Length != 0)
+                if (errorEntity == Entity.Null)
                 {
-                    Profiler.BeginSample("EditorOnlyChecks");
-                    EntityComponentStore->AssertWillDestroyAllInLinkedEntityGroup(chunks, GetArchetypeChunkBufferType<LinkedEntityGroup>(false));
-                    Profiler.EndSample();
-
                     // #todo @macton DestroyEntities should support IJobChunk. But internal writes need to be handled.
-                    Profiler.BeginSample("DeleteChunks");
-                    new DestroyChunks { EntityComponentStore = EntityComponentStore, Chunks = chunks }.Run();
-                    Profiler.EndSample();
+                    BeginMarker(ref marker_DestroyChunks);
+                    new DestroyChunks {EntityComponentStore = EntityComponentStore, Chunks = chunks}.Run();
+                    EndMarker(ref marker_DestroyChunks);
                 }
             }
+            chunks.Dispose();
 
-            Profiler.EndSample();
+            EndMarker(ref marker_DestroyEntity);
+
+            if (errorEntity != default)
+            {
+                EntityComponentStore->ThrowDestroyEntityError(errorEntity, errorReferencedEntity);
+            }
         }
 
         internal EntityArchetype CreateArchetype(ComponentType* types, int count)
@@ -290,9 +423,9 @@ namespace Unity.Entities
 
             // Lookup existing archetype (cheap)
             EntityArchetype entityArchetype;
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             entityArchetype._DebugComponentStore = EntityComponentStore;
-        #endif
+#endif
 
             entityArchetype.Archetype = EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
             if (entityArchetype.Archetype != null)
@@ -331,7 +464,7 @@ namespace Unity.Entities
             if (IsMainThread)
                 BeforeStructuralChange();
             Entity entity = CreateEntityDuringStructuralChange(archetype);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            PlaybackManagedChanges();
             return entity;
         }
 
@@ -436,13 +569,10 @@ namespace Unity.Entities
 
             EntityComponentStore->AssertCanAddComponent(archetypeList, componentType);
 
-            using (var chunks =
-                       ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter,
-                           DependencyManager))
-            {
-                if (chunks.Length == 0)
-                    return;
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager);
 
+            if (chunks.Length > 0)
+            {
                 BeforeStructuralChange();
                 var archetypeChanges = EntityComponentStore->BeginArchetypeChangeTracking();
 
@@ -452,8 +582,10 @@ namespace Unity.Entities
                 EntityComponentStore->AddComponentWithValidation(archetypeList, filter, componentType, DependencyManager);
 
                 EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
-                ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+                PlaybackManagedChanges();
             }
+
+            chunks.Dispose();
         }
 
         /// <summary>
@@ -471,15 +603,12 @@ namespace Unity.Entities
             if (!IsMainThread)
                 throw new InvalidOperationException("Must be called from the main thread");
 
-            using (var chunks =
-                       ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter,
-                           DependencyManager))
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager);
+            if (chunks.Length > 0)
             {
-                if (chunks.Length == 0)
-                    return;
-
                 StructuralChange.AddComponentChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex);
             }
+            chunks.Dispose();
         }
 
         public bool RemoveComponent(Entity entity, ComponentType componentType)
@@ -518,11 +647,9 @@ namespace Unity.Entities
             if (!IsMainThread)
                 throw new InvalidOperationException("Must be called from the main thread");
 
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob,
-                ref filter, DependencyManager))
-            {
-                RemoveComponent(chunks, componentType);
-            }
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager);
+            RemoveComponent(chunks, componentType);
+            chunks.Dispose();
         }
 
         /// <summary>
@@ -540,11 +667,9 @@ namespace Unity.Entities
             if (!IsMainThread)
                 throw new InvalidOperationException("Must be called from the main thread");
 
-            using (var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob,
-                ref filter, DependencyManager))
-            {
-                StructuralChange.RemoveComponentChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex);
-            }
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager);
+            StructuralChange.RemoveComponentChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex);
+            chunks.Dispose();
         }
 
         internal void RemoveComponent(NativeArray<ArchetypeChunk> chunks, ComponentType componentType)
@@ -754,11 +879,40 @@ namespace Unity.Entities
             PlaybackManagedChanges();
         }
 
+        private void PlaybackManagedChangesMono()
+        {
+            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+        }
+
+        [BurstDiscard]
+        private void PlaybackManagedDirectly(ref bool didTheThing)
+        {
+            didTheThing = true;
+            PlaybackManagedChangesMono();
+        }
+
         private void PlaybackManagedChanges()
         {
-            if (!EntityComponentStore->ManagedChangesTracker.Empty)
-                ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            if (EntityComponentStore->ManagedChangesTracker.Empty)
+                return;
+
+#if !NET_DOTS
+            {
+                bool monoDitIt = false;
+                PlaybackManagedDirectly(ref monoDitIt);
+                if (monoDitIt)
+                    return;
+            }
+
+            fixed (void* self = &this)
+            {
+                new FunctionPointer<PlaybackManagedDelegate>(s_ManagedPlaybackTrampoline.Data).Invoke((IntPtr)self);
+            }
+#else
+            PlaybackManagedChangesMono();
+#endif
         }
+
 
         /// <summary>
         /// EntityManager.BeforeStructuralChange must be called before invoking this.
@@ -927,7 +1081,7 @@ namespace Unity.Entities
             EntityComponentStore->AssertEntitiesExist(srcEntities, count);
             EntityComponentStore->AssertCanInstantiateEntities(srcEntities, count, removePrefab);
             EntityComponentStore->InstantiateEntities(srcEntities, outputEntities, count, removePrefab);
-            ManagedComponentStore.Playback(ref EntityComponentStore->ManagedChangesTracker);
+            PlaybackManagedChanges();
         }
 
         internal void DestroyEntityInternal(Entity* entities, int count)

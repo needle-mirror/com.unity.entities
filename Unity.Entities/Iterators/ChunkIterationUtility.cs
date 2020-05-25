@@ -264,7 +264,7 @@ namespace Unity.Entities
             JobHandle dependsOn)
             where T : struct, IComponentData
         {
-            var job = new GatherComponentDataJob
+            var job = new CopyComponentArrayToChunks
             {
                 ComponentData = (byte*)componentDataArray.GetUnsafePtr(),
                 TypeIndex = type.m_TypeIndex

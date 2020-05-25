@@ -28,6 +28,7 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
+        [DotsRuntimeIncompatibleTest("TinySamples asmdefs will pollute this test's exact match criteria")]
         public void ConvertGameObject_HasOnlyTransform_ProducesEntityWithPositionAndRotation()
         {
             var scene = SceneManager.GetActiveScene();

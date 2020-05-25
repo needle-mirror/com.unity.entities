@@ -10,7 +10,7 @@ using AssetImportContext = UnityEditor.Experimental.AssetImporters.AssetImportCo
 
 namespace Unity.Scenes.Editor
 {
-    [UnityEditor.Experimental.AssetImporters.ScriptedImporter(72, "extDontMatter")]
+    [UnityEditor.Experimental.AssetImporters.ScriptedImporter(73, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : UnityEditor.Experimental.AssetImporters.ScriptedImporter
     {

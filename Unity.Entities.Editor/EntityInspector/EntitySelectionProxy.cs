@@ -26,7 +26,7 @@ namespace Unity.Entities.Editor
         public EntityManager EntityManager { get; private set; }
         public World World { get; private set; }
 
-        public bool Exists => EntityManager.IsCreated && EntityManager.Exists(Entity);
+        public bool Exists => World.IsCreated && EntityManager.Exists(Entity);
 
         public void OnEntityControlSelectButton(World world, Entity entity)
         {

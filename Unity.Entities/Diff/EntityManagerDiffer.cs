@@ -30,9 +30,6 @@ namespace Unity.Entities
         {
             m_SourceEntityManager = sourceEntityManager;
 
-            if (!sourceEntityManager.IsCreated)
-                throw new ArgumentException(nameof(sourceEntityManager));
-
             m_EntityQueryDesc = entityQueryDesc ?? EntityGuidQueryDesc;
             m_ShadowWorld = new World(sourceEntityManager.World.Name + " (Shadow)", sourceEntityManager.World.Flags | WorldFlags.Shadow);
             m_ShadowEntityManager = m_ShadowWorld.EntityManager;
@@ -64,11 +61,6 @@ namespace Unity.Entities
         /// <returns>A set of changes for the world since the last fast-forward.</returns>
         public EntityChanges GetChanges(EntityManagerDifferOptions options, Allocator allocator)
         {
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!m_SourceEntityManager.IsCreated || !m_ShadowEntityManager.IsCreated)
-                throw new ArgumentException($"The {nameof(EntityManagerDiffer)} has already been Disposed.");
-            #endif
-
             var changes = EntityDiffer.GetChanges(
                 srcEntityManager: m_SourceEntityManager,
                 dstEntityManager: m_ShadowEntityManager,

@@ -1,10 +1,13 @@
 using System;
-using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Unity.Mathematics;
+
+#if !UNITY_DOTSPLAYER
+using IJob = Unity.Jobs.IJobBurstScheduable;
+using IJobParallelFor = Unity.Jobs.IJobParallelForBurstScheduable;
+#endif
 
 namespace Unity.Entities
 {
@@ -26,6 +29,7 @@ namespace Unity.Entities
             {
                 var srcChunk = archetype->Chunks.p[i];
                 Chunks[offset + i] = new ArchetypeChunk(srcChunk, entityComponentStore);
+
             }
         }
     }

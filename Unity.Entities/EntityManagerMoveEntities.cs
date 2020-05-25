@@ -408,7 +408,8 @@ namespace Unity.Entities
             {
                 dstEntityComponentStore = ecs,
                 remapChunks = remapChunks,
-                entityRemapping = entityRemapping
+                entityRemapping = entityRemapping,
+                chunkHeaderType = TypeManager.GetTypeIndex<ChunkHeader>()
             }.Schedule(remapChunks.Length, 1);
 
             var moveChunksBetweenArchetypeJob = new MoveFilteredChunksBetweenArchetypexJob
@@ -703,6 +704,8 @@ namespace Unity.Entities
 
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* dstEntityComponentStore;
 
+            public int chunkHeaderType;
+
             public void Execute(int index)
             {
                 Chunk* chunk = remapChunks[index].chunk;
@@ -712,6 +715,22 @@ namespace Unity.Entities
                 EntityRemapUtility.PatchEntities(dstArchetype->ScalarEntityPatches + 1,
                     dstArchetype->ScalarEntityPatchCount - 1, dstArchetype->BufferEntityPatches,
                     dstArchetype->BufferEntityPatchCount, chunk->Buffer, chunk->Count, ref entityRemapping);
+
+                // Fix up chunk pointers in ChunkHeaders
+                if (dstArchetype->HasChunkComponents)
+                {
+                    var metaArchetype = dstArchetype->MetaChunkArchetype;
+                    var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(metaArchetype, chunkHeaderType);
+                    var offset = metaArchetype->Offsets[indexInTypeArray];
+                    var sizeOf = sizeof(ChunkHeader);
+
+                    // Set chunk header without bumping change versions since they are zeroed when processing meta chunk
+                    // modifying them here would be a race condition
+                    var metaChunkEntity = chunk->metaChunkEntity;
+                    var metaEntityInChunk = dstEntityComponentStore->GetEntityInChunk(metaChunkEntity);
+                    var chunkHeader = (ChunkHeader*)(metaEntityInChunk.Chunk->Buffer + (offset + sizeOf * metaEntityInChunk.IndexInChunk));
+                    chunkHeader->ArchetypeChunk = new ArchetypeChunk(chunk, dstEntityComponentStore);
+                }
             }
         }
 

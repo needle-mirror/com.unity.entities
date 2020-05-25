@@ -201,7 +201,11 @@ namespace Unity.Entities
         /// <returns>Return true if the specified query handle is still valid (and can be disposed)</returns>
         public bool IsQueryValid(EntityQuery query)
         {
-            return GetCheckedEntityDataAccess()->AliveEntityQueries.ContainsKey((ulong)(IntPtr)query.__impl);
+            if (!GetCheckedEntityDataAccess()->AliveEntityQueries.ContainsKey((ulong) (IntPtr) query.__impl))
+                return false;
+
+            // Also check that the sequence number matches in case the same pointer was given back by malloc.
+            return query.__seqno == query.__impl->_SeqNo;
         }
     }
 }

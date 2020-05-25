@@ -2,11 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Core;
 using Unity.Jobs;
-
-#if !UNITY_DOTSPLAYER_IL2CPP
+using Unity.Mathematics;
+#if !UNITY_PORTABLE_TEST_RUNNER
 using System.Reflection;
 using System.Linq;
 #endif
@@ -235,7 +236,65 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void WorldSimulationFixedStep()
+        public void WorldSimulation_FixedStep_Simple()
+        {
+            using (var world = new World("World A"))
+            {
+                var sim = world.GetOrCreateSystem<SimulationSystemGroup>();
+                var uc = world.GetOrCreateSystem<UpdateCountSystem>();
+                sim.AddSystemToUpdateList(uc);
+
+                // Unity.Core.Hybrid.UpdateWorldTimeSystem
+                var timeData = new TimeData();
+
+                void AdvanceWorldTime(float amount)
+                {
+                    uc.updateCount = 0;
+                    timeData = new TimeData(timeData.ElapsedTime + amount, amount);
+                    world.SetTime(timeData);
+                }
+
+                FixedRateUtils.EnableFixedRateSimple(sim, 1.0f);
+
+                // first frame will tick at elapsedTime=0
+                AdvanceWorldTime(0.5f);
+                world.Update();
+                Assert.AreEqual(0.0, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(1, uc.updateCount);
+
+                // Advance elapsed time to 1.6 seconds. the second tick should occur at 1.0
+                AdvanceWorldTime(1.1f);
+                world.Update();
+                Assert.AreEqual(1.0, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(1, uc.updateCount);
+
+                // Advance elapsed time to 1.7 seconds. the third tick should occur at 2.0
+                AdvanceWorldTime(0.1f);
+                world.Update();
+                Assert.AreEqual(2.0, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(1, uc.updateCount);
+
+                // Advance elapsed time to 2.7 seconds. The third tick should occur at 3.0
+                AdvanceWorldTime(1.0f);
+                world.Update();
+                Assert.AreEqual(3.0, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(1, uc.updateCount);
+
+                // Advance elapsed time to 4.9 seconds. The fourth tick should occur at 4.0
+                AdvanceWorldTime(2.2f);
+                world.Update();
+                Assert.AreEqual(4.0, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(1, uc.updateCount);
+            }
+        }
+
+        [Test]
+        public void WorldSimulation_FixedStep_CatchUp()
         {
             using (var world = new World("World A"))
             {
@@ -255,43 +314,44 @@ namespace Unity.Entities.Tests
 
                 FixedRateUtils.EnableFixedRateWithCatchUp(sim, 1.0f);
 
-                // first frame will tick immediately
+                // first frame will tick at elapsedTime=0
                 AdvanceWorldTime(0.5f);
                 world.Update();
-                Assert.AreEqual(0.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(0.0, uc.lastUpdateTime, 0.001f);
                 Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(1, uc.updateCount);
 
+                // Advance elapsed time to 1.6 seconds. the second tick should occur at 1.0
                 AdvanceWorldTime(1.1f);
                 world.Update();
-                Assert.AreEqual(1.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateTime, 0.001f);
                 Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(1, uc.updateCount);
 
-                // No update should happen because the time elapsed is less than the interval
+                // Advance elapsed time to 1.7 seconds. No tick should occur.
                 AdvanceWorldTime(0.1f);
                 world.Update();
-                Assert.AreEqual(1.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(1.0, uc.lastUpdateTime, 0.001f);
                 Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(0, uc.updateCount);
 
+                // Advance elapsed time to 2.7 seconds. The third tick should occur at 2.0
                 AdvanceWorldTime(1.0f);
                 world.Update();
-                Assert.AreEqual(2.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(2.0, uc.lastUpdateTime, 0.001f);
                 Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(1, uc.updateCount);
 
-                // If time jumps by a lot, we should tick the fixed rate systems
-                // multiple times
-                AdvanceWorldTime(2.0f);
+                // Advance elapsed time to 4.9 seconds. The fourth and fifth ticks should occur at 3.0 and 4.0.
+                AdvanceWorldTime(2.2f);
                 world.Update();
-                Assert.AreEqual(4.5, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(4.0, uc.lastUpdateTime, 0.001f);
                 Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(2, uc.updateCount);
             }
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !UNITY_PORTABLE_TEST_RUNNER
 // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void DisposeAllWorlds()
@@ -319,7 +379,7 @@ namespace Unity.Entities.Tests
 
 #endif
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !UNITY_PORTABLE_TEST_RUNNER
 // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void IteratingOverBoxedNoAllocReadOnlyCollectionThrows()
@@ -483,5 +543,190 @@ namespace Unity.Entities.Tests
             world.Dispose();
             Assert.AreEqual(0, world.Systems.Count);
         }
+    }
+
+    [BurstCompile]
+    public unsafe class StateAllocatorTests
+    {
+        private struct SystemDummy
+        {
+            public fixed byte Bytes[4097];
+        }
+
+        private World.StateAllocator alloc;
+        private SystemDummy systems;
+
+        [SetUp]
+        public void SetUp()
+        {
+            alloc.Init();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            alloc.Dispose();
+        }
+
+        internal static int CountLiveByBits(ref World.StateAllocator alloc)
+        {
+            int live = 0;
+
+            for (int i = 0; i < 64; ++i)
+            {
+                live += math.countbits(~alloc.m_Level1[i].FreeBits);
+            }
+
+            return live;
+        }
+
+        internal static int CountLiveByPointer(ref World.StateAllocator alloc)
+        {
+            int live = 0;
+
+            for (int i = 0; i < 64; ++i)
+            {
+                for (int s = 0; s < 64; ++s)
+                {
+                    live += alloc.m_Level1[i].SystemPointer[s] != 0 ? 1 : 0;
+                }
+            }
+
+            return live;
+        }
+
+        internal static void SanityCheck(ref World.StateAllocator alloc)
+        {
+        }
+
+        [Test]
+        public void BasicConstruction()
+        {
+            Assert.AreEqual(0, CountLiveByBits(ref alloc));
+        }
+
+        [Test]
+        public void SimpleTest()
+        {
+            fixed(byte* b = systems.Bytes)
+            {
+                var p1 = alloc.Alloc(out var h1, out var v1, b + 0, 987);
+                var p2 = alloc.Alloc(out var h2, out var v2, b + 1, 986);
+                var p3 = alloc.Alloc(out var h3, out var v3, b + 2, 985);
+
+                Assert.AreNotEqual((IntPtr)p1, (IntPtr)p2);
+                Assert.AreNotEqual((IntPtr)p2, (IntPtr)p3);
+                Assert.AreNotEqual((IntPtr)p1, (IntPtr)p3);
+
+                Assert.AreNotEqual(0, v1);
+                Assert.AreNotEqual(0, v2);
+                Assert.AreNotEqual(0, v3);
+
+                Assert.AreNotEqual(h1, h2);
+                Assert.AreNotEqual(h2, h3);
+                Assert.AreNotEqual(h3, h1);
+
+                Assert.AreEqual(3, CountLiveByBits(ref alloc));
+                Assert.AreEqual(3, CountLiveByPointer(ref alloc));
+
+                alloc.Free(h2);
+
+                Assert.AreEqual(2, CountLiveByBits(ref alloc));
+                Assert.AreEqual(2, CountLiveByPointer(ref alloc));
+
+                var p2_ = alloc.Alloc(out var h2_, out var v2_, b + 1, 981);
+
+                Assert.AreEqual(3, CountLiveByBits(ref alloc));
+                Assert.AreEqual(3, CountLiveByPointer(ref alloc));
+
+                Assert.AreEqual((IntPtr)p2, (IntPtr)p2_);
+                Assert.AreEqual(h2, h2_);
+                Assert.AreNotEqual(v2, v2_);
+            }
+        }
+
+        #if !NET_DOTS
+        internal delegate void RunBurstTest(IntPtr allocPtr, IntPtr sysPtr);
+        [BurstCompile(CompileSynchronously = true)]
+        static void RunStressTest(IntPtr allocPtr, IntPtr sys_)
+        {
+            var alloc = (World.StateAllocator*)allocPtr;
+            var sys = (byte*)sys_;
+            ushort* handles = stackalloc ushort[4096];
+            ushort* versions = stackalloc ushort[4096];
+
+            // Fill the allocator completely
+            for (int i = 0; i < 4096; ++i)
+            {
+                var p = alloc->Alloc(out handles[i], out versions[i], sys + i, i + 1);
+            }
+
+            if (CountLiveByBits(ref *alloc) != 4096)
+                throw new InvalidOperationException("count is wrong");
+
+            if (CountLiveByPointer(ref *alloc) != 4096)
+                throw new InvalidOperationException("count is wrong");
+
+            // They should all resolve
+            for (int i = 0; i < 4096; ++i)
+            {
+                if (null == alloc->Resolve(handles[i], versions[i]))
+                    throw new InvalidOperationException("Resolve failed");
+            }
+
+            // Free every other system
+            for (int i = 0; i < 4096; i += 2)
+            {
+                alloc->Free(handles[i]);
+            }
+
+            // Every other system should resolve
+            for (int i = 0; i < 4096; i += 2)
+            {
+                bool freed = 0 == (i & 1);
+                if (freed)
+                {
+                    if (null != alloc->Resolve(handles[i], versions[i]))
+                    {
+                        throw new InvalidOperationException("Resolve failed");
+                    }
+                }
+                else
+                {
+                    if (null == alloc->Resolve(handles[i], versions[i]))
+                    {
+                        throw new InvalidOperationException("Resolve failed");
+                    }
+                }
+            }
+
+            if (CountLiveByBits(ref *alloc) != 2048)
+                throw new InvalidOperationException("count is wrong");
+
+            if (CountLiveByPointer(ref *alloc) != 2048)
+                throw new InvalidOperationException("count is wrong");
+        }
+
+        [Test]
+        public void StressTestFromBurst()
+        {
+            fixed(World.StateAllocator* p = &alloc)
+            fixed(byte* s = systems.Bytes)
+            {
+                BurstCompiler.CompileFunctionPointer<RunBurstTest>(RunStressTest).Invoke((IntPtr)p, (IntPtr)s);
+            }
+        }
+
+        [Test]
+        public void StressTestFromMono()
+        {
+            fixed(World.StateAllocator* p = &alloc)
+            fixed(byte* s = systems.Bytes)
+            {
+                RunStressTest((IntPtr)p, (IntPtr)s);
+            }
+        }
+
+        #endif
     }
 }

@@ -389,6 +389,6 @@ namespace Unity.Entities
 
 public static partial class LambdaForEachDescriptionConstructionMethods
 {
-    static TDescription ThrowCodeGenException<TDescription>() => throw new Exception("This method should have been replaced by codegen");
+    public static TDescription ThrowCodeGenException<TDescription>() => throw new Exception("This method should have been replaced by codegen");
     public static void ThrowCodeGenInvalidMethodCalledException() => throw new Exception("This method was replaced during post-processing and should not have been called.  Please file a bug with us!");
 }

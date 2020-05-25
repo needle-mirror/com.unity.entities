@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Unity.Core;
+using Unity.Mathematics;
 
 namespace Unity.Entities
 {
@@ -61,13 +62,11 @@ namespace Unity.Entities
                     return false;
                 }
 
-                if (m_LastFixedUpdateTime == 0.0)
-                    m_LastFixedUpdateTime = group.World.Time.ElapsedTime - m_FixedTimeStep;
-
-                m_LastFixedUpdateTime += m_FixedTimeStep;
                 group.World.PushTime(new TimeData(
                     elapsedTime: m_LastFixedUpdateTime,
                     deltaTime: m_FixedTimeStep));
+
+                m_LastFixedUpdateTime += m_FixedTimeStep;
 
                 m_DidPushTime = true;
                 return true;
@@ -78,7 +77,7 @@ namespace Unity.Entities
         {
             protected float m_FixedTimeStep;
             protected double m_LastFixedUpdateTime;
-            protected int m_FixedUpdateCount;
+            protected long m_FixedUpdateCount;
             protected bool m_DidPushTime;
 
             internal FixedRateCatchUpManager(float fixedStep)
@@ -95,20 +94,20 @@ namespace Unity.Entities
                 }
 
                 var elapsedTime = group.World.Time.ElapsedTime;
-                if (m_LastFixedUpdateTime == 0.0)
-                    m_LastFixedUpdateTime = elapsedTime - m_FixedTimeStep;
-
                 if (elapsedTime - m_LastFixedUpdateTime >= m_FixedTimeStep)
                 {
-                    // Note that m_FixedTimeStep of 0.0f will never update
+                    // Advance the timestep and update the system group
                     m_LastFixedUpdateTime += m_FixedTimeStep;
-                    m_FixedUpdateCount++;
                 }
-                else
+                else if (m_FixedUpdateCount > 0)
                 {
+                    // m_FixedUpdateCount=0 means this is the very first update, which should occur at t=0.
+                    // Otherwise, reaching this point means no further updates are necessary at this time.
                     m_DidPushTime = false;
                     return false;
                 }
+
+                m_FixedUpdateCount++;
 
                 group.World.PushTime(new TimeData(
                     elapsedTime: m_LastFixedUpdateTime,

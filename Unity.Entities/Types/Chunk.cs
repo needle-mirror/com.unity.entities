@@ -99,14 +99,6 @@ namespace Unity.Entities
             return kChunkSize - kBufferOffset;
         }
 
-        public static Chunk* MallocChunk(Allocator allocator)
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Assert.IsTrue(CollectionHelper.IsAligned(kBufferOffset, CollectionHelper.CacheLineSize));
-#endif
-            return (Chunk*)UnsafeUtility.Malloc(kChunkSize, CollectionHelper.CacheLineSize, allocator);
-        }
-
         public bool MatchesFilter(MatchingArchetype* match, ref EntityQueryFilter filter)
         {
             return match->ChunkMatchesFilter(ListIndex, ref filter);

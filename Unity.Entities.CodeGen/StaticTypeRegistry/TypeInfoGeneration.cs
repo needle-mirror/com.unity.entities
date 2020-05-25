@@ -716,8 +716,6 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        [Obsolete("Ensure you pass a TypeReference to this function. A TypeDefinition is not acceptable. (RemovedAfter 2020-05-17)", true)]
-        void CalculateMemoryOrderingAndStableHash(TypeDefinition typeDef, out ulong memoryOrder, out ulong stableHash) { throw new Exception(); }
         void CalculateMemoryOrderingAndStableHash(TypeReference typeRef, out ulong memoryOrder, out ulong stableHash)
         {
             if (typeRef == null)

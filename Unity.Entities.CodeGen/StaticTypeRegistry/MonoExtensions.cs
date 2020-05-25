@@ -116,9 +116,9 @@ namespace Unity.Entities.CodeGen
             if (type.IsEnum)
                 return false;
 
-            TypeUtils.PreprocessTypeFields(type, 0);
+            TypeUtils.PreprocessTypeFields(typeRef, 0);
 
-            return TypeUtils.ValueTypeIsComplex[0][type];
+            return TypeUtils.ValueTypeIsComplex[0][typeRef];
         }
 
         public static bool IsDynamicArray(this TypeReference type)

@@ -72,6 +72,7 @@ for (int paramCount=1; paramCount<=maxParamCount; paramCount++)
     var combinations = AllModeCombinationsFor(paramCount);
     foreach(var combination in combinations)
     {
+        WriteLine("    [EntitiesForEachCompatible]");
         Write($"    public delegate void {combination}<{NTypeParameters(paramCount)}>(");
 
         bool first = true;

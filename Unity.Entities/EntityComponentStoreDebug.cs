@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using Unity.Assertions;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -77,6 +78,7 @@ namespace Unity.Entities
                         Assert.IsTrue(chunk == chunkHeader.ArchetypeChunk.m_Chunk);
                         var metaChunk = GetChunk(chunk->metaChunkEntity);
                         Assert.IsTrue(metaChunk->Archetype == chunk->Archetype->MetaChunkArchetype);
+                        Assert.IsTrue(chunkHeader.ArchetypeChunk.m_EntityComponentStore == selfPtr);
                     }
 
                     for (int iType = managedTypeBegin; iType < managedTypeEnd; ++iType)
@@ -337,7 +339,9 @@ namespace Unity.Entities
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertWillDestroyAllInLinkedEntityGroup(NativeArray<ArchetypeChunk> chunkArray,
-            ArchetypeChunkBufferType<LinkedEntityGroup> linkedGroupType)
+            ArchetypeChunkBufferType<LinkedEntityGroup> linkedGroupType,
+            ref Entity errorEntity,
+            ref Entity errorReferencedEntity)
         {
             var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
             var chunksCount = chunkArray.Length;
@@ -350,7 +354,8 @@ namespace Unity.Entities
                 chunk->Flags |= tempChunkStateFlag;
             }
 
-            string error = null;
+            errorEntity = default;
+            errorReferencedEntity = default;
 
             for (int i = 0; i < chunkArray.Length; ++i)
             {
@@ -373,8 +378,10 @@ namespace Unity.Entities
                             var referencedChunk = GetChunk(referencedEntity);
 
                             if ((referencedChunk->Flags & tempChunkStateFlag) == 0)
-                                error =
-                                    $"DestroyEntity(EntityQuery query) is destroying entity {entities[0]} which contains a LinkedEntityGroup and the entity {entities[e]} in that group is not included in the query. If you want to destroy entities using a query all linked entities must be contained in the query..";
+                            {
+                                errorEntity = entities[0];
+                                errorReferencedEntity = referencedEntity;
+                            }
                         }
                     }
                 }
@@ -386,10 +393,20 @@ namespace Unity.Entities
                 Assert.IsTrue((chunk->Flags & tempChunkStateFlag) != 0);
                 chunk->Flags &= ~tempChunkStateFlag;
             }
-
-            if (error != null)
-                throw new ArgumentException(error);
         }
+
+        public void ThrowDestroyEntityError(Entity errorEntity, Entity errorReferencedEntity)
+        {
+            ThrowDestroyEntityErrorFancy(errorEntity, errorReferencedEntity);
+            throw new ArgumentException($"DestroyEntity(EntityQuery query) is destroying an entity which contains a LinkedEntityGroup with an entity not included in the query. If you want to destroy entities using a query all linked entities must be contained in the query.. For more detail, disable Burst compilation.");
+        }
+
+        [BurstDiscard]
+        private void ThrowDestroyEntityErrorFancy(Entity errorEntity, Entity errorReferencedEntity)
+        {
+            throw new ArgumentException($"DestroyEntity(EntityQuery query) is destroying entity {errorEntity} which contains a LinkedEntityGroup and the entity {errorReferencedEntity} in that group is not included in the query. If you want to destroy entities using a query all linked entities must be contained in the query..");
+        }
+
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public static void AssertArchetypeDoesNotRemoveSystemStateComponents(Archetype* src, Archetype* dst)

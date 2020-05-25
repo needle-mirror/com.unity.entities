@@ -178,7 +178,7 @@ namespace Unity.Scenes.Editor
             {
                 var dependencyGuid = new GUID(dependency.ToString());
                 // Built in asset bundles can be ignored
-                if (dependencyGuid == LiveLinkBuildPipeline.k_UnityEditorResources || dependencyGuid == LiveLinkBuildPipeline.k_UnityBuiltinResources || dependencyGuid == LiveLinkBuildPipeline.k_UnityBuiltinExtraResources)
+                if (GUIDHelper.IsBuiltinAsset(in dependencyGuid))
                     continue;
 
                 if (LiveLinkBuildPipeline.TryRemapBuiltinExtraGuid(ref dependencyGuid, out _))

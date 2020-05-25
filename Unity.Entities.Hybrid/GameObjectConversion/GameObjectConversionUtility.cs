@@ -314,11 +314,11 @@ namespace Unity.Entities
                 }
             }
 
-            declareConvert.SortSystemUpdateList();
-            earlyConvert.SortSystemUpdateList();
-            convert.SortSystemUpdateList();
-            lateConvert.SortSystemUpdateList();
-            export?.SortSystemUpdateList();
+            declareConvert.SortSystems();
+            earlyConvert.SortSystems();
+            convert.SortSystems();
+            lateConvert.SortSystems();
+            export?.SortSystems();
         }
 
         static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)

@@ -678,6 +678,7 @@ namespace Unity.Entities
         {
             s_ApplySetManagedComponentsProfilerMarker.Begin();
             var entitiesWithCompanionLink = new NativeList<Entity>(Allocator.Temp);
+            var managedObjectClone = new ManagedObjectClone();
 
             for (var i = 0; i < managedComponentDataChanges.Length; i++)
             {
@@ -703,7 +704,7 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        var clone = ManagedComponentStore.CloneManagedComponent(packedManagedComponentDataChange.BoxedValue);
+                        var clone = managedObjectClone.Clone(packedManagedComponentDataChange.BoxedValue);
                         entityManager.SetComponentObject(entity, component, clone);
 
                         if (component.TypeIndex == ManagedComponentStore.CompanionLinkTypeIndex)
@@ -723,6 +724,111 @@ namespace Unity.Entities
             s_ApplySetManagedComponentsProfilerMarker.End();
         }
 
+        struct SetComponentError
+        {
+            public ComponentType ComponentType;
+            public EntityGuid Guid;
+        }
+
+        [BurstCompile]
+        struct ApplySetComponentsJob : IJob
+        {
+            public EntityManager EntityManager;
+            [ReadOnly]
+            public NativeArray<PackedComponentDataChange> Changes;
+            [ReadOnly]
+            public NativeArray<byte> Payload;
+            [ReadOnly]
+            public NativeArray<EntityGuid> PackedEntityGuids;
+            [ReadOnly]
+            public NativeMultiHashMap<int, Entity> PackedEntities;
+            [ReadOnly]
+            public NativeArray<ComponentType> PackedTypes;
+
+            public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
+            public NativeHashMap<Entity, EntityGuid> EntityToEntityGuid;
+
+            public NativeList<SetComponentError> EntityDoesNotExist;
+            public NativeList<SetComponentError> ComponentDoesNotExist;
+
+            public void Execute()
+            {
+                var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
+
+                var offset = 0L;
+                for (var i = 0; i < Changes.Length; i++)
+                {
+                    var packedComponentDataChange = Changes[i];
+                    var packedComponent = packedComponentDataChange.Component;
+                    var component = PackedTypes[packedComponent.PackedTypeIndex];
+                    var size = packedComponentDataChange.Size;
+                    var data = (byte*)Payload.GetUnsafeReadOnlyPtr() + offset;
+                    var componentTypeInArchetype = new ComponentTypeInArchetype(component);
+
+                    if (PackedEntities.TryGetFirstValue(packedComponent.PackedEntityIndex, out var entity, out var iterator))
+                    {
+                        do
+                        {
+                            if (!EntityManager.Exists(entity))
+                            {
+                                EntityDoesNotExist.Add(new SetComponentError
+                                {
+                                    ComponentType = component, Guid =PackedEntityGuids[packedComponent.PackedEntityIndex]
+                                });
+                            }
+                            else if (!EntityManager.HasComponent(entity, component))
+                            {
+                                ComponentDoesNotExist.Add(new SetComponentError
+                                {
+                                    ComponentType = component, Guid =PackedEntityGuids[packedComponent.PackedEntityIndex]
+                                });
+                            }
+                            else
+                            {
+                                if (componentTypeInArchetype.IsZeroSized)
+                                {
+                                    // Nothing to set.
+                                }
+                                else if (componentTypeInArchetype.IsBuffer)
+                                {
+                                    var typeInfo = TypeManager.GetTypeInfo(componentTypeInArchetype.TypeIndex);
+                                    var elementSize = typeInfo.ElementSize;
+                                    var lengthInElements = size / elementSize;
+                                    var header = (BufferHeader*)EntityManager.GetComponentDataRawRW(entity, component.TypeIndex);
+                                    BufferHeader.Assign(header, data, lengthInElements, elementSize, 16, false, 0);
+                                }
+                                else
+                                {
+                                    var target = (byte*)EntityManager.GetComponentDataRawRW(entity, component.TypeIndex);
+
+                                    // Perform incremental updates on the entityGuidToEntity map to avoid a full rebuild.
+                                    if (componentTypeInArchetype.TypeIndex == entityGuidTypeIndex)
+                                    {
+                                        EntityGuid entityGuid;
+                                        UnsafeUtility.MemCpy(&entityGuid, target, sizeof(EntityGuid));
+
+                                        if (!entityGuid.Equals(default))
+                                        {
+                                            EntityGuidToEntity.Remove(entityGuid, entity);
+                                        }
+
+                                        UnsafeUtility.MemCpy(&entityGuid, data + packedComponentDataChange.Offset, size);
+                                        EntityGuidToEntity.Add(entityGuid, entity);
+                                        EntityToEntityGuid.TryAdd(entity, entityGuid);
+                                    }
+
+                                    UnsafeUtility.MemCpy(target + packedComponentDataChange.Offset, data, size);
+                                }
+                            }
+                        }
+                        while (PackedEntities.TryGetNextValue(out entity, ref iterator));
+                    }
+
+                    offset += size;
+                }
+            }
+        }
+
         static void ApplySetComponents(
             EntityManager entityManager,
             NativeArray<PackedComponentDataChange> changes,
@@ -734,73 +840,35 @@ namespace Unity.Entities
             NativeHashMap<Entity, EntityGuid> entityToEntityGuid)
         {
             s_ApplySetComponentsProfilerMarker.Begin();
-            var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
-
-            var offset = 0L;
-            for (var i = 0; i < changes.Length; i++)
+            var entityDoesNotExist = new NativeList<SetComponentError>(Allocator.TempJob);
+            var componentDoesNotExist = new NativeList<SetComponentError>(Allocator.TempJob);
+            new ApplySetComponentsJob
             {
-                var packedComponentDataChange = changes[i];
-                var packedComponent = packedComponentDataChange.Component;
-                var component = packedTypes[packedComponent.PackedTypeIndex];
-                var size = packedComponentDataChange.Size;
-                var data = (byte*)payload.GetUnsafeReadOnlyPtr() + offset;
-                var componentTypeInArchetype = new ComponentTypeInArchetype(component);
+                Changes = changes,
+                ComponentDoesNotExist = componentDoesNotExist,
+                EntityDoesNotExist = entityDoesNotExist,
+                EntityGuidToEntity = entityGuidToEntity,
+                EntityManager = entityManager,
+                EntityToEntityGuid = entityToEntityGuid,
+                PackedEntities = packedEntities,
+                PackedEntityGuids = packedEntityGuids,
+                PackedTypes = packedTypes,
+                Payload = payload
+            }.Run();
 
-                if (packedEntities.TryGetFirstValue(packedComponent.PackedEntityIndex, out var entity, out var iterator))
-                {
-                    do
-                    {
-                        if (!entityManager.Exists(entity))
-                        {
-                            Debug.LogWarning($"SetComponent<{component}>({packedEntityGuids[packedComponent.PackedEntityIndex]}) but entity does not exist.");
-                        }
-                        else if (!entityManager.HasComponent(entity, component))
-                        {
-                            Debug.LogWarning($"SetComponent<{component}>({packedEntityGuids[packedComponent.PackedEntityIndex]}) but component does not exist.");
-                        }
-                        else
-                        {
-                            if (componentTypeInArchetype.IsZeroSized)
-                            {
-                                // Nothing to set.
-                            }
-                            else if (componentTypeInArchetype.IsBuffer)
-                            {
-                                var typeInfo = TypeManager.GetTypeInfo(componentTypeInArchetype.TypeIndex);
-                                var elementSize = typeInfo.ElementSize;
-                                var lengthInElements = size / elementSize;
-                                var header = (BufferHeader*)entityManager.GetComponentDataRawRW(entity, component.TypeIndex);
-                                BufferHeader.Assign(header, data, lengthInElements, elementSize, 16, false, 0);
-                            }
-                            else
-                            {
-                                var target = (byte*)entityManager.GetComponentDataRawRW(entity, component.TypeIndex);
-
-                                // Perform incremental updates on the entityGuidToEntity map to avoid a full rebuild.
-                                if (componentTypeInArchetype.TypeIndex == entityGuidTypeIndex)
-                                {
-                                    EntityGuid entityGuid;
-                                    UnsafeUtility.MemCpy(&entityGuid, target, sizeof(EntityGuid));
-
-                                    if (!entityGuid.Equals(default))
-                                    {
-                                        entityGuidToEntity.Remove(entityGuid, entity);
-                                    }
-
-                                    UnsafeUtility.MemCpy(&entityGuid, data + packedComponentDataChange.Offset, size);
-                                    entityGuidToEntity.Add(entityGuid, entity);
-                                    entityToEntityGuid.TryAdd(entity, entityGuid);
-                                }
-
-                                UnsafeUtility.MemCpy(target + packedComponentDataChange.Offset, data, size);
-                            }
-                        }
-                    }
-                    while (packedEntities.TryGetNextValue(out entity, ref iterator));
-                }
-
-                offset += size;
+            for (int i = 0; i < entityDoesNotExist.Length; i++)
+            {
+                var error = entityDoesNotExist[i];
+                Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but entity does not exist.");
             }
+            for (int i = 0; i < componentDoesNotExist.Length; i++)
+            {
+                var error = componentDoesNotExist[i];
+                Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but entity does not exist.");
+            }
+
+            entityDoesNotExist.Dispose();
+            componentDoesNotExist.Dispose();
             s_ApplySetComponentsProfilerMarker.End();
         }
 

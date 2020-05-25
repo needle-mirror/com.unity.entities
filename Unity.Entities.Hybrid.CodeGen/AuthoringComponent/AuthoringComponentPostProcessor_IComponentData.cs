@@ -240,7 +240,7 @@ namespace Unity.Entities.Hybrid.CodeGen
                     ilProcessor.Emit(OpCodes.Ldfld, field);
                     ilProcessor.Emit(OpCodes.Ldloc, variableDefinition);
                     ilProcessor.Emit(OpCodes.Ldflda, destinationField);
-                    ilProcessor.Emit(OpCodes.Callvirt, convertGameObjectsToEntitiesFieldMethod);
+                    ilProcessor.Emit(OpCodes.Call, convertGameObjectsToEntitiesFieldMethod);
                 }
                 else
                 {

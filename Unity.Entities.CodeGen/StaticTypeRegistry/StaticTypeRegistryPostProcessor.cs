@@ -123,7 +123,7 @@ namespace Unity.Entities.CodeGen
 
             m_MemCmpFnRef = AssemblyDefinition.MainModule.ImportReference(typeof(UnsafeUtility).GetMethod("MemCmp"));
             m_MemCpyFnRef = AssemblyDefinition.MainModule.ImportReference(typeof(UnsafeUtility).GetMethod("MemCpy"));
-            m_Hash32FnRef = AssemblyDefinition.MainModule.ImportReference(typeof(XXHash).GetMethod("Hash32"));
+            m_Hash32FnRef = AssemblyDefinition.MainModule.ImportReference(typeof(XXHash).GetMethod("Hash32", new Type[] { typeof(byte*), typeof(int), typeof(uint) }));
 
             m_TypeInfoRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager.TypeInfo));
             m_TypeInfoConstructorRef = m_TypeInfoRef.Module.ImportReference(typeof(TypeManager.TypeInfo).GetConstructor(new Type[]
@@ -158,7 +158,9 @@ namespace Unity.Entities.CodeGen
             var typeCategory = FindTypeCategoryForType(typeDef);
             if (typeCategory == TypeCategory.Class && typeDef.BaseType != null)
             {
-                typeCategory = FindTypeCategoryForTypeRecursive(typeDef.BaseType.Resolve());
+                var baseTypeDef = typeDef.BaseType.Resolve();
+                if (baseTypeDef != null)
+                    typeCategory = FindTypeCategoryForTypeRecursive(baseTypeDef);
             }
 
             return typeCategory;
@@ -483,7 +485,7 @@ namespace Unity.Entities.CodeGen
                 var closeSharedTypeIndexRefField = new FieldReference(sharedTypeIndexRefField.Name, sharedTypeIndexRefField.FieldType, closedSharedTypeIndex);
 
                 // SharedTypeIndex<typeGenInfo.TypeReference>.Ref.Data = 0;
-                il.Emit(OpCodes.Ldsflda, closeSharedTypeIndexRefField);
+                il.Emit(OpCodes.Ldsflda, AssemblyDefinition.MainModule.ImportReference(closeSharedTypeIndexRefField));
                 il.Emit(OpCodes.Call, sharedStaticGetDataFn);
 
                 // Fetch TypeIndex from the array
@@ -505,7 +507,7 @@ namespace Unity.Entities.CodeGen
 
         void InjectEntityStableTypeHash()
         {
-            var entityStableTypeHash = TypeHash.CalculateStableTypeHashRefl(typeof(Entity));
+            var entityStableTypeHash = TypeHash.CalculateStableTypeHash(AssemblyDefinition.MainModule.ImportReference(typeof(Entity)));
             var typeManagerDef = AssemblyDefinition.MainModule.GetType("Unity.Entities.TypeManager");
             var getEntityStableTypeHashFn = typeManagerDef.GetMethods().First(m => m.Parameters.Count == 0 && m.Name == "GetEntityStableTypeHash");
             var il = getEntityStableTypeHashFn.Body.GetILProcessor();

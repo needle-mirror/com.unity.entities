@@ -6,7 +6,7 @@ using System.IO;
 
 namespace Unity.Entities.Hybrid
 {
-    internal static unsafe class FileUtilityHybrid
+    static class FileUtilityHybrid
     {
         public static bool FileExists(string path)
         {

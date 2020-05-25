@@ -112,9 +112,20 @@ namespace Unity.Entities.CodeGen
             var funcDef = new MethodDefinition(".cctor", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName, AssemblyDefinition.MainModule.ImportReference(typeof(void)));
             funcDef.Body.InitLocals = false;
 
-#if !UNITY_DOTSPLAYER
-            var attributeCtor = AssemblyDefinition.MainModule.ImportReference(typeof(UnityEditor.InitializeOnLoadMethodAttribute).GetConstructor(Type.EmptyTypes));
-            funcDef.CustomAttributes.Add(new CustomAttribute(attributeCtor));
+#if !UNITY_DOTSPLAYER // This will need a different solution
+            if (!Defines.Contains("UNITY_DOTSPLAYER"))
+            {
+                // Needs to run automatically in the player.
+                var attributeCtor = AssemblyDefinition.MainModule.ImportReference(typeof(UnityEngine.RuntimeInitializeOnLoadMethodAttribute).GetConstructor(Type.EmptyTypes));
+                funcDef.CustomAttributes.Add(new CustomAttribute(attributeCtor));
+            }
+
+            if (Defines.Contains("UNITY_EDITOR"))
+            {
+                // Needs to run automatically in the editor.
+                var attributeCtor2 = AssemblyDefinition.MainModule.ImportReference(typeof(UnityEditor.InitializeOnLoadMethodAttribute).GetConstructor(Type.EmptyTypes));
+                funcDef.CustomAttributes.Add(new CustomAttribute(attributeCtor2));
+            }
 #endif
 
             classDef.Methods.Add(funcDef);
@@ -125,9 +136,15 @@ namespace Unity.Entities.CodeGen
             var addMethod = mod.ImportReference(registryType.Methods.FirstOrDefault((x) => x.Name == nameof(SystemBaseRegistry.AddUnmanagedSystemType)));
             var delegateCtor = mod.ImportReference(registryType.NestedTypes.FirstOrDefault((x) => x.Name == nameof(SystemBaseRegistry.ForwardingFunc)).GetConstructors().FirstOrDefault((x) => x.Parameters.Count == 2));
             var genericHashFunc = mod.ImportReference(typeof(BurstRuntime)).Resolve().Methods.FirstOrDefault((x) => x.Name == nameof(BurstRuntime.GetHashCode64) && x.HasGenericParameters);
+            var typeType = mod.ImportReference(typeof(Type)).Resolve();
+            var getTypeFromHandle = mod.ImportReference(typeType.Methods.FirstOrDefault((x) => x.Name == "GetTypeFromHandle"));
 
             foreach (var memo in memos)
             {
+                // This craziness is equivalent to typeof(n)
+                processor.Emit(OpCodes.Ldtoken, memo.m_SystemType);
+                processor.Emit(OpCodes.Call, getTypeFromHandle);
+
                 processor.Emit(OpCodes.Call, mod.ImportReference(genericHashFunc.MakeGenericInstanceMethod(memo.m_SystemType)));
 
                 for (int i = 0; i < memo.m_Wrappers.Length; ++i)

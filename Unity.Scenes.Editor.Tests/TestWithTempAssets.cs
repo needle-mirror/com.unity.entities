@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using UnityEditor;
+using UnityEngine;
 
 namespace Unity.Scenes.Editor.Tests
 {

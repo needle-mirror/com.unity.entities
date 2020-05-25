@@ -67,15 +67,13 @@ namespace Unity.Scenes.Editor
 
         static NativeArray<Entity> GetActiveWorldSections(World world, Hash128 sceneGUID)
         {
-            if (world == null) return default;
+            if (world == null || !world.IsCreated) return default;
 
             var sceneSystem = world.GetExistingSystem<SceneSystem>();
             if (sceneSystem == null)
                 return default;
 
             var entities = world.EntityManager;
-            if (!entities.IsCreated)
-                return default;
 
             var sceneEntity = sceneSystem.GetSceneEntity(sceneGUID);
 

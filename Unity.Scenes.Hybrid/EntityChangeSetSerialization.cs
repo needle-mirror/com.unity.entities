@@ -193,7 +193,7 @@ namespace Unity.Scenes
             WriteSharedComponentDataChanges(buffer, writer, entityChangeSet.SetSharedComponents);
             WriteManagedComponentDataChanges(buffer, writer, setManagedComponentWithoutCompanionLinks);
 
-            var objectTable = writer.GetObjectTable();
+            var objectTable = writer.GetUnityObjects();
             var globalObjectIds = new GlobalObjectId[objectTable.Length];
             GlobalObjectId.GetGlobalObjectIdsSlow(objectTable, globalObjectIds);
 

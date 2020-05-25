@@ -4,169 +4,333 @@ using Unity.Entities;
 
 namespace Unity.Entities.UniversalDelegates
 {
+    [EntitiesForEachCompatible]
     public delegate void R<T0>(ref T0 t0);
+    [EntitiesForEachCompatible]
     public delegate void I<T0>(in T0 t0);
+    [EntitiesForEachCompatible]
     public delegate void V<T0>(T0 t0);
+    [EntitiesForEachCompatible]
     public delegate void RI<T0, T1>(ref T0 t0, in T1 t1);
+    [EntitiesForEachCompatible]
     public delegate void RR<T0, T1>(ref T0 t0, ref T1 t1);
+    [EntitiesForEachCompatible]
     public delegate void II<T0, T1>(in T0 t0, in T1 t1);
+    [EntitiesForEachCompatible]
     public delegate void VI<T0, T1>(T0 t0, in T1 t1);
+    [EntitiesForEachCompatible]
     public delegate void VR<T0, T1>(T0 t0, ref T1 t1);
+    [EntitiesForEachCompatible]
     public delegate void VV<T0, T1>(T0 t0, T1 t1);
+    [EntitiesForEachCompatible]
     public delegate void RII<T0, T1, T2>(ref T0 t0, in T1 t1, in T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void RRI<T0, T1, T2>(ref T0 t0, ref T1 t1, in T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void RRR<T0, T1, T2>(ref T0 t0, ref T1 t1, ref T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void III<T0, T1, T2>(in T0 t0, in T1 t1, in T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void VII<T0, T1, T2>(T0 t0, in T1 t1, in T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void VRI<T0, T1, T2>(T0 t0, ref T1 t1, in T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void VRR<T0, T1, T2>(T0 t0, ref T1 t1, ref T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void VVI<T0, T1, T2>(T0 t0, T1 t1, in T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void VVR<T0, T1, T2>(T0 t0, T1 t1, ref T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void VVV<T0, T1, T2>(T0 t0, T1 t1, T2 t2);
+    [EntitiesForEachCompatible]
     public delegate void RIII<T0, T1, T2, T3>(ref T0 t0, in T1 t1, in T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void RRII<T0, T1, T2, T3>(ref T0 t0, ref T1 t1, in T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void RRRI<T0, T1, T2, T3>(ref T0 t0, ref T1 t1, ref T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void RRRR<T0, T1, T2, T3>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void IIII<T0, T1, T2, T3>(in T0 t0, in T1 t1, in T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VIII<T0, T1, T2, T3>(T0 t0, in T1 t1, in T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VRII<T0, T1, T2, T3>(T0 t0, ref T1 t1, in T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VRRI<T0, T1, T2, T3>(T0 t0, ref T1 t1, ref T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VRRR<T0, T1, T2, T3>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VVII<T0, T1, T2, T3>(T0 t0, T1 t1, in T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VVRI<T0, T1, T2, T3>(T0 t0, T1 t1, ref T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VVRR<T0, T1, T2, T3>(T0 t0, T1 t1, ref T2 t2, ref T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VVVI<T0, T1, T2, T3>(T0 t0, T1 t1, T2 t2, in T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VVVR<T0, T1, T2, T3>(T0 t0, T1 t1, T2 t2, ref T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void VVVV<T0, T1, T2, T3>(T0 t0, T1 t1, T2 t2, T3 t3);
+    [EntitiesForEachCompatible]
     public delegate void RIIII<T0, T1, T2, T3, T4>(ref T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void RRIII<T0, T1, T2, T3, T4>(ref T0 t0, ref T1 t1, in T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void RRRII<T0, T1, T2, T3, T4>(ref T0 t0, ref T1 t1, ref T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void RRRRI<T0, T1, T2, T3, T4>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void RRRRR<T0, T1, T2, T3, T4>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void IIIII<T0, T1, T2, T3, T4>(in T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VIIII<T0, T1, T2, T3, T4>(T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VRIII<T0, T1, T2, T3, T4>(T0 t0, ref T1 t1, in T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VRRII<T0, T1, T2, T3, T4>(T0 t0, ref T1 t1, ref T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VRRRI<T0, T1, T2, T3, T4>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VRRRR<T0, T1, T2, T3, T4>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVIII<T0, T1, T2, T3, T4>(T0 t0, T1 t1, in T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVRII<T0, T1, T2, T3, T4>(T0 t0, T1 t1, ref T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVRRI<T0, T1, T2, T3, T4>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVRRR<T0, T1, T2, T3, T4>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVVII<T0, T1, T2, T3, T4>(T0 t0, T1 t1, T2 t2, in T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVVRI<T0, T1, T2, T3, T4>(T0 t0, T1 t1, T2 t2, ref T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVVRR<T0, T1, T2, T3, T4>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVVVI<T0, T1, T2, T3, T4>(T0 t0, T1 t1, T2 t2, T3 t3, in T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVVVR<T0, T1, T2, T3, T4>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void VVVVV<T0, T1, T2, T3, T4>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4);
+    [EntitiesForEachCompatible]
     public delegate void RIIIII<T0, T1, T2, T3, T4, T5>(ref T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void RRIIII<T0, T1, T2, T3, T4, T5>(ref T0 t0, ref T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void RRRIII<T0, T1, T2, T3, T4, T5>(ref T0 t0, ref T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void RRRRII<T0, T1, T2, T3, T4, T5>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRI<T0, T1, T2, T3, T4, T5>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRR<T0, T1, T2, T3, T4, T5>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void IIIIII<T0, T1, T2, T3, T4, T5>(in T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VIIIII<T0, T1, T2, T3, T4, T5>(T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VRIIII<T0, T1, T2, T3, T4, T5>(T0 t0, ref T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VRRIII<T0, T1, T2, T3, T4, T5>(T0 t0, ref T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VRRRII<T0, T1, T2, T3, T4, T5>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRI<T0, T1, T2, T3, T4, T5>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRR<T0, T1, T2, T3, T4, T5>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVIIII<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVRIII<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVRRII<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRI<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRR<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVIII<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, in T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVRII<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, ref T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRI<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRR<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, ref T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVVII<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, T3 t3, in T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRI<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRR<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, ref T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVI<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, in T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVR<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, ref T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVV<T0, T1, T2, T3, T4, T5>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5);
+    [EntitiesForEachCompatible]
     public delegate void RIIIIII<T0, T1, T2, T3, T4, T5, T6>(ref T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void RRIIIII<T0, T1, T2, T3, T4, T5, T6>(ref T0 t0, ref T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void RRRIIII<T0, T1, T2, T3, T4, T5, T6>(ref T0 t0, ref T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void RRRRIII<T0, T1, T2, T3, T4, T5, T6>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRII<T0, T1, T2, T3, T4, T5, T6>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRRI<T0, T1, T2, T3, T4, T5, T6>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRRR<T0, T1, T2, T3, T4, T5, T6>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void IIIIIII<T0, T1, T2, T3, T4, T5, T6>(in T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VIIIIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VRIIIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, ref T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VRRIIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, ref T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VRRRIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRRI<T0, T1, T2, T3, T4, T5, T6>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRRR<T0, T1, T2, T3, T4, T5, T6>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVIIIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVRIIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVRRIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRRI<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRRR<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVIIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVRIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, ref T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRRI<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRRR<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVIII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, in T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRRI<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, ref T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRRR<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, ref T5 t5, ref T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVII<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, in T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVRI<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, ref T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVRR<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, ref T5 t5, ref T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVI<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, in T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVR<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, ref T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVV<T0, T1, T2, T3, T4, T5, T6>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6);
+    [EntitiesForEachCompatible]
     public delegate void RIIIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(ref T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void RRIIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(ref T0 t0, ref T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void RRRIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(ref T0 t0, ref T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void RRRRIIII<T0, T1, T2, T3, T4, T5, T6, T7>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRIII<T0, T1, T2, T3, T4, T5, T6, T7>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRRII<T0, T1, T2, T3, T4, T5, T6, T7>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRRRI<T0, T1, T2, T3, T4, T5, T6, T7>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void RRRRRRRR<T0, T1, T2, T3, T4, T5, T6, T7>(ref T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, ref T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void IIIIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(in T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VIIIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, in T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VRIIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, ref T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VRRIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, ref T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VRRRIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRRII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRRRI<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VRRRRRRR<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, ref T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVIIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, in T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVRIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, ref T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVRRIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRRII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRRRI<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVRRRRRR<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, ref T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, ref T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVIIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, in T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVRIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, ref T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRRII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRRRI<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVRRRRR<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, ref T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, ref T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVIIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, in T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRRII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, ref T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRRRI<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVRRRR<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, ref T4 t4, ref T5 t5, ref T6 t6, ref T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVIII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, in T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVRII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, ref T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVRRI<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, ref T5 t5, ref T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVRRR<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, ref T5 t5, ref T6 t6, ref T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVII<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, in T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVRI<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, ref T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVRR<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, ref T6 t6, ref T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVVI<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, in T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVVR<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, ref T7 t7);
+    [EntitiesForEachCompatible]
     public delegate void VVVVVVVV<T0, T1, T2, T3, T4, T5, T6, T7>(T0 t0, T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7);
 }
 

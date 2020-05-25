@@ -4,6 +4,7 @@ using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Profiling;
 using UnityEngine.Profiling;
 
 namespace Unity.Entities
@@ -169,6 +170,7 @@ namespace Unity.Entities
             m_TempSafety = AtomicSafetyHandle.Create();
             m_ComponentSafetyHandlesCount = 0;
 
+            m_InvalidateArraysMarker = new ProfilerMarker("InvalidateArrays");
 #if UNITY_2020_1_OR_NEWER
             if (m_StaticSafetyIdsForComponentDataFromEntity == null)
             {
@@ -198,13 +200,14 @@ namespace Unity.Entities
         }
 
         public AtomicSafetyHandle ExclusiveTransactionSafety;
+        private ProfilerMarker m_InvalidateArraysMarker;
 
         public void CompleteAllJobsAndInvalidateArrays()
         {
             if (m_ComponentSafetyHandlesCount == 0)
                 return;
 
-            Profiler.BeginSample("InvalidateArrays");
+            m_InvalidateArraysMarker.Begin();
             for (var i = 0; i != m_ComponentSafetyHandlesCount; i++)
             {
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_ComponentSafetyHandles[i].SafetyHandle);
@@ -219,7 +222,7 @@ namespace Unity.Entities
             }
 
             ClearAllTypeArrayIndices();
-            Profiler.EndSample();
+            m_InvalidateArraysMarker.End();
         }
 
         public void Dispose()

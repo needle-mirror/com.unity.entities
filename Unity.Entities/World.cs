@@ -7,6 +7,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
+using Unity.Mathematics;
 using UnityEngine.Assertions;
 
 namespace Unity.Entities
@@ -85,18 +86,18 @@ namespace Unity.Entities
     [StructLayout(LayoutKind.Sequential)]
     internal struct SystemRefUntyped : IEquatable<SystemRefUntyped>, IComparable<SystemRefUntyped>
     {
-        internal ushort m_Slot;
+        internal ushort m_Handle;
         internal ushort m_Version;
         internal uint m_WorldSeqNo;
 
         private ulong ToUlong()
         {
-            return ((ulong)m_WorldSeqNo << 32) | ((ulong)m_Slot << 16) | (ulong)m_Version;
+            return ((ulong)m_WorldSeqNo << 32) | ((ulong)m_Handle << 16) | (ulong)m_Version;
         }
 
-        internal SystemRefUntyped(ushort slot, ushort version, uint worldSeqNo)
+        internal SystemRefUntyped(ushort handle, ushort version, uint worldSeqNo)
         {
-            m_Slot = slot;
+            m_Handle = handle;
             m_Version = version;
             m_WorldSeqNo = worldSeqNo;
         }
@@ -127,7 +128,7 @@ namespace Unity.Entities
         public override int GetHashCode()
         {
             int hashCode = -116238775;
-            hashCode = hashCode * -1521134295 + m_Slot.GetHashCode();
+            hashCode = hashCode * -1521134295 + m_Handle.GetHashCode();
             hashCode = hashCode * -1521134295 + m_Version.GetHashCode();
             hashCode = hashCode * -1521134295 + m_WorldSeqNo.GetHashCode();
             return hashCode;
@@ -180,26 +181,195 @@ namespace Unity.Entities
     #endif
         public static NoAllocReadOnlyCollection<World> All { get; } = new NoAllocReadOnlyCollection<World>(s_AllWorlds);
 
-#pragma warning disable 649
-        unsafe struct SystemSlot
+        // Manages a hierarchical bit set of 64 x 64 bits for that many system states.
+        // The intent is to be able to do two trailing zero counts to find a free slot,
+        // without maintaining a free list
+        internal struct StateAllocator
         {
-            internal ushort m_Version;
-            internal ushort m_Padding0;
-            internal int m_MetaIndex;
-            internal void* m_SystemPointer;
-            internal long m_TypeHash;
+            internal ulong m_FreeBits;
+            internal StateAllocLevel1* m_Level1;
+
+            public void Init()
+            {
+                m_FreeBits = ~0ul;
+
+                int allocSize = sizeof(StateAllocLevel1) * 64;
+                var l1 = m_Level1 = (StateAllocLevel1*)UnsafeUtility.Malloc(allocSize, 16, Allocator.Persistent);
+                UnsafeUtility.MemClear(l1, allocSize);
+
+                for (int i = 0; i < 64; ++i)
+                {
+                    l1[i].FreeBits = ~0ul;
+                }
+            }
+
+            public void Dispose()
+            {
+                var l1 = m_Level1;
+
+                for (int i = 0; i < 64; ++i)
+                {
+                    if (l1[i].States != null)
+                    {
+                        UnsafeUtility.Free(l1[i].States, Allocator.Persistent);
+                    }
+                }
+
+                UnsafeUtility.Free(l1, Allocator.Persistent);
+                m_Level1 = null;
+
+                this = default;
+            }
+
+            public SystemState* Resolve(ushort handle, ushort version)
+            {
+                int index = handle >> 6;
+                int subIndex = handle & 63;
+
+                ref var leaf = ref m_Level1[index];
+                return leaf.Version[subIndex] == version ? leaf.States + subIndex : null;
+            }
+
+            public SystemState* ResolveNoCheck(ushort handle)
+            {
+                int index = handle >> 6;
+                int subIndex = handle & 63;
+                return m_Level1[index].States + subIndex;
+            }
+
+            public long GetTypeHashNoCheck(ushort handle)
+            {
+                int index = handle >> 6;
+                int subIndex = handle & 63;
+                return m_Level1[index].TypeHash[subIndex];
+            }
+
+            public SystemState* Alloc(out ushort outHandle, out ushort outVersion, void* systemPtr, long typeHash)
+            {
+                CheckFull();
+
+                int index = math.tzcnt(m_FreeBits);
+
+                ref var leaf = ref *(m_Level1 + index);
+
+                int subIndex = math.tzcnt(leaf.FreeBits);
+
+                CheckSubIndex(subIndex);
+
+                if (leaf.States == null)
+                {
+                    leaf.States = (SystemState*)UnsafeUtility.Malloc(64 * sizeof(SystemState), 16, Allocator.Persistent);
+                }
+
+                leaf.FreeBits &= ~(1ul << subIndex);
+
+                // Branch-free clear of our bit in parent cascade if we're empty
+                ulong empty = leaf.FreeBits == 0 ? 1ul : 0ul;
+                m_FreeBits &= ~(empty << index);
+
+                var resultPtr = leaf.States + subIndex;
+
+                UnsafeUtility.MemClear(resultPtr, sizeof(SystemState));
+
+                outHandle = (ushort)((index << 6) + subIndex);
+
+                IncVersion(ref leaf.Version[subIndex]);
+                outVersion = leaf.Version[subIndex];
+                leaf.TypeHash[subIndex] = typeHash;
+                leaf.SystemPointer[subIndex] = (ulong)(IntPtr)systemPtr;
+
+                return resultPtr;
+            }
+
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private void CheckFull()
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (0 == m_FreeBits)
+                    throw new InvalidOperationException("out of system state slots; maximum is 4,096");
+#endif
+            }
+
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private static void CheckSubIndex(int subIndex)
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if ((uint)subIndex > 63)
+                    throw new InvalidOperationException("data structure corrupted");
+#endif
+            }
+
+            public void Free(ushort handle)
+            {
+                int index = handle >> 6;
+                int subIndex = handle & 63;
+
+                CheckIndex(index);
+
+                m_FreeBits |= 1ul << index;
+
+                ref var leaf = ref *(m_Level1 + index);
+
+                CheckIsAllocated(ref leaf, subIndex);
+
+                leaf.FreeBits |= (1ul << subIndex);
+                IncVersion(ref leaf.Version[subIndex]);
+                leaf.SystemPointer[subIndex] = 0;
+                leaf.TypeHash[subIndex] = 0;
+            }
+
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private static void CheckIsAllocated(ref StateAllocLevel1 leaf, int subIndex)
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if ((leaf.FreeBits & (1ul << subIndex)) != 0)
+                {
+                    throw new InvalidOperationException("slot is not allocated");
+                }
+#endif
+            }
+
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private static void CheckIndex(int index)
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (index > 63)
+                    throw new ArgumentException("bad index");
+#endif
+            }
+
+            private static void IncVersion(ref ushort v)
+            {
+                uint m = v;
+                m += 1;
+                m = (m >> 16) | m; // Fold overflow bit down to make 0xffff wrap to 0x0001, avoiding zero which is reserved for "unused"
+                v = (ushort)m;
+            }
+
+            public SystemState* GetState(ushort handle)
+            {
+                return GetBlock(handle, out var subIndex)->States + subIndex;
+            }
+
+            public StateAllocLevel1* GetBlock(ushort handle, out ushort subIndex)
+            {
+                ushort index = (ushort)(handle >> 6);
+                subIndex = (ushort)(handle & 63);
+                return m_Level1 + index;
+            }
         }
 
-#pragma warning restore 649
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct StateAllocLevel1
+        {
+            public ulong FreeBits;
+            public SystemState* States;
+            public fixed ushort Version[64];
+            public fixed long TypeHash[64];
+            public fixed ulong SystemPointer[64];
+        }
 
-        UnsafeList<SystemSlot> m_UnmanagedSlots;
-
-        // FIXME: This needs to be memory stable.
-        // Otherwise things like:
-        //   ref Foo = World.Resolve(fooRef);
-        //   World.CreateSystem<Bar>();
-        // can invalidate references that are in scope.
-        UnsafeList<SystemState> m_UnmanagedState;
+        private StateAllocator m_StateMemory;
         UnsafeMultiHashMap<long, ushort> m_UnmanagedSlotByTypeHash;
 
         List<ComponentSystemBase> m_Systems = new List<ComponentSystemBase>();
@@ -238,14 +408,14 @@ namespace Unity.Entities
         public World(string name) : this(name, WorldFlags.Simulation)
         {}
 
-        private GCHandle m_AliveBool;
+        private static uint s_WorldId = 0xfacefeed;
+        internal readonly uint m_WorldId = s_WorldId++;
 
         internal World(string name, WorldFlags flags)
         {
             Systems = new NoAllocReadOnlyCollection<ComponentSystemBase>(m_Systems);
 
             m_SequenceNumber = ms_NextSequenceNumber.Data++;
-            m_AliveBool = GCHandle.Alloc(this, GCHandleType.Weak);
 
             // Debug.LogError("Create World "+ name + " - " + GetHashCode());
             Name = name;
@@ -253,13 +423,15 @@ namespace Unity.Entities
             s_AllWorlds.Add(this);
 
             m_EntityManager = default;
-            m_EntityManager.Initialize(this, m_AliveBool);
+            m_EntityManager.Initialize(this);
+            EntityManager.DeprecatedRegistry.Register(m_EntityManager, this);
             m_TimeSingletonQuery = EntityManager.CreateEntityQuery(ComponentType.ReadWrite<WorldTime>(),
                 ComponentType.ReadWrite<WorldTimeQueue>());
 
-            m_UnmanagedSlots = new UnsafeList<SystemSlot>(32, Allocator.Persistent);
-            m_UnmanagedState = new UnsafeList<SystemState>(32, Allocator.Persistent);
             m_UnmanagedSlotByTypeHash = new UnsafeMultiHashMap<long, ushort>(32, Allocator.Persistent);
+
+            m_StateMemory = default;
+            m_StateMemory.Init();
         }
 
         public void Dispose()
@@ -274,14 +446,14 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_AllowGetSystem = false;
 #endif
+            EntityManager.DeprecatedRegistry.Unregister(m_EntityManager);
+
             DestroyAllSystemsAndLogException();
             DestroyAllUnmanagedSystemsAndLogException();
 
             // Destroy EntityManager last
             m_EntityManager.DestroyInstance();
             m_EntityManager = default;
-
-            m_AliveBool.Free();
 
 #if !UNITY_DOTSPLAYER
             m_SystemLookup.Clear();
@@ -292,8 +464,8 @@ namespace Unity.Entities
                 DefaultGameObjectInjectionWorld = null;
 
             m_UnmanagedSlotByTypeHash.Dispose();
-            m_UnmanagedState.Dispose();
-            m_UnmanagedSlots.Dispose();
+
+            m_StateMemory.Dispose();
         }
 
         public static void DisposeAllWorlds()
@@ -571,13 +743,23 @@ namespace Unity.Entities
 
         internal void DestroyAllUnmanagedSystemsAndLogException()
         {
-            for (int i = 0; i < m_UnmanagedSlots.Length; ++i)
+            for (int i = 0; i < 64; ++i)
             {
-                FreeSlot(i);
-            }
+                var blockPtr = m_StateMemory.m_Level1 + i;
 
-            m_UnmanagedSlots.Clear();
-            m_UnmanagedState.Clear();
+                var allocBits = ~blockPtr->FreeBits;
+
+                while (allocBits != 0)
+                {
+                    int bit = math.tzcnt(allocBits);
+
+                    FreeSlot((ushort)(i * 64 + bit));
+
+                    allocBits &= ~(1ul << bit);
+                }
+
+                Assert.IsTrue(blockPtr->FreeBits == ~0ul);
+            }
         }
 
         public ComponentSystemBase[] GetOrCreateSystemsAndLogException(Type[] types)
@@ -670,43 +852,39 @@ namespace Unity.Entities
         //-----------------------------------------------------------------------------
         // Unmanaged stuff
 
-        SystemSlot* ResolveSlot(SystemRefUntyped id)
+        internal SystemState* ResolveSystemState(SystemRefUntyped id)
         {
             // Nothing can resolve while we're shutting down.
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (!m_AllowGetSystem)
                 return null;
 #endif
-
-            int slot = id.m_Slot;
-            int version = id.m_Version;
-
             // System ID is for a different world.
             if (id.m_WorldSeqNo != (uint)m_SequenceNumber)
                 return null;
 
+            ushort handle = id.m_Handle;
+            ushort version = id.m_Version;
+
             // System ID is out of bounds.
-            if (slot >= m_UnmanagedSlots.Length)
+            if (handle >= 64 * 64)
                 return null;
 
-            // Finally check version
-            var slotPtr = m_UnmanagedSlots.Ptr + slot;
-            return version == slotPtr->m_Version ? slotPtr : null;
+            return m_StateMemory.Resolve(handle, version);
         }
 
         // TODO: Make public when ISystemBase is exposed
         internal bool IsSystemValid(SystemRefUntyped id)
         {
-            return ResolveSlot(id) != null;
+            return ResolveSystemState(id) != null;
         }
 
         internal ref T GetExistingUnmanagedSystem<T>() where T : struct, ISystemBase
         {
-            if (m_UnmanagedSlotByTypeHash.TryGetFirstValue(BurstRuntime.GetHashCode64<T>(), out ushort slotIndex, out _))
+            if (m_UnmanagedSlotByTypeHash.TryGetFirstValue(BurstRuntime.GetHashCode64<T>(), out ushort handle, out _))
             {
-                var slotPtr = m_UnmanagedSlots.Ptr + slotIndex;
-
-                return ref UnsafeUtilityEx.AsRef<T>(slotPtr->m_SystemPointer);
+                var statePtr = m_StateMemory.GetState(handle);
+                return ref UnsafeUtilityEx.AsRef<T>(statePtr->m_SystemPtr);
             }
 
             throw new InvalidOperationException("system does not exist");
@@ -715,140 +893,84 @@ namespace Unity.Entities
         // TODO: Make public when ISystemBase is exposed
         internal ref T ResolveSystem<T>(SystemRef<T> systemRef) where T : struct, ISystemBase
         {
-            var ptr = ResolveSlot(systemRef);
+            var ptr = ResolveSystemState(systemRef);
             if (ptr == null)
                 throw new InvalidOperationException("System reference is not valid");
-            return ref UnsafeUtilityEx.AsRef<T>(ptr->m_SystemPointer);
+            return ref UnsafeUtilityEx.AsRef<T>(ptr->m_SystemPtr);
         }
 
-        internal SystemState* ResolveSystemUntyped(SystemRefUntyped r)
+        private ushort AllocSlot(int structSize, long typeHash, out SystemState* statePtr, out void* systemPtr, out ushort version)
         {
-            SystemSlot* ptr = ResolveSlot(r);
-            if (ptr == null)
-                return null;
-
-            int index = (int)(ptr - m_UnmanagedSlots.Ptr);
-            return m_UnmanagedState.Ptr + index;
-        }
-
-        private static void IncVersion(ref ushort v)
-        {
-            uint m = v;
-            m += 1;
-            m = (m >> 16) | m; // Fold overflow bit down to make 0xffff wrap to 0x0001, avoiding zero which is reserved for "unused"
-            v = (ushort)m;
-        }
-
-        private int PrepareSlot(int slotIndex, int structSize, long typeHash)
-        {
-            var ptr = m_UnmanagedSlots.Ptr + slotIndex;
             var metaIndex = SystemBaseRegistry.GetSystemTypeMetaIndex(typeHash);
+            systemPtr = UnsafeUtility.Malloc(structSize, 16, Allocator.Persistent);
+            UnsafeUtility.MemClear(systemPtr, structSize);
 
-            ptr->m_SystemPointer = UnsafeUtility.Malloc(structSize, 16, Allocator.Persistent);
-            UnsafeUtility.MemClear(ptr->m_SystemPointer, structSize);
-            ptr->m_MetaIndex = metaIndex;
-            ptr->m_TypeHash = typeHash;
-            IncVersion(ref ptr->m_Version);
+            statePtr = m_StateMemory.Alloc(out var handle, out version, systemPtr, typeHash);
 
-            var statePtr = m_UnmanagedState.Ptr + slotIndex;
+            UnsafeUtility.MemClear(statePtr, sizeof(SystemState));
             statePtr->Init(this, null);
             statePtr->m_UnmanagedMetaIndex = metaIndex;
-            statePtr->m_SystemPtr = ptr->m_SystemPointer;
+            statePtr->m_SystemPtr = systemPtr;
 
             ++Version;
 
-            return slotIndex;
+            return handle;
         }
 
-        private int AllocSlot(int structSize, long typeHash)
+        private void FreeSlot(ushort handle)
         {
-            // TODO: Replace with quicker approach
-            var ptr = m_UnmanagedSlots.Ptr;
-            for (int i = 0; i < m_UnmanagedSlots.Length; ++i)
-            {
-                if (ptr[i].m_SystemPointer == null)
-                {
-                    return PrepareSlot(i, structSize, typeHash);
-                }
-            }
+            var statePtr = m_StateMemory.ResolveNoCheck(handle);
+            var systemPtr = statePtr->m_SystemPtr;
 
-            if (m_UnmanagedSlots.Length < ushort.MaxValue)
-            {
-                m_UnmanagedSlots.Add(default);
-                m_UnmanagedState.Add(default);
-
-                int index = m_UnmanagedSlots.Length - 1;
-                return PrepareSlot(index, structSize, typeHash);
-            }
-
-            throw new InvalidOperationException("too many systems allocated");
-        }
-
-        private void FreeSlot(int index)
-        {
-            var ptr = m_UnmanagedSlots.Ptr + index;
-
-            IncVersion(ref ptr->m_Version);
-
-            if (ptr->m_SystemPointer != null)
+            if (systemPtr != null)
             {
                 try
                 {
-                    SystemBaseRegistry.CallOnDestroy(m_UnmanagedState.Ptr + index);
+                    SystemBaseRegistry.CallOnDestroy(statePtr);
                 }
                 catch (Exception ex)
                 {
                     Debug.LogException(ex);
                 }
-
-                UnsafeUtility.Free(ptr->m_SystemPointer, Allocator.Persistent);
             }
 
-            m_UnmanagedState.Ptr[index].Dispose();
+            statePtr->Dispose();
 
-            ptr->m_SystemPointer = null;
+            m_StateMemory.Free(handle);
+
             ++Version;
         }
 
         internal SystemRef<T> CreateSystemUnmanaged<T>(out SystemState* statePtr) where T : struct, ISystemBase
         {
             long typeHash = BurstRuntime.GetHashCode64<T>();
-            int slotIndex = AllocSlot(UnsafeUtility.SizeOf<T>(), typeHash);
-            var slotPtr = m_UnmanagedSlots.Ptr + slotIndex;
+
+            ushort handle = AllocSlot(UnsafeUtility.SizeOf<T>(), typeHash, out statePtr, out var systemPtr, out var version);
 
             try
             {
-                statePtr = m_UnmanagedState.Ptr + slotIndex;
                 SystemBaseRegistry.CallOnCreate(statePtr);
             }
             catch (Exception ex)
             {
                 Debug.LogException(ex);
-                FreeSlot(slotIndex);
+                FreeSlot(handle);
                 throw;
             }
 
-            m_UnmanagedSlotByTypeHash.Add(typeHash, (ushort)slotIndex);
+            m_UnmanagedSlotByTypeHash.Add(typeHash, handle);
 
-            return new SystemRef<T>((ushort)slotIndex, slotPtr->m_Version, (uint)m_SequenceNumber);
+            return new SystemRef<T>(handle, version, (uint)m_SequenceNumber);
         }
 
         internal void DestroySystemUnmanaged(SystemRefUntyped sysRef)
         {
-            SystemSlot* ptr = ResolveSlot(sysRef);
-            if (ptr == null)
-            {
-                throw new InvalidOperationException("system does not exist");
-            }
+            long typeHash = m_StateMemory.GetTypeHashNoCheck(sysRef.m_Handle);
 
-            long typeHash = ptr->m_TypeHash;
-            int myIndex = (int)(ptr - m_UnmanagedSlots.Ptr);
-            ptr = null;
-
-            FreeSlot(myIndex);
+            FreeSlot(sysRef.m_Handle);
 
             // TODO: Find other systems of same type in creation order, restore type lookup. Needed?
-            m_UnmanagedSlotByTypeHash.Remove(typeHash, (ushort)myIndex);
+            m_UnmanagedSlotByTypeHash.Remove(typeHash, sysRef.m_Handle);
         }
 
         internal ref T GetOrCreateUnmanagedSystem<T>() where T : struct, ISystemBase
@@ -862,6 +984,18 @@ namespace Unity.Entities
                 CreateSystemUnmanaged<T>(out var ptr);
                 return ref UnsafeUtilityEx.AsRef<T>(ptr);
             }
+        }
+
+        internal Type GetTypeOfUnmanagedSystem(SystemRefUntyped systemRefUntyped)
+        {
+            SystemState* s = ResolveSystemState(systemRefUntyped);
+
+            if (s != null)
+            {
+                return SystemBaseRegistry.GetStructType(s->m_UnmanagedMetaIndex);
+            }
+
+            return null;
         }
     }
 

@@ -20,7 +20,7 @@ namespace Unity.Entities.PerformanceTests
         [TearDown]
         virtual public void TearDown()
         {
-            if (m_Manager.IsCreated)
+            if (m_World.IsCreated)
             {
                 m_World.Dispose();
                 m_World = null;

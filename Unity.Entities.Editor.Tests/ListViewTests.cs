@@ -37,8 +37,9 @@ namespace Unity.Entities.Editor.Tests
 
             World2 = new World("Test World 2");
             var emptySys = World2.GetOrCreateSystem<EmptySystem>();
-            World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(emptySys);
-            World.GetOrCreateSystem<SimulationSystemGroup>().SortSystemUpdateList();
+            var simGroup = World.GetOrCreateSystem<SimulationSystemGroup>();
+            simGroup.AddSystemToUpdateList(emptySys);
+            simGroup.SortSystems();
         }
 
         public override void TearDown()

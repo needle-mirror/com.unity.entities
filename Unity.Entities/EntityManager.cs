@@ -1,10 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Unity.Assertions;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -49,14 +48,21 @@ namespace Unity.Entities
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private AtomicSafetyHandle m_Safety;
+
+#if UNITY_2020_1_OR_NEWER
+        private static readonly SharedStatic<int> s_staticSafetyId = SharedStatic<int>.GetOrCreate<EntityManager>();
+        [BurstDiscard]
+        private static void CreateStaticSafetyId()
+        {
+            s_staticSafetyId.Data = AtomicSafetyHandle.NewStaticSafetyId<EntityManager>();
+        }
+
+#endif
         private bool m_JobMode;
 #endif
 
         [NativeDisableUnsafePtrRestriction]
         private EntityDataAccess* m_EntityDataAccess;
-
-        // This is extremely unfortunate but needed because of the IsCreated API
-        private GCHandle m_AliveHandle;
 
         internal EntityDataAccess* GetCheckedEntityDataAccess()
         {
@@ -114,7 +120,7 @@ namespace Unity.Entities
         /// The latest entity generational version.
         /// </summary>
         /// <value>This is the version number that is assigned to a new entity. See <see cref="Entity.Version"/>.</value>
-        public int Version => IsCreated? GetCheckedEntityDataAccess()->EntityComponentStore->EntityOrderVersion : 0;
+        public int Version => GetCheckedEntityDataAccess()->EntityComponentStore->EntityOrderVersion;
 
         /// <summary>
         /// A counter that increments after every system update.
@@ -125,13 +131,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <seealso cref="ArchetypeChunk.DidChange"/>
         /// <seealso cref="ChangedFilterAttribute"/>
-        public uint GlobalSystemVersion => IsCreated? GetCheckedEntityDataAccess()->EntityComponentStore->GlobalSystemVersion : 0;
-
-        /// <summary>
-        /// Reports whether the EntityManager has been initialized yet.
-        /// </summary>
-        /// <value>True, if the EntityManager's OnCreateManager() function has finished.</value>
-        public bool IsCreated => m_AliveHandle.IsAllocated && m_AliveHandle.Target != null;
+        public uint GlobalSystemVersion => GetCheckedEntityDataAccess()->EntityComponentStore->GlobalSystemVersion;
 
         /// <summary>
         /// The capacity of the internal entities array.
@@ -166,19 +166,25 @@ namespace Unity.Entities
             }
         }
 
-        internal void Initialize(World world, GCHandle boxedAliveBool)
+        internal void Initialize(World world)
         {
             TypeManager.Initialize();
             StructuralChange.Initialize();
             EntityCommandBuffer.Initialize();
 
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Safety = AtomicSafetyHandle.Create();
-            m_JobMode = false;
+
+#if UNITY_2020_1_OR_NEWER
+            if (s_staticSafetyId.Data == 0)
+            {
+                CreateStaticSafetyId();
+            }
+            AtomicSafetyHandle.SetStaticSafetyId(ref m_Safety, s_staticSafetyId.Data);
 #endif
 
-            m_AliveHandle = boxedAliveBool;
-
+            m_JobMode = false;
+#endif
             m_EntityDataAccess = (EntityDataAccess*)UnsafeUtility.Malloc(sizeof(EntityDataAccess), 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_EntityDataAccess, sizeof(EntityDataAccess));
             EntityDataAccess.Initialize(m_EntityDataAccess, world);
@@ -237,20 +243,5 @@ namespace Unity.Entities
         {
             return lhs.m_EntityDataAccess != rhs.m_EntityDataAccess;
         }
-
-        // Temporarily allow conversion from null reference to allow existing packages to compile.
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("EntityManager is a struct. Please use `default` instead of `null`. (RemovedAfter 2020-07-01)")]
-        public static implicit operator EntityManager(EntityManagerNullShim? shim) => default(EntityManager);
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("This is slow. Use The EntityDataAccess directly in new code.")]
-        internal EntityComponentStore* EntityComponentStore => GetCheckedEntityDataAccess()->EntityComponentStore;
-
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("This is slow. Use The EntityDataAccess directly in new code.")]
-        internal ComponentSafetyHandles* SafetyHandles => &GetCheckedEntityDataAccess()->DependencyManager->Safety;
-        #endif
     }
 }

@@ -38,7 +38,6 @@ namespace Unity.Scenes.Editor.Tests
         public static Scene CreateScene(string scenePath)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
-            SceneManager.SetActiveScene(scene);
             var dir = Path.GetDirectoryName(scenePath);
             if (!Directory.Exists(dir))
                 Directory.CreateDirectory(dir);

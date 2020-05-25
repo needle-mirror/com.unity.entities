@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Unity.Scenes.Editor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEditor.UnityLinker;
@@ -19,11 +20,54 @@ namespace Unity.Entities.IL2CPPProcessing
             // Let's build a dictionary of Assemblies as key and all their ComponentSystem as value (in a list)
             var typesByAssemblies = new Dictionary<Assembly, List<Type>>();
 
-            var csb = typeof(ComponentSystemBase);
+            Type[] typesToPreserve = null;
+            Type[] typesToIgnore = null;
+
+            if (LiveLinkClassicBuildCustomizer.IsLiveLinkBuild)
+            {
+                typesToPreserve = new[]
+                {
+                    typeof(ComponentSystemBase),
+                    typeof(UnityEngine.Component),
+                };
+
+                typesToIgnore = new[]
+                {
+                    typeof(IConvertGameObjectToEntity),
+                    typeof(IDeclareReferencedPrefabs),
+                };
+            }
+            else
+            {
+                typesToPreserve = new[]
+                {
+                    typeof(ComponentSystemBase),
+                };
+            }
+
+            LiveLinkClassicBuildCustomizer.IsLiveLinkBuild = false;
+
+            bool IsSubclassOf(Type type, Type[] typeFilter)
+            {
+                if (typeFilter == null)
+                    return false;
+
+                foreach (var filterType in typeFilter)
+                {
+                    if (type.IsSubclassOf(filterType))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
 
             void ExtractComponentSystemTypes(Type[] inputTypes, Assembly hostingAssembly)
             {
-                var types = inputTypes.Where(type => type != null && type.IsSubclassOf(csb)).ToList();
+                var types = inputTypes.Where(type => type != null
+                    && IsSubclassOf(type, typesToPreserve)
+                    && !IsSubclassOf(type, typesToIgnore)).ToList();
 
                 if (types.Count > 0)
                 {

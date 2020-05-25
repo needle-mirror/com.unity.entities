@@ -64,7 +64,7 @@ namespace Unity.Scenes.Editor.Tests
                     go1.AddComponent<SceneSectionComponent>().SectionIndex = 0;
                     var go2 = new GameObject();
                     go2.AddComponent<SceneSectionComponent>().SectionIndex = 2;
-                    go2.AddComponent<TestPrefabComponentAuthoring>().Material = s_TempMaterial;
+                    go2.AddComponent<TestComponentAuthoring>().Material = s_TempMaterial;
                     return new List<GameObject> { go1, go2 };
                 });
 
@@ -194,9 +194,7 @@ namespace Unity.Scenes.Editor.Tests
             // for these kinds of guids, the last component encodes the file identifier
             h.Value.w = 0;
             GUID guid = h;
-            return guid == LiveLinkBuildPipeline.k_UnityBuiltinResources ||
-                guid == LiveLinkBuildPipeline.k_UnityEditorResources ||
-                guid == LiveLinkBuildPipeline.k_UnityBuiltinExtraResources;
+            return GUIDHelper.IsBuiltinAsset(in guid);
         }
 
         [Test]

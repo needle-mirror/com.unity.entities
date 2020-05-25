@@ -129,7 +129,8 @@ namespace Unity.Scenes
             var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.ProcessAfterLoad);
             foreach (var systemType in systemTypes)
                 AddSystemAndLogException(world, group, systemType);
-            group.SortSystemUpdateList();
+
+            group.SortSystems();
         }
 
         static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)

@@ -89,6 +89,7 @@ namespace Unity.Entities.Tests
                 else
                 {
                     var dataPtr = entityManager.GetComponentDataRawRO(entity, componentType.TypeIndex);
+                    // this doesn't work for structs that contain BlobAssetReferences
                     Data = Marshal.PtrToStructure((IntPtr)dataPtr, Type);
                 }
             }
@@ -167,6 +168,24 @@ namespace Unity.Entities.Tests
                 str += "=null";
 
             return str;
+        }
+    }
+
+    public static class DebugEntityExtensions
+    {
+        public static bool HasComponent<T>(this DebugEntity de) => IndexOfComponent<T>(de) != -1;
+
+        public static int IndexOfComponent<T>(this DebugEntity de)
+        {
+            int idx = 0;
+            foreach (var c in de.Components)
+            {
+                if (c.Type == typeof(T))
+                    return idx;
+                idx++;
+            }
+
+            return -1;
         }
     }
 }

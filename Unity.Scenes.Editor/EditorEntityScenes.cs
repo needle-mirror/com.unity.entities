@@ -79,8 +79,62 @@ namespace Unity.Scenes.Editor
                 for (int i = 0; i < assets.Length; i++)
                 {
                     var asset = EditorUtility.InstanceIDToObject(assets[i]);
-                    importContext.DependsOnSourceAsset(AssetDatabase.GetAssetPath(asset));
+                    if (asset == null)
+                    {
+                        var dependents = FormatDependents(assets[i]);
+                        string errorMsg =
+                            $"Invalid asset dependency on instance ID {assets[i]} - this instance ID does not correspond to an object.\n" +
+                            "This dependency was registered by: " + dependents;
+                        Debug.LogWarning(errorMsg);
+                        continue;
+                    }
+
+                    var path = AssetDatabase.GetAssetPath(asset);
+                    if (string.IsNullOrEmpty(path))
+                    {
+                        var dependents = FormatDependents(assets[i]);
+                        string errorMsg =
+                            $"Invalid asset dependency on object {asset.name}. This object does not have a valid asset path.\n" +
+                            "This dependency was registered by: " + dependents;
+                        Debug.LogWarning(errorMsg, asset);
+                        continue;
+                    }
+
+                    var guid = new GUID(AssetDatabase.AssetPathToGUID(path));
+                    if (GUIDHelper.IsBuiltinAsset(in guid))
+                    {
+                        // AssetImportContext does not support dependencies on inbuilt assets
+                        continue;
+                    }
+
+                    if (guid.Empty())
+                    {
+                        // This should never happen
+                        var dependents = FormatDependents(assets[i]);
+                        string errorMsg =
+                            $"Invalid asset dependency on object {asset.name} at path {path}. It doesn't have a valid GUID.\n" +
+                            "This dependency was registered by: " + dependents;
+                        Debug.LogWarning(errorMsg, asset);
+                        continue;
+                    }
+
+                    importContext.DependsOnSourceAsset(path);
                 }
+            }
+
+            string FormatDependents(int assetInstance)
+            {
+                var iter = dependencies.AssetDependentsByInstanceId.GetValuesForKey(assetInstance);
+                string deps = "";
+                while (iter.MoveNext())
+                {
+                    if (deps.Length > 0)
+                        deps += ", ";
+                    var obj = EditorUtility.InstanceIDToObject(iter.Current);
+                    deps += $"{(obj == null ? "NULL" : obj.name)}";
+                }
+
+                return deps;
             }
         }
 

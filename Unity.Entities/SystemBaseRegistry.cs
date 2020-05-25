@@ -113,9 +113,12 @@ namespace Unity.Entities
 
         internal readonly static SharedStatic<UnmanagedSystemTypeRegistryData> s_Data = SharedStatic<UnmanagedSystemTypeRegistryData>.GetOrCreate<Dummy>();
 
+        private static List<Type> s_StructTypes = null;
+
         // TODO: Need to dispose this thing when domain reload happens.
         public delegate void ForwardingFunc(IntPtr systemPtr, IntPtr state);
 
+        [BurstCompatible]
         internal static int GetSystemTypeMetaIndex(long typeHash)
         {
             ref var data = ref s_Data.Data;
@@ -133,7 +136,7 @@ namespace Unity.Entities
             throw new ArgumentException("System type is not registered");
         }
 
-        public static unsafe void AddUnmanagedSystemType(long typeHash, ForwardingFunc onCreate, ForwardingFunc onUpdate, ForwardingFunc onDestroy, string debugName, int burstCompileBits)
+        public static unsafe void AddUnmanagedSystemType(Type type, long typeHash, ForwardingFunc onCreate, ForwardingFunc onUpdate, ForwardingFunc onDestroy, string debugName, int burstCompileBits)
         {
             // Debug.Log($"Adding unmanaged system type {debugName}, bcb={burstCompileBits}");
             ref var data = ref s_Data.Data;
@@ -147,6 +150,8 @@ namespace Unity.Entities
                     s_Data.Data.Dispose();
                 };
                 #endif
+
+                s_StructTypes = new List<Type>();
             }
 
             FixedString64 debugNameFixed = new FixedString64(debugName);
@@ -217,6 +222,7 @@ namespace Unity.Entities
             SelectBurstFn(out delegates.BurstFunctions[1], out delegates.GCDefeat1[1], burstCompiledFunctions[1], onUpdate);
             SelectBurstFn(out delegates.BurstFunctions[2], out delegates.GCDefeat1[2], burstCompiledFunctions[2], onDestroy);
 
+            s_StructTypes.Add(type);
             s_Data.Data.AddSystemType(typeHash, debugNameFixed, delegates);
         }
 
@@ -226,6 +232,7 @@ namespace Unity.Entities
             status = false;
         }
 
+        [BurstCompatible]
         internal static unsafe void CallForwardingFunction(SystemState* systemState, int index)
         {
             var metaIndex = systemState->m_UnmanagedMetaIndex;
@@ -257,24 +264,33 @@ namespace Unity.Entities
             ((ForwardingFunc)h.Target)((IntPtr)systemPointer, (IntPtr)systemState);
         }
 
+        [BurstCompatible]
         internal static unsafe void CallOnCreate(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 0);
         }
 
+        [BurstCompatible]
         internal static unsafe void CallOnUpdate(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 1);
         }
 
+        [BurstCompatible]
         internal static unsafe void CallOnDestroy(SystemState* systemState)
         {
             CallForwardingFunction(systemState, 2);
         }
 
+        [BurstCompatible]
         internal static FixedString64 GetDebugName(int metaIndex)
         {
             return s_Data.Data.GetSystemDebugName(metaIndex);
+        }
+
+        internal static Type GetStructType(int metaIndex)
+        {
+            return s_StructTypes[metaIndex];
         }
     }
 }

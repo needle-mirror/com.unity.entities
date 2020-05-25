@@ -94,7 +94,7 @@ public class SharedComponentSerializeTests
         var boxedSrcData = (object)srcData;
         writer.WriteObject(boxedSrcData);
 
-        var objectTable = writer.GetObjectTable();
+        var objectTable = writer.GetUnityObjects();
 
         // Read from stream
         var readStream = buffer.AsReader();
@@ -141,7 +141,7 @@ public class SharedComponentSerializeTests
         var boxedSrcData = (object)srcData;
         writer.WriteObject(boxedSrcData);
 
-        var objectTable = writer.GetObjectTable();
+        var objectTable = writer.GetUnityObjects();
 
         // Read from stream
         var readStream = buffer.AsReader();
