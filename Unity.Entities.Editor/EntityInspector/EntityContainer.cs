@@ -67,7 +67,7 @@ namespace Unity.Entities
                     Property = CreateInstance(typeof(SharedComponentProperty<>));
                 else if (typeof(IBufferElementData).IsAssignableFrom(type))
                     Property = CreateInstance(typeof(DynamicBufferProperty<>));
-                else if (TypeManager.IsManagedComponent(TypeIndex))
+                else if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                     Property = CreateInstance(typeof(ManagedComponentProperty<>));
                 else
                     throw new InvalidOperationException();
@@ -163,7 +163,7 @@ namespace Unity.Entities
 #endif
 
         class ManagedComponentProperty<TComponent> : ComponentProperty<TComponent>
-            where TComponent : UnityEngine.Component
+            where TComponent : UnityEngine.Object
         {
             protected override bool IsZeroSize { get; } = TypeManager.IsZeroSized(TypeManager.GetTypeIndex<TComponent>());
 

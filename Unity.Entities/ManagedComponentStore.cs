@@ -567,16 +567,22 @@ namespace Unity.Entities
 #if !NET_DOTS
             var firstManagedComponent = archetype->FirstManagedComponent;
             var numManagedComponents = archetype->NumManagedComponents;
+            var hasHybridComponents = archetype->HasHybridComponents;
+            var types = archetype->Types;
+
             for (int i = 0; i < numManagedComponents; ++i)
             {
                 int type = i + firstManagedComponent;
-                var a = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, type);
-                for (int ei = 0; ei < entityCount; ++ei)
+                if (!hasHybridComponents || TypeManager.GetTypeInfo(types[type].TypeIndex).Category != TypeManager.TypeCategory.Class)
                 {
-                    if (a[ei] != 0)
+                    var a = (int*) ChunkDataUtility.GetComponentDataRO(chunk, 0, type);
+                    for (int ei = 0; ei < entityCount; ++ei)
                     {
-                        var obj = m_ManagedComponentData[a[ei]];
-                        m_ManagedObjectRemap.RemapEntityReferences(ref obj, remapping);
+                        if (a[ei] != 0)
+                        {
+                            var obj = m_ManagedComponentData[a[ei]];
+                            m_ManagedObjectRemap.RemapEntityReferences(ref obj, remapping);
+                        }
                     }
                 }
             }

@@ -167,13 +167,7 @@ namespace Unity.Entities
 
         public static World DefaultGameObjectInjectionWorld { get; set; }
 
-    #if UNITY_DOTSPLAYER
-        [Obsolete("use World.All instead. (RemovedAfter 2020-06-02)")]
-        public static World[] AllWorlds => s_AllWorlds.ToArray();
-    #else
-        [Obsolete("use World.All instead. (RemovedAfter 2020-06-02)")]
-        public static System.Collections.ObjectModel.ReadOnlyCollection<World> AllWorlds => new System.Collections.ObjectModel.ReadOnlyCollection<World>(s_AllWorlds);
-
+    #if !UNITY_DOTSPLAYER
         Dictionary<Type, ComponentSystemBase> m_SystemLookup = new Dictionary<Type, ComponentSystemBase>();
     #endif
     #if ENABLE_UNITY_COLLECTIONS_CHECKS

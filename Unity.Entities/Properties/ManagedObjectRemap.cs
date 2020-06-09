@@ -15,7 +15,7 @@ namespace Unity.Entities
         IVisit<Entity>
     {
         /// <summary>
-        /// Set used to track already visited references.
+        /// Set used to track already visited references, in order to avoid infinite recursion.
         /// </summary>
         HashSet<object> m_References;
 
@@ -27,6 +27,31 @@ namespace Unity.Entities
         Entity* m_PrefabDst;
         int m_PrefabCount;
 
+        IPropertyBag GetPropertyBag(object obj)
+        {
+            if (null == obj)
+            {
+                throw new ArgumentNullException(nameof(obj));
+            }
+
+            var type = obj.GetType();
+            var typeInfo = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(type));
+
+            if (typeInfo.Category == TypeManager.TypeCategory.Class)
+            {
+                throw new ArgumentException("Cannot remap hybrid components", nameof(obj));
+            }
+
+            var properties = PropertyBagStore.GetPropertyBag(type);
+
+            if (null == properties)
+            {
+                throw new MissingPropertyBagException(type);
+            }
+
+            return properties;
+        }
+
         /// <summary>
         /// Remaps all entity references within the given object using the specified <see cref="EntityRemapUtility.EntityRemapInfo"/>.
         /// </summary>
@@ -36,59 +61,33 @@ namespace Unity.Entities
         /// <exception cref="MissingPropertyBagException">The given object has no property bag associated with it.</exception>
         public void RemapEntityReferences(ref object obj, EntityRemapUtility.EntityRemapInfo* entityRemapInfo)
         {
-            if (null == obj)
-            {
-                throw new ArgumentNullException(nameof(obj));
-            }
-
-            var type = obj.GetType();
-            var properties = PropertyBagStore.GetPropertyBag(type);
-
-            if (null == properties)
-            {
-                throw new MissingPropertyBagException(type);
-            }
-
-            m_References?.Clear();
-
             m_Info = entityRemapInfo;
             m_PrefabSrc = null;
             m_PrefabDst = null;
             m_PrefabCount = 0;
 
-            properties.Accept(this, ref obj);
+            m_References?.Clear();
+            GetPropertyBag(obj).Accept(this, ref obj);
         }
 
         /// <summary>
         /// Remaps all entity references within the given object using the specified <see cref="EntityRemapUtility.EntityRemapInfo"/>.
         /// </summary>
         /// <param name="obj">The object to remap references for.</param>
-        /// <param name="remapSrc"></param>
-        /// <param name="remapDst"></param>
-        /// <param name="remapInfoCount"></param>
+        /// <param name="remapSrc">Array of entities that should be remapped.</param>
+        /// <param name="remapDst">Array of entities that each entry in the remapSrc array should be remapped to.</param>
+        /// <param name="remapInfoCount">Length of the entity arrays.</param>
         /// <exception cref="ArgumentNullException">The given object was null.</exception>
         /// <exception cref="MissingPropertyBagException">The given object has no property bag associated with it.</exception>
         public void RemapEntityReferencesForPrefab(ref object obj, Entity* remapSrc, Entity* remapDst, int remapInfoCount)
         {
-            if (null == obj)
-            {
-                throw new ArgumentNullException(nameof(obj));
-            }
-
-            var type = obj.GetType();
-            var properties = PropertyBagStore.GetPropertyBag(type);
-
-            if (null == properties)
-            {
-                throw new MissingPropertyBagException(type);
-            }
-
             m_Info = null;
             m_PrefabSrc = remapSrc;
             m_PrefabDst = remapDst;
             m_PrefabCount = remapInfoCount;
 
-            properties.Accept(this, ref obj);
+            m_References?.Clear();
+            GetPropertyBag(obj).Accept(this, ref obj);
         }
 
         /// <summary>

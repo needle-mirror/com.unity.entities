@@ -34,6 +34,11 @@ namespace Unity.Entities.Editor.Tests
         {
             public Category Category;
         }
+
+        class ClassComponentData2 : IComponentData
+        {
+            public Category Category;
+        }
 #endif
 
         struct StructChunkData : IComponentData
@@ -66,12 +71,14 @@ namespace Unity.Entities.Editor.Tests
             IVisit<StructChunkData>,
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             IVisit<ClassComponentData>,
+            IVisit<ClassComponentData2>,
             IVisit<ClassChunkData>,
 #endif
             IVisit<SharedComponentData>,
             IVisit<BufferElement>,
             IVisit<DynamicBufferContainer<BufferElement>>,
-            IVisit<Transform>
+            IVisit<Transform>,
+            IVisit<GameObject>
         {
             public GameObject GameObject { private get; set; }
 
@@ -88,6 +95,12 @@ namespace Unity.Entities.Editor.Tests
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             public VisitStatus Visit<TContainer>(Property<TContainer, ClassComponentData> property, ref TContainer container, ref ClassComponentData data)
+            {
+                Assert.That(data.Category, Is.EqualTo(Category.ClassData));
+                return VisitStatus.Stop;
+            }
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, ClassComponentData2> property, ref TContainer container, ref ClassComponentData2 data)
             {
                 Assert.That(data.Category, Is.EqualTo(Category.ClassData));
                 return VisitStatus.Stop;
@@ -135,6 +148,12 @@ namespace Unity.Entities.Editor.Tests
                 Assert.That(data.Category, Is.EqualTo(Category.BufferData));
                 return VisitStatus.Stop;
             }
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, GameObject> property, ref TContainer container, ref GameObject value)
+            {
+                Assert.That(value, Is.EqualTo(GameObject));
+                return VisitStatus.Stop;
+            }
         }
 
         GameObject _gameObject;
@@ -170,6 +189,10 @@ namespace Unity.Entities.Editor.Tests
             _gameObject.transform.localRotation = Quaternion.Euler(15, 30, 45);
 
             m_Manager.AddComponentObject(entity, _gameObject.transform);
+            m_Manager.AddComponentObject(entity, _gameObject);
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            m_Manager.AddComponentObject(entity, new ClassComponentData2 { Category = Category.ClassData });
+#endif
 
             var buffer = m_Manager.AddBuffer<BufferElement>(entity);
             for (var i = 0; i < 50; ++i)

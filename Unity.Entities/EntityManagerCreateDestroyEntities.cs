@@ -297,35 +297,6 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Creates a set of chunks containing the specified number of entities having the specified archetype.
-        /// </summary>
-        /// <remarks>
-        /// The EntityManager creates enough chunks to hold the required number of entities.
-        ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating these chunks and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
-        /// </remarks>
-        /// <param name="archetype">The archetype for the chunk and entities.</param>
-        /// <param name="chunks">An empty array to receive the created chunks.</param>
-        /// <param name="entityCount">The number of entities to create.</param>
-        [Obsolete("CreateChunk is deprecated. (RemovedAfter 2020-06-05)", false)]
-        [StructuralChangeMethod]
-        public void CreateChunk(EntityArchetype archetype, NativeArray<ArchetypeChunk> chunks, int entityCount)
-        {
-            var access = GetCheckedEntityDataAccess();
-            var ecs = access->EntityComponentStore;
-            var mcs = access->ManagedComponentStore;
-
-            Unity.Entities.EntityComponentStore.AssertValidArchetype(ecs, archetype);
-            BeforeStructuralChange();
-
-            ecs->CreateChunks(archetype.Archetype, (ArchetypeChunk*)chunks.GetUnsafePtr(), chunks.Length, entityCount);
-            mcs.Playback(ref ecs->ManagedChangesTracker);
-        }
-
-        /// <summary>
         /// Detects the created and destroyed entities compared to last time the method was called with the given state.
         /// </summary>
         /// <remarks>

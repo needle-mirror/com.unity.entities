@@ -1705,7 +1705,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [DotsRuntimeFixme] // Unity.Properties support required
-        public void SerializeEntities_WithEntityReferencesInSharedComponents()
+        public void SerializeEntities_WithEntityReferencesInSharedComponents_ThrowsException()
         {
             {
                 var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>());
@@ -1724,37 +1724,9 @@ namespace Unity.Entities.Tests
                 m_Manager.DestroyEntity(entities);
             }
 
-            var writer = new TestBinaryWriter();
-            SerializeUtility.SerializeWorld(m_Manager, writer);
-
-            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
-
-            var deserializedWorld = new World("Deserialized World");
-            var entityManager = deserializedWorld.EntityManager;
-
-            using (var reader = new TestBinaryReader(writer))
+            using (var writer = new TestBinaryWriter())
             {
-                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
-                entityManager.EndExclusiveEntityTransaction();
-            }
-
-            entityManager.Debug.CheckInternalConsistency();
-
-            using (var query = entityManager.CreateEntityQuery(new EntityQueryDesc
-            {
-                All = new[] {ComponentType.ReadWrite<EcsTestSharedCompEntity>()}
-            }))
-            {
-                var entities = query.ToEntityArray(Allocator.TempJob);
-                Assert.AreEqual(2, entities.Length);
-
-                var a = entityManager.GetSharedComponentData<EcsTestSharedCompEntity>(entities[0]).value;
-                var b = entityManager.GetSharedComponentData<EcsTestSharedCompEntity>(entities[1]).value;
-
-                Assert.IsTrue(entityManager.Exists(a));
-                Assert.IsTrue(entityManager.Exists(b));
-
-                entities.Dispose();
+                Assert.Throws<ArgumentException>(() => SerializeUtility.SerializeWorld(m_Manager, writer));
             }
         }
 

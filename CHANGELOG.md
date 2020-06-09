@@ -1,6 +1,32 @@
 # Change log
 
+## [0.11.1] - 2020-06-09
+
+### Fixed
+
+* Prevented remapping of hybrid components during deserialization which caused IL2CPP builds to fail on a missing property bags.
+* Fixed exceptions being thrown when inspecting an entity with a GameObject added through `EntityManager.AddComponentObject`
+* Fixed load order of JobReflection static methods which were causing `InvalidOperationException: Reflection data was not set up by code generation` exceptions in player builds.
+
+### Changed
+
+* An exception is now thrown during serialization if a shared component containing entity references is encountered.
+
+### Removed
+
+* Removed expired API `World.AllWorlds`.
+* Removed expired API `EntityComponentStore.CreateChunks(Archetype*, ArchetypeChunk*, int, int)`.
+* Removed expired API `EntityManager.CreateChunk(EntityArchetype, NativeArray<ArchetypeChunk>, int)`.
+* Removed expired API `EntityManager.LockChunk(ArchetypeChunk)`.
+* Removed expired API `EntityManager.LockChunk(NativeArray<ArchetypeChunk>)`.
+* Removed expired API `EntityManager.UnlockChunk(ArchetypeChunk)`.
+* Removed expired API `ArchetypeChunk.Locked()`.
+* Removed expired API `struct NativeArraySharedValues<S>`.
+
+
 ## [0.11.0] - 2020-05-25
+
+**This version requires Unity 2019.3.12f1+**
 
 ### Added
 
@@ -10,7 +36,6 @@
 
 * Updated package `com.unity.burst` to version `1.3.0-preview.12`.
 * Improved `ComponentType.ToString` names in DOTS Runtime to provide the full type name when available, and if not, default to the StableTypeHash.
-* Updated minimum Unity Editor version to 2019.3.12f1 (84b23722532d)
 * `EntityManager.Version` and `EntityManager.GlobalSystemVersion` will throw if the manager is not valid instead of returning 0.
 
 ### Deprecated
@@ -42,7 +67,7 @@
 * Fixed an issue with instantiation of entities with multiple hybrid components which caused corruption of the managed store
 * Removed remapping of entity fields in hybrid components during instantiation
 * Fixed a crash that happened when trying to remap entity references within recursive types
-* Serialization now supports entity references in shared components, as well as blob asset references in shared and managed components.
+* Serialization now supports blob asset references in shared and managed components.
 * Fixed a bug with `EntityQuery.CopyFromComponentDataArray`, which caused it to behave like `ToComponentDataArray`
 * UnloadAllAssets will no longer unload assets referenced by shared or managed components.
 
@@ -279,7 +304,6 @@
 ### Security
 
 * Throw correct error message if accessing `ToComponentDataArrayAsync` `CopyFromComponentDataArray` or `CopyFromComponentDataArrayAsync` from an unrelated query.
-
 
 
 ## [0.6.0] - 2020-02-17

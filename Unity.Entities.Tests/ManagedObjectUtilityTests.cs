@@ -28,7 +28,7 @@ namespace Unity.Entities.Tests
             public List<Entity> EntityList;
         }
 
-        class ClassWithSelfReference
+        class ClassWithSelfReference : IComponentData
         {
             public ClassWithSelfReference Self;
         }

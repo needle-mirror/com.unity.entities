@@ -121,34 +121,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("Not currently supported")]
-        public void EntityPatcher_ApplyChanges_RemapEntityReferencesInSharedComponents()
-        {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
-            {
-                // Create extra entity to make sure test doesn't accidentally succeed with no remapping
-                SrcEntityManager.CreateEntity();
-
-                var entityGuid0 = CreateEntityGuid();
-                var entityGuid1 = CreateEntityGuid();
-
-                var e0 = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestSharedCompEntity));
-                var e1 = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestSharedCompEntity));
-
-                SrcEntityManager.SetComponentData(e0, entityGuid0);
-                SrcEntityManager.SetComponentData(e1, entityGuid1);
-
-                SrcEntityManager.SetSharedComponentData(e0, new EcsTestSharedCompEntity { value = e1 });
-                SrcEntityManager.SetSharedComponentData(e1, new EcsTestSharedCompEntity { value = e0 });
-
-                PushChanges(differ, DstEntityManager);
-
-                Assert.AreEqual(GetEntity(DstEntityManager, entityGuid1), GetSharedComponentData<EcsTestSharedCompEntity>(DstEntityManager, entityGuid0).value);
-                Assert.AreEqual(GetEntity(DstEntityManager, entityGuid0), GetSharedComponentData<EcsTestSharedCompEntity>(DstEntityManager, entityGuid1).value);
-            }
-        }
-
-        [Test]
         public void EntityPatcher_ApplyChanges_UnidentifiedEntityReferenceBecomesNull()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))

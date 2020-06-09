@@ -74,8 +74,11 @@ namespace Unity.Entities.CodeGen
             if (!Defines.Contains("UNITY_DOTSPLAYER"))
             {
                 // Needs to run automatically in the player.
-                var attributeCtor = assemblyDefinition.MainModule.ImportReference(typeof(UnityEngine.RuntimeInitializeOnLoadMethodAttribute).GetConstructor(Type.EmptyTypes));
-                funcDef.CustomAttributes.Add(new CustomAttribute(attributeCtor));
+                var loadTypeEnumType = assemblyDefinition.MainModule.ImportReference(typeof(UnityEngine.RuntimeInitializeLoadType));
+                var attributeCtor = assemblyDefinition.MainModule.ImportReference(typeof(UnityEngine.RuntimeInitializeOnLoadMethodAttribute).GetConstructor(new[] { typeof(UnityEngine.RuntimeInitializeLoadType) }));
+                var attribute = new CustomAttribute(attributeCtor);
+                attribute.ConstructorArguments.Add(new CustomAttributeArgument(loadTypeEnumType, UnityEngine.RuntimeInitializeLoadType.AfterAssembliesLoaded));
+                funcDef.CustomAttributes.Add(attribute);
             }
 
             if (Defines.Contains("UNITY_EDITOR"))

@@ -155,7 +155,7 @@ namespace Unity.Entities.Serialization
             public int ComponentSize;
         }
 
-        public static int CurrentFileFormatVersion = 47;
+        public static int CurrentFileFormatVersion = 48;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjects = null)
         {
@@ -885,7 +885,15 @@ namespace Unity.Entities.Serialization
         {
             // Shared Components are expected to be handled specially and are not required to be blittable
             if (typeInfo.Category == TypeManager.TypeCategory.ISharedComponentData)
+            {
+                if (typeInfo.HasEntities)
+                {
+                    throw new ArgumentException(
+                        $"Shared component type '{TypeManager.GetType(typeInfo.TypeIndex)}' contains an (potentially nested) Entity field. " +
+                        $"Serializing of shared components with Entity fields is not supported");
+                }
                 return;
+            }
 
             if (!IsTypeValidForSerialization(typeInfo.Type))
             {

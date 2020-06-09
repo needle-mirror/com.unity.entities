@@ -184,19 +184,6 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Reports whether this ArchetypeChunk is locked.
-        /// </summary>
-        /// <seealso cref="EntityManager.LockChunk(ArchetypeChunk"/>
-        /// <seealso cref="EntityManager.UnlockChunk(ArchetypeChunk"/>
-        /// <returns>True, if locked.</returns>
-
-        [Obsolete("Locked has been deprecated, and is always false. (RemovedAfter 2020-06-05)")]
-        public bool Locked()
-        {
-            return false;
-        }
-
-        /// <summary>
         /// Provides a native array interface to entity instances stored in this chunk.
         /// </summary>
         /// <remarks>The native array returned by this method references existing data, not a copy.</remarks>
