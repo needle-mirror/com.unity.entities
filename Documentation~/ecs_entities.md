@@ -35,7 +35,6 @@ You can also create multiple entities at a time:
 
 * Fill a NativeArray with new entities with the same archetype using [CreateEntity](xref:Unity.Entities.EntityManager.CreateEntity).
 * Fill a NativeArray with copies of an existing entity, including its current data, using [Instantiate](xref:Unity.Entities.EntityManager.Instantiate%28Unity.Entities.Entity%29).
-* Explicitly create chunks populated with a specified number of entities with a given archetype with [CreateChunk](xref:Unity.Entities.EntityManager.CreateChunk*).
     
 ## Adding and removing components
 

@@ -7,7 +7,6 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
-    [DotsRuntimeFixme]  // Tiny needs nativejobs and unified thread path
     class JobSafetyTests : ECSTestsFixture
     {
         struct TestIncrementJob : IJob
@@ -55,7 +54,10 @@ namespace Unity.Entities.Tests
             job.entities.Dispose();
         }
 
-#if UNITY_2020_1_OR_NEWER
+        // These tests require:
+        // - JobsDebugger support for static safety IDs (added in 2020.1)
+        // - Asserting throws
+#if UNITY_2020_1_OR_NEWER && !UNITY_DOTSRUNTIME
         struct UseComponentDataFromEntity : IJob
         {
             public ComponentDataFromEntity<EcsTestData> data;
@@ -64,7 +66,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test]
+        [Test,DotsRuntimeFixme]
         public void ComponentDataFromEntity_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -72,11 +74,17 @@ namespace Unity.Entities.Tests
 
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentDataFromEntity
 
-            Assert.That(() => { var f = testDatas[entity].value; }, Throws.InvalidOperationException.With.Message.Contains(
-                "ComponentDataFromEntity<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change"));
+            Assert.That(() => { var f = testDatas[entity].value; },
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "ComponentDataFromEntity<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change"));
         }
 
-        [Test]
+        [Test,DotsRuntimeFixme]
         public void ComponentDataFromEntity_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -87,8 +95,14 @@ namespace Unity.Entities.Tests
 
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentDataFromEntity
 
-            Assert.That(() => { job.Schedule().Complete(); }, Throws.InvalidOperationException.With.Message.Contains(
-                "ComponentDataFromEntity<Unity.Entities.Tests.EcsTestData> UseComponentDataFromEntity.data which has been invalidated by a structural change."));
+            Assert.That(() => { job.Schedule().Complete(); },
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<InvalidOperationException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "ComponentDataFromEntity<Unity.Entities.Tests.EcsTestData> UseComponentDataFromEntity.data which has been invalidated by a structural change."));
         }
 
         struct UseBufferFromEntity : IJob
@@ -99,7 +113,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test]
+        [Test,DotsRuntimeFixme]
         public void BufferFromEntity_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -107,11 +121,17 @@ namespace Unity.Entities.Tests
 
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferFromEntity
 
-            Assert.That(() => { var f = testDatas[entity]; }, Throws.InvalidOperationException.With.Message.Contains(
-                "BufferFromEntity<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
+            Assert.That(() => { var f = testDatas[entity]; },
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "BufferFromEntity<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
         }
 
-        [Test]
+        [Test,DotsRuntimeFixme]
         public void BufferFromEntity_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -122,8 +142,14 @@ namespace Unity.Entities.Tests
 
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferFromEntity
 
-            Assert.That(() => { job.Schedule().Complete(); }, Throws.InvalidOperationException.With.Message.Contains(
-                "BufferFromEntity<Unity.Entities.Tests.EcsIntElement> UseBufferFromEntity.data which has been invalidated by a structural change."));
+            Assert.That(() => { job.Schedule().Complete(); },
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<InvalidOperationException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "BufferFromEntity<Unity.Entities.Tests.EcsIntElement> UseBufferFromEntity.data which has been invalidated by a structural change."));
         }
 
 #endif
@@ -173,7 +199,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityManagerDestructionDetectsUnregisteredJob()
         {
-#if !UNITY_DOTSPLAYER
+#if !NET_DOTS
+#if UNITY_DOTSRUNTIME
+            LogAssert.ExpectReset();
+#endif
             LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("job is still running"));
 #endif
 
@@ -192,9 +221,12 @@ namespace Unity.Entities.Tests
             jobHandle.Complete();
             TearDown();
             job.entities.Dispose();
+#if !NET_DOTS
+            LogAssert.NoUnexpectedReceived();
+#endif
         }
 
-        [Test]
+            [Test]
         public void DestroyEntityDetectsUnregisteredJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -231,7 +263,7 @@ namespace Unity.Entities.Tests
 
         struct EntityOnlyDependencyJob : IJobChunk
         {
-            [ReadOnly] public ArchetypeChunkEntityType entityType;
+            [ReadOnly] public EntityTypeHandle EntityTypeHandle;
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
             }
@@ -253,7 +285,7 @@ namespace Unity.Entities.Tests
                 var group = GetEntityQuery(new ComponentType[] {});
                 var job = new EntityOnlyDependencyJob
                 {
-                    entityType = EntityManager.GetArchetypeChunkEntityType()
+                    EntityTypeHandle = EntityManager.GetEntityTypeHandle()
                 };
                 JobHandle = job.Schedule(group, inputDeps);
                 return JobHandle;
@@ -320,7 +352,7 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype);
             var group = EmptySystem.GetEntityQuery(typeof(EcsTestData));
-            var handle = new EntityOnlyDependencyJob {entityType = m_Manager.GetArchetypeChunkEntityType()}.Schedule(group);
+            var handle = new EntityOnlyDependencyJob {EntityTypeHandle = m_Manager.GetEntityTypeHandle()}.Schedule(group);
             Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(entity));
             handle.Complete();
         }
@@ -335,7 +367,7 @@ namespace Unity.Entities.Tests
 
             struct SharedComponentJobChunk : IJobChunk
             {
-                [ReadOnly] public ArchetypeChunkSharedComponentType<EcsTestSharedComp> ecsTestSharedCompType;
+                [ReadOnly] public SharedComponentTypeHandle<EcsTestSharedComp> EcsTestSharedCompTypeHandle;
                 public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
                 {
                 }
@@ -345,7 +377,7 @@ namespace Unity.Entities.Tests
             {
                 return new SharedComponentJobChunk
                 {
-                    ecsTestSharedCompType = GetArchetypeChunkSharedComponentType<EcsTestSharedComp>()
+                    EcsTestSharedCompTypeHandle = GetSharedComponentTypeHandle<EcsTestSharedComp>()
                 }.Schedule(group, inputDeps);
             }
         }
@@ -363,7 +395,7 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
 #pragma warning disable 618
         struct BufferSafetyJobA : IJobForEach_B<EcsIntElement>
         {
@@ -504,6 +536,7 @@ namespace Unity.Entities.Tests
             var job = new BufferSafetyJob_GetUnsafePtrReadWrite {};
             job.Run(EmptySystem);
         }
+#endif // !UNITY_DOTSRUNTIME
 
         public class DynamicBufferReadOnlySystem : SystemBase
         {
@@ -531,7 +564,5 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(ent);
             World.DestroySystem(sys);
         }
-
-#endif // !UNITY_DOTSPLAYER
     }
 }

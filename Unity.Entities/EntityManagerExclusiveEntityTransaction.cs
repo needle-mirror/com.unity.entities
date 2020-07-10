@@ -35,7 +35,7 @@ namespace Unity.Entities
         /// Begins an exclusive entity transaction, which allows you to make structural changes inside a Job.
         /// </summary>
         /// <remarks>
-        /// <see cref="ExclusiveEntityTransaction"/> allows you to create & destroy entities from a job. The purpose is
+        /// <see cref="ExclusiveEntityTransaction"/> allows you to create and destroy entities from a job. The purpose is
         /// to enable procedural generation scenarios where instantiation on big scale must happen on jobs. As the
         /// name implies it is exclusive to any other access to the EntityManager.
         ///
@@ -50,18 +50,21 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
 
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (m_JobMode) throw new InvalidOperationException();
-            #endif
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (m_IsInExclusiveTransaction)
+                throw new InvalidOperationException("An exclusive transaction is already in process.");
+            if (access->DependencyManager->IsInTransaction)
+                throw new InvalidOperationException("An exclusive transaction is already in process.");
+        #endif
 
             access->DependencyManager->BeginExclusiveTransaction();
+            access->m_IsInExclusiveTransaction = true;
 
             var copy = this;
 
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            access->m_JobMode = true;
-            copy.m_JobMode = true;
-            #endif
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            copy.m_IsInExclusiveTransaction = true;
+        #endif
             return new ExclusiveEntityTransaction(copy);
         }
 
@@ -73,19 +76,17 @@ namespace Unity.Entities
         public void EndExclusiveEntityTransaction()
         {
         #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (m_JobMode)
+            if (m_IsInExclusiveTransaction)
                 throw new InvalidOperationException("Transactions can only be ended from the main thread");
-
             AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
+        #endif
 
             m_EntityDataAccess->DependencyManager->PreEndExclusiveTransaction();
-
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
-
-            m_EntityDataAccess->DependencyManager->EndExclusiveTransaction();
-
-            m_EntityDataAccess->m_JobMode = false;
         #endif
+            m_EntityDataAccess->DependencyManager->EndExclusiveTransaction();
+            m_EntityDataAccess->m_IsInExclusiveTransaction = false;
         }
 
         // ----------------------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 using NUnit.Framework;
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 using System.Linq;
 #endif
 
@@ -32,8 +32,8 @@ namespace Unity.Entities.Tests
             Assert.That(g1.ToString(), Is.EqualTo("-1:f0:89abcdef"));
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
-// https://unity3d.atlassian.net/browse/DOTSR-1432
+#if !NET_DOTS
+        // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void Comparisons()
         {

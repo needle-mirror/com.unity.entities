@@ -3,9 +3,12 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
+#if !UNITY_DOTSRUNTIME
+using UnityEngine.LowLevel;
+#endif
 using UnityEngine.Profiling;
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 using System.Linq;
 #endif
 
@@ -67,26 +70,30 @@ namespace Unity.Entities.Tests
     {
         protected World m_PreviousWorld;
         protected World World;
+#if !UNITY_DOTSRUNTIME
+        protected PlayerLoopSystem m_PreviousPlayerLoop;
+#endif
         protected EntityManager m_Manager;
         protected EntityManager.EntityManagerDebug m_ManagerDebug;
 
         protected int StressTestEntityCount = 1000;
-#if !UNITY_DOTSPLAYER
         private bool JobsDebuggerWasEnabled;
-#endif
+
         [SetUp]
         public virtual void Setup()
         {
+#if !UNITY_DOTSRUNTIME
+            m_PreviousPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+#endif
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
             World = World.DefaultGameObjectInjectionWorld = new World("Test World");
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
-#if !UNITY_DOTSPLAYER
+
             // Many ECS tests will only pass if the Jobs Debugger enabled;
             // force it enabled for all tests, and restore the original value at teardown.
             JobsDebuggerWasEnabled = JobsUtility.JobDebuggerEnabled;
             JobsUtility.JobDebuggerEnabled = true;
-#endif
         }
 
         [TearDown]
@@ -110,8 +117,11 @@ namespace Unity.Entities.Tests
                 m_PreviousWorld = null;
                 m_Manager = default;
             }
-#if !UNITY_DOTSPLAYER
+
             JobsUtility.JobDebuggerEnabled = JobsDebuggerWasEnabled;
+
+#if !UNITY_DOTSRUNTIME
+            PlayerLoop.SetPlayerLoop(m_PreviousPlayerLoop);
 #endif
         }
 
@@ -170,7 +180,7 @@ namespace Unity.Entities.Tests
 #endif
         IComponentData
         {
-            var type = m_Manager.GetArchetypeChunkComponentType<T>(true);
+            var type = m_Manager.GetComponentTypeHandle<T>(true);
             var chunk = m_Manager.GetChunk(e);
             Assert.AreEqual(version, chunk.GetChangeVersion(type));
             Assert.IsFalse(chunk.DidChange(type, version));
@@ -185,7 +195,7 @@ namespace Unity.Entities.Tests
 
         public void AssetHasBufferChangeVersion<T>(Entity e, uint version) where T : struct, IBufferElementData
         {
-            var type = m_Manager.GetArchetypeChunkBufferType<T>(true);
+            var type = m_Manager.GetBufferTypeHandle<T>(true);
             var chunk = m_Manager.GetChunk(e);
             Assert.AreEqual(version, chunk.GetChangeVersion(type));
             Assert.IsFalse(chunk.DidChange(type, version));
@@ -194,7 +204,7 @@ namespace Unity.Entities.Tests
 
         public void AssetHasSharedChangeVersion<T>(Entity e, uint version) where T : struct, ISharedComponentData
         {
-            var type = m_Manager.GetArchetypeChunkSharedComponentType<T>();
+            var type = m_Manager.GetSharedComponentTypeHandle<T>();
             var chunk = m_Manager.GetChunk(e);
             Assert.AreEqual(version, chunk.GetChangeVersion(type));
             Assert.IsFalse(chunk.DidChange(type, version));

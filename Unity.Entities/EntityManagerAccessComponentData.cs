@@ -15,6 +15,7 @@ namespace Unity.Entities
         /// Gets the number of shared components managed by this EntityManager.
         /// </summary>
         /// <returns>The shared component count</returns>
+        [NotBurstCompatible]
         public int GetSharedComponentCount()
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -199,6 +200,7 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// <typeparam name="T">The type of shared component.</typeparam>
         /// <returns>A copy of the shared component.</returns>
+        [NotBurstCompatible]
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -228,6 +230,7 @@ namespace Unity.Entities
         /// list.</param>
         /// <typeparam name="T">The data type of the shared component.</typeparam>
         /// <returns>A copy of the shared component.</returns>
+        [NotBurstCompatible]
         public T GetSharedComponentData<T>(int sharedComponentIndex) where T : struct, ISharedComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -243,9 +246,10 @@ namespace Unity.Entities
         /// of chunks. This function finds the unique shared components existing across chunks and archetype and
         /// fills a list with copies of those components.
         /// </remarks>
-        /// <param name="sharedComponentValues">A List<T> object to receive the unique instances of the
+        /// <param name="sharedComponentValues">A List^lt;T&gt; object to receive the unique instances of the
         /// shared component of type T.</param>
         /// <typeparam name="T">The type of shared component.</typeparam>
+        [NotBurstCompatible]
         public void GetAllUniqueSharedComponentData<T>(List<T> sharedComponentValues)
             where T : struct, ISharedComponentData
         {
@@ -270,6 +274,7 @@ namespace Unity.Entities
         /// <param name="sharedComponentValues"></param>
         /// <param name="sharedComponentIndices"></param>
         /// <typeparam name="T"></typeparam>
+        [NotBurstCompatible]
         public void GetAllUniqueSharedComponentData<T>(List<T> sharedComponentValues, List<int> sharedComponentIndices)
             where T : struct, ISharedComponentData
         {
@@ -467,6 +472,7 @@ namespace Unity.Entities
             return ptr;
         }
 
+        [NotBurstCompatible]
         internal object GetSharedComponentData(Entity entity, int typeIndex)
         {
             var access = GetCheckedEntityDataAccess();

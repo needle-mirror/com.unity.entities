@@ -145,14 +145,6 @@ namespace Unity.Entities
             }
         }
 
-        private struct SysAndDep
-        {
-            public Type type;
-            public UpdateIndex externalIndex;
-            public List<Type> updateBefore;
-            public int nAfter;
-        }
-
         public struct TypeHeapElement : IComparable<TypeHeapElement>
         {
             private readonly string typeName;
@@ -183,19 +175,15 @@ namespace Unity.Entities
             }
         }
 
-        // Tiny doesn't have a data structure that can take Type as a key.
-        // For now, this gives Tiny a linear search. Would like to do better.
-#if !NET_DOTS
         private static Dictionary<Type, int> lookupDictionary = null;
-
-        private static int LookupSysAndDep(Type t, SysAndDep[] array)
+        private static int LookupSystemElement(Type t, SystemElement[] elements)
         {
             if (lookupDictionary == null)
             {
                 lookupDictionary = new Dictionary<Type, int>();
-                for (int i = 0; i < array.Length; ++i)
+                for (int i = 0; i < elements.Length; ++i)
                 {
-                    lookupDictionary[array[i].type] = i;
+                    lookupDictionary[elements[i].Type] = i;
                 }
             }
 
@@ -204,139 +192,94 @@ namespace Unity.Entities
             return -1;
         }
 
-#else
-        private static int LookupSysAndDep(Type t, SysAndDep[] array)
-        {
-            for (int i = 0; i < array.Length; ++i)
-            {
-                if (array[i].type == t)
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-#endif
-
-        private static void WarningForBeforeCheck(Type sysType, Type depType)
-        {
-            Debug.LogWarning(
-                $"Ignoring redundant [UpdateBefore] attribute on {sysType} because {depType} is already restricted to be last.\n"
-                + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {sysType}.");
-        }
-
-        private static void WarningForAfterCheck(Type sysType, Type depType)
-        {
-            Debug.LogWarning(
-                $"Ignoring redundant [UpdateAfter] attribute on {sysType} because {depType} is already restricted to be first.\n"
-                + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {sysType}.");
-        }
-
         internal struct SystemElement
         {
             public Type Type;
             public UpdateIndex Index;
+            public int OrderingBucket; // 0 = OrderFirst, 1 = none, 2 = OrderLast
+            public List<Type> updateBefore;
+            public int nAfter;
         }
 
-        internal static void Sort(List<SystemElement> elements, Type parentType)
+        internal static void Sort(SystemElement[] elements)
         {
-#if !NET_DOTS
             lookupDictionary = null;
-#endif
-            // Populate dictionary mapping systemType to system-and-before/after-types.
-            // This is clunky - it is easier to understand, and cleaner code, to
-            // just use a Dictionary<Type, SysAndDep>. However, Tiny doesn't currently have
-            // the ability to use Type as a key to a NativeHash, so we're stuck until that gets addressed.
-            //
-            // Likewise, this is important shared code. It can be done cleaner with 2 versions, but then...
-            // 2 sets of bugs and slightly different behavior will creep in.
-            //
-            var sysAndDep = new SysAndDep[elements.Count];
+            var sortedElements = new SystemElement[elements.Length];
+            int nextOutIndex = 0;
 
-            for (int i = 0; i < elements.Count; ++i)
+            var readySystems = new Heap(elements.Length);
+            for (int i = 0; i < elements.Length; ++i)
             {
-                var elem = elements[i];
-
-                sysAndDep[i] = new SysAndDep
+                if (elements[i].nAfter == 0)
                 {
-                    type = elem.Type,
-                    externalIndex = elem.Index,
-                    updateBefore = new List<Type>(),
-                    nAfter = 0,
-                };
-            }
-
-            FindConstraints(parentType, sysAndDep);
-
-            // Clear the systems list and rebuild it in sorted order from the lookup table
-            elements.Clear();
-
-            var readySystems = new Heap(sysAndDep.Length);
-            for (int i = 0; i < sysAndDep.Length; ++i)
-            {
-                if (sysAndDep[i].nAfter == 0)
-                {
-                    readySystems.Insert(new TypeHeapElement(i, sysAndDep[i].type));
+                    readySystems.Insert(new TypeHeapElement(i, elements[i].Type));
                 }
             }
 
             while (!readySystems.Empty)
             {
                 var sysIndex = readySystems.Extract().unsortedIndex;
-                var sd = sysAndDep[sysIndex];
+                var elem = elements[sysIndex];
 
-                sysAndDep[sysIndex] = default; // "Remove()"
-                elements.Add(new SystemElement {Type = sd.type, Index = sd.externalIndex});
-                foreach (var beforeType in sd.updateBefore)
+                sortedElements[nextOutIndex++] = new SystemElement
                 {
-                    int beforeIndex = LookupSysAndDep(beforeType, sysAndDep);
+                    Type = elem.Type,
+                    Index = elem.Index,
+                };
+                foreach (var beforeType in elem.updateBefore)
+                {
+                    int beforeIndex = LookupSystemElement(beforeType, elements);
                     if (beforeIndex < 0) throw new Exception("Bug in SortSystemUpdateList(), beforeIndex < 0");
-                    if (sysAndDep[beforeIndex].nAfter <= 0)
+                    if (elements[beforeIndex].nAfter <= 0)
                         throw new Exception("Bug in SortSystemUpdateList(), nAfter <= 0");
 
-                    sysAndDep[beforeIndex].nAfter--;
-                    if (sysAndDep[beforeIndex].nAfter == 0)
+                    elements[beforeIndex].nAfter--;
+                    if (elements[beforeIndex].nAfter == 0)
                     {
-                        readySystems.Insert(new TypeHeapElement(beforeIndex, sysAndDep[beforeIndex].type));
+                        readySystems.Insert(new TypeHeapElement(beforeIndex, elements[beforeIndex].Type));
                     }
                 }
+                elements[sysIndex].nAfter = -1; // "Remove()"
             }
 
-            for (int i = 0; i < sysAndDep.Length; ++i)
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            for (int i = 0; i < elements.Length; ++i)
             {
-                if (sysAndDep[i].type != null)
+                if (elements[i].nAfter != -1)
                 {
                     // Since no System in the circular dependency would have ever been added
                     // to the heap, we should have values for everything in sysAndDep. Check,
                     // just in case.
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     var visitedSystems = new List<Type>();
                     var startIndex = i;
                     var currentIndex = i;
                     while (true)
                     {
-                        if (sysAndDep[currentIndex].type != null)
-                            visitedSystems.Add(sysAndDep[currentIndex].type);
+                        if (elements[currentIndex].nAfter != -1)
+                            visitedSystems.Add(elements[currentIndex].Type);
 
-                        currentIndex = LookupSysAndDep(sysAndDep[currentIndex].updateBefore[0], sysAndDep);
-                        if (currentIndex < 0 || currentIndex == startIndex || sysAndDep[currentIndex].type == null)
+                        currentIndex = LookupSystemElement(elements[currentIndex].updateBefore[0], elements);
+                        if (currentIndex < 0 || currentIndex == startIndex || elements[currentIndex].nAfter == -1)
                         {
                             throw new CircularSystemDependencyException(visitedSystems);
                         }
                     }
-#else
-                    sysAndDep[i] = default;
-#endif
                 }
             }
+#endif
+
+            // Replace input array with sorted array
+            for (int i = 0; i < elements.Length; ++i)
+                elements[i] = sortedElements[i];
         }
 
-        private static void FindConstraints(Type parentType, SysAndDep[] sysAndDep)
+        internal static void FindConstraints(Type parentType, SystemElement[] sysElems)
         {
-            for (int i = 0; i < sysAndDep.Length; ++i)
+            lookupDictionary = null;
+
+            for (int i = 0; i < sysElems.Length; ++i)
             {
-                var systemType = sysAndDep[i].type;
+                var systemType = sysElems[i].Type;
 
                 var before = TypeManager.GetSystemAttributes(systemType, typeof(UpdateBeforeAttribute));
                 var after = TypeManager.GetSystemAttributes(systemType, typeof(UpdateAfterAttribute));
@@ -347,19 +290,19 @@ namespace Unity.Entities
                     if (CheckBeforeConstraints(parentType, dep, systemType))
                         continue;
 
-                    int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
+                    int depIndex = LookupSystemElement(dep.SystemType, sysElems);
                     if (depIndex < 0)
                     {
                         Debug.LogWarning(
-                            $"Ignoring invalid [UpdateBefore] attribute on {systemType} because {dep.SystemType} belongs to a different {nameof(ComponentSystemGroup)}.\n"
-                            + $"This attribute can only order systems that are children of the same {nameof(ComponentSystemGroup)}.\n"
-                            + $"Make sure that both systems are in the same parent group with [UpdateInGroup(typeof({parentType})].\n"
-                            + $"You can also change the relative order of groups when appropriate, by using [UpdateBefore] and [UpdateAfter] attributes at the group level.");
+                            $"Ignoring invalid [UpdateBefore] attribute on {systemType} targeting {dep.SystemType}.\n"
+                            + $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n"
+                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({parentType})],\n"
+                            + $"or by manually adding both systems to the same group's update list.");
                         continue;
                     }
 
-                    sysAndDep[i].updateBefore.Add(dep.SystemType);
-                    sysAndDep[depIndex].nAfter++;
+                    sysElems[i].updateBefore.Add(dep.SystemType);
+                    sysElems[depIndex].nAfter++;
                 }
 
                 foreach (var attr in after)
@@ -369,19 +312,19 @@ namespace Unity.Entities
                     if (CheckAfterConstraints(parentType, dep, systemType))
                         continue;
 
-                    int depIndex = LookupSysAndDep(dep.SystemType, sysAndDep);
+                    int depIndex = LookupSystemElement(dep.SystemType, sysElems);
                     if (depIndex < 0)
                     {
                         Debug.LogWarning(
-                            $"Ignoring invalid [UpdateAfter] attribute on {systemType} because {dep.SystemType} belongs to a different {nameof(ComponentSystemGroup)}.\n"
-                            + $"This attribute can only order systems that are children of the same {nameof(ComponentSystemGroup)}.\n"
-                            + $"Make sure that both systems are in the same parent group with [UpdateInGroup(typeof({parentType})].\n"
-                            + $"You can also change the relative order of groups when appropriate, by using [UpdateBefore] and [UpdateAfter] attributes at the group level.");
+                            $"Ignoring invalid [UpdateAfter] attribute on {systemType} targeting {dep.SystemType}.\n"
+                            + $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n"
+                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({parentType})],\n"
+                            + $"or by manually adding both systems to the same group's update list.");
                         continue;
                     }
 
-                    sysAndDep[depIndex].updateBefore.Add(systemType);
-                    sysAndDep[i].nAfter++;
+                    sysElems[depIndex].updateBefore.Add(systemType);
+                    sysElems[i].nAfter++;
                 }
             }
         }
@@ -404,6 +347,20 @@ namespace Unity.Entities
                 return true;
             }
 
+            int systemBucket = ComponentSystemGroup.ComputeSystemOrdering(systemType, parentType);
+            int depBucket = ComponentSystemGroup.ComputeSystemOrdering(dep.SystemType, parentType);
+            if (depBucket > systemBucket)
+            {
+                // This constraint is redundant, but harmless; it is accounted for by the bucketing order, and can be quietly ignored.
+                return true;
+            }
+            if (depBucket < systemBucket)
+            {
+                Debug.LogWarning(
+                    $"Ignoring invalid [UpdateBefore({dep.SystemType})] attribute on {systemType} because OrderFirst/OrderLast has higher precedence.");
+                return true;
+            }
+
             return false;
         }
 
@@ -422,6 +379,20 @@ namespace Unity.Entities
                 Debug.LogWarning(
                     $"Ignoring invalid [UpdateAfter] attribute on {systemType} because a system cannot be updated after itself.\n"
                     + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                return true;
+            }
+
+            int systemBucket = ComponentSystemGroup.ComputeSystemOrdering(systemType, parentType);
+            int depBucket = ComponentSystemGroup.ComputeSystemOrdering(dep.SystemType, parentType);
+            if (depBucket < systemBucket)
+            {
+                // This constraint is redundant, but harmless; it is accounted for by the bucketing order, and can be quietly ignored.
+                return true;
+            }
+            if (depBucket > systemBucket)
+            {
+                Debug.LogWarning(
+                    $"Ignoring invalid [UpdateAfter({dep.SystemType})] attribute on {systemType} because OrderFirst/OrderLast has higher precedence.");
                 return true;
             }
 

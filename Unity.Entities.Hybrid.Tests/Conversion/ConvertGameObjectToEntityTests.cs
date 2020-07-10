@@ -228,6 +228,17 @@ namespace Unity.Entities.Tests.Conversion
             Assert.AreEqual(d.transform.parent, c.transform);
         }
 
+        [Test]
+        public void ConvertAndInject_DestroyingConvertToEntity_DoesNotThrowDuringConversion()
+        {
+            var a = new GameObject("a");
+            a.AddConvertAndInject();
+
+            BeginAwakeConversion(a);
+            UnityEngine.Object.DestroyImmediate(a);
+            Assert.DoesNotThrow(EndAwakeConversion);
+        }
+
         //@TODO: ConvertToEntity w/ multiple Worlds registered via ConvertToEntitySystem.AddToBeConverted()
     }
 }

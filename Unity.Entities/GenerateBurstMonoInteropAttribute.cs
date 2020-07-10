@@ -3,7 +3,7 @@ using System;
 namespace Unity.Entities
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, Inherited = false, AllowMultiple = false)]
-    internal sealed class GenerateBurstMonoInteropAttribute : Attribute
+    public sealed class GenerateBurstMonoInteropAttribute : Attribute
     {
         public string AssetName { get; private set; }
 
@@ -14,7 +14,17 @@ namespace Unity.Entities
     }
 
     [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
-    internal sealed class BurstMonoInteropMethodAttribute : Attribute
+    public sealed class BurstMonoInteropMethodAttribute : Attribute
     {
+        /// <summary>
+        /// If set, the generated method will be exposed as public. Otherwise it will have the same access modifier as
+        /// the original method.
+        /// </summary>
+        public bool MakePublic;
+
+        public BurstMonoInteropMethodAttribute(bool makePublic = false)
+        {
+            MakePublic = makePublic;
+        }
     }
 }

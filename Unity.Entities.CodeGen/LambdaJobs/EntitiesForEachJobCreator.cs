@@ -5,10 +5,10 @@ using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
-using Unity.Profiling;
 using CustomAttributeNamedArgument = Mono.Cecil.CustomAttributeNamedArgument;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
@@ -45,7 +45,7 @@ namespace Unity.Entities.CodeGen
         public MethodDefinition PerformLambdaMethod;
         public MethodDefinition ReadFromDisplayClassMethod;
         public MethodDefinition WriteToDisplayClassMethod;
-        public MethodDefinition DeallocateOnCompletionMethod;
+        public MethodDefinition DisposeOnCompletionMethod;
         public MethodDefinition ExecuteMethod;
         public FieldDefinition SystemInstanceField;
 
@@ -53,7 +53,7 @@ namespace Unity.Entities.CodeGen
         public MethodDefinition ClonedLambdaBody => ClonedMethods.First();
 
         public Dictionary<FieldReference, CapturedVariableDescription> CapturedVariables;
-        LambdaJobsComponentAccessPatcher _componentAccessPatcher;
+        LambdaJobsDataAccessPatcher m_DataAccessPatcher;
 
         static Type InterfaceTypeFor(LambdaJobDescriptionConstruction lambdaJobDescriptionConstruction)
         {
@@ -76,12 +76,7 @@ namespace Unity.Entities.CodeGen
         {
             if (!method.DeclaringType.TypeReferenceEquals(typeof(SystemBase)))
                 return false;
-            if (method.Name == nameof(SystemBase.GetComponent) ||
-                method.Name == nameof(SystemBase.SetComponent) ||
-                method.Name == nameof(SystemBase.HasComponent) ||
-                method.Name == nameof(SystemBase.GetComponentDataFromEntity))
-                return true;
-            return false;
+            return LambdaJobsDataAccessPatcher.PatchableMethod.AllPatchableMethods.Any(pm => pm.UnpatchedMethod == method.Name);
         }
 
         MethodDefinition AddMethod(MethodDefinition method)
@@ -124,7 +119,7 @@ namespace Unity.Entities.CodeGen
             TypeDefinition.CustomAttributes.Add(
                 new CustomAttribute(AttributeConstructorReferenceFor(typeof(DOTSCompilerGeneratedAttribute), TypeDefinition.Module)));
 
-            _componentAccessPatcher = new LambdaJobsComponentAccessPatcher(TypeDefinition, LambdaJobDescriptionConstruction.MethodLambdaWasEmittedAs.Parameters);
+            m_DataAccessPatcher = new LambdaJobsDataAccessPatcher(TypeDefinition, LambdaJobDescriptionConstruction.MethodLambdaWasEmittedAs.Parameters);
 
             var structInterfaceType = InterfaceTypeFor(LambdaJobDescriptionConstruction);
             if (structInterfaceType != null)
@@ -151,7 +146,7 @@ namespace Unity.Entities.CodeGen
 
             var lambdaParameterValueProviderInformations = MakeLambdaParameterValueProviderInformations();
 
-            MakeDeallocateOnCompletionMethod();
+            MakeDisposeOnCompletionMethod();
 
             if (LambdaJobDescriptionConstruction.WithStructuralChanges)
                 AddStructuralChangeMembers(lambdaParameterValueProviderInformations);
@@ -167,38 +162,157 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        void MakeDeallocateOnCompletionMethod()
+        // Create a DisposeOnJobCompletion method if needed.  The is needed for fields where both of following are true:
+        // 1. It is included in an invocation to WithDeallocateOnJobCompletion or WithDisposeOnCompletion
+        // 2. It is NOT marked with NativeContainerSupportsDeallocateOnJobCompletionAttribute and we are executing as a job.  In this case we just
+        // mark the field with DeallocateOnJobCompletionAttribute in ApplyFieldAttributes and let the native job system handle it's cleanup (which is faster).
+        void MakeDisposeOnCompletionMethod()
         {
-            //we only have to clean up ourselves, in Run execution mode.
-            if (LambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run)
-                return;
-
-            var fieldsToDeallocate =
-                LambdaJobDescriptionConstruction.InvokedConstructionMethods
-                    .Where(m => m.MethodName ==
-                        nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion))
-                    .Select(ca => ca.Arguments.Single())
-                    .Cast<FieldDefinition>()
-                    .ToList();
-
-            if (!fieldsToDeallocate.Any())
-                return;
-
-            DeallocateOnCompletionMethod = AddMethod(new MethodDefinition("DeallocateOnCompletionMethod", MethodAttributes.Public, TypeSystem.Void));
-            var ilProcessor = DeallocateOnCompletionMethod.Body.GetILProcessor();
-
-            foreach (var fieldToDeallocate in fieldsToDeallocate)
+            void UpdateFieldsToDisposeOrMarkAsDeallocate(List<FieldDefinition> fieldDefinitions, Dictionary<FieldDefinition, Instruction> instructions,
+                string methodName)
             {
-                var capturedVariable = CapturedVariables[fieldToDeallocate];
-                ilProcessor.Emit(OpCodes.Ldarg_0);
-                ilProcessor.Emit(OpCodes.Ldflda, capturedVariable.NewField);
+                foreach (var constructionMethod in LambdaJobDescriptionConstruction.InvokedConstructionMethods.Where(m => m.MethodName == methodName))
+                {
+                    if (constructionMethod.Arguments.Single() is FieldDefinition field)
+                    {
+                        // Perform checks to make sure we are applying this to a captured variable
+                        if (!field.DeclaringType.IsDisplayClass())
+                            UserError.DC0038(LambdaJobDescriptionConstruction.ContainingMethod, field, constructionMethod).Throw();
+                        if (!CapturedVariables.TryGetValue(field, out var capturedVariable))
+                            InternalCompilerError.DCICE007(LambdaJobDescriptionConstruction.ContainingMethod, constructionMethod).Throw();
 
-                var disposeReference = new MethodReference("Dispose", TypeSystem.Void, capturedVariable.NewField.FieldType){HasThis = true};
-                var disposeMethod = ImportReference(disposeReference);
-                //todo: check for null
+                        // As an optimization, let's apply the DeallocateOnJobCompletionAttribute attribute in the case where we want to let
+                        // the native job system cleanup the container for us (when it is supported and we are scheduled as a job).
+                        if (LambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run)
+                        {
+                            if (field.FieldType.HasAttributeOrFieldWithAttribute(typeof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)))
+                            {
+                                var correspondingJobField = capturedVariable.NewField.Resolve();
+                                correspondingJobField.CustomAttributes.Add(
+                                    new CustomAttribute(TypeDefinition.Module.ImportReference(
+                                        typeof(DeallocateOnJobCompletionAttribute).GetConstructor(Array.Empty<Type>()))));
+                                continue;
+                            }
+#pragma warning disable 0618
+                            else if (constructionMethod.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion))
+#pragma warning restore 0618
+                                UserError.DC0035(LambdaJobDescriptionConstruction.ContainingMethod, field.Name, field.FieldType, constructionMethod.InstructionInvokingMethod).Throw();
+                        }
 
-                ilProcessor.Emit(OpCodes.Call, disposeMethod);
+                        fieldDefinitions.Add(field);
+                        instructions[field] = constructionMethod.InstructionInvokingMethod;
+                    }
+                    else
+                        UserError.DC0012(LambdaJobDescriptionConstruction.ContainingMethod, constructionMethod).Throw();
+                }
             }
+
+            var fieldsToDispose = new List<FieldDefinition>();
+            var fieldToInstructionInvokingConstructionMethod = new Dictionary<FieldDefinition, Instruction>();
+
+            // Check fields invoked with WithDeallocateOnJobCompletion or WithDisposeOnCompletion and either add
+            // them as fields to handle in Dispose method or just mark them with [DeallocateOnJobCompletion] when possible
+#pragma warning disable 0618
+            UpdateFieldsToDisposeOrMarkAsDeallocate(fieldsToDispose, fieldToInstructionInvokingConstructionMethod,
+                nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion));
+#pragma warning restore 0618
+            UpdateFieldsToDisposeOrMarkAsDeallocate(fieldsToDispose, fieldToInstructionInvokingConstructionMethod,
+                nameof(LambdaJobDescriptionConstructionMethods.WithDisposeOnCompletion));
+
+            if (!fieldsToDispose.Any())
+                return;
+
+            var disposeWithJobHandle = LambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run;
+
+            var disposeOnCompletionMethod = new MethodDefinition("DisposeOnCompletionMethod", MethodAttributes.Public,
+                disposeWithJobHandle ? ImportReference(typeof(JobHandle)) : TypeSystem.Void);
+            if (LambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run)
+                disposeOnCompletionMethod.Parameters.Add(new ParameterDefinition("jobHandle", ParameterAttributes.None, ImportReference(typeof(JobHandle))));
+            DisposeOnCompletionMethod = AddMethod(disposeOnCompletionMethod);
+            var ilProcessor = DisposeOnCompletionMethod.Body.GetILProcessor();
+
+            // Store jobHandle parameter as local so we can modify
+            VariableDefinition modifiedJobHandleVar = null;
+            if (disposeWithJobHandle)
+            {
+                modifiedJobHandleVar = new VariableDefinition(ImportReference(typeof(JobHandle)));
+                DisposeOnCompletionMethod.Body.Variables.Add(modifiedJobHandleVar);
+                ilProcessor.Emit(OpCodes.Ldarg_1);
+                ilProcessor.Emit(OpCodes.Stloc, modifiedJobHandleVar);
+            }
+
+            // This is a bit more complicated as we need to support disposing anything that lives inside of a type that has the appropriate Dispose method.
+            // Let's traverse the fields in our types and dispose of the top-level one that have that attribute.
+            foreach (var field in fieldsToDispose)
+                RecurseFieldAndEmitILToDispose(CapturedVariables[field].NewField.Resolve(), Array.Empty<FieldDefinition>());
+
+            bool CheckForDisposeMethod(TypeDefinition type, bool hasJobHandleParam)
+            {
+                if (hasJobHandleParam)
+                    return type.Methods.Any(m => m.Name == nameof(IDisposable.Dispose) && m.Parameters.Count() == 1 &&
+                        m.Parameters[0].ParameterType.Name == nameof(JobHandle) && m.ReturnType.Name == nameof(JobHandle));
+                return type.Methods.Any(m => m.Name == nameof(IDisposable.Dispose) && !m.Parameters.Any() && m.ReturnType == TypeSystem.Void);
+            }
+
+            void RecurseFieldAndEmitILToDispose(FieldDefinition fieldDefinition, FieldDefinition[] parentFields)
+            {
+                var fieldType = fieldDefinition.FieldType.CheckedResolve();
+                if (CheckForDisposeMethod(fieldType, disposeWithJobHandle))
+                {
+                    ilProcessor.Emit(OpCodes.Ldarg_0);
+                    OpCode FieldLoadOpcode(FieldReference field) => field.FieldType.IsValueType() ? OpCodes.Ldflda : OpCodes.Ldfld;
+                    foreach (var field in parentFields)
+                        ilProcessor.Emit(FieldLoadOpcode(field), field);
+                    ilProcessor.Emit(FieldLoadOpcode(fieldDefinition), fieldDefinition);
+
+                    MethodReference disposeMethod;
+
+                    if (disposeWithJobHandle)
+                    {
+                        ilProcessor.Emit(OpCodes.Ldloc, modifiedJobHandleVar);
+
+                        // When scheduling we need to pass JobHandle of our job into our Dispose method
+                        var disposeReference = new MethodReference(nameof(IDisposable.Dispose), ImportReference(typeof(JobHandle)), fieldDefinition.FieldType)
+                        {
+                            HasThis = true,
+                            Parameters = { new ParameterDefinition(ImportReference(typeof(JobHandle)))}
+                        };
+                        disposeMethod = ImportReference(disposeReference);
+                        if (disposeMethod == null)
+                        {
+                            var rootField = parentFields.Any() ? parentFields[0] : fieldDefinition;
+                            InternalCompilerError.DCICE009(LambdaJobDescriptionConstruction.ContainingMethod, fieldToInstructionInvokingConstructionMethod[rootField], rootField).Throw();
+                        }
+
+                        ilProcessor.Emit(OpCodes.Call, disposeMethod);
+                        ilProcessor.Emit(OpCodes.Stloc, modifiedJobHandleVar);
+                    }
+                    else
+                    {
+                        // For Run, just call Dispose method directly
+                        var disposeReference = new MethodReference(nameof(IDisposable.Dispose), TypeSystem.Void, fieldDefinition.FieldType) {HasThis = true};
+                        disposeMethod = ImportReference(disposeReference);
+                        if (disposeMethod == null)
+                        {
+                            var rootField = parentFields.Any() ? parentFields[0] : fieldDefinition;
+                            InternalCompilerError.DCICE009(LambdaJobDescriptionConstruction.ContainingMethod,
+                                fieldToInstructionInvokingConstructionMethod[rootField], rootField).Throw();
+                        }
+
+                        ilProcessor.Emit(OpCodes.Call, disposeMethod);
+                    }
+                }
+                else
+                {
+                    foreach (var f in fieldDefinition.FieldType.Resolve().Fields
+                             .Where(f => !(f.IsStatic || f.FieldType.IsPrimitive || f.FieldType is GenericParameter || f.FieldType is PointerType || f.FieldType is ArrayType)))
+                        RecurseFieldAndEmitILToDispose(f, parentFields.Concat(new[] {fieldDefinition}).ToArray());
+                }
+            }
+
+            if (disposeWithJobHandle)
+                ilProcessor.Emit(OpCodes.Ldloc, modifiedJobHandleVar);
+
             ilProcessor.Emit(OpCodes.Ret);
         }
 
@@ -308,12 +422,13 @@ namespace Unity.Entities.CodeGen
                 {
                     if (constructionMethod.Arguments.Single() is FieldDefinition fieldDefinition)
                     {
+                        // Perform checks to make sure we are applying this to a captured variable
                         if (!fieldDefinition.DeclaringType.IsDisplayClass())
                             UserError.DC0038(containingMethod, fieldDefinition, constructionMethod).Throw();
-                        attribute.CheckAttributeApplicable?.Invoke(containingMethod, constructionMethod, fieldDefinition)?.Throw();
-
                         if (!CapturedVariables.TryGetValue(fieldDefinition, out var capturedVariable))
                             InternalCompilerError.DCICE007(containingMethod, constructionMethod).Throw();
+
+                        attribute.CheckAttributeApplicable?.Invoke(containingMethod, constructionMethod, fieldDefinition)?.Throw();
                         var correspondingJobField = capturedVariable.NewField.Resolve();
                         correspondingJobField.CustomAttributes.Add(new CustomAttribute(TypeDefinition.Module.ImportReference(attribute.AttributeType.GetConstructor(Array.Empty<Type>()))));
                         continue;
@@ -339,13 +454,26 @@ namespace Unity.Entities.CodeGen
             newJobStruct.Methods.Add(result);
 
             var ilProcessor = result.Body.GetILProcessor();
-            if (LambdaJobDescriptionConstruction.Kind != LambdaJobDescriptionKind.Job)
+            if (LambdaJobDescriptionConstruction.Kind != LambdaJobDescriptionKind.Job || DisposeOnCompletionMethod != null)
             {
-                result.Parameters.Insert(0, new ParameterDefinition("archetypeChunkIterator", ParameterAttributes.None, new PointerType(moduleDefinition.ImportReference(typeof(ArchetypeChunkIterator)))));
+                // Store our job struct as ref
                 ilProcessor.Emit(OpCodes.Ldarg_1);
-                ilProcessor.Emit(OpCodes.Call, moduleDefinition.ImportReference(typeof(UnsafeUtilityEx).GetMethod(nameof(UnsafeUtilityEx.AsRef), BindingFlags.Public | BindingFlags.Static)).MakeGenericInstanceMethod(newJobStruct));
-                ilProcessor.Emit(OpCodes.Ldarg_0);
-                ilProcessor.Emit(OpCodes.Call, moduleDefinition.ImportReference(typeof(JobChunkExtensions).GetMethod(nameof(JobChunkExtensions.RunWithoutJobs), BindingFlags.Public | BindingFlags.Static)).MakeGenericInstanceMethod(newJobStruct));
+                ilProcessor.Emit(OpCodes.Call, moduleDefinition.ImportReference(
+                    typeof(UnsafeUtility).GetMethod(nameof(UnsafeUtility.AsRef), BindingFlags.Public | BindingFlags.Static)).MakeGenericInstanceMethod(newJobStruct));
+                var jobStructAsRef = new VariableDefinition(new ByReferenceType(newJobStruct));
+                ilProcessor.Body.Variables.Add(jobStructAsRef);
+                ilProcessor.Emit(OpCodes.Stloc, jobStructAsRef);
+
+                if (LambdaJobDescriptionConstruction.Kind != LambdaJobDescriptionKind.Job)
+                {
+                    // Call our RunWithoutJobs method on our job struct
+                    result.Parameters.Insert(0, new ParameterDefinition("archetypeChunkIterator", ParameterAttributes.None,
+                        new PointerType(moduleDefinition.ImportReference(typeof(ArchetypeChunkIterator)))));
+                    ilProcessor.Emit(OpCodes.Ldloc, jobStructAsRef);
+                    ilProcessor.Emit(OpCodes.Ldarg_0);
+                    ilProcessor.Emit(OpCodes.Call, moduleDefinition.ImportReference(typeof(JobChunkExtensions).GetMethod(nameof(JobChunkExtensions.RunWithoutJobs), BindingFlags.Public | BindingFlags.Static)).MakeGenericInstanceMethod(newJobStruct));
+                }
+
                 ilProcessor.Emit(OpCodes.Ret);
                 return result;
             }
@@ -396,7 +524,7 @@ namespace Unity.Entities.CodeGen
             foreach (var method in displayClassExecuteMethodAndItsLocalMethods)
                 PatchMethodToThrowInvalidMethodCalledException(method);
 
-            _componentAccessPatcher.PatchComponentAccessInstructions(ClonedMethods);
+            m_DataAccessPatcher.PatchComponentAccessInstructions(ClonedMethods);
 
             if (LambdaJobDescriptionConstruction.DelegateProducingSequence.CapturesLocals)
             {
@@ -623,7 +751,7 @@ namespace Unity.Entities.CodeGen
                 scheduleIL.Emit(OpCodes.Stfld, SystemInstanceField);
             }
 
-            _componentAccessPatcher.EmitScheduleInitializeOnLoadCode(scheduleIL);
+            m_DataAccessPatcher.EmitScheduleInitializeOnLoadCode(scheduleIL);
 
             scheduleIL.Emit(OpCodes.Ret);
             return scheduleTimeInitializeMethod;
@@ -637,7 +765,6 @@ namespace Unity.Entities.CodeGen
             var executeIL = executeMethod.Body.GetILProcessor();
             executeIL.Emit(OpCodes.Ldarg_0);
             executeIL.Emit(OpCodes.Call, ClonedLambdaBody);
-            EmitCallToDeallocateOnCompletion(executeIL);
             executeIL.Emit(OpCodes.Ret);
             return executeMethod;
         }
@@ -656,7 +783,6 @@ namespace Unity.Entities.CodeGen
             executeIL.Emit(OpCodes.Ldarg_2);
             executeIL.Emit(OpCodes.Ldarg_3);
             executeIL.Emit(OpCodes.Call, ClonedLambdaBody);
-            EmitCallToDeallocateOnCompletion(executeIL);
             executeIL.Emit(OpCodes.Ret);
             return executeMethod;
         }
@@ -679,9 +805,6 @@ namespace Unity.Entities.CodeGen
             ilProcessor.Emit(OpCodes.Ldfld, providerInformations._runtimesField);
 
             ilProcessor.Emit(OpCodes.Call, iterateOnEntitiesMethod);
-
-            EmitCallToDeallocateOnCompletion(ilProcessor);
-
             ilProcessor.Emit(OpCodes.Ret);
 
             return executeMethod;
@@ -718,14 +841,6 @@ namespace Unity.Entities.CodeGen
             ilProcessor.Emit(OpCodes.Ret);
 
             return executeMethod;
-        }
-
-        void EmitCallToDeallocateOnCompletion(ILProcessor ilProcessor)
-        {
-            if (DeallocateOnCompletionMethod == null)
-                return;
-            ilProcessor.Emit(OpCodes.Ldarg_0);
-            ilProcessor.Emit(OpCodes.Call, DeallocateOnCompletionMethod);
         }
 
         private MethodDefinition CreateIterateEntitiesMethod(LambdaParameterValueInformations lambdaParameterValueInformations)
@@ -817,7 +932,7 @@ namespace Unity.Entities.CodeGen
 
             void CastPerformLambdaParameterToTypeAndLeaveOnStack(TypeReference castToType, int performLambdaParameterParameterIdx)
             {
-                var openAsRefMethod = ImportReference(typeof(UnsafeUtilityEx).GetMethod(nameof(UnsafeUtilityEx.AsRef)));
+                var openAsRefMethod = ImportReference(typeof(UnsafeUtility).GetMethod(nameof(UnsafeUtility.AsRef)));
                 var closedAsRefMethod = new GenericInstanceMethod(openAsRefMethod);
                 closedAsRefMethod.GenericArguments.Add(castToType);
                 ilProcessor.Emit(OpCodes.Ldarg, performLambdaParameterParameterIdx);
@@ -901,7 +1016,7 @@ namespace Unity.Entities.CodeGen
 
             TypeDefinition.CustomAttributes.Add(burstCompileAttribute);
             RunWithoutJobSystemMethod?.CustomAttributes.Add(burstCompileAttribute);
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
             RunWithoutJobSystemMethod?.CustomAttributes.Add(monoPInvokeCallbackAttribute);
 #endif
 

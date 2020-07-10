@@ -160,7 +160,7 @@ namespace Unity.Entities.Tests
 
             ActionEvenOdd((version, group) =>
             {
-                var entityType = m_Manager.GetArchetypeChunkEntityType();
+                var entityType = m_Manager.GetEntityTypeHandle();
                 var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
                 var firstEntity = chunks[0].GetNativeArray(entityType);
                 m_Manager.DestroyEntity(firstEntity);
@@ -262,15 +262,40 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DestroySharedComponentDataSetsOrderVersionToZero()
+        public void GetSharedComponentOrderVersionIncrementing([Values(0, 1)]int value)
         {
-            var sharedData = new SharedData1(1);
+            int unaffectedSharedValue = 15;
+            m_Manager.AddSharedComponentData(m_Manager.CreateEntity(), new SharedData1(unaffectedSharedValue));
+            var unaffectedVersion = m_Manager.GetSharedComponentOrderVersion(new SharedData1(unaffectedSharedValue));
+
+            var v0 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
+
             var entity = m_Manager.CreateEntity();
-            m_Manager.AddSharedComponentData(entity, sharedData);
+            m_Manager.AddSharedComponentData(entity, new SharedData1(value));
+            var v1 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
+            Assert.Greater(v1, v0);
+
+            m_Manager.RemoveComponent<SharedData1>(entity);
+            var v2 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
+            Assert.Greater(v2, v1);
+
+            m_Manager.AddSharedComponentData(entity, new SharedData1(value));
+            var v3 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
+            Assert.Greater(v3, v2);
+
+            var clone = m_Manager.Instantiate(entity);
+            var v4 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
+            Assert.Greater(v4, v3);
+
+            m_Manager.DestroyEntity(clone);
+            var v5 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
+            Assert.Greater(v5, v4);
 
             m_Manager.DestroyEntity(entity);
+            var v6 = m_Manager.GetSharedComponentOrderVersion(new SharedData1(value));
+            Assert.Greater(v6, v5);
 
-            Assert.AreEqual(0, m_Manager.GetSharedComponentOrderVersion(sharedData));
+            Assert.AreEqual(unaffectedVersion, m_Manager.GetSharedComponentOrderVersion(new SharedData1(unaffectedSharedValue)));
         }
     }
 }

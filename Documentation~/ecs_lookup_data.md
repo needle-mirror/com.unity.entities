@@ -14,11 +14,11 @@ Use [GetComponent&lt;T&gt;(Entity)] to look up data stored in a component of an 
 
 For example, if you have Target components with an Entity field identifying the entity to target, you can use the following code to rotate the tracking entities toward their target:
 
-[!code-cs[lookup-foreach](../package/DocCodeSamples.Tests/LookupDataExamples.cs#lookup-foreach)]
+[!code-cs[lookup-foreach](../DocCodeSamples.Tests/LookupDataExamples.cs#lookup-foreach)]
 
 Accessing data stored in [dynamic buffers] requires an extra step. You must declare a local variable of type [BufferFromEntity] in your [OnUpdate()] method. You can then "capture" the local variable in your lambda function. 
 
-[!code-cs[lookup-foreach-buffer](../package/DocCodeSamples.Tests/LookupDataExamples.cs#lookup-foreach-buffer)]
+[!code-cs[lookup-foreach-buffer](../DocCodeSamples.Tests/LookupDataExamples.cs#lookup-foreach-buffer)]
 
 
 ## Looking up entity data in IJobChunk
@@ -32,21 +32,21 @@ Declare a field of type [ComponentDataFromEntity] or [BufferFromEntity], and set
 
 For example, if you had Target components with an Entity field identifying the entities to target, you could add the following field to your job struct to look up the world position of the targets:
 
-[!code-cs[lookup-ijobchunk-declare](../package/DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk-declare)]
+[!code-cs[lookup-ijobchunk-declare](../DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk-declare)]
 
 Note that this declaration uses the [ReadOnly] attribute. You should always declare ComponentDataFromEntity<T> objects as read-only unless you do write to the components you access.
     
 You can set this field when scheduling the job as follows:
 
-[!code-cs[lookup-ijobchunk-set](../package/DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk-set)]
+[!code-cs[lookup-ijobchunk-set](../DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk-set)]
 
 Inside the job's `Execute()` function, you can lookup the value of a component using an Entity object:
 
-[!code-cs[lookup-ijobchunk-read](../package/DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk-read)]
+[!code-cs[lookup-ijobchunk-read](../DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk-read)]
   
  The following, full example shows a system that moves entities that have a Target field containing the Entity object of their target towards the current location of the target:
  
-[!code-cs[lookup-ijobchunk](../package/DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk)]
+[!code-cs[lookup-ijobchunk](../DocCodeSamples.Tests/LookupDataExamples.cs#lookup-ijobchunk)]
 
 ## Data access errors
 

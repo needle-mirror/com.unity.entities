@@ -144,7 +144,9 @@ namespace Unity.Entities
         struct ArchetypeChunkFilter
         {
             public Archetype* Archetype;
+#pragma warning disable 649
             public fixed int SharedComponentValues[kMaxSharedComponentCount];
+#pragma warning restore 649
 
             public ArchetypeChunkFilter(Archetype* archetype, int* sharedComponentValues)
             {
@@ -292,7 +294,7 @@ namespace Unity.Entities
                 while (newThings >= 0) // oldThings[0] has typeIndex 0, newThings can't have anything lower than that
                 {
                     var oldThing = srcTypes[oldThings];
-                    var newThing = componentTypes.GetComponentType(newThings);
+                    var newThing = new ComponentTypeInArchetype(componentTypes.GetTypeIndex(newThings));
                     if (oldThing.TypeIndex > newThing.TypeIndex) // put whichever is bigger at the end of the array
                     {
                         dstTypes[--mixedThings] = oldThing;
@@ -303,8 +305,7 @@ namespace Unity.Entities
                         if (oldThing.TypeIndex == newThing.TypeIndex)
                             --oldThings;
 
-                        var componentTypeInArchetype = new ComponentTypeInArchetype(newThing);
-                        dstTypes[--mixedThings] = componentTypeInArchetype;
+                        dstTypes[--mixedThings] = newThing;
                         --newThings;
                     }
                 }
@@ -365,6 +366,66 @@ namespace Unity.Entities
                 return default;
 
             return GetArchetypeChunkFilterWithRemovedComponent(srcChunk, dstArchetype, indexInTypeArray, componentType);
+        }
+
+        ArchetypeChunkFilter GetArchetypeChunkFilterWithRemovedComponents(Chunk* srcChunk, ComponentTypes componentTypes)
+        {
+            var srcArchetype = srcChunk->Archetype;
+            var srcTypes = srcArchetype->Types;
+            var srcTypesCount = srcArchetype->TypesCount;
+            var typesToRemoveCount = componentTypes.Length;
+
+            ComponentTypeInArchetype* dstTypes = stackalloc ComponentTypeInArchetype[srcTypesCount];
+            ComponentTypeInArchetype* typesToRemove = stackalloc ComponentTypeInArchetype[typesToRemoveCount];
+
+            for (var i = 0; i < typesToRemoveCount; i++)
+            {
+                typesToRemove[i] = new ComponentTypeInArchetype(componentTypes.GetTypeIndex(i));
+            }
+
+            // the entity type is always first component
+            dstTypes[0] = srcTypes[0];
+            var dstTypesCount = 1;
+            for (var i = 1; i < srcTypesCount; i++)
+            {
+                var srcType = srcTypes[i];
+
+                // if srcType is found in typesToRemove, don't add it to dst
+                bool keepMe = true;
+                for (var j = 0; j < typesToRemoveCount; j++)
+                {
+                    if (typesToRemove[j] == srcType)
+                    {
+                        keepMe = false;
+                        break;
+                    }
+                }
+
+                if (keepMe)
+                {
+                    dstTypes[dstTypesCount] = srcType;
+                    dstTypesCount++;
+                }
+            }
+
+            if (dstTypesCount == srcTypesCount) // none were removed
+                return default;
+
+            var dstArchetype = GetOrCreateArchetype(dstTypes, dstTypesCount);
+            var archetypeChunkFilter = new ArchetypeChunkFilter();
+            archetypeChunkFilter.Archetype = dstArchetype;
+
+            if (dstArchetype->NumSharedComponents < srcArchetype->NumSharedComponents)
+            {
+                BuildSharedComponentIndicesWithRemovedComponents(srcArchetype, dstArchetype, srcChunk->SharedComponentValues, archetypeChunkFilter.SharedComponentValues);
+            }
+            else
+            {
+                for (int i = 0; i < srcArchetype->NumSharedComponents; i++)
+                    archetypeChunkFilter.SharedComponentValues[i] = srcChunk->SharedComponentValues[i];
+            }
+
+            return archetypeChunkFilter;
         }
 
         static void BuildSharedComponentIndicesWithAddedComponent(int indexOfNewSharedComponent, int value,
@@ -481,6 +542,33 @@ namespace Unity.Entities
                     newTypes[t - removedTypes] = archetype->Types[t];
 
             return GetOrCreateArchetype(newTypes, archetype->TypesCount - removedTypes);
+        }
+
+        static void BuildSharedComponentIndicesWithRemovedComponents(Archetype* srcArchetype,
+            Archetype* dstArchetype, SharedComponentValues srcSharedComponentValues, int* dstSharedComponentValues)
+        {
+            int srcFirstShared = srcArchetype->FirstSharedComponent;
+            int dstFirstShared = dstArchetype->FirstSharedComponent;
+            int srcCount = srcArchetype->NumSharedComponents;
+            int dstCount = dstArchetype->NumSharedComponents;
+
+            for (int i = 0; i < dstCount; i++)
+            {
+                // find index of srcType that matches dstType
+                var dstType = dstArchetype->Types[dstFirstShared + i];
+                int matchingSrcIdx = 0;
+                for (int j = 0; j < srcCount; j++)
+                {
+                    var srcType = srcArchetype->Types[srcFirstShared + j];
+                    if (srcType == dstType)
+                    {
+                        matchingSrcIdx = j;
+                        break;
+                    }
+                }
+
+                dstSharedComponentValues[i] = srcSharedComponentValues[matchingSrcIdx];
+            }
         }
     }
 }

@@ -28,7 +28,7 @@ See [JobHandle and dependencies] for more information.
 [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
 [JobHandle.CombineDependencies]: https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.CombineDependencies.html
 [Job.WithCode]: xref:Unity.Entities.SystemBase.Job
-[sync points]: xref:ecs-sync-points
+[sync points]: xref:sync-points
 [JobHandle and dependencies]: https://docs.unity3d.com/Manual/JobSystemJobDependencies.html
 
 

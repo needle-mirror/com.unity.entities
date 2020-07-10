@@ -61,9 +61,14 @@ namespace Unity.Entities
         {
             var hash = HashTypeName(type);
 
+#if !UNITY_DOTSRUNTIME
             // UnityEngine objects have their own serialization mechanism so exclude hashing the type's
             // internals and just hash its name which is stable and important to how Entities will serialize
-            if (type.IsPointer || type.IsPrimitive || type.IsEnum || TypeManager.UnityEngineObjectType?.IsAssignableFrom(type) == true || WorkaroundTypes.Contains(type))
+            if (TypeManager.UnityEngineObjectType?.IsAssignableFrom(type) == true)
+                return hash;
+#endif
+
+            if (type.IsGenericParameter || type.IsArray || type.IsPointer || type.IsPrimitive || type.IsEnum || WorkaroundTypes.Contains(type))
                 return hash;
 
             foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))

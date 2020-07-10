@@ -39,9 +39,9 @@ namespace Unity.Entities
         public int BufferEntityPatchCount;
 
         // Index matches archetype types
-        public int* Offsets;
-        public int* SizeOfs;
-        public int* BufferCapacities;
+        public int*    Offsets;
+        public ushort* SizeOfs;
+        public int*    BufferCapacities;
 
         // TypesCount indices into Types/Offsets/SizeOfs in the order that the
         // components are laid out in memory.
@@ -140,7 +140,7 @@ namespace Unity.Entities
         public void RemoveFromChunkList(Chunk* chunk)
         {
             Chunks.RemoveAtSwapBack(chunk->ListIndex);
-            var chunkThatMoved = Chunks.p[chunk->ListIndex];
+            var chunkThatMoved = Chunks[chunk->ListIndex];
             chunkThatMoved->ListIndex = chunk->ListIndex;
         }
 

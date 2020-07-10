@@ -6,23 +6,38 @@ using Unity.Jobs;
 using Unity.Burst;
 using UnityEngine;
 using UnityEngine.TestTools;
+using System.Diagnostics;
+using Unity.Jobs.LowLevel.Unsafe;
 
 public class BurstSafetyTests
 {
+        static string SafetyChecksMenu = "Jobs > Burst > Safety Checks";
+        [SetUp]
+        public virtual void Setup()
+        {
+            Assert.IsTrue(BurstCompiler.Options.EnableBurstSafetyChecks, $"Burst safety tests must have Burst safety checks enabled! To enable, go to {SafetyChecksMenu}");
+        }
+
     [BurstCompile(CompileSynchronously = true)]
     struct ThrowExceptionJob : IJobParallelFor
     {
-        public void Execute(int index)
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void Throw()
         {
             throw new System.ArgumentException("Blah");
+        }
+
+        public void Execute(int index)
+        {
+            Throw();
         }
     }
 
     [Test]
-    [Ignore("JOE FIXES IN PROGRESS")]
     public void ThrowExceptionParallelForStress()
     {
-        LogAssert.Expect(LogType.Exception, new Regex("ArgumentException: Blah"));
+        for (int i = 0; i < JobsUtility.JobWorkerCount + 1; i++)
+            LogAssert.Expect(LogType.Exception, new Regex("ArgumentException: Blah"));
 
         var jobData = new ThrowExceptionJob();
         jobData.Schedule(100, 1).Complete();
@@ -40,7 +55,6 @@ public class BurstSafetyTests
     }
 
     [Test]
-    [Ignore("JOE FIXES IN PROGRESS")]
     public void WriteToReadOnlyArray()
     {
         LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
@@ -65,10 +79,10 @@ public class BurstSafetyTests
     }
 
     [Test]
-    [Ignore("JOE FIXES IN PROGRESS")]
     public void ParallelForMinMaxChecks()
     {
-        LogAssert.Expect(LogType.Exception, new Regex("IndexOutOfRangeException"));
+        for (int i = 0; i < JobsUtility.JobWorkerCount + 1; i++)
+            LogAssert.Expect(LogType.Exception, new Regex("IndexOutOfRangeException"));
 
         var jobData = new ParallelForIndexChecksJob();
         jobData.test = new NativeArray<int>(2, Allocator.Persistent);
@@ -110,7 +124,7 @@ public class BurstSafetyTests
         }
     }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
     [Test]
     [Ignore("Crashes Unity - No user is supposed to write code like this, so not very important")]
     public void AccessNullUnsafePtr()

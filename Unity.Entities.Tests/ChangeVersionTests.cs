@@ -6,7 +6,7 @@ namespace Unity.Entities.Tests
 {
     class ChangeVersionTests : ECSTestsFixture
     {
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
         class BumpVersionSystemInJob : ComponentSystem
         {
             public EntityQuery m_Group;
@@ -71,12 +71,12 @@ namespace Unity.Entities.Tests
             struct UpdateChunks : IJobParallelFor
             {
                 public NativeArray<ArchetypeChunk> Chunks;
-                public ArchetypeChunkComponentType<EcsTestData> EcsTestDataType;
+                public ComponentTypeHandle<EcsTestData> EcsTestDataTypeHandle;
 
                 public void Execute(int chunkIndex)
                 {
                     var chunk = Chunks[chunkIndex];
-                    var ecsTestData = chunk.GetNativeArray(EcsTestDataType);
+                    var ecsTestData = chunk.GetNativeArray(EcsTestDataTypeHandle);
                     for (int i = 0; i < chunk.Count; i++)
                     {
                         ecsTestData[i] = new EcsTestData {value = ecsTestData[i].value + 1};
@@ -96,11 +96,11 @@ namespace Unity.Entities.Tests
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
                 var chunks = m_Group.CreateArchetypeChunkArray(Allocator.TempJob);
-                var ecsTestDataType = GetArchetypeChunkComponentType<EcsTestData>();
+                var ecsTestDataType = GetComponentTypeHandle<EcsTestData>();
                 var updateChunksJob = new UpdateChunks
                 {
                     Chunks = chunks,
-                    EcsTestDataType = ecsTestDataType
+                    EcsTestDataTypeHandle = ecsTestDataType
                 };
                 var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32, inputDeps);
                 updateChunksJobHandle.Complete();
@@ -147,7 +147,117 @@ namespace Unity.Entities.Tests
             Assert.AreNotEqual(0, system.LastSystemVersion);
         }
 
-#if !UNITY_DOTSPLAYER
+        class DidChangeTestSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                var bfe = GetBufferFromEntity<EcsIntElement>(true);
+                var cdfe = GetComponentDataFromEntity<EcsTestData>(true);
+                uint lastSysVersion = LastSystemVersion;
+                Entities
+                    .WithAll<EcsTestData, EcsIntElement>()
+                    .ForEach((Entity e, ref EcsTestData2 changed) =>
+                    {
+                        changed.value0 = cdfe.DidChange(e, lastSysVersion) ? 1 : 0;
+                        changed.value1 = bfe.DidChange(e, lastSysVersion) ? 1 : 0;
+                    }).Run();
+            }
+        }
+
+        class ChangeEntitiesWithTag : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities
+                    .WithAll<EcsTestTag>()
+                    .ForEach((Entity e, ref EcsTestData testData, ref DynamicBuffer<EcsIntElement> buf) =>
+                    {
+                        testData.value += 10;
+                        buf.Add(new EcsIntElement{Value=17});
+                    }).Run();
+            }
+        }
+
+        [Test]
+        public void ComponentDataFromEntity_DidChange_DetectsChanges()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsIntElement), typeof(EcsTestData2));
+            int entityCount = 10;
+            var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.Temp);
+            for(int i=0; i<entityCount; ++i)
+            {
+                if (i % 2 == 0)
+                    m_Manager.AddComponent<EcsTestTag>(entities[i]);
+            }
+
+            var detectChangesSys = World.CreateSystem<DidChangeTestSystem>();
+            var changeEntitiesWithTagSys = World.CreateSystem<ChangeEntitiesWithTag>();
+
+            // First update: all elements "changed"
+            detectChangesSys.Update();
+            foreach(var ent in entities)
+                Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData2>(ent).value0);
+
+            // Second update: no changes
+            detectChangesSys.Update();
+            foreach(var ent in entities)
+                Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData2>(ent).value0);
+
+            // Modify only entities with the EcsTestTag.
+            changeEntitiesWithTagSys.Update();
+
+            // Third update: has EcsTestTag -> non-zero EcsTestData2.value0
+            detectChangesSys.Update();
+            foreach (var ent in entities)
+            {
+                bool hasTag = m_Manager.HasComponent<EcsTestTag>(ent);
+                Assert.AreEqual(hasTag, m_Manager.GetComponentData<EcsTestData2>(ent).value0 != 0);
+            }
+
+            entities.Dispose();
+        }
+
+        [Test]
+        public void BufferFromEntity_DidChange_DetectsChanges()
+        {
+            var archetype =
+                m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsIntElement), typeof(EcsTestData2));
+            int entityCount = 10;
+            var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.Temp);
+            for(int i=0; i<entityCount; ++i)
+            {
+                if (i % 2 == 0)
+                    m_Manager.AddComponent<EcsTestTag>(entities[i]);
+            }
+
+            var detectChangesSys = World.CreateSystem<DidChangeTestSystem>();
+            var changeEntitiesWithTagSys = World.CreateSystem<ChangeEntitiesWithTag>();
+
+            // First update: all elements "changed"
+            detectChangesSys.Update();
+            foreach(var ent in entities)
+                Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData2>(ent).value1);
+
+            // Second update: no changes
+            detectChangesSys.Update();
+            foreach(var ent in entities)
+                Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData2>(ent).value1);
+
+            // Modify only entities with the EcsTestTag.
+            changeEntitiesWithTagSys.Update();
+
+            // Third update: has EcsTestTag -> non-zero EcsTestData2.value1
+            detectChangesSys.Update();
+            foreach (var ent in entities)
+            {
+                bool hasTag = m_Manager.HasComponent<EcsTestTag>(ent);
+                Assert.AreEqual(hasTag, m_Manager.GetComponentData<EcsTestData2>(ent).value1 != 0);
+            }
+
+            entities.Dispose();
+        }
+
+#if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
         [Test]
         public void CHG_SystemVersionJob()
         {

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using Unity.Collections;
 
 namespace Unity.Entities
 {
@@ -179,7 +180,21 @@ namespace Unity.Entities
         public override string ToString()
         {
 #if NET_DOTS
-            var name = TypeManager.GetTypeInfo(TypeIndex).Debug.TypeName;
+            if (TypeIndex == 0)
+                return "None";
+
+            var info = TypeManager.GetTypeInfo(TypeIndex);
+            FixedString512 ns = default;
+            ns.AppendFrom(new FixedString128(info.Debug.TypeName));
+
+            if (IsBuffer)
+                ns.AppendFrom(new FixedString32(" [B]"));
+            if (AccessModeType == AccessMode.Exclude)
+                ns.AppendFrom(new FixedString32(" [S]"));
+            if (AccessModeType == AccessMode.ReadOnly)
+                ns.AppendFrom(new FixedString32(" [RO]"));
+
+            return ns.ToString();
 #else
             var name = GetManagedType().Name;
             if (IsBuffer)
@@ -190,10 +205,9 @@ namespace Unity.Entities
                 return $"{name} [RO]";
             if (TypeIndex == 0)
                 return "None";
-#endif
             return name;
+#endif
         }
-
 #endif
 
         public bool Equals(ComponentType other)

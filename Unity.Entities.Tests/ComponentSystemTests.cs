@@ -3,6 +3,9 @@ using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
+#if !UNITY_DOTSRUNTIME
+using UnityEngine.LowLevel;
+#endif
 using UnityEngine.Scripting;
 
 namespace Unity.Entities.Tests
@@ -173,7 +176,7 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(system.Created);
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
         [Test]
         public void CreateNonSystemThrows()
         {
@@ -373,51 +376,8 @@ namespace Unity.Entities.Tests
             World.DestroySystem(system);
             Assert.Throws<InvalidOperationException>(system.Update);
         }
-    }
 
-    class Issue101 : ECSTestsFixture
-    {
-        [BurstCompile(CompileSynchronously = true)]
-        struct Issue101Job : IJob
-        {
-            [WriteOnly] public NativeHashMap<ulong, byte>.ParallelWriter hashMap;
-            [WriteOnly] public NativeQueue<ulong>.ParallelWriter keys;
-            public int Index;
-
-            public void Execute()
-            {
-                byte hash = (byte)Index;
-                hashMap.TryAdd(hash, hash);
-                keys.Enqueue(hash);
-            }
-        }
-
-        [Ignore("Passed off to compute team")]
-        [Test]
-        public void TestIssue101()
-        {
-            var hashMap = new NativeHashMap<ulong, byte>(100, Allocator.TempJob);
-            var keys = new NativeQueue<ulong>(Allocator.TempJob);
-
-            try
-            {
-                var job = new Issue101Job()
-                {
-                    hashMap = hashMap.AsParallelWriter(),
-                    keys = keys.AsParallelWriter(),
-                    Index = 1,
-                };
-
-                job.Schedule(default(JobHandle)).Complete();
-            }
-            finally
-            {
-                keys.Dispose();
-                hashMap.Dispose();
-            }
-        }
-
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
 
         public class NonPreservedTestSystem : ComponentSystem
         {
@@ -470,6 +430,19 @@ namespace Unity.Entities.Tests
 
 #pragma warning restore 618
 
+        class InvalidPlayerLoopSystemType
+        {
+        }
+
+        [Test]
+        public void AppendToPlayerLoopSystemList_InvalidPlayerLoopSystemType_Throws()
+        {
+            var sys = World.CreateSystem<TestSystem>();
+            var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            Assert.That(() => ScriptBehaviourUpdateOrder.AppendSystemToPlayerLoopList(sys, ref playerLoop, typeof(InvalidPlayerLoopSystemType)),
+                Throws.ArgumentException.With.Message.Contains(
+                    "Could not find PlayerLoopSystem with type=Unity.Entities.Tests.ComponentSystemTests+InvalidPlayerLoopSystemType"));
+        }
 #endif
     }
 }

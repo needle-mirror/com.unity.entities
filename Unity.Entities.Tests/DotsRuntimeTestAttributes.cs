@@ -3,7 +3,7 @@ using NUnit.Framework;
 
 namespace Unity.Entities.Tests
 {
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
     public class DotsRuntimeFixmeAttribute : IgnoreAttribute
     {
         public DotsRuntimeFixmeAttribute() : base("Test should work in DOTS Runtime but currently doesn't. Ignoring until fixed...")
@@ -16,7 +16,7 @@ namespace Unity.Entities.Tests
     }
 #endif
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
     public class DotsRuntimeIncompatibleTestAttribute : IgnoreAttribute
     {
         public DotsRuntimeIncompatibleTestAttribute(string reason) : base(reason)
@@ -33,18 +33,29 @@ namespace Unity.Entities.Tests
 #endif
 
 #if UNITY_PORTABLE_TEST_RUNNER
-    internal class IgnoreInPortableTests : IgnoreAttribute
+    class IgnoreInPortableTests : IgnoreAttribute
     {
         public IgnoreInPortableTests(string reason) : base(reason)
         {
         }
     }
+
+    class ManagedExceptionInPortableTests : IgnoreAttribute
+    {
+        public ManagedExceptionInPortableTests()
+            : base("Test uses managed exceptions, which are unsupported in DOTS-Runtime.") { }
+    }
+
 #else
     internal class IgnoreInPortableTests : Attribute
     {
         public IgnoreInPortableTests(string reason)
         {
         }
+    }
+
+    class ManagedExceptionInPortableTests : Attribute
+    {
     }
 #endif
 }

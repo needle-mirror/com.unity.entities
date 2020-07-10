@@ -6,7 +6,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.Entities.CodeGeneratedJobForEach;
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
 using UnityEngine.Scripting;
 #endif
 using MethodAttributes = Mono.Cecil.MethodAttributes;
@@ -106,14 +106,14 @@ namespace Unity.Entities.CodeGen
         }
 
         public static (MethodDefinition[], Dictionary<FieldReference, CapturedVariableDescription> capturedVariables) CloneClosureExecuteMethodAndItsLocalFunctions(
-            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName, 
+            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName,
             Func<IEnumerable<MethodDefinition>, IEnumerable<Instruction>> permittedCapturingInstructionsGenerator)
         {
             Dictionary<FieldReference, CapturedVariableDescription> capturedVariables = new Dictionary<FieldReference, CapturedVariableDescription>();
 
             // Construct list of all DisplayClasses under our declaring type (we need to do this as other delegates might use generate their own DisplayClasses)
             var lambdaDisplayClasses = DisplayClassDescendants(methodsToClone.First().DeclaringType);
-            
+
             // Find all instructions that load or store a variable in one of our DisplayClasses
             // We use these instructions to discover variables that are captured by our lambda.
             // Note: we have to look for Stfld instructions as well for the case where a captured variable is only stored into.
@@ -132,14 +132,14 @@ namespace Unity.Entities.CodeGen
                 // We need to ignore cases where we are permitted to capture (generally for a method that we are going to stub out later)
                 if (permittedCapturingInstructions.Contains(instructionThatLoadsOrStoresVariableInDisplayClass))
                     continue;
-                
+
                 var oldField = instructionThatLoadsOrStoresVariableInDisplayClass.Operand as FieldReference;
                 if (capturedVariables.ContainsKey(oldField))
                     continue;
 
                 var oldFields = new List<FieldReference>();
                 oldFields.Add(oldField);
-                
+
                 var containingMethod = methodsToClone.Single(m => m.Body.Instructions.Contains(instructionThatLoadsOrStoresVariableInDisplayClass));
                 var initialLdFldInstruction = FindInstructionThatPushedArg(containingMethod, 0, instructionThatLoadsOrStoresVariableInDisplayClass);
                 foreach (var instruction in WalkBackLdFldInstructionsToLdarg0(containingMethod, initialLdFldInstruction))
@@ -157,12 +157,12 @@ namespace Unity.Entities.CodeGen
                 };
                 targetType.Fields.Add(newField);
             }
-            
+
             // Walk through all instructions that load or store are captured variables and nop out nested DisplayClasses
             var instructionsThatLoadOrStoreCapturedVariable =
                 methodsToClone.SelectMany(method => method.Body.Instructions)
                     .Where(i => ((i.IsLoadFieldOrLoadFieldAddress() || i.IsStoreField()) &&
-                                 capturedVariables.Keys.Any(fr => fr == (i.Operand as FieldReference)))).ToArray();
+                        capturedVariables.Keys.Any(fr => fr == (i.Operand as FieldReference)))).ToArray();
             foreach (var instructionThatLoadOrStoreCapturedVariable in instructionsThatLoadOrStoreCapturedVariable)
             {
                 var containingMethod = methodsToClone.Single(m => m.Body.Instructions.Contains(instructionThatLoadOrStoreCapturedVariable));
@@ -179,14 +179,14 @@ namespace Unity.Entities.CodeGen
                 throw new ArgumentException();
 
             var clonedMethods = methodsToClone.ToDictionary(m => m, m =>
-                {
+            {
                 var clonedMethod = new MethodDefinition(m == executeMethod ? newMethodName : m.Name, m.Attributes, m.ReturnType)
-                            {HasThis = m.HasThis, DeclaringType = targetType};
-                    clonedMethod.DebugInformation.Scope = m.DebugInformation.Scope;
-                    
-                    targetType.Methods.Add(clonedMethod);
-                    return clonedMethod;
-                }
+                {HasThis = m.HasThis, DeclaringType = targetType};
+                clonedMethod.DebugInformation.Scope = m.DebugInformation.Scope;
+
+                targetType.Methods.Add(clonedMethod);
+                return clonedMethod;
+            }
             );
 
             foreach (var methodToClone in methodsToClone)
@@ -210,7 +210,7 @@ namespace Unity.Entities.CodeGen
                 {
                     var newVd = new VariableDefinition(vd.VariableType);
                     methodDefinition.Body.Variables.Add(newVd);
-                    
+
                     var sourceVariable = methodToClone.DebugInformation?.Scope?.Variables?.FirstOrDefault(v => v.Index == vd.Index);
                     if (sourceVariable != null)
                         methodDefinition.DebugInformation.Scope.Variables.Add(new VariableDebugInformation(newVd, sourceVariable.Name));
@@ -230,7 +230,7 @@ namespace Unity.Entities.CodeGen
                     if (clonedOperand is FieldReference fr)
                     {
                         if (capturedVariables.TryGetValue(clonedOperand as FieldReference, out var capturedVariableForField))
-                        clonedOperand = capturedVariableForField.NewField;
+                            clonedOperand = capturedVariableForField.NewField;
                     }
 
                     if (clonedOperand is VariableDefinition vd)
@@ -260,7 +260,7 @@ namespace Unity.Entities.CodeGen
                 var newDebugInfo = methodDefinition.DebugInformation;
                 foreach (var seq in oldDebugInfo.SequencePoints)
                     newDebugInfo.SequencePoints.Add(seq);
-                
+
                 // Need to clear variables and sequence points in old method or VS debugger gets confused.
                 // It is also only safe to clear the execute method and not other called methods (fortunately issue only seems to occur in lambda).
                 if (methodToClone == executeMethod)
@@ -277,6 +277,25 @@ namespace Unity.Entities.CodeGen
                     else if (newInstruction.Operand is Instruction[] instructions)
                         newInstruction.Operand = instructions.Select(i => oldToNewInstructions[i]).ToArray();
                 }
+
+                // Need to add missing exception handlers and make sure we map them to new instructions
+                Instruction NewInstructionIfAvailable(Instruction old) => old == null ? null : oldToNewInstructions[old];
+                methodDefinition.Body.ExceptionHandlers.Clear();
+                foreach (var exceptionHandler in methodToClone.Body.ExceptionHandlers)
+                {
+                    methodDefinition.Body.ExceptionHandlers.Add(
+                        new ExceptionHandler(exceptionHandler.HandlerType)
+                        {
+                            CatchType = exceptionHandler.CatchType,
+                            TryStart = NewInstructionIfAvailable(exceptionHandler.TryStart),
+                            TryEnd = NewInstructionIfAvailable(exceptionHandler.TryEnd),
+                            FilterStart = NewInstructionIfAvailable(exceptionHandler.TryEnd),
+                            HandlerStart = NewInstructionIfAvailable(exceptionHandler.HandlerStart),
+                            HandlerEnd = NewInstructionIfAvailable(exceptionHandler.HandlerEnd)
+                        }
+                    );
+                }
+                methodToClone.Body.ExceptionHandlers.Clear();
             }
 
             return (clonedMethods.Values.ToArray(), capturedVariables);
@@ -372,12 +391,14 @@ namespace Unity.Entities.CodeGen
                     throw new ArgumentException($"Cannot {nameof(RewriteToKeepDisplayClassOnEvaluationStack)} when {nameof(CapturesLocals)} is false");
 
                 var ldFtn = Instructions.Single(i => i.OpCode == OpCodes.Ldftn);
-                var ldLoc_that_loads_displayclass = ldFtn.Previous;
-                if (!ldLoc_that_loads_displayclass.IsLoadLocal(out _) && !ldLoc_that_loads_displayclass.IsLoadLocalAddress(out _))
-                    throw new PostProcessException("ldftn opcode was not preceeded with ldloc opcode", OriginalLambdaContainingMethod, ldFtn);
+                var prevInstruction = ldFtn.Previous;
+                while (prevInstruction != null && prevInstruction.IsLoadFieldOrLoadFieldAddress() && ((FieldReference)prevInstruction.Operand).FieldType.IsDisplayClass())
+                    prevInstruction = prevInstruction.Previous;
+                if (!prevInstruction.IsLoadLocal(out _) && !prevInstruction.IsLoadLocalAddress(out _))
+                    InternalCompilerError.DCICE010(OriginalLambdaContainingMethod, prevInstruction).Throw();
                 foreach (var i in Instructions)
                 {
-                    if (i != ldLoc_that_loads_displayclass)
+                    if (i != prevInstruction)
                         i.MakeNOP();
                 }
             }
@@ -385,7 +406,7 @@ namespace Unity.Entities.CodeGen
 
         public class DelegateProducingPattern
         {
-            public Func<Instruction, bool>[] InstructionMatchers;
+            public Func<Instruction, DelegateProducingPatternInstructionMatchResult>[] InstructionMatchers;
             public bool CapturesLocal;
             public bool CapturesField;
 
@@ -429,6 +450,14 @@ namespace Unity.Entities.CodeGen
                     throw new ArgumentException("Instruction array did not have ldftn opcode. Instruction array way: "+instructions.Select(i=>i.ToString()).SeparateBy(Environment.NewLine));
                 return ((MethodReference) instruction.Operand).Resolve();
             }
+        }
+
+        internal enum DelegateProducingPatternInstructionMatchResult
+        {
+            NoMatch,
+            MatchAndContinue,
+            MatchAndRepeatThisInstruction,
+            TryNextPatternInstruction
         }
 
         private static DelegateProducingPattern[] s_DelegateProducingPatterns;
@@ -481,132 +510,179 @@ namespace Unity.Entities.CodeGen
             // Now that we have written an sherlock holmes essay on how roslyn emits code today, what do we do with it. The only scenarios we support is "captures only locals", and "captures nothing".
             // When nothing is captured, we can just NOP out the entire IL sequence that was responsible for making the delegate, as we only need to know what the target method was that our lambda expression ended up at.
             // When locals are captured, we have to do work:
-            //   - in all of these scenarios, the lambda expression will be emitted as an instance metho on the displayclass.
-            //   - in some of these scnearios the delegate will be cached on the displayclass, in other cases not.
+            //   - in all of these scenarios, the lambda expression will be emitted as an instance method on the displayclass.
+            //   - in some of these scenarios the delegate will be cached on the displayclass, in other cases not.
             //
             // the second case is just a "check if we stored this already, if yes use that, if not, create it, then store" wrapper around the first case.
             // the first case (and thus also the second case) uses a "load displayclass on the stack, ldftn our executemethod, newobj our delegate type" sequence. We need to replace that with
             // create our own jobstruct, populate its fields from the displayclass. _not_ create the delegate, not try to cache the delegate, and then schedule/run our jobstruct.
 
+            DelegateProducingPatternInstructionMatchResult CheckMatchAndContinue(bool isMatch) =>
+                isMatch ? DelegateProducingPatternInstructionMatchResult.MatchAndContinue : DelegateProducingPatternInstructionMatchResult.NoMatch;
+
             var notCapturingPattern = new DelegateProducingPattern()
             {
-                InstructionMatchers = new Func<Instruction, bool>[]
+                InstructionMatchers = new Func<Instruction, DelegateProducingPatternInstructionMatchResult>[]
                 {
-                    i => i.OpCode == OpCodes.Ldsfld,
-                    i => i.OpCode == OpCodes.Dup,
-                    i => i.IsBranch(),
-                    i => i.OpCode == OpCodes.Pop,
-                    i => i.OpCode == OpCodes.Ldsfld,
-                    i => i.OpCode == OpCodes.Ldftn,
-                    i => i.OpCode == OpCodes.Newobj,
-                    i => i.OpCode == OpCodes.Dup,
-                    i => i.OpCode == OpCodes.Stsfld,
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Ldsfld),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Dup),
+                    i => CheckMatchAndContinue(i.IsBranch()),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Pop),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Ldsfld),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Ldftn),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Newobj),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Dup),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Stsfld),
                 },
                 CapturesLocal = false
             };
 
             var capturingLocal_InvokedOnce = new DelegateProducingPattern()
             {
-                InstructionMatchers = new Func<Instruction, bool>[]
+                InstructionMatchers = new Func<Instruction, DelegateProducingPatternInstructionMatchResult>[]
                 {
-                    i => i.IsLoadLocal(out _) || i.IsLoadLocalAddress(out _),
-                    i => i.OpCode == OpCodes.Ldftn,
-                    i => i.OpCode == OpCodes.Newobj,
+                    i => CheckMatchAndContinue(i.IsLoadLocal(out _) || i.IsLoadLocalAddress(out _)),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Ldftn),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Newobj),
                 },
                 CapturesLocal = true
             };
 
-            var capturingLocal_ExcetedMoreThanOnce = new DelegateProducingPattern()
+            var capturingLocal_ExpectedMoreThanOnce = new DelegateProducingPattern()
             {
-                InstructionMatchers = new Func<Instruction, bool>[]
+                InstructionMatchers = new Func<Instruction, DelegateProducingPatternInstructionMatchResult>[]
                 {
-                    i => i.IsLoadLocal(out _),
-                    i => i.OpCode == OpCodes.Ldfld,
-                    i => i.OpCode == OpCodes.Dup,
-                    i => i.IsBranch(),
-                    i => i.OpCode == OpCodes.Pop,
-                    i => i.IsLoadLocal(out _),
-                    i => i.IsLoadLocal(out _),
-                    i => i.OpCode == OpCodes.Ldftn,
-                    i => i.OpCode == OpCodes.Newobj,
-                    i => i.OpCode == OpCodes.Dup,
-                    i => i.IsStoreLocal(out _),
-                    i => i.OpCode == OpCodes.Stfld,
-                    i => i.IsLoadLocal(out _),
+                    i => CheckMatchAndContinue(i.IsLoadLocal(out _)),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Ldfld),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Dup),
+                    i => CheckMatchAndContinue(i.IsBranch()),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Pop),
+                    i => CheckMatchAndContinue(i.IsLoadLocal(out _)),
+                    i => CheckMatchAndContinue(i.IsLoadLocal(out _)),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Ldftn),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Newobj),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Dup),
+                    i => CheckMatchAndContinue(i.IsStoreLocal(out _)),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Stfld),
+                    i => CheckMatchAndContinue(i.IsLoadLocal(out _)),
                 },
                 CapturesLocal = true,
             };
 
             var capturingOnlyFieldPattern = new DelegateProducingPattern()
             {
-                InstructionMatchers = new Func<Instruction, bool>[]
+                InstructionMatchers = new Func<Instruction, DelegateProducingPatternInstructionMatchResult>[]
                 {
-                    i => (i.OpCode == OpCodes.Ldarg_0) || (i.OpCode == OpCodes.Ldarg && ((ParameterDefinition)i.Operand).Index == -1),
-                    i => i.OpCode == OpCodes.Ldftn,
-                    i => i.OpCode == OpCodes.Newobj,
+                    i => CheckMatchAndContinue((i.OpCode == OpCodes.Ldarg_0) || (i.OpCode == OpCodes.Ldarg && ((ParameterDefinition)i.Operand).Index == -1)),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Ldftn),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Newobj),
                 },
                 CapturesLocal = false,
                 CapturesField = true
             };
 
+            var capturingLocal_MultipleCapturingFromDifferentScopes = new DelegateProducingPattern()
+            {
+                InstructionMatchers = new Func<Instruction, DelegateProducingPatternInstructionMatchResult>[]
+                {
+                    i => CheckMatchAndContinue(i.IsLoadLocal(out _) || i.IsLoadLocalAddress(out _)),
+                    // Special case were we might have a number if ldfld of DisplayClasses inserted if Roslyn decides to store our lambda method on a nested DisplayClass
+                    // https://sharplab.io/#v2:EYLgxg9gTgpgtADwGwBYA0AXEBLANmgExAGoAfAAQCYBGAWAChyBmAAipYGEWBvBl/lgFEAdhmxiYAZyGjx2KSwC8LYTADuMsRMkAKAJQBuPgOP9mbFCwCy+nqYH8AbgEMoLMM4AO1JSyZH6BwdeQKCwlzcPT0pff3sw/hEteUkAOgAxaEFnMAALHR1YADNrLwAVPBgWMVwYNBZsYRYAGQgPXDKIAHVoXAIWXAw1PSUAPjtQhISIgbbnXB9lKOoAqamZ3DncGKWvSlW1/gBfPVSAJQBXYX0A+ISkuSkMrJz8wpgSq3LK6sr6xpaW06PSgfQGQxGinGIUO4Vcs3ai3cXhWdzCJ3OVxuaJYR3sePoBIY5kkGCgFzAGFKngqtR4BJJZIpVNa7WBvX63CJjFYpPJlJYACkIMAGDCBOZyJZLtcRlyGNzJTEHtoxfZzAQYLUAObODBVKUsAAiWpguv170+3zpAFtrXUGk1WfN2aD+oNhgczKxhcAWJkoNk8joTTq9VVNbg9PZxWFyAB2FTqIUi7GTXEKoA
+                    i =>
+                    {
+                        if (i.IsLoadFieldOrLoadFieldAddress() && ((FieldReference) i.Operand).FieldType.IsDisplayClass())
+                            return DelegateProducingPatternInstructionMatchResult.MatchAndRepeatThisInstruction;
+                        return DelegateProducingPatternInstructionMatchResult.TryNextPatternInstruction;
+                    },
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Ldftn),
+                    i => CheckMatchAndContinue(i.OpCode == OpCodes.Newobj)
+                },
+                CapturesLocal = true
+            };
 
-            s_DelegateProducingPatterns = new[] {notCapturingPattern, capturingLocal_InvokedOnce, capturingLocal_ExcetedMoreThanOnce, capturingOnlyFieldPattern};
+
+            s_DelegateProducingPatterns = new[] {notCapturingPattern, capturingLocal_InvokedOnce, capturingLocal_ExpectedMoreThanOnce, capturingOnlyFieldPattern,
+                                                 capturingLocal_MultipleCapturingFromDifferentScopes};
             return s_DelegateProducingPatterns;
         }
 
-        internal static bool IsStartOfSequence(Instruction instruction, Func<Instruction, bool>[] pattern, out List<Instruction> instructions)
+        internal static bool IsStartOfSequence(Instruction instruction, Func<Instruction, DelegateProducingPatternInstructionMatchResult>[] pattern,
+            out List<Instruction> instructions)
         {
             Instruction cursor = instruction;
             instructions = null;
 
             var results = new List<Instruction>(50);
             int patternIndex = 0;
-            while(true)
+            bool matchFound = false;
+            while(!matchFound)
             {
                 if (cursor == null)
                     return false;
-                results.Add(cursor);
+
+                bool moveToNext = true;
                 if (cursor.OpCode != OpCodes.Nop)
                 {
-                    if (!pattern[patternIndex++].Invoke(cursor))
-                        return false;
+                    switch (pattern[patternIndex].Invoke(cursor))
+                    {
+                        case DelegateProducingPatternInstructionMatchResult.NoMatch: return false;
+                        case DelegateProducingPatternInstructionMatchResult.MatchAndContinue: patternIndex++; break;
+                        case DelegateProducingPatternInstructionMatchResult.MatchAndRepeatThisInstruction: break;
+                        case DelegateProducingPatternInstructionMatchResult.TryNextPatternInstruction: patternIndex++; moveToNext = false; break;
+                    }
 
                     if (patternIndex == pattern.Length)
-                        break; //match!
+                        matchFound = true;
                 }
 
-                cursor = cursor.Next;
+                if (moveToNext)
+                {
+                    results.Add(cursor);
+                    cursor = cursor.Next;
+                }
             }
 
             instructions = results;
             return true;
         }
 
-        internal static bool IsEndOfSequence(Instruction instruction, Func<Instruction, bool>[] pattern,out List<Instruction> instructions)
+        internal static bool IsEndOfSequence(Instruction instruction, Func<Instruction, DelegateProducingPatternInstructionMatchResult>[] pattern,out List<Instruction> instructions)
         {
             Instruction cursor = instruction;
             instructions = null;
 
-            var result = new List<Instruction>(50);
+            var results = new List<Instruction>(50);
             int patternIndex = pattern.Length-1;
-            while(true)
+            bool matchFound = false;
+            while(!matchFound)
             {
                 if (cursor == null)
                     return false;
-                result.Add(cursor);
+
+                bool moveToPrevious = true;
                 if (cursor.OpCode != OpCodes.Nop)
                 {
-                    if (!pattern[patternIndex--].Invoke(cursor))
-                        return false;
+                    switch (pattern[patternIndex].Invoke(cursor))
+                    {
+                        case DelegateProducingPatternInstructionMatchResult.NoMatch: return false;
+                        case DelegateProducingPatternInstructionMatchResult.MatchAndContinue: patternIndex--; break;
+                        case DelegateProducingPatternInstructionMatchResult.MatchAndRepeatThisInstruction: break;
+                        case DelegateProducingPatternInstructionMatchResult.TryNextPatternInstruction: patternIndex--; moveToPrevious = false; break;
+                    }
 
                     if (patternIndex == -1)
-                        break; //match!
+                        matchFound = true; //match!
                 }
-                cursor = cursor.Previous;
+
+                if (moveToPrevious)
+                {
+                    results.Add(cursor);
+                    cursor = cursor.Previous;
+                }
             }
 
-            result.Reverse();
-            instructions = result;
+            results.Reverse();
+            instructions = results;
             return true;
         }
 
@@ -660,13 +736,13 @@ namespace Unity.Entities.CodeGen
 
                 if (mr.DeclaringType.Name == nameof(LambdaSingleJobDescriptionConstructionMethods.WithCodeAction) && mr.DeclaringType.DeclaringType?.Name == nameof(LambdaSingleJobDescriptionConstructionMethods))
                     continue;
-                
+
                 //ok, it walks like a delegate constructor invocation, let's see if it talks like one:
                 var constructedType = mr.DeclaringType.Resolve();
-                
-                if (constructedType.BaseType.Name != nameof(MulticastDelegate)) 
+
+                if (constructedType.BaseType.Name != nameof(MulticastDelegate))
                     continue;
-                
+
                 if (constructedType.CustomAttributes.Any(c => c.Constructor.DeclaringType.Name == nameof(EntitiesForEachCompatibleAttribute)))
                     continue;
 
@@ -703,7 +779,7 @@ namespace Unity.Entities.CodeGen
                     instruction.OpCode = OpCodes.Ldloca;
                     instruction.Operand = body.Variables[loadIndex];
                 }
-                
+
                 // We also need to replace and ldfld a nested DisplayClass that we turned into a struct with ldflda
                 if (instruction.OpCode == OpCodes.Ldfld && ((FieldReference)instruction.Operand).IsNestedDisplayClassField())
                     instruction.OpCode = OpCodes.Ldflda;
@@ -856,8 +932,8 @@ namespace Unity.Entities.CodeGen
             type.Methods.Add(newMethod);
             return newMethod;
         }
-        
-#if !UNITY_DOTSPLAYER
+
+#if !UNITY_DOTSRUNTIME
         /// <summary>
         /// Adds the [Preserve] attribute to the MethodDefinition instance
         /// </summary>
@@ -867,7 +943,7 @@ namespace Unity.Entities.CodeGen
             var preserveAttributeCtor = moduleDef.ImportReference(typeof(PreserveAttribute).GetConstructor(Type.EmptyTypes));
             methodDef.CustomAttributes.Add(new CustomAttribute(preserveAttributeCtor));
         }
-        
+
         /// <summary>
         /// Adds the [Preserve] attribute to the TypeDefinition instance
         /// </summary>

@@ -90,7 +90,7 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestTag));
             var fromEntity = m_Manager.GetComponentDataFromEntity<EcsTestTag>();
-            Assert.IsTrue(fromEntity.Exists(entity));
+            Assert.IsTrue(fromEntity.HasComponent(entity));
             Assert.Throws<ArgumentException>(() => { var res = fromEntity[entity]; });
         }
 
@@ -102,7 +102,7 @@ namespace Unity.Entities.Tests
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
-            var tagType = m_Manager.GetArchetypeChunkComponentType<EcsTestTag>(false);
+            var tagType = m_Manager.GetComponentTypeHandle<EcsTestTag>(false);
 
             Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(chunks));
 

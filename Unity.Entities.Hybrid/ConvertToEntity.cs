@@ -143,6 +143,9 @@ namespace Unity.Entities
                     {
                         toBeConverted.RemoveAll(convert =>
                         {
+                            if (convert == null)
+                                return true;
+
                             if (convert.GetComponent<StopConvertToEntity>() != null)
                             {
                                 LogWarning(

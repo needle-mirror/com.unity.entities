@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine.Serialization;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Editor
 {
@@ -423,6 +424,25 @@ namespace Unity.Entities.Editor
             GUILayout.EndHorizontal();
         }
 
+        public static string FormatBytesForDisplay(long bytes)
+        {
+            if (bytes < 0)
+                return "Unknown";
+
+            if (bytes < 512)
+                return String.Format("{0} B", bytes);
+
+            if (bytes < 512 * 1024)
+                return String.Format("{0:0.0} KB", bytes / 1024.0);
+
+            bytes /= 1024;
+            if (bytes < 512 * 1024)
+                return String.Format("{0:0.0} MB", bytes / 1024.0);
+
+            bytes /= 1024;
+            return String.Format("{0:0.00} GB", bytes / 1024.0);
+        }
+
         private void EntityHeader()
         {
             GUILayout.BeginHorizontal(Styles.ToolbarStyle);
@@ -433,15 +453,30 @@ namespace Unity.Entities.Editor
                 else
                 {
                     var type = SystemSelection.GetType();
+                    var typeDisplayName = Properties.Editor.TypeUtility.GetTypeDisplayName(type);
                     if (!string.IsNullOrEmpty(type.Namespace))
-                        GUILayout.Label($"{type.Namespace}.{type.Name}", Styles.ToolbarLabelStyle);
+                        GUILayout.Label($"{type.Namespace}.{typeDisplayName}", Styles.ToolbarLabelStyle);
                     else
-                        GUILayout.Label(type.Name, Styles.ToolbarLabelStyle);
+                        GUILayout.Label(typeDisplayName, Styles.ToolbarLabelStyle);
                 }
             }
             else
                 GUILayout.Label("No World selected", Styles.ToolbarLabelStyle);
             GUILayout.FlexibleSpace();
+            long pageSize;
+            long chunkReservedPages;
+            long chunkCommittedPages;
+            long chunkReservedBytes;
+            long chunkCommittedBytes;
+            EntityComponentStore.GetChunkMemoryStats(out chunkReservedPages, out chunkCommittedPages, out chunkReservedBytes, out chunkCommittedBytes, out pageSize);
+            if(chunkReservedPages > 0)
+            {
+                GUILayout.Label($"Chunk memory ({FormatBytesForDisplay(pageSize)} per page): Reserved: {chunkReservedPages} pages / {FormatBytesForDisplay(chunkReservedBytes)}, " +
+                                $"Committed: {chunkCommittedPages} pages / " +
+                                $"{FormatBytesForDisplay(chunkCommittedBytes)}, " +
+                                $"In use by selected query: {entityListView.ChunkArray.Length * 16384 / pageSize } pages  / " +
+                                $"{FormatBytesForDisplay(entityListView.ChunkArray.Length * 16384)}", Styles.LabelStyle);
+            }
             ShowingChunkInfoView = GUILayout.Toggle(ShowingChunkInfoView, "Chunk Info", Styles.ToolbarButtonStyle);
             GUILayout.EndHorizontal();
         }

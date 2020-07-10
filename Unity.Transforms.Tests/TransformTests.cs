@@ -31,9 +31,9 @@ namespace Unity.Entities.Tests
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
 
-            Assert.That(childWorldPosition.x, Is.EqualTo(0f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.y, Is.EqualTo(0f).Within(k_Tolerance));
-            Assert.That(childWorldPosition.z, Is.EqualTo(-1f).Within(k_Tolerance));
+            Assert.AreEqual(childWorldPosition.x, 0f, k_Tolerance);
+            Assert.AreEqual(childWorldPosition.y, 0f, k_Tolerance);
+            Assert.AreEqual(childWorldPosition.z, -1f, k_Tolerance);
         }
 
         [Test]
@@ -67,9 +67,9 @@ namespace Unity.Entities.Tests
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
 
-            Assert.That(childWorldPosition.x, Is.EqualTo(expectedChildWorldPosition.x).Within(k_Tolerance));
-            Assert.That(childWorldPosition.y, Is.EqualTo(expectedChildWorldPosition.y).Within(k_Tolerance));
-            Assert.That(childWorldPosition.z, Is.EqualTo(expectedChildWorldPosition.z).Within(k_Tolerance));
+            Assert.AreEqual(childWorldPosition.x, expectedChildWorldPosition.x, k_Tolerance);
+            Assert.AreEqual(childWorldPosition.y, expectedChildWorldPosition.y, k_Tolerance);
+            Assert.AreEqual(childWorldPosition.z, expectedChildWorldPosition.z, k_Tolerance);
         }
 
         class TestHierarchy : IDisposable
@@ -279,7 +279,7 @@ namespace Unity.Entities.Tests
                 float* bp = (float*)&b.c0.x;
                 for (int i = 0; i < 16; i++)
                 {
-                    Assert.That(bp[i], Is.EqualTo(ap[i]).Within(k_Tolerance));
+                    Assert.AreEqual(bp[i], ap[i], k_Tolerance);
                 }
 
                 return true;

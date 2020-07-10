@@ -4,7 +4,11 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Scenes;
 using UnityEditor;
+#if UNITY_2020_2_OR_NEWER
+using UnityEditor.AssetImporters;
+#else
 using UnityEditor.Experimental.AssetImporters;
+#endif
 using UnityEditor.SceneManagement;
 
 [ScriptedImporter(39, "sceneMetaData")]

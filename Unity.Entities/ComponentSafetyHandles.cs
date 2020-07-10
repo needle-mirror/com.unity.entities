@@ -23,8 +23,8 @@ namespace Unity.Entities
         // Per-component-type Static safety IDs are shared across all Worlds.
         static int* m_StaticSafetyIdsForComponentDataFromEntity;
         static int* m_StaticSafetyIdsForArchetypeChunkArrays;
-        static int m_StaticSafetyIdForArchetypeChunkComponentTypeDynamic = 0;
-        static int m_StaticSafetyIdForArchetypeChunkEntityType = 0;
+        static int m_StaticSafetyIdForDynamicComponentTypeHandle = 0;
+        static int m_StaticSafetyIdForEntityTypeHandle = 0;
         static byte[] m_CustomDeallocatedErrorMessageBytes = Encoding.UTF8.GetBytes("Attempted to access {5} which has been invalidated by a structural change.");
         static byte[] m_CustomDeallocatedFromJobErrorMessageBytes = Encoding.UTF8.GetBytes("Attempted to access the {5} {3} which has been invalidated by a structural change.");
         public void SetCustomErrorMessage(int staticSafetyId, AtomicSafetyErrorType errorType, byte[] messageBytes)
@@ -76,19 +76,19 @@ namespace Unity.Entities
                 {
                     m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "ArchetypeChunkBufferType<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
+                            "BufferTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
                 }
                 else if (TypeManager.IsSharedComponent(typeIndex))
                 {
                     m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "ArchetypeChunkSharedComponentType<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
+                            "SharedComponentTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
                 }
                 else
                 {
                     m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "ArchetypeChunkComponentType<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
+                            "ComponentTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
                 }
             }
         }
@@ -100,9 +100,9 @@ namespace Unity.Entities
             int typeIndexWithoutFlags = typeIndex & TypeManager.ClearFlagsMask;
             int staticSafetyId = 0;
             if (dynamic)
-                staticSafetyId = m_StaticSafetyIdForArchetypeChunkComponentTypeDynamic;
+                staticSafetyId = m_StaticSafetyIdForDynamicComponentTypeHandle;
             else if (typeIndex == EntityTypeIndex)
-                staticSafetyId = m_StaticSafetyIdForArchetypeChunkEntityType;
+                staticSafetyId = m_StaticSafetyIdForEntityTypeHandle;
             else
                 staticSafetyId = m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags];
             AtomicSafetyHandle.SetStaticSafetyId(ref handle, staticSafetyId);
@@ -128,19 +128,11 @@ namespace Unity.Entities
             arrayIndex = m_ComponentSafetyHandlesCount++;
             m_TypeArrayIndices[typeIndexWithoutFlags] = arrayIndex;
             m_ComponentSafetyHandles[arrayIndex].TypeIndex = typeIndex;
-            m_ComponentSafetyHandles[arrayIndex].IsSafetyHandleOwner = typeIndex == EntityTypeIndex || !TypeManager.IsZeroSized(typeIndex);
 
-            if (m_ComponentSafetyHandles[arrayIndex].IsSafetyHandleOwner)
-                m_ComponentSafetyHandles[arrayIndex].SafetyHandle = AtomicSafetyHandle.Create();
-            else
-                m_ComponentSafetyHandles[arrayIndex].SafetyHandle = m_ComponentSafetyHandles[GetTypeArrayIndex(EntityTypeIndex)].SafetyHandle;
-
+            m_ComponentSafetyHandles[arrayIndex].SafetyHandle = AtomicSafetyHandle.Create();
             AtomicSafetyHandle.SetAllowSecondaryVersionWriting(m_ComponentSafetyHandles[arrayIndex].SafetyHandle, false);
             m_ComponentSafetyHandles[arrayIndex].BufferHandle = AtomicSafetyHandle.Create();
-
-#if !NET_DOTS // todo: enable when this is supported
             AtomicSafetyHandle.SetBumpSecondaryVersionOnScheduleWrite(m_ComponentSafetyHandles[arrayIndex].BufferHandle, true);
-#endif
 
 #if UNITY_2020_1_OR_NEWER
             // Create static safety IDs for this type if they don't already exist.
@@ -185,16 +177,16 @@ namespace Unity.Entities
                 UnsafeUtility.MemClear(m_StaticSafetyIdsForArchetypeChunkArrays, sizeof(int) * kMaxTypes);
             }
 
-            m_StaticSafetyIdForArchetypeChunkComponentTypeDynamic = AtomicSafetyHandle.NewStaticSafetyId<ArchetypeChunkComponentTypeDynamic>();
-            SetCustomErrorMessage(m_StaticSafetyIdForArchetypeChunkComponentTypeDynamic, AtomicSafetyErrorType.Deallocated,
+            m_StaticSafetyIdForDynamicComponentTypeHandle = AtomicSafetyHandle.NewStaticSafetyId<DynamicComponentTypeHandle>();
+            SetCustomErrorMessage(m_StaticSafetyIdForDynamicComponentTypeHandle, AtomicSafetyErrorType.Deallocated,
                 m_CustomDeallocatedErrorMessageBytes);
-            SetCustomErrorMessage(m_StaticSafetyIdForArchetypeChunkComponentTypeDynamic, AtomicSafetyErrorType.DeallocatedFromJob,
+            SetCustomErrorMessage(m_StaticSafetyIdForDynamicComponentTypeHandle, AtomicSafetyErrorType.DeallocatedFromJob,
                 m_CustomDeallocatedFromJobErrorMessageBytes);
 
-            m_StaticSafetyIdForArchetypeChunkEntityType = AtomicSafetyHandle.NewStaticSafetyId<ArchetypeChunkEntityType>();
-            SetCustomErrorMessage(m_StaticSafetyIdForArchetypeChunkEntityType, AtomicSafetyErrorType.Deallocated,
+            m_StaticSafetyIdForEntityTypeHandle = AtomicSafetyHandle.NewStaticSafetyId<EntityTypeHandle>();
+            SetCustomErrorMessage(m_StaticSafetyIdForEntityTypeHandle, AtomicSafetyErrorType.Deallocated,
                 m_CustomDeallocatedErrorMessageBytes);
-            SetCustomErrorMessage(m_StaticSafetyIdForArchetypeChunkEntityType, AtomicSafetyErrorType.DeallocatedFromJob,
+            SetCustomErrorMessage(m_StaticSafetyIdForEntityTypeHandle, AtomicSafetyErrorType.DeallocatedFromJob,
                 m_CustomDeallocatedFromJobErrorMessageBytes);
 #endif
         }
@@ -216,8 +208,7 @@ namespace Unity.Entities
 
             for (var i = 0; i != m_ComponentSafetyHandlesCount; i++)
             {
-                if (m_ComponentSafetyHandles[i].IsSafetyHandleOwner)
-                    AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].SafetyHandle);
+                AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].SafetyHandle);
                 AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].BufferHandle);
             }
 
@@ -229,9 +220,7 @@ namespace Unity.Entities
         {
             for (var i = 0; i < m_ComponentSafetyHandlesCount; i++)
             {
-                EnforceJobResult res0 = EnforceJobResult.AllJobsAlreadySynced;
-                if (m_ComponentSafetyHandles[i].IsSafetyHandleOwner)
-                    res0 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompletedAndRelease(m_ComponentSafetyHandles[i].SafetyHandle);
+                var res0 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompletedAndRelease(m_ComponentSafetyHandles[i].SafetyHandle);
                 var res1 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompletedAndRelease(m_ComponentSafetyHandles[i].BufferHandle);
 
                 if (res0 == EnforceJobResult.DidSyncRunningJobs || res1 == EnforceJobResult.DidSyncRunningJobs)
@@ -291,6 +280,7 @@ namespace Unity.Entities
         {
             var handle = GetSafetyHandle(type, isReadOnly);
 #if UNITY_2020_1_OR_NEWER
+            // Override the handle's default static safety ID
             SetStaticSafetyIdForHandle_FromEntity(ref handle, type);
 #endif
             return handle;
@@ -301,35 +291,37 @@ namespace Unity.Entities
             Assert.IsTrue(TypeManager.IsBuffer(type));
             var handle = GetBufferSafetyHandle(type);
 #if UNITY_2020_1_OR_NEWER
+            // Override the handle's default static safety ID
             SetStaticSafetyIdForHandle_FromEntity(ref handle, type);
 #endif
             return handle;
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForArchetypeChunkComponentType(int type, bool isReadOnly)
+        public AtomicSafetyHandle GetSafetyHandleForComponentTypeHandle(int type, bool isReadOnly)
         {
             // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
             // so no further static safety ID setup is necessary in this path.
             return GetSafetyHandle(type, isReadOnly);
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForArchetypeChunkComponentTypeDynamic(int type, bool isReadOnly)
+        public AtomicSafetyHandle GetSafetyHandleForDynamicComponentTypeHandle(int type, bool isReadOnly)
         {
             var handle = GetSafetyHandle(type, isReadOnly);
 #if UNITY_2020_1_OR_NEWER
+            // We need to override the handle's default static safety ID to use the DynamicComponentTypeHandle version.
             SetStaticSafetyIdForHandle_ArchetypeChunk(ref handle, type, true);
 #endif
             return handle;
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForArchetypeChunkBufferType(int type, bool isReadOnly)
+        public AtomicSafetyHandle GetSafetyHandleForBufferTypeHandle(int type, bool isReadOnly)
         {
             // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
             // so no further static safety ID setup is necessary in this path.
             return GetSafetyHandle(type, isReadOnly);
         }
 
-        public AtomicSafetyHandle GetBufferHandleForArchetypeChunkBufferType(int type)
+        public AtomicSafetyHandle GetBufferHandleForBufferTypeHandle(int type)
         {
             Assert.IsTrue(TypeManager.IsBuffer(type));
             // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
@@ -337,23 +329,19 @@ namespace Unity.Entities
             return GetBufferSafetyHandle(type);
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForArchetypeChunkSharedComponentType(int type)
+        public AtomicSafetyHandle GetSafetyHandleForSharedComponentTypeHandle(int type)
         {
             Assert.IsTrue(TypeManager.IsSharedComponent(type));
-            var handle = GetEntityManagerSafetyHandle();
-#if UNITY_2020_1_OR_NEWER
-            // the static safety ID for this type may not exist yet, since this path doesn't call GetTypeArrayIndex()
-            // this is fixed by https://github.com/Unity-Technologies/dots/pull/4879
-            CreateStaticSafetyIdsForType(type);
-            SetStaticSafetyIdForHandle_ArchetypeChunk(ref handle, type, false);
-#endif
+            var handle = GetSafetyHandle(type, false);
+            // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
+            // so no further static safety ID setup is necessary in this path.
             return handle;
         }
 
-        public AtomicSafetyHandle GetSafetyHandleForArchetypeChunkEntityType()
+        public AtomicSafetyHandle GetSafetyHandleForEntityTypeHandle()
         {
             var handle = GetEntityManagerSafetyHandle();
-            // The EntityTypeIndex safety handle is pre-configured with a static safety ID for ArchetypeChunkEntityType,
+            // The EntityTypeIndex safety handle is pre-configured with a static safety ID for EntityTypeHandle,
             // so no further configuration is necessary here.
             return handle;
         }
@@ -384,8 +372,7 @@ namespace Unity.Entities
 
             for (var i = 0; i != m_ComponentSafetyHandlesCount; i++)
             {
-                if (m_ComponentSafetyHandles[i].IsSafetyHandleOwner)
-                    AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].SafetyHandle);
+                AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].SafetyHandle);
                 AtomicSafetyHandle.Release(m_ComponentSafetyHandles[i].BufferHandle);
             }
 
@@ -406,9 +393,6 @@ namespace Unity.Entities
             public AtomicSafetyHandle SafetyHandle;
             public AtomicSafetyHandle BufferHandle;
             public int                TypeIndex;
-            // if false, SafetyHandle is based on a copy of the handle for EntityTypeIndex, and should not be
-            // deleted during destroy-all-handles operations. BufferHandle is always a unique handle per-type.
-            public bool               IsSafetyHandleOwner;
         }
 
         AtomicSafetyHandle m_TempSafety;

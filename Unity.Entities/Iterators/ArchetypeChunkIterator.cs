@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -65,35 +66,40 @@ namespace Unity.Entities
         {
             get
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (m_CurrentArchetypeIndex < 0 || m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
-                    throw new InvalidOperationException("Tried to get an out of bounds Current matching archetype of an ArchetypeChunkIterator. Try calling Reset() and MoveNext().");
-#endif
+                CheckOutOfBoundsCurrentMatchingArchetype();
                 return m_MatchingArchetypeList.Ptr[m_CurrentArchetypeIndex];
             }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void CheckOutOfBoundsCurrentMatchingArchetype()
+        {
+            if (m_CurrentArchetypeIndex < 0 || m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
+                throw new InvalidOperationException("Tried to get an out of bounds Current matching archetype of an ArchetypeChunkIterator. Try calling Reset() and MoveNext().");
         }
 
         internal Archetype* CurrentArchetype
         {
             get
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (m_CurrentArchetypeIndex < 0 || m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
-                    throw new InvalidOperationException("Tried to get an out of bounds Current matching archetype of an ArchetypeChunkIterator. Try calling Reset() and MoveNext().");
-#endif
+                CheckOutOfBoundsCurrentMatchingArchetype();
                 return CurrentMatchingArchetype->Archetype;
             }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void CheckOutOfBoundsCurrentChunk()
+        {
+            if (m_CurrentChunkInArchetypeIndex >= CurrentArchetype->Chunks.Count)
+                throw new InvalidOperationException("Tried to get an out of bounds Current chunk of an ArchetypeChunkIterator. Try calling Reset() and MoveNext().");
         }
 
         internal Chunk* CurrentChunk
         {
             get
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (m_CurrentChunkInArchetypeIndex >= CurrentArchetype->Chunks.Count)
-                    throw new InvalidOperationException("Tried to get an out of bounds Current chunk of an ArchetypeChunkIterator. Try calling Reset() and MoveNext().");
-#endif
-                return CurrentArchetype->Chunks.p[m_CurrentChunkInArchetypeIndex];
+                CheckOutOfBoundsCurrentChunk();
+                return CurrentArchetype->Chunks[m_CurrentChunkInArchetypeIndex];
             }
         }
 
@@ -199,7 +205,7 @@ namespace Unity.Entities
         internal object GetManagedObject(ManagedComponentStore managedComponentStore, int typeIndexInQuery, int entityInChunkIndex)
         {
             var indexInArchetype = CurrentMatchingArchetype->IndexInArchetype[typeIndexInQuery];
-            var managedComponentArray = (int*)ChunkDataUtility.GetComponentDataRW(CurrentChunk, 0, indexInArchetype);
+            var managedComponentArray = (int*)ChunkDataUtility.GetComponentDataRW(CurrentChunk, 0, indexInArchetype, CurrentArchetype->EntityComponentStore->GlobalSystemVersion);
             return managedComponentStore.GetManagedComponent(managedComponentArray[entityInChunkIndex]);
         }
     }

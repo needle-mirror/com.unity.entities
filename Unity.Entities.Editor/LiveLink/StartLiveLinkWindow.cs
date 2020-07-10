@@ -1,3 +1,4 @@
+using Bee.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -5,10 +6,8 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Unity.Build;
 using Unity.Build.Classic;
-using Unity.Build.Common;
-using Unity.BuildSystem.NativeProgramSupport;
+using Unity.Build.Classic.Private;
 using Unity.Profiling;
-using Unity.Scenes.Editor;
 using Unity.Scenes.Editor.Build;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -429,26 +428,22 @@ namespace Unity.Entities.Editor
                 Name = Path.GetFileNameWithoutExtension(assetPath);
 
                 Asset = BuildConfiguration.LoadAsset(assetPath);
-                Platform = Asset.TryGetComponent(out ClassicBuildProfile classicBuildProfile) ? classicBuildProfile.Platform : null;
-                OutputBuildDirectory = Asset.GetOutputBuildDirectory();
+                Platform = (Asset.GetBuildPipeline() as ClassicPipelineBase)?.Platform;
+                // If there's no platform, there's no pipeline, if there's no pipeline GetOutputBuildDirectory will throw an exception
+                // Since only pipeline knows the final output directory
+                OutputBuildDirectory = Platform != null ? Asset.GetOutputBuildDirectory() : null;
 
                 IsLiveLinkCompatible = DetermineLivelinkCompatibility();
 
                 SelectedStartMode = IsActionAllowed(StartMode.RunLatestBuild, out _) ? StartMode.RunLatestBuild : StartMode.BuildAndRun;
             }
-
+            
             bool DetermineLivelinkCompatibility()
             {
                 if (!Asset.HasComponent<LiveLink>())
                     return false;
 
-                if (!Asset.TryGetComponent<ClassicBuildProfile>(out var profile))
-                    return false;
-
-                if (profile.Platform == null || profile.Pipeline == null)
-                    return false;
-
-                return true;
+                return Platform != null;
             }
 
             public bool HasALatestBuild => OutputBuildDirectory != null && Directory.Exists(OutputBuildDirectory);

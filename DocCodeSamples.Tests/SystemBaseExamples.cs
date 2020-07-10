@@ -169,11 +169,15 @@ namespace Doc.CodeSamples.SyBase.Tests
                 })
                 .ScheduleParallel();
 
+            NativeArray<int> result = new NativeArray<int>(1, Allocator.TempJob);
+
             Job
                 .WithName("Job_Three")
+                .WithDisposeOnCompletion(result)
                 .WithCode(() =>
                 {
                     /*...*/
+                    result[0] = 1;
                 })
                 .Schedule();
         }
@@ -206,11 +210,15 @@ namespace Doc.CodeSamples.SyBase.Tests
             JobHandle intermediateDependencies =
                 JobHandle.CombineDependencies(One, Two);
 
+            NativeArray<int> result = new NativeArray<int>(1, Allocator.TempJob);
+
             JobHandle finalDependency = Job
                 .WithName("Job_Three")
+                .WithDisposeOnCompletion(result)
                 .WithCode(() =>
                 {
                     /*...*/
+                    result[0] = 1;
                 })
                 .Schedule(intermediateDependencies);
 

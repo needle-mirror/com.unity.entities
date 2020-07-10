@@ -1,4 +1,4 @@
-#if false // !UNITY_DOTSPLAYER
+#if false // !UNITY_DOTSRUNTIME
 using System;
 using System.Linq;
 using System.Reflection;
@@ -49,4 +49,4 @@ namespace Unity.Entities.Tests.ForEach
         }
     }
 }
-#endif // !UNITY_DOTSPLAYER
+#endif // !UNITY_DOTSRUNTIME

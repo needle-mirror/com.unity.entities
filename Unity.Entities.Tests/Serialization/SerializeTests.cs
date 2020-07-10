@@ -212,7 +212,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(4, chunks.Length);
                 everythingGroup.Dispose();
 
-                var entityType = entityManager.GetArchetypeChunkEntityType();
+                var entityType = entityManager.GetEntityTypeHandle();
                 Assert.AreEqual(1, chunks[0].GetNativeArray(entityType).Length);
                 Assert.AreEqual(1, chunks[1].GetNativeArray(entityType).Length);
                 Assert.AreEqual(1, chunks[2].GetNativeArray(entityType).Length);
@@ -929,7 +929,7 @@ namespace Unity.Entities.Tests
                 reader.Dispose();
             }
 
-#if !NET_DOTS // If memory has been unmapped this can throw exceptions other than InvalidOperation
+#if !UNITY_DOTSRUNTIME // If memory has been unmapped this can throw exceptions other than InvalidOperation
             float f = 1.0f;
             Assert.Throws<InvalidOperationException>(() => f = arrayComponent.array.Value[0]);
 #endif
@@ -941,7 +941,7 @@ namespace Unity.Entities.Tests
             byte* m_Data;
         }
 
-#if !NET_DOTS // We don't have reflection to validate if a type is serializable in NET_DOTS
+#if !UNITY_DOTSRUNTIME // We don't have reflection to validate if a type is serializable in NET_DOTS
         [Test]
         public void SerializeComponentWithPointerField()
         {
@@ -1084,7 +1084,7 @@ namespace Unity.Entities.Tests
             deserializedWorld.Dispose();
         }
 
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !NET_DOTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
         public class ManagedComponent : IComponentData
         {
             public string String;
@@ -1585,7 +1585,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !NET_DOTS
+#if UNITY_EDITOR
         [Test]
         public void WorldYamlSerializationTest()
         {
@@ -1659,7 +1659,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-#endif // !NET_DOTS
+#endif // !UNITY_DOTSRUNTIME
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
         [Test]

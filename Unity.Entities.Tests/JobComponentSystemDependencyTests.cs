@@ -1,5 +1,5 @@
 using System;
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME  // IJobForEeach is deprecated
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -275,7 +275,7 @@ namespace Unity.Entities.Tests
         {
             public struct EmptyJob : IJobChunk
             {
-                public ArchetypeChunkComponentType<EcsTestData> TestDataType;
+                public ComponentTypeHandle<EcsTestData> TestDataTypeHandle;
                 public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
                 {
                 }
@@ -285,7 +285,7 @@ namespace Unity.Entities.Tests
             {
                 var handle = new EmptyJob
                 {
-                    TestDataType = GetArchetypeChunkComponentType<EcsTestData>()
+                    TestDataTypeHandle = GetComponentTypeHandle<EcsTestData>()
                 }.Schedule(EntityManager.UniversalQuery, dep);
                 return handle;
             }

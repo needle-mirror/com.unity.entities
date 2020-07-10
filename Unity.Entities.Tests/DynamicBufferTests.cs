@@ -1,6 +1,12 @@
 using System;
 using System.Diagnostics;
 using NUnit.Framework;
+using Unity.Jobs;
+using Unity.Burst;
+using static Unity.Burst.CompilerServices.Aliasing;
+using Unity.Mathematics;
+using Unity.Entities;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
@@ -168,7 +174,81 @@ namespace Unity.Entities.Tests
             Assert.AreEqual((UIntPtr)buf.GetUnsafePtr(), (UIntPtr)buf.GetUnsafeReadOnlyPtr());
         }
 
-#if !UNITY_DOTSPLAYER
+
+        public class DynamicBufferTestsSystem : SystemBase
+        {
+            private struct DynamicBufferData1 : IBufferElementData
+            {
+                public int A;
+
+                public DynamicBufferData1(int a)
+                {
+                    A = a;
+                }
+            }
+            private struct DynamicBufferData2 : IBufferElementData
+            {
+                public float A;
+
+                public DynamicBufferData2(float a)
+                {
+                    A = a;
+                }
+            }
+            private struct DynamicBufferData3 : IBufferElementData
+            {
+                public double A;
+
+                public DynamicBufferData3(double a)
+                {
+                    A = a;
+                }
+            }
+
+            protected override void OnUpdate()
+            {
+                Entities
+                .ForEach((ref EcsTestData d1, ref EcsTestData2 d2, ref EcsTestData3 d3) =>
+                {
+                    ExpectNotAliased(in d1, in d2);
+                    ExpectNotAliased(in d1, in d3);
+                    ExpectNotAliased(in d2, in d3);
+                })
+                .WithBurst(synchronousCompilation: true)
+                .Run();
+
+                Entities
+                .ForEach((in DynamicBuffer<DynamicBufferData1> d1, in DynamicBuffer<DynamicBufferData2> d2, in DynamicBuffer<DynamicBufferData3> d3) =>
+                {
+                    unsafe
+                    {
+                        // They obviously alias with themselves.
+                        ExpectAliased(d1.GetUnsafePtr(), d1.GetUnsafePtr());
+                        ExpectAliased(d2.GetUnsafePtr(), d2.GetUnsafePtr());
+                        ExpectAliased(d3.GetUnsafePtr(), d3.GetUnsafePtr());
+
+                        // They do not alias with each other though because they are
+                        ExpectNotAliased(d1.GetUnsafePtr(), d2.GetUnsafePtr());
+                        ExpectNotAliased(d1.GetUnsafePtr(), d3.GetUnsafePtr());
+                        ExpectNotAliased(d2.GetUnsafePtr(), d3.GetUnsafePtr());
+
+                        // Check that it does indeed alias with a copy of itself.
+                        var copyBuffer = d1;
+                        ExpectAliased(copyBuffer.GetUnsafePtr(), d1.GetUnsafePtr());
+                    }
+                })
+                .WithBurst(synchronousCompilation: true)
+                .Run();
+            }
+        }
+
+        [Test]
+        public void DynamicBufferAliasing()
+        {
+            World.GetOrCreateSystem<DynamicBufferTestsSystem>().Update();
+        }
+
+#if !UNITY_DOTSRUNTIME  // No GCAlloc access
 
         // @TODO: when 2019.1 support is dropped this can be shared with the collections tests:
         // until then the package validation will fail otherwise when collections is not marked testable

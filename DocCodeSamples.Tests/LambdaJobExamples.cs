@@ -141,7 +141,7 @@ namespace Doc.CodeSamples.Tests
                 //Not burst compatible:
                 Debug.Log("Final sum is " + result);
             })
-                .WithDeallocateOnJobCompletion(intermediateSums)
+                .WithDisposeOnCompletion(intermediateSums)
                 .WithoutBurst()
                 .WithName("FinalSum")
                 .Schedule(); // Execute on a single, background thread
@@ -202,7 +202,7 @@ namespace Doc.CodeSamples.Tests
                 //Use dataSquared array...
                 var v = dataSquared[dataSquared.Length - 1];
             })
-                .WithDeallocateOnJobCompletion(dataSquared)
+                .WithDisposeOnCompletion(dataSquared)
                 .Schedule();
         }
 
@@ -288,8 +288,8 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnUpdate()
         {
-            EntityCommandBuffer.Concurrent commandBuffer
-                = commandBufferSystem.CreateCommandBuffer().ToConcurrent();
+            EntityCommandBuffer.ParallelWriter commandBuffer
+                = commandBufferSystem.CreateCommandBuffer().AsParallelWriter();
 
             //.. The rest of the job system code
         }
@@ -410,14 +410,14 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnUpdate()
         {
-            EntityCommandBuffer.Concurrent commandBufferCreate
-                = commandBufferSystem.CreateCommandBuffer().ToConcurrent();
-            EntityCommandBuffer.Concurrent commandBufferCull
-                = commandBufferSystem.CreateCommandBuffer().ToConcurrent();
+            EntityCommandBuffer.ParallelWriter commandBufferCreate
+                = commandBufferSystem.CreateCommandBuffer().AsParallelWriter();
+            EntityCommandBuffer.ParallelWriter commandBufferCull
+                = commandBufferSystem.CreateCommandBuffer().AsParallelWriter();
 
             float dt = Time.DeltaTime;
-            Random rnd = new Random();
-            rnd.InitState((uint)(dt * 100000));
+            Random rnd = new Random((uint)(dt * 100000));
+            //rnd.InitState((uint)(dt * 100000));
 
 
             JobHandle spawnJobHandle = Entities

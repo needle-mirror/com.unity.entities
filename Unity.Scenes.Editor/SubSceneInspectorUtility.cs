@@ -119,8 +119,11 @@ namespace Unity.Scenes.Editor
                     var sceneSystem = world.GetExistingSystem<SceneSystem>();
                     if (sceneSystem != null)
                     {
-                        var guid = SceneWithBuildConfigurationGUIDs.Dirty(scene.SceneGUID, sceneSystem.BuildConfigurationGUID);
-                        // Ignoring return as this is just being used to force a reimport, we don't actually care about the hash result
+                        var guid = SceneWithBuildConfigurationGUIDs.Dirty(scene.SceneGUID, sceneSystem.BuildConfigurationGUID, out var requestRefresh);
+                        if(requestRefresh)
+                            AssetDatabase.Refresh();
+
+                        // Ignoring return as this is just being used to start an impot, we don't actually care about the hash result
                         AssetDatabaseCompatibility.GetArtifactHash(guid.ToString(), EntityScenesPaths.SubSceneImporterType, ImportMode.Asynchronous);
                     }
                 }

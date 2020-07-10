@@ -61,10 +61,9 @@ namespace Unity.Entities
             Entity entity;
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
-            var mcs = access->ManagedComponentStore;
 
             ecs->CreateEntities(access->GetEntityOnlyArchetype().Archetype, &entity, 1);
-            mcs.Playback(ref ecs->ManagedChangesTracker);
+            access->PlaybackManagedChanges();
             return entity;
         }
 
@@ -176,17 +175,19 @@ namespace Unity.Entities
         /// Clones an entity.
         /// </summary>
         /// <remarks>
-        /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
+        /// The new entity has the same archetype and component values as the original; however, <see cref="ISystemStateComponentData"/>
+        /// and <see cref="Prefab"/> components are removed from the clone.
         ///
         /// If the source entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component,
-        /// the entire group is cloned as a new set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
-        ///
+        /// the entire group is cloned as a new set of entities. Entity references on components that are being cloned to entities inside
+        /// the set are remapped to the instantiated entities.
+        /// 
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
         /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
         /// be able to make use of the processing power of all available cores.
         /// </remarks>
-        /// <param name="srcEntity">The entity to clone</param>
+        /// <param name="srcEntity">The entity to clone.</param>
         /// <returns>The Entity object for the new entity.</returns>
         [StructuralChangeMethod]
         public Entity Instantiate(Entity srcEntity)
@@ -201,7 +202,7 @@ namespace Unity.Entities
         /// Makes multiple clones of an entity.
         /// </summary>
         /// <remarks>
-        /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
+        /// The new entity has the same archetype and component values as the original, however system state and prefab tag components are removed from the clone.
         ///
         /// If the source entity has a <see cref="LinkedEntityGroup"/> component, the entire group is cloned as a new
         /// set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
@@ -225,7 +226,7 @@ namespace Unity.Entities
         /// Makes multiple clones of an entity.
         /// </summary>
         /// <remarks>
-        /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
+        /// The new entity has the same archetype and component values as the original, however system state and prefab tag components are removed from the clone.
         ///
         /// If the source entity has a <see cref="LinkedEntityGroup"/> component, the entire group is cloned as a new
         /// set of entities. Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
@@ -252,7 +253,7 @@ namespace Unity.Entities
         /// Clones a set of entities.
         /// </summary>
         /// <remarks>
-        /// The new entity has the same archetype and component values as the original, however system state & prefab tag components are removed from the clone.
+        /// The new entity has the same archetype and component values as the original, however system state and prefab tag components are removed from the clone.
         ///
         /// Entity references on components that are being cloned to entities inside the set are remapped to the instantiated entities.
         /// This method overload ignores the <see cref="LinkedEntityGroup"/> component,
@@ -297,15 +298,43 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Creates a set of chunks containing the specified number of entities having the specified archetype.
+        /// </summary>
+        /// <remarks>
+        /// The EntityManager creates enough chunks to hold the required number of entities.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating these chunks and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="archetype">The archetype for the chunk and entities.</param>
+        /// <param name="chunks">An empty array to receive the created chunks.</param>
+        /// <param name="entityCount">The number of entities to create.</param>
+        [Obsolete("CreateChunk is deprecated. (RemovedAfter 2020-06-05)", false)]
+        [StructuralChangeMethod]
+        public void CreateChunk(EntityArchetype archetype, NativeArray<ArchetypeChunk> chunks, int entityCount)
+        {
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+
+            Unity.Entities.EntityComponentStore.AssertValidArchetype(ecs, archetype);
+            BeforeStructuralChange();
+
+            ecs->CreateChunks(archetype.Archetype, (ArchetypeChunk*)chunks.GetUnsafePtr(), chunks.Length, entityCount);
+            access->PlaybackManagedChanges();
+        }
+
+        /// <summary>
         /// Detects the created and destroyed entities compared to last time the method was called with the given state.
         /// </summary>
         /// <remarks>
         /// Entities must be fully destroyed, if system state components keep it alive it still counts as not yet destroyed.
-        /// EntityCommandBuffers that have not been played back will have no effect on this until they are played back.
+        /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
         /// </remarks>
-        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created & destroyed.</param>
-        /// <param name="createdEntities">The Entities that were created</param>
-        /// <param name="destroyedEntities">The Entities that were destroyed</param>
+        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
+        /// <param name="createdEntities">The entities that were created.</param>
+        /// <param name="destroyedEntities">The entities that were destroyed.</param>
         public JobHandle GetCreatedAndDestroyedEntitiesAsync(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)
         {
             var access = GetCheckedEntityDataAccess();
@@ -321,11 +350,11 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>
         /// Entities must be fully destroyed, if system state components keep it alive it still counts as not yet destroyed.
-        /// EntityCommandBuffers that have not been played back will have no effect on this until they are played back.
+        /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
         /// </remarks>
-        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created & destroyed.</param>
-        /// <param name="createdEntities">The Entities that were created</param>
-        /// <param name="destroyedEntities">The Entities that were destroyed</param>
+        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
+        /// <param name="createdEntities">The entities that were created.</param>
+        /// <param name="destroyedEntities">The entities that were destroyed.</param>
         public void GetCreatedAndDestroyedEntities(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)
         {
             var access = GetCheckedEntityDataAccess();

@@ -2,7 +2,7 @@ using System;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 using System.Text.RegularExpressions;
 #endif
 
@@ -98,8 +98,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<ArgumentNullException>(() => SimpleWrapCreateCachedQuery(cache, 2, default));
         }
 
-// TEMPORARY HACK
-#if !NET_DOTS
+#if !NET_DOTS  // Regex not supported in Tiny BCL
         readonly Regex k_ResizeError = new Regex(".*is too small to hold the current number of queries.*");
 
         [Test]
@@ -108,8 +107,12 @@ namespace Unity.Entities.Tests
             var cache = new EntityQueryCache(1);
             SimpleWrapCreateCachedQuery(cache, 0, k_DummyGroup);
 
+#if UNITY_DOTSRUNTIME
+            LogAssert.ExpectReset();
+#endif
             LogAssert.Expect(LogType.Error, k_ResizeError);
             SimpleWrapCreateCachedQuery(cache, 1, k_DummyGroup);
+            LogAssert.NoUnexpectedReceived();
         }
 
         [Test]
@@ -121,11 +124,16 @@ namespace Unity.Entities.Tests
             SimpleWrapCreateCachedQuery(cache, 2, k_DummyGroup);
             SimpleWrapCreateCachedQuery(cache, 3, k_DummyGroup);
 
+#if UNITY_DOTSRUNTIME
+            LogAssert.ExpectReset();
+#endif
             LogAssert.Expect(LogType.Error, k_ResizeError);
             SimpleWrapCreateCachedQuery(cache, 4, k_DummyGroup);
+            LogAssert.NoUnexpectedReceived();
 
             // this should not error
             SimpleWrapCreateCachedQuery(cache, 5, k_DummyGroup);
+            LogAssert.NoUnexpectedReceived();
         }
 
 #endif // !NET_DOTS
@@ -193,6 +201,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [ManagedExceptionInPortableTests]
         public void ValidateMatchesCache_WithMismatchedDelegateTypeIndices_Throws()
         {
             var cache = new EntityQueryCache(1);

@@ -9,11 +9,11 @@ namespace Unity.Entities.Tests
     {
         struct ProcessChunks : IJobChunk
         {
-            public ArchetypeChunkComponentType<EcsTestData> ecsTestType;
+            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
-                var testDataArray = chunk.GetNativeArray(ecsTestType);
+                var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
                 testDataArray[0] = new EcsTestData
                 {
                     value = 5
@@ -35,7 +35,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(archetype);
             var job = new ProcessChunks
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             job.Run(group);
 
@@ -63,7 +63,7 @@ namespace Unity.Entities.Tests
 
             var job = new ProcessChunks
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             job.Run(group);
 
@@ -92,7 +92,7 @@ namespace Unity.Entities.Tests
 
             var job = new ProcessChunks
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             job.Schedule(group).Complete();
 
@@ -126,11 +126,11 @@ namespace Unity.Entities.Tests
 
         struct ProcessChunkIndex : IJobChunk
         {
-            public ArchetypeChunkComponentType<EcsTestData> ecsTestType;
+            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
-                var testDataArray = chunk.GetNativeArray(ecsTestType);
+                var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
                 testDataArray[0] = new EcsTestData
                 {
                     value = chunkIndex
@@ -140,11 +140,11 @@ namespace Unity.Entities.Tests
 
         struct ProcessEntityOffset : IJobChunk
         {
-            public ArchetypeChunkComponentType<EcsTestData> ecsTestType;
+            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
-                var testDataArray = chunk.GetNativeArray(ecsTestType);
+                var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
                 for (int i = 0; i < chunk.Count; ++i)
                 {
                     testDataArray[i] = new EcsTestData
@@ -174,7 +174,7 @@ namespace Unity.Entities.Tests
 
             var job = new ProcessChunkIndex
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             job.Schedule(group).Complete();
 
@@ -206,7 +206,7 @@ namespace Unity.Entities.Tests
 
             var job = new ProcessChunkIndex
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             job.Run(group);
 
@@ -236,7 +236,7 @@ namespace Unity.Entities.Tests
 
             var job = new ProcessChunkIndex
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             // ScheduleSingle forces all chunks to run on a single thread, so the for loop in IJobChunk.ExecuteInternal() has >1 iteration.
             job.ScheduleSingle(group).Complete();
@@ -270,7 +270,7 @@ namespace Unity.Entities.Tests
 
             var job = new ProcessEntityOffset
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             job.Schedule(group).Complete();
 
@@ -304,7 +304,7 @@ namespace Unity.Entities.Tests
 
             var job = new ProcessEntityOffset
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             job.Schedule(query).Complete();
 
@@ -318,11 +318,11 @@ namespace Unity.Entities.Tests
 
         struct ProcessChunkWriteIndex : IJobChunk
         {
-            public ArchetypeChunkComponentType<EcsTestData> ecsTestType;
+            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
-                var testDataArray = chunk.GetNativeArray(ecsTestType);
+                var testDataArray = chunk.GetNativeArray(EcsTestTypeHandle);
                 for (int i = 0; i < chunk.Count; ++i)
                 {
                     testDataArray[i] = new EcsTestData
@@ -333,7 +333,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME // IJobForEach is deprecated
 #pragma warning disable 618
         struct ForEachComponentData : IJobForEachWithEntity<EcsTestData>
         {
@@ -369,7 +369,7 @@ namespace Unity.Entities.Tests
 
             var jobChunk = new ProcessChunkWriteIndex
             {
-                ecsTestType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false)
+                EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
             jobChunk.Schedule(group).Complete();
 
@@ -388,7 +388,7 @@ namespace Unity.Entities.Tests
             group.Dispose();
         }
 
-#endif // !UNITY_DOTSPLAYER
+#endif // !UNITY_DOTSRUNTIME
 
         struct InitializedAsSingleAndParallelJob : IJobChunk
         {

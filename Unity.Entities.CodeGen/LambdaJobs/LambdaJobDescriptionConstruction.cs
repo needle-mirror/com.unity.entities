@@ -23,8 +23,8 @@ namespace Unity.Entities.CodeGen
         ScheduleParallel,
         Run
     }
-    
-    
+
+
     class LambdaJobDescriptionConstruction
     {
         private const string EntitiesGetterName = "get_" + nameof(JobComponentSystem.Entities);
@@ -43,10 +43,10 @@ namespace Unity.Entities.CodeGen
             public string MethodName { get; }
             public object[] Arguments { get; }
             public Instruction InstructionInvokingMethod { get; }
-            
+
             public TypeReference[] TypeArguments { get; }
         }
-        
+
         public MethodDefinition ContainingMethod { get; set; }
         public Instruction WithCodeInvocationInstruction;
         public List<InvokedConstructionMethod> InvokedConstructionMethods = new List<InvokedConstructionMethod>();
@@ -109,14 +109,14 @@ namespace Unity.Entities.CodeGen
                 }
             }
         }
-        
 
-        public bool UseImplicitSystemDependency => IsInSystemBase &&  
+
+        public bool UseImplicitSystemDependency => IsInSystemBase &&
                                                    (ExecutionMode == CodeGen.ExecutionMode.Schedule || ExecutionMode == CodeGen.ExecutionMode.ScheduleParallel) &&
                                                    ((MethodReference) ScheduleOrRunInvocationInstruction.Operand).ReturnType.IsVoid();
 
         public bool AllowReferenceTypes => ExecutionMode == ExecutionMode.Run && !UsesBurst;
-        
+
         // Suffix DisplayClass string to enable magic sauce that shows fields as locals in debugger
         public string ClassName => $"<>c__DisplayClass_{LambdaJobName}";
 
@@ -129,7 +129,7 @@ namespace Unity.Entities.CodeGen
                 return MethodLambdaWasEmittedAs.DeclaringType;
             }
         }
-        
+
         public override string ToString()
         {
             var analysis = this;
@@ -169,7 +169,7 @@ namespace Unity.Entities.CodeGen
             }).ToList();
         }
 
-        
+
         public static IEnumerable<LambdaJobDescriptionConstruction> FindIn(MethodDefinition method)
         {
             var body = method.Body;
@@ -204,7 +204,7 @@ namespace Unity.Entities.CodeGen
             return !jobName.Contains("__");
         }
 
-        
+
         static LambdaJobDescriptionConstruction AnalyzeLambdaJobStatement(MethodDefinition method, Instruction getEntitiesOrJobInstruction, int lambdaNumber)
         {
             List<InvokedConstructionMethod> modifiers = new List<InvokedConstructionMethod>();
@@ -221,17 +221,33 @@ namespace Unity.Entities.CodeGen
                     mr.Name == nameof(LambdaJobDescriptionExecutionMethods.ScheduleParallel) ||
                     mr.Name == nameof(LambdaJobDescriptionExecutionMethods.Run))
                 {
+                    // todo: Make this a expression switch statement once 8.0 is allowed in DOTS (2020.2)
+                    LambdaJobDescriptionKind jobDescriptionKind;
+                    switch (((MethodReference)getEntitiesOrJobInstruction.Operand).Name)
+                    {
+                        case EntitiesGetterName:   jobDescriptionKind = LambdaJobDescriptionKind.Entities; break;
+                        case JobGetterName:        jobDescriptionKind = LambdaJobDescriptionKind.Job;      break;
+#if ENABLE_DOTS_COMPILER_CHUNKS
+                        case "get_" + nameof(JobComponentSystem.Chunks): jobDescriptionKind = LambdaJobDescriptionKind.Chunk; break;
+#endif
+                        default:                   throw new ArgumentOutOfRangeException();
+                    }
+
                     var withNameModifier = modifiers.FirstOrDefault(m => m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithName));
                     var givenName = withNameModifier?.Arguments.OfType<string>().Single();
                     var lambdaJobName = givenName ?? $"{method.Name}_LambdaJob{lambdaNumber}";
                     if (givenName != null && !VerifyLambdaName(givenName))
                         UserError.DC0043(method, givenName, getEntitiesOrJobInstruction).Throw();
 
-                    var hasWithStructuralChangesModifier 
+                    var hasWithStructuralChangesModifier
                         = modifiers.Any(m => m.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges));
-
-                    if (hasWithStructuralChangesModifier && mr.Name != nameof(LambdaJobDescriptionExecutionMethods.Run))
-                        UserError.DC0028(method, getEntitiesOrJobInstruction).Throw();
+                    if (hasWithStructuralChangesModifier)
+                    {
+                        if (jobDescriptionKind == LambdaJobDescriptionKind.Job)
+                            UserError.DC0057(method, getEntitiesOrJobInstruction).Throw();
+                        if (mr.Name != nameof(LambdaJobDescriptionExecutionMethods.Run))
+                            UserError.DC0028(method, getEntitiesOrJobInstruction).Throw();
+                    }
 
                     FieldReference storeQueryInField = null;
                     foreach (var modifier in modifiers)
@@ -246,29 +262,12 @@ namespace Unity.Entities.CodeGen
                         }
                     }
 
-                    LambdaJobDescriptionKind FindLambdaDescriptionKind()
-                    {
-                        switch (((MethodReference) getEntitiesOrJobInstruction.Operand).Name)
-                        {
-                            case EntitiesGetterName:
-                                return LambdaJobDescriptionKind.Entities;
-                            case JobGetterName:
-                                return LambdaJobDescriptionKind.Job;
-#if ENABLE_DOTS_COMPILER_CHUNKS
-                            case "get_" + nameof(JobComponentSystem.Chunks):
-                                return LambdaJobDescriptionKind.Chunk;
-#endif
-                            default:
-                                throw new ArgumentOutOfRangeException();
-                        }
-                    }
-
-                    if (modifiers.All(m => m.MethodName != nameof(LambdaForEachDescriptionConstructionMethods.ForEach) && 
+                    if (modifiers.All(m => m.MethodName != nameof(LambdaForEachDescriptionConstructionMethods.ForEach) &&
                                            m.MethodName != nameof(LambdaSingleJobDescriptionConstructionMethods.WithCode)))
                     {
                         DiagnosticMessage MakeDiagnosticMessage()
                         {
-                            switch (FindLambdaDescriptionKind())
+                            switch (jobDescriptionKind)
                             {
                                 case LambdaJobDescriptionKind.Entities:
                                     return UserError.DC0006(method, getEntitiesOrJobInstruction);
@@ -283,16 +282,16 @@ namespace Unity.Entities.CodeGen
 
                         MakeDiagnosticMessage().Throw();
                     }
-                    
+
                     if (method.DeclaringType.HasGenericParameters)
-                        UserError.DC0025($"Entities.ForEach cannot be used in system {method.DeclaringType.Name} as Entities.ForEach in generic system types are not supported.", method, getEntitiesOrJobInstruction).Throw();
+                        UserError.DC0053(method.DeclaringType, method, getEntitiesOrJobInstruction).Throw();
 
                     var withCodeInvocationInstruction = modifiers
                         .Single(m => m.MethodName == nameof(LambdaForEachDescriptionConstructionMethods.ForEach) || m.MethodName == nameof(LambdaSingleJobDescriptionConstructionMethods.WithCode))
                         .InstructionInvokingMethod;
                     return new LambdaJobDescriptionConstruction()
                     {
-                        Kind = FindLambdaDescriptionKind(),
+                        Kind = jobDescriptionKind,
                         InvokedConstructionMethods = modifiers,
                         WithCodeInvocationInstruction = withCodeInvocationInstruction,
                         ScheduleOrRunInvocationInstruction = cursor,
@@ -326,11 +325,11 @@ namespace Unity.Entities.CodeGen
                     var methodDefinitionParameter = invokedForEachMethod.Parameters[i + 1];
 
                     bool allowDynamicValue = methodDefinitionParameter.CustomAttributes.Any(c => c.AttributeType.TypeReferenceEquals(allowDynamicValueAttribute));
-                    
+
                     //all arguments to ForEach are implicit allowdynamicvalue, to allow for users bring-your-own-delegate setups, without us having to make the AllowDynamicAttribute public.
                     if (invokedConstructionMethod.MethodName == nameof(LambdaForEachDescriptionConstructionMethods.ForEach))
                         allowDynamicValue = true;
-                    
+
                     if (!allowDynamicValue)
                         UserError.DC0008(method, cursor, mr).Throw();
                 }
@@ -379,17 +378,17 @@ namespace Unity.Entities.CodeGen
 
             return null;
         }
-        
+
         static bool HasAllowMultipleAttribute(MethodDefinition mr) => mr.HasCustomAttributes && mr.CustomAttributes.Any(c => c.AttributeType.Name == nameof(LambdaJobDescriptionConstructionMethods.AllowMultipleInvocationsAttribute));
 
         static bool IsLambdaJobDescriptionConstructionMethod(MethodReference mr)
         {
             if (mr.Name == nameof(LambdaForEachDescriptionConstructionMethods.ForEach))
                 return true;
-            
-            if (!mr.DeclaringType.Name.EndsWith("ConstructionMethods") && !mr.DeclaringType.Name.EndsWith("ExecutionMethods") && !mr.DeclaringType.Name.EndsWith("ExecutionMethodsJCS")) 
+
+            if (!mr.DeclaringType.Name.EndsWith("ConstructionMethods") && !mr.DeclaringType.Name.EndsWith("ExecutionMethods") && !mr.DeclaringType.Name.EndsWith("ExecutionMethodsJCS"))
                 return false;
-            
+
             return mr.DeclaringType.Namespace == "Unity.Entities" || mr.DeclaringType.Namespace == "";
         }
 
@@ -403,9 +402,9 @@ namespace Unity.Entities.CodeGen
             {
                 // Make sure we aren't generating this lambdajob from a stored delegate
                 bool LivesInUniversalDelegatesNamespace(TypeReference type) => type.Namespace == typeof(UniversalDelegates.R<>).Namespace;
-                if ((delegatePushingInstruction.OpCode == OpCodes.Ldfld && LivesInUniversalDelegatesNamespace(((FieldReference)delegatePushingInstruction.Operand).FieldType) || 
+                if ((delegatePushingInstruction.OpCode == OpCodes.Ldfld && LivesInUniversalDelegatesNamespace(((FieldReference)delegatePushingInstruction.Operand).FieldType) ||
                      (delegatePushingInstruction.IsLoadLocal(out var localIndex) && LivesInUniversalDelegatesNamespace(methodToAnalyze.Body.Variables[localIndex].VariableType)) ||
-                     (delegatePushingInstruction.IsLoadArg(out var argIndex) && 
+                     (delegatePushingInstruction.IsLoadArg(out var argIndex) &&
                       LivesInUniversalDelegatesNamespace(methodToAnalyze.Parameters[methodToAnalyze.HasThis ? (argIndex - 1) : argIndex].ParameterType))))
                      UserError.DC0044(methodToAnalyze, delegatePushingInstruction).Throw();
                 else if (((delegatePushingInstruction.OpCode == OpCodes.Call || delegatePushingInstruction.OpCode == OpCodes.Callvirt) &&
@@ -414,7 +413,7 @@ namespace Unity.Entities.CodeGen
                     if (LivesInUniversalDelegatesNamespace(callMethod.ReturnType))
                         UserError.DC0044(methodToAnalyze, delegatePushingInstruction).Throw();
                 }
-                
+
                 InternalCompilerError.DCICE002(methodToAnalyze, delegatePushingInstruction).Throw();
             }
 

@@ -12,7 +12,7 @@ namespace Unity.Entities
     {
     }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
     [AttributeUsage(AttributeTargets.Field)]
     public class RestrictAuthoringInputToAttribute : PropertyAttribute
     {

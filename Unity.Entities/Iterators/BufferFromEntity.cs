@@ -21,8 +21,10 @@ namespace Unity.Entities
         private readonly int m_TypeIndex;
         private readonly bool m_IsReadOnly;
         readonly uint                    m_GlobalSystemVersion;
-        int                              m_TypeLookupCache;
         int                              m_InternalCapacity;
+
+        LookupCache                      m_Cache;
+
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal BufferFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore, bool isReadOnly,
@@ -35,7 +37,7 @@ namespace Unity.Entities
             m_TypeIndex = typeIndex;
             m_EntityComponentStore = entityComponentStoreComponentStore;
             m_IsReadOnly = isReadOnly;
-            m_TypeLookupCache = 0;
+            m_Cache = default;
             m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
 
             if (!TypeManager.IsBuffer(m_TypeIndex))
@@ -51,13 +53,14 @@ namespace Unity.Entities
             m_TypeIndex = typeIndex;
             m_EntityComponentStore = entityComponentStoreComponentStore;
             m_IsReadOnly = isReadOnly;
-            m_TypeLookupCache = 0;
+            m_Cache = default;
             m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
             m_InternalCapacity = TypeManager.GetTypeInfo<T>().BufferCapacity;
         }
 
 #endif
 
+        [Obsolete("Use HasComponent() instead. Exists() will be (RemovedAfter 2020-08-20). (UnityUpgradable) -> HasComponent(*)")]
         public bool Exists(Entity entity)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -66,6 +69,49 @@ namespace Unity.Entities
             //@TODO: out of bounds index checks...
 
             return m_EntityComponentStore->HasComponent(entity, m_TypeIndex);
+        }
+
+        /// <summary>
+        /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
+        /// buffer component of type T.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <returns>True if the entity has a buffer component of type T, and false if it does not. Also returns false if
+        /// the Entity instance refers to an entity that has been destroyed.</returns>
+        /// <remarks>To report if the provided entity has a buffer component of type T, this function confirms
+        /// whether the <see cref="EntityArchetype"/> of the provided entity includes buffer components of type T.
+        /// </remarks>
+        public bool HasComponent(Entity entity)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
+#endif
+            return m_EntityComponentStore->HasComponent(entity, m_TypeIndex);
+        }
+
+        /// <summary>
+        /// Reports whether any of IBufferElementData components of the type T, in the chunk containing the
+        /// specified <see cref="Entity"/>, could have changed.
+        /// </summary>
+        /// <remarks>
+        /// Note that for efficiency, the change version applies to whole chunks not individual entities. The change
+        /// version is incremented even when another job or system that has declared write access to a component does
+        /// not actually change the component value.</remarks>
+        /// <param name="entity">The entity.</param>
+        /// <param name="version">The version to compare. In a system, this parameter should be set to the
+        /// current <see cref="Unity.Entities.ComponentSystemBase.LastSystemVersion"/> at the time the job is run or
+        /// scheduled.</param>
+        /// <returns>True, if the version number stored in the chunk for this component is more recent than the version
+        /// passed to the <paramref name="version"/> parameter.</returns>
+        public bool DidChange(Entity entity, uint version)
+        {
+            var chunk = m_EntityComponentStore->GetChunk(entity);
+
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_TypeIndex);
+            if (typeIndexInArchetype == -1) return false;
+            var chunkVersion = chunk->GetChangeVersion(typeIndexInArchetype);
+
+            return ChangeVersionUtility.DidChange(chunkVersion, version);
         }
 
         public DynamicBuffer<T> this[Entity entity]
@@ -81,7 +127,7 @@ namespace Unity.Entities
 #endif
 
                 // TODO(dep): We don't really have a way to mark the native array as read only.
-                BufferHeader* header = (BufferHeader*)m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_TypeLookupCache);
+                BufferHeader* header = (BufferHeader*)m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 return new DynamicBuffer<T>(header, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly, false, 0, m_InternalCapacity);

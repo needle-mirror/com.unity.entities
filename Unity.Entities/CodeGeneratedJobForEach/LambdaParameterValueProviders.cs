@@ -5,7 +5,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 {
     public struct LambdaParameterValueProvider_Entity
     {
-        private ArchetypeChunkEntityType _type;
+        private EntityTypeHandle _typeHandle;
 
         public struct Runtime
         {
@@ -20,12 +20,12 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
         public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
         {
-            _type = jobComponentSystem.GetArchetypeChunkEntityType();
+            _typeHandle = jobComponentSystem.GetEntityTypeHandle();
         }
 
         public unsafe Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk)
         {
-            var ptr = (Entity*)chunk.GetNativeArray(_type).GetUnsafeReadOnlyPtr();
+            var ptr = (Entity*)chunk.GetNativeArray(_typeHandle).GetUnsafeReadOnlyPtr();
             return new Runtime()
             {
                 arrayPtr = ptr
@@ -48,11 +48,11 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
     public struct LambdaParameterValueProvider_DynamicBuffer<T> where T : struct, IBufferElementData
     {
-        ArchetypeChunkBufferType<T> _type;
+        BufferTypeHandle<T> _typeHandle;
 
         public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
         {
-            _type = jobComponentSystem.GetArchetypeChunkBufferType<T>(isReadOnly);
+            _typeHandle = jobComponentSystem.GetBufferTypeHandle<T>(isReadOnly);
         }
 
         public struct Runtime
@@ -69,7 +69,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         {
             return new Runtime()
             {
-                bufferAccessor = chunk.GetBufferAccessor(_type)
+                bufferAccessor = chunk.GetBufferAccessor(_typeHandle)
             };
         }
 
@@ -92,11 +92,11 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     public struct LambdaParameterValueProvider_IComponentData<T>
         where T : struct, IComponentData
     {
-        ArchetypeChunkComponentType<T> _type;
+        ComponentTypeHandle<T> _typeHandle;
 
         public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
         {
-            _type = jobComponentSystem.GetArchetypeChunkComponentType<T>(isReadOnly);
+            _typeHandle = jobComponentSystem.GetComponentTypeHandle<T>(isReadOnly);
         }
 
         public struct Runtime
@@ -105,16 +105,16 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
             public unsafe ref T For(int i)
             {
-                return ref UnsafeUtilityEx.ArrayElementAsRef<T>(ptr, i);
+                return ref UnsafeUtility.ArrayElementAsRef<T>(ptr, i);
             }
         }
 
         public unsafe Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk)
         {
-            var componentDatas = chunk.GetNativeArray(_type);
+            var componentDatas = chunk.GetNativeArray(_typeHandle);
             return new Runtime()
             {
-                ptr = (byte*)(_type.IsReadOnly
+                ptr = (byte*)(_typeHandle.IsReadOnly
                     ? componentDatas.GetUnsafeReadOnlyPtr()
                     : componentDatas.GetUnsafePtr()),
             };
@@ -184,25 +184,25 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     public struct LambdaParameterValueProvider_ManagedComponentData<T> where T : class
     {
         private EntityManager _entityManager;
-        private ArchetypeChunkComponentType<T> _type;
+        private ComponentTypeHandle<T> _typeHandle;
 
         public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
         {
             _entityManager = jobComponentSystem.EntityManager;
-            _type = _entityManager.GetArchetypeChunkComponentType<T>(isReadOnly);
+            _typeHandle = _entityManager.GetComponentTypeHandle<T>(isReadOnly);
         }
 
         public struct Runtime
         {
-            internal ArchetypeChunkComponentObjects<T> _objects;
-            public T For(int i) => _objects[i];
+            internal ManagedComponentAccessor<T> Accessor;
+            public T For(int i) => Accessor[i];
         }
 
         public Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk)
         {
             return new Runtime()
             {
-                _objects = chunk.GetComponentObjects(_type, _entityManager)
+                Accessor = chunk.GetManagedComponentAccessor(_typeHandle, _entityManager)
             };
         }
 
@@ -224,12 +224,12 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
     public struct LambdaParameterValueProvider_ISharedComponentData<T> where T : struct, ISharedComponentData
     {
-        ArchetypeChunkSharedComponentType<T> _type;
+        SharedComponentTypeHandle<T> _typeHandle;
         EntityManager _entityManager;
 
         public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
         {
-            _type = jobComponentSystem.GetArchetypeChunkSharedComponentType<T>();
+            _typeHandle = jobComponentSystem.GetSharedComponentTypeHandle<T>();
             _entityManager = jobComponentSystem.EntityManager;
         }
 
@@ -242,7 +242,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         public Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk) =>
             new Runtime()
         {
-            _data = chunk.GetSharedComponentData(_type, _entityManager)
+            _data = chunk.GetSharedComponentData(_typeHandle, _entityManager)
         };
 
         public struct StructuralChangeRuntime
@@ -317,48 +317,44 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
     public struct StructuralChangeEntityProvider
     {
-        EntityManager _manager;
         EntityQuery _query;
         EntityQuery.GatherEntitiesResult _gatherEntitiesResult;
+        EntityQueryMask _Mask;
 
         public int EntityCount => _gatherEntitiesResult.EntityCount;
         public unsafe Entity For(int i)
         {
             var entity = _gatherEntitiesResult.EntityBuffer[i];
-            if (!_manager.Exists(entity))
-                return Entity.Null;
-            else
+            if (_Mask.Matches(entity))
                 return entity;
+            else
+                return Entity.Null;
         }
 
         public void PrepareToExecuteWithStructuralChanges(ComponentSystemBase componentSystem, EntityQuery query)
         {
-            _manager = componentSystem.EntityManager;
             _query = query;
+            _Mask = componentSystem.EntityManager.GetEntityQueryMask(query);
             _query.GatherEntitiesToArray(out _gatherEntitiesResult);
-        }
-
-        public void FinishExecuteWithStructuralChanges()
-        {
-            _query.ReleaseGatheredEntities(ref _gatherEntitiesResult);
         }
 
         public unsafe delegate void PerformLambdaDelegate(void* jobStruct, void* runtimes, Entity entity);
 
         public unsafe void IterateEntities(void* jobStruct, void* runtimes, PerformLambdaDelegate action)
         {
-            int entityCount = this.EntityCount;
-            int num = 0;
-            while (num < entityCount)
+            try
             {
-                Entity entity = this.For(num);
-                if (!(entity == Entity.Null))
+                int entityCount = this.EntityCount;
+                for (int i = 0; i != entityCount; i++)
                 {
-                    action(jobStruct, runtimes, entity);
+                    Entity entity = this.For(i);
+                    if (entity != Entity.Null)
+                        action(jobStruct, runtimes, entity);
                 }
-
-                num++;
-                this.FinishExecuteWithStructuralChanges();
+            }
+            finally
+            {
+                _query.ReleaseGatheredEntities(ref _gatherEntitiesResult);
             }
         }
     }

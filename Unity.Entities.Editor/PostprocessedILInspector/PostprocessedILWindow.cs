@@ -31,7 +31,7 @@ namespace Unity.Entities.Editor
 
         private static DisplayLanguage s_currentDisplayLanguage = DisplayLanguage.CSharp;
         private static Type s_currentlySelectedType;
-        private static string[] s_currentlyDisplayedDecompiledCode;
+        private static string[] s_currentlyDisplayedDecompiledCode = new string[0];
 
         private static Process s_decompilationProcess;
         private static ListView s_decompiledCodeField;

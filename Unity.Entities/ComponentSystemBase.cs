@@ -26,7 +26,7 @@ namespace Unity.Entities
             {
                 fixed(void* ptr = &m_EntityQueries)
                 {
-                    return ref UnsafeUtilityEx.AsRef<UnsafeList<EntityQuery>>(ptr);
+                    return ref UnsafeUtility.AsRef<UnsafeList<EntityQuery>>(ptr);
                 }
             }
         }
@@ -37,7 +37,7 @@ namespace Unity.Entities
             {
                 fixed(void* ptr = &m_RequiredEntityQueries)
                 {
-                    return ref UnsafeUtilityEx.AsRef<UnsafeList<EntityQuery>>(ptr);
+                    return ref UnsafeUtility.AsRef<UnsafeList<EntityQuery>>(ptr);
                 }
             }
         }
@@ -112,7 +112,7 @@ namespace Unity.Entities
 
             if (managedType != null)
             {
- #if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
                 m_AlwaysUpdateSystem = Attribute.IsDefined(managedType, typeof(AlwaysUpdateSystemAttribute), true);
 #else
                 var attrs = TypeManager.GetSystemAttributes(managedType, typeof(AlwaysUpdateSystemAttribute));
@@ -375,7 +375,7 @@ namespace Unity.Entities
         /// <remarks>
         /// LastSystemVersion is updated to match the <see cref="GlobalSystemVersion"/> whenever a system runs.
         ///
-        /// When you use <seealso cref="EntityQuery.SetFilterChanged"/>
+        /// When you use <seealso cref="EntityQuery.SetChangedVersionFilter(ComponentType)"/>
         /// or <seealso cref="ArchetypeChunk.DidChange"/>, LastSystemVersion provides the basis for determining
         /// whether a component could have changed since the last time the system ran.
         ///
@@ -627,12 +627,12 @@ namespace Unity.Entities
         /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
         /// <returns>An object representing the type information required to safely access component data stored in a
         /// chunk.</returns>
-        /// <remarks>Pass an <see cref="ArchetypeChunkComponentType"/> instance to a job that has access to chunk data,
+        /// <remarks>Pass an <see cref="ComponentTypeHandle{T}"/> instance to a job that has access to chunk data,
         /// such as an <see cref="IJobChunk"/> job, to access that type of component inside the job.</remarks>
-        public ArchetypeChunkComponentType<T> GetArchetypeChunkComponentType<T>(bool isReadOnly = false) where T : struct, IComponentData
+        public ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : struct, IComponentData
         {
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
-            return EntityManager.GetArchetypeChunkComponentType<T>(isReadOnly);
+            return EntityManager.GetComponentTypeHandle<T>(isReadOnly);
         }
 
         /// <summary>
@@ -641,12 +641,12 @@ namespace Unity.Entities
         /// <param name="componentType">Type of the component</param>
         /// <returns>An object representing the type information required to safely access component data stored in a
         /// chunk.</returns>
-        /// <remarks>Pass an ArchetypeChunkComponentTypeDynamic instance to a job that has access to chunk data, such as an
+        /// <remarks>Pass an DynamicComponentTypeHandle instance to a job that has access to chunk data, such as an
         /// <see cref="IJobChunk"/> job, to access that type of component inside the job.</remarks>
-        public ArchetypeChunkComponentTypeDynamic GetArchetypeChunkComponentTypeDynamic(ComponentType componentType)
+        public DynamicComponentTypeHandle GetDynamicComponentTypeHandle(ComponentType componentType)
         {
             AddReaderWriter(componentType);
-            return EntityManager.GetArchetypeChunkComponentTypeDynamic(componentType);
+            return EntityManager.GetDynamicComponentTypeHandle(componentType);
         }
 
         /// <summary>
@@ -657,13 +657,13 @@ namespace Unity.Entities
         /// <typeparam name="T">A struct that implements <see cref="IBufferElementData"/>.</typeparam>
         /// <returns>An object representing the type information required to safely access buffer components stored in a
         /// chunk.</returns>
-        /// <remarks>Pass a GetArchetypeChunkBufferType instance to a job that has access to chunk data, such as an
+        /// <remarks>Pass a BufferTypeHandle instance to a job that has access to chunk data, such as an
         /// <see cref="IJobChunk"/> job, to access that type of buffer component inside the job.</remarks>
-        public ArchetypeChunkBufferType<T> GetArchetypeChunkBufferType<T>(bool isReadOnly = false)
+        public BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly = false)
             where T : struct, IBufferElementData
         {
             AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
-            return EntityManager.GetArchetypeChunkBufferType<T>(isReadOnly);
+            return EntityManager.GetBufferTypeHandle<T>(isReadOnly);
         }
 
         /// <summary>
@@ -672,10 +672,10 @@ namespace Unity.Entities
         /// <typeparam name="T">A struct that implements <see cref="ISharedComponentData"/>.</typeparam>
         /// <returns>An object representing the type information required to safely access shared component data stored in a
         /// chunk.</returns>
-        public ArchetypeChunkSharedComponentType<T> GetArchetypeChunkSharedComponentType<T>()
+        public SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>()
             where T : struct, ISharedComponentData
         {
-            return EntityManager.GetArchetypeChunkSharedComponentType<T>();
+            return EntityManager.GetSharedComponentTypeHandle<T>();
         }
 
         /// <summary>
@@ -683,9 +683,9 @@ namespace Unity.Entities
         /// </summary>
         /// <returns>An object representing the type information required to safely access Entity instances stored in a
         /// chunk.</returns>
-        public ArchetypeChunkEntityType GetArchetypeChunkEntityType()
+        public EntityTypeHandle GetEntityTypeHandle()
         {
-            return EntityManager.GetArchetypeChunkEntityType();
+            return EntityManager.GetEntityTypeHandle();
         }
 
         /// <summary>
@@ -732,7 +732,7 @@ namespace Unity.Entities
             var state = CheckedState();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (state->m_AlwaysUpdateSystem)
-                throw new InvalidOperationException($"Cannot require {nameof(EntityQuery)} for update on a system with {nameof(AlwaysSynchronizeSystemAttribute)}");
+                throw new InvalidOperationException($"Cannot require {nameof(EntityQuery)} for update on a system with {nameof(AlwaysUpdateSystemAttribute)}");
 #endif
 
             state->RequiredEntityQueries.Add(query);

@@ -80,4 +80,4 @@ The following example shows a simplified system that illustrates how to manage e
 
 **Note:** This simplified example does not maintain any state within the system. One purpose for system state components is to track when persistent resources need to be allocated or cleaned up.
 
-[!code-cs[stateful-example](../package/DocCodeSamples.Tests/StatefulSystem.cs#stateful-example)]
+[!code-cs[stateful-example](../DocCodeSamples.Tests/StatefulSystem.cs#stateful-example)]

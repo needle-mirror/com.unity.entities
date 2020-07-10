@@ -1,5 +1,4 @@
 using System;
-#if !UNITY_DOTSPLAYER
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -279,4 +278,3 @@ namespace Unity.Entities.Tests
 #endif
     }
 }
-#endif

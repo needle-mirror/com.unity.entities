@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.Hybrid.Tests;
+using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Tests
 {
@@ -9,10 +10,12 @@ namespace Unity.Entities.Tests
     {
         World m_World;
         TestWithCustomDefaultGameObjectInjectionWorld m_CustomInjectionWorld;
+        private PlayerLoopSystem m_PrevPlayerLoop;
 
         [OneTimeSetUp]
         public void Setup()
         {
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
             m_CustomInjectionWorld.Setup();
             DefaultWorldInitialization.Initialize("TestWorld", false);
             m_World = World.DefaultGameObjectInjectionWorld;
@@ -22,6 +25,7 @@ namespace Unity.Entities.Tests
         public void TearDown()
         {
             m_CustomInjectionWorld.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
         }
 
         [Test]

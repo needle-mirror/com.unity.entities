@@ -32,7 +32,7 @@ For an example of this, see the `RenderMeshSystemV2` file `Packages/com.unity.en
 ## Important notes about SharedComponentData:
 
 * ECS groups entities with the same `SharedComponentData` together in the same [chunks](chunk_iteration.md). It stores the index to the `SharedComponentData` once per chunk, not per entity. As a result, `SharedComponentData` has zero memory overhead on a per entity basis. 
-* You can use [EntityQuery](xref:Entities.EntityQuery) to iterate over all entities with the same type. You can also use [EntityQuery.SetFilter()](xref:Unity.Entities.EntityQuery.SetSharedComponentFilter*) to iterate specifically over entities that have a specific `SharedComponentData` value. Because of the data layout, this iteration has a low overhead.
+* You can use [EntityQuery](xref:Unity.Entities.EntityQuery) to iterate over all entities with the same type. You can also use [EntityQuery.SetFilter()](xref:Unity.Entities.EntityQuery.SetSharedComponentFilter*) to iterate specifically over entities that have a specific `SharedComponentData` value. Because of the data layout, this iteration has a low overhead.
 * You can use `EntityManager.GetAllUniqueSharedComponents` to retrieve all unique `SharedComponentData` that is added to any alive entities.
 *  ECS automatically [reference counts](https://en.wikipedia.org/wiki/Reference_counting) `SharedComponentData`.
 * `SharedComponentData` should change rarely. If you want to change a `SharedComponentData`, it involves using [memcpy](https://msdn.microsoft.com/en-us/library/aa246468(v=vs.60).aspx) to copy all `ComponentData` for that entity into a different chunk.

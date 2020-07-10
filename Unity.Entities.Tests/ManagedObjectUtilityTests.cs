@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Entities.Serialization;
 
 namespace Unity.Entities.Tests
 {
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !NET_DOTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
     [TestFixture]
     sealed class ManagedObjectUtilityTests
     {
@@ -31,6 +32,11 @@ namespace Unity.Entities.Tests
         class ClassWithSelfReference : IComponentData
         {
             public ClassWithSelfReference Self;
+        }
+
+        class ClassWithBlobAssetReference
+        {
+            public BlobAssetReference<int> BlobAssetReference;
         }
 #pragma warning restore CS0649
 
@@ -112,6 +118,22 @@ namespace Unity.Entities.Tests
                 var local = (object) a;
                 managedObjectRemap.RemapEntityReferences(ref local, null);
             });
+        }
+
+        [Test]
+        public void ManagedObjectBlobs_WhenBlobAssetReferenceIsNull()
+        {
+            var a = new ClassWithBlobAssetReference();
+            var managedObjectBlobs = new ManagedObjectBlobs();
+
+            using (var blobAssets = new NativeList<BlobAssetPtr>(1, Allocator.Temp))
+            using (var blobAssetsMap = new NativeHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
+            {
+                managedObjectBlobs.GatherBlobAssetReferences(a, blobAssets, blobAssetsMap);
+
+                Assert.That(blobAssets.Length, Is.EqualTo(0));
+                Assert.That(blobAssetsMap.Count(), Is.EqualTo(0));
+            }
         }
     }
 #endif

@@ -4,7 +4,7 @@ using UnityEditor;
 namespace Unity.Scenes.Editor
 {
     /// <summary>
-    /// Invokes registered callbacks during static editor update with a fixed time step.
+    /// Invokes registered callbacks during static editor update with a fixed timestep.
     /// </summary>
     static class TimeBasedCallbackInvoker
     {

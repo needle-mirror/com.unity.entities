@@ -4,7 +4,7 @@ uid: ecs-component-data
 
 # General purpose components
 
-`ComponentData` in Unity (also known as a component in standard ECS terms) is a struct that contains only the instance data for an [entity](entities.md). `ComponentData` should not contain methods beyond utility functions to access the data in the struct. You should implement all of your game logic and behavior in systems. To put this in terms of the object-oriented Unity system, this is somewhat similar to a Component class, but one that **only contains variables**.
+`ComponentData` in Unity (also known as a component in standard ECS terms) is a struct that contains only the instance data for an [entity](ecs_entities.md). `ComponentData` should not contain methods beyond utility functions to access the data in the struct. You should implement all of your game logic and behavior in systems. To put this in terms of the object-oriented Unity system, this is somewhat similar to a Component class, but one that **only contains variables**.
 
 The Unity ECS API provides an interface called [IComponentData](xref:Unity.Entities.IComponentData) that you can implement in your code to declare a general-purpose component type.
 

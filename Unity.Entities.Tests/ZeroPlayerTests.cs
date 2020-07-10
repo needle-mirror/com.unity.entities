@@ -24,8 +24,20 @@ namespace Unity.Entities.Tests
         {
             AtomicSafetyHandle handle = AtomicSafetyHandle.Create();
             AtomicSafetyHandle.Release(handle);
-            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckReadAndThrow(handle));
-            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(handle));
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(
+#else
+            Assert.Throws<InvalidOperationException>(
+#endif
+                () => AtomicSafetyHandle.CheckReadAndThrow(handle));
+
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(
+#else
+            Assert.Throws<InvalidOperationException>(
+#endif
+                () => AtomicSafetyHandle.CheckWriteAndThrow(handle));
+
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckExistsAndThrow(handle));
         }
 
@@ -35,8 +47,20 @@ namespace Unity.Entities.Tests
             AtomicSafetyHandle handle = AtomicSafetyHandle.Create();
             AtomicSafetyHandle clone = handle;
             AtomicSafetyHandle.Release(handle);
-            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckReadAndThrow(clone));
-            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(clone));
+
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(
+#else
+            Assert.Throws<InvalidOperationException>(
+#endif
+                () => AtomicSafetyHandle.CheckReadAndThrow(clone));
+
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(
+#else
+            Assert.Throws<InvalidOperationException>(
+#endif
+                () => AtomicSafetyHandle.CheckWriteAndThrow(clone));
         }
 
         [Test]
@@ -46,7 +70,12 @@ namespace Unity.Entities.Tests
             AtomicSafetyHandle clone = handle;
             AtomicSafetyHandle.CheckDeallocateAndThrow(clone);
             AtomicSafetyHandle.Release(handle);
-            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckDeallocateAndThrow(clone));
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(
+#else
+            Assert.Throws<InvalidOperationException>(
+#endif
+                () => AtomicSafetyHandle.CheckDeallocateAndThrow(clone));
         }
 
 #endif

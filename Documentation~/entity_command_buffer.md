@@ -19,4 +19,4 @@ If you want to use an ECB from a parallel job (e.g. in an `Entities.ForEach`), y
 
 You can acquire and use an ECB like this:
 
-[!code-cs[ecb_concurrent](../package/DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_concurrent)]
+[!code-cs[ecb_concurrent](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_concurrent)]

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
 using UnityEngine.Scripting;
 #endif
 using MethodAttributes = Mono.Cecil.MethodAttributes;

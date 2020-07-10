@@ -9,22 +9,31 @@ using Unity.Properties.Internal;
 namespace Unity.Entities
 {
     readonly unsafe struct DynamicBufferContainer<TElement> : IList<TElement>
+        where TElement : struct, IBufferElementData
     {
         static DynamicBufferContainer()
         {
             PropertyBagStore.AddPropertyBag(new ListPropertyBag<DynamicBufferContainer<TElement>, TElement>());
         }
 
-        readonly BufferHeader* m_Buffer;
-        readonly bool m_IsReadOnly;
+        public bool IsReadOnly { get; }
+        int TypeIndex { get; }
+        EntityContainer EntityContainer { get; }
+        EntityManager EntityManager { get; }
+        Entity Entity { get; }
 
-        public int Count => m_Buffer->Length;
-        public bool IsReadOnly => true;
+        BufferHeader* Header => (BufferHeader*) EntityManager.GetComponentDataRawRO(Entity, TypeIndex);
+        void* ReadOnlyBuffer => EntityManager.GetBufferRawRO(Entity, TypeIndex);
+        void* ReadWriteBuffer => EntityManager.GetBufferRawRW(Entity, TypeIndex);
+        public int Count => Header->Length;
 
-        public DynamicBufferContainer(BufferHeader* buffer, bool readOnly = true)
+        public DynamicBufferContainer(EntityContainer entityContainer, int typeIndex, bool readOnly = true)
         {
-            m_Buffer = buffer;
-            m_IsReadOnly = readOnly;
+            IsReadOnly = readOnly;
+            EntityContainer = entityContainer;
+            TypeIndex = typeIndex;
+            EntityManager = EntityContainer.EntityManager;
+            Entity = EntityContainer.Entity;
         }
 
         public TElement this[int index]
@@ -32,7 +41,7 @@ namespace Unity.Entities
             get
             {
                 CheckBounds(index);
-                return UnsafeUtility.ReadArrayElement<TElement>(BufferHeader.GetElementPointer(m_Buffer), index);
+                return UnsafeUtility.ReadArrayElement<TElement>(ReadOnlyBuffer, index);
             }
             set
             {
@@ -49,11 +58,11 @@ namespace Unity.Entities
                 // 2) A fix directly in ListPropertyBag`1 to allow controlling IsReadOnly per element.
                 //    * This is a best place to fix it but requires a package update of properties.
                 //
-                if (!m_IsReadOnly)
-                {
-                    CheckBounds(index);
-                    UnsafeUtility.WriteArrayElement(BufferHeader.GetElementPointer(m_Buffer), index, value);
-                }
+                if (IsReadOnly)
+                    return;
+
+                CheckBounds(index);
+                UnsafeUtility.WriteArrayElement(ReadWriteBuffer, index, value);
             }
         }
 
@@ -70,14 +79,73 @@ namespace Unity.Entities
             return GetEnumerator();
         }
 
-        public void Add(TElement item) => throw new InvalidOperationException();
-        public void Clear() => throw new InvalidOperationException();
-        public bool Contains(TElement item) => throw new InvalidOperationException();
-        public void CopyTo(TElement[] array, int arrayIndex) => throw new InvalidOperationException();
-        public bool Remove(TElement item) => throw new InvalidOperationException();
-        public int IndexOf(TElement item) => throw new InvalidOperationException();
-        public void Insert(int index, TElement item) => throw new InvalidOperationException();
-        public void RemoveAt(int index) => throw new InvalidOperationException();
+        public void Add(TElement item)
+        {
+            var buffer = EntityManager.GetBuffer<TElement>(Entity);
+            buffer.Add(item);
+        }
+
+        public void Clear()
+        {
+            var buffer = EntityManager.GetBuffer<TElement>(Entity);
+            buffer.Clear();
+        }
+
+        public bool Contains(TElement item)
+        {
+            for (var i = 0; i < Count; ++i)
+            {
+                if (EqualityComparer<TElement>.Default.Equals(item, this[i]))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public void CopyTo(TElement[] array, int arrayIndex)
+        {
+            for (int toIndex = arrayIndex, fromIndex = 0; toIndex < arrayIndex + Count; ++toIndex, ++fromIndex)
+            {
+                array[toIndex] = this[fromIndex];
+            }
+        }
+
+        public bool Remove(TElement item)
+        {
+            for (var i = 0; i < Count; ++i)
+            {
+                if (!EqualityComparer<TElement>.Default.Equals(item, this[i]))
+                    continue;
+
+                EntityManager.GetBuffer<TElement>(Entity).RemoveAt(i);
+                return true;
+            }
+            return true;
+        }
+
+        public int IndexOf(TElement item)
+        {
+            for (var i = 0; i < Count; ++i)
+            {
+                if (!EqualityComparer<TElement>.Default.Equals(item, this[i]))
+                    continue;
+
+                return i;
+            }
+            return -1;
+        }
+
+        public void Insert(int index, TElement item)
+        {
+            var buffer = EntityManager.GetBuffer<TElement>(Entity);
+            buffer.Insert(index, item);
+        }
+
+        public void RemoveAt(int index)
+        {
+            var buffer = EntityManager.GetBuffer<TElement>(Entity);
+            buffer.RemoveAt(index);
+        }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void CheckBounds(int index)
@@ -90,7 +158,7 @@ namespace Unity.Entities
 
         public override int GetHashCode()
         {
-            return (int)math.hash(new uint2((uint)m_Buffer, (uint)Count));
+            return (int)math.hash(new uint2((uint)ReadOnlyBuffer, (uint)Count));
         }
     }
 }

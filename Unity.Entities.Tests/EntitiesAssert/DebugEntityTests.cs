@@ -1,7 +1,7 @@
 using System;
 using NUnit.Framework;
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 // https://unity3d.atlassian.net/browse/DOTSR-1432
 // EntitiesAssert aren't currently supported.
 
@@ -52,7 +52,7 @@ namespace Unity.Entities.Tests
 
             var debugEntities = DebugEntity.GetAllEntities(m_Manager);
 
-            #if NET_DOTS
+#if UNITY_DOTSRUNTIME
 
             // until ManagedComponentStore.GetSharedComponentDataBoxed supports an alternative to Activator to construct
             // a default instance of T, we can't support it here. once implemented, remove this special case to the test
@@ -61,13 +61,13 @@ namespace Unity.Entities.Tests
                 debugEntities[0].Components[0].Data,
                 Is.InstanceOf<Exception>().With.Message.Match("Implement TypeManager.*DefaultValue"));
 
-            #else
+#else
 
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity, new DebugComponent { Type = typeof(EcsTestSharedTag), Data = new EcsTestSharedTag() }) },
                 debugEntities);
 
-            #endif
+#endif
         }
 
 #endif
@@ -127,7 +127,7 @@ namespace Unity.Entities.Tests
                 debugEntities);
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
         class TestClassComponent : UnityEngine.Object
         {
             public int Value;
@@ -161,7 +161,7 @@ namespace Unity.Entities.Tests
                 debugEntities);
         }
 
-#endif // !UNITY_DOTSPLAYER
+#endif // !UNITY_DOTSRUNTIME
     }
 
     public class DebugComponentTests
@@ -206,4 +206,4 @@ namespace Unity.Entities.Tests
     }
 }
 
-#endif // !UNITY_DOTSPLAYER_IL2CPP
+#endif // !NET_DOTS

@@ -62,8 +62,8 @@ namespace Doc.CodeSamples.Tests
                 in LocalToWorld transform,
                 in Target target) =>
                 {
-                    // Check to make sure the target Entity still exists
-                    if (!buffersOfAllEntities.Exists(target.entity))
+                    // Check to make sure the target Entity with this buffer type still exists
+                    if (!buffersOfAllEntities.HasComponent(target.entity))
                         return;
 
                     // Get a reference to the buffer
@@ -92,11 +92,11 @@ namespace Doc.CodeSamples.Tests
         private struct MoveTowardsJob : IJobChunk
         {
             // Read-write data in the current chunk
-            public ArchetypeChunkComponentType<Translation> PositionTypeAccessor;
+            public ComponentTypeHandle<Translation> PositionTypeHandleAccessor;
 
             // Read-only data in the current chunk
             [ReadOnly]
-            public ArchetypeChunkComponentType<Target> TargetTypeAccessor;
+            public ComponentTypeHandle<Target> TargetTypeHandleAccessor;
 
             // Read-only data stored (potentially) in other chunks
             [ReadOnly]
@@ -111,9 +111,9 @@ namespace Doc.CodeSamples.Tests
             {
                 // Get arrays of the components in chunk
                 NativeArray<Translation> positions
-                    = chunk.GetNativeArray<Translation>(PositionTypeAccessor);
+                    = chunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
                 NativeArray<Target> targets
-                    = chunk.GetNativeArray<Target>(TargetTypeAccessor);
+                    = chunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
 
                 for (int i = 0; i < positions.Length; i++)
                 {
@@ -121,7 +121,7 @@ namespace Doc.CodeSamples.Tests
                     Entity targetEntity = targets[i].entity;
 
                     // Check that the target still exists
-                    if (!EntityPositions.Exists(targetEntity))
+                    if (!EntityPositions.HasComponent(targetEntity))
                         continue;
 
                     // Update translation to move the chasing enitity toward the target
@@ -153,10 +153,10 @@ namespace Doc.CodeSamples.Tests
             var job = new MoveTowardsJob();
 
             // Set the chunk data accessors
-            job.PositionTypeAccessor =
-                this.GetArchetypeChunkComponentType<Translation>(false);
-            job.TargetTypeAccessor =
-                this.GetArchetypeChunkComponentType<Target>(true);
+            job.PositionTypeHandleAccessor =
+                this.GetComponentTypeHandle<Translation>(false);
+            job.TargetTypeHandleAccessor =
+                this.GetComponentTypeHandle<Target>(true);
 
             // Set the component data lookup field
             job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
@@ -183,11 +183,11 @@ namespace Doc.CodeSamples.Tests
         private struct ChaserSystemJob : IJobChunk
         {
             // Read-write data in the current chunk
-            public ArchetypeChunkComponentType<Translation> PositionTypeAccessor;
+            public ComponentTypeHandle<Translation> PositionTypeHandleAccessor;
 
             // Read-only data in the current chunk
             [ReadOnly]
-            public ArchetypeChunkComponentType<Target> TargetTypeAccessor;
+            public ComponentTypeHandle<Target> TargetTypeHandleAccessor;
 
             // Read-only data stored (potentially) in other chunks
             #region lookup-ijobchunk-declare
@@ -202,9 +202,9 @@ namespace Doc.CodeSamples.Tests
             {
                 // Get arrays of the components in chunk
                 NativeArray<Translation> positions
-                    = chunk.GetNativeArray<Translation>(PositionTypeAccessor);
+                    = chunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
                 NativeArray<Target> targets
-                    = chunk.GetNativeArray<Target>(TargetTypeAccessor);
+                    = chunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
 
                 for (int i = 0; i < positions.Length; i++)
                 {
@@ -212,7 +212,7 @@ namespace Doc.CodeSamples.Tests
                     Entity targetEntity = targets[i].entity;
 
                     // Check that the target still exists
-                    if (!EntityPositions.Exists(targetEntity))
+                    if (!EntityPositions.HasComponent(targetEntity))
                         continue;
 
                     // Update translation to move the chasing enitity toward the target
@@ -235,8 +235,8 @@ namespace Doc.CodeSamples.Tests
             job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
             #endregion
             // Set the chunk data accessors
-            job.PositionTypeAccessor = this.GetArchetypeChunkComponentType<Translation>(false);
-            job.TargetTypeAccessor = this.GetArchetypeChunkComponentType<Target>(true);
+            job.PositionTypeHandleAccessor = this.GetComponentTypeHandle<Translation>(false);
+            job.TargetTypeHandleAccessor = this.GetComponentTypeHandle<Target>(true);
 
 
             // Set non-ECS data fields

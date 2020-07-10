@@ -160,7 +160,7 @@ namespace Unity.Entities
             var state = CheckedState();
 
             base.OnBeforeCreateInternal(world);
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             m_AlwaysSynchronizeSystem = GetType().GetCustomAttributes(typeof(AlwaysSynchronizeSystemAttribute), true).Length != 0;
 #else
             m_AlwaysSynchronizeSystem = false;

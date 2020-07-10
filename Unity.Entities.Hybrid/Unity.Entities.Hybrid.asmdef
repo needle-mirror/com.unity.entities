@@ -9,7 +9,6 @@
         "Unity.Mathematics.Extensions",
         "Unity.Build",
         "Unity.Build.Classic",
-        "Unity.Build.Common",
         "Unity.Properties"
     ],
     "includePlatforms": [],

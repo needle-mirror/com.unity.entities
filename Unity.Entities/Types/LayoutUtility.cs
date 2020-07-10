@@ -7,7 +7,9 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-#if !NET_DOTS
+// While UNITY_DOTSRUNTIME not using Tiny BCL can compile most of this code, UnsafeUtility doesn't currently provide a
+// FieldOffset or SizeOf(Type) method so we disable for UNITY_DOTSRUNTIME rather than NET_DOTS
+#if !UNITY_DOTSRUNTIME
     public struct SOAFieldInfo
     {
         public ushort Size;

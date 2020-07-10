@@ -1,124 +1,113 @@
-#region stateful-example
-using Unity.Collections;
-using Unity.Entities;
-using Unity.Jobs;
-using UnityEngine;
-
-
-public struct GeneralPurposeComponentA : IComponentData
+namespace Doc.CodeSamples.Tests
 {
-    public bool IsAlive;
-}
+    #region stateful-example
+    using Unity.Entities;
+    using Unity.Jobs;
+    using Unity.Collections;
 
-public struct StateComponentB : ISystemStateComponentData
-{
-    public int State;
-}
-
-public class StatefulSystem : JobComponentSystem
-{
-    private EntityQuery m_newEntities;
-    private EntityQuery m_activeEntities;
-    private EntityQuery m_destroyedEntities;
-    private EntityCommandBufferSystem m_ECBSource;
-
-    protected override void OnCreate()
+    public struct GeneralPurposeComponentA : IComponentData
     {
-        // Entities with GeneralPurposeComponentA but not StateComponentB
-        m_newEntities = GetEntityQuery(new EntityQueryDesc()
-        {
-            All = new ComponentType[] {ComponentType.ReadOnly<GeneralPurposeComponentA>()},
-            None = new ComponentType[] {ComponentType.ReadWrite<StateComponentB>()}
-        });
+        public int Lifetime;
+    }
 
-        // Entities with both GeneralPurposeComponentA and StateComponentB
-        m_activeEntities = GetEntityQuery(new EntityQueryDesc()
+    public struct StateComponentB : ISystemStateComponentData
+    {
+        public int State;
+    }
+
+    public class StatefulSystem : SystemBase
+    {
+        private EntityCommandBufferSystem ecbSource;
+
+        protected override void OnCreate()
         {
-            All = new ComponentType[]
+            ecbSource = World.GetExistingSystem<EndSimulationEntityCommandBufferSystem>();
+
+            // Create some test entities
+            // This runs on the main thread, but it is still faster to use a command buffer
+            EntityCommandBuffer creationBuffer = new EntityCommandBuffer(Allocator.Temp);
+            EntityArchetype archetype = EntityManager.CreateArchetype(typeof(GeneralPurposeComponentA));
+            for (int i = 0; i < 10000; i++)
             {
-                ComponentType.ReadWrite<GeneralPurposeComponentA>(),
-                ComponentType.ReadOnly<StateComponentB>()
+                Entity newEntity = creationBuffer.CreateEntity(archetype);
+                creationBuffer.SetComponent<GeneralPurposeComponentA>
+                (
+                    newEntity,
+                    new GeneralPurposeComponentA() { Lifetime = i }
+                );
             }
-        });
+            //Execute the command buffer
+            creationBuffer.Playback(EntityManager);
+        }
 
-        // Entities with StateComponentB but not GeneralPurposeComponentA
-        m_destroyedEntities = GetEntityQuery(new EntityQueryDesc()
+        protected override void OnUpdate()
         {
-            All = new ComponentType[] {ComponentType.ReadWrite<StateComponentB>()},
-            None = new ComponentType[] {ComponentType.ReadOnly<GeneralPurposeComponentA>()}
-        });
+            EntityCommandBuffer.ParallelWriter parallelWriterECB = ecbSource.CreateCommandBuffer().AsParallelWriter();
 
-        m_ECBSource = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-    }
+            // Entities with GeneralPurposeComponentA but not StateComponentB
+            Entities
+                .WithNone<StateComponentB>()
+                .ForEach(
+                    (Entity entity, int entityInQueryIndex, in GeneralPurposeComponentA gpA) =>
+                    {
+                    // Add an ISystemStateComponentData instance
+                    parallelWriterECB.AddComponent<StateComponentB>
+                        (
+                            entityInQueryIndex,
+                            entity,
+                            new StateComponentB() { State = 1 }
+                        );
+                    })
+                .ScheduleParallel();
+            ecbSource.AddJobHandleForProducer(this.Dependency);
 
-#pragma warning disable 618
-    struct NewEntityJob : IJobForEachWithEntity<GeneralPurposeComponentA>
-    {
-        public EntityCommandBuffer.Concurrent ConcurrentECB;
+            // Create new command buffer
+            parallelWriterECB = ecbSource.CreateCommandBuffer().AsParallelWriter();
 
-        public void Execute(Entity entity, int jobIndex, [ReadOnly] ref GeneralPurposeComponentA gpA)
+            // Entities with both GeneralPurposeComponentA and StateComponentB
+            Entities
+                .WithAll<StateComponentB>()
+                .ForEach(
+                    (Entity entity,
+                     int entityInQueryIndex,
+                     ref GeneralPurposeComponentA gpA) =>
+                    {
+                    // Process entity, in this case by decrementing the Lifetime count
+                    gpA.Lifetime--;
+
+                    // If out of time, destroy the entity
+                    if (gpA.Lifetime <= 0)
+                        {
+                            parallelWriterECB.DestroyEntity(entityInQueryIndex, entity);
+                        }
+                    })
+                .ScheduleParallel();
+            ecbSource.AddJobHandleForProducer(this.Dependency);
+
+            // Create new command buffer
+            parallelWriterECB = ecbSource.CreateCommandBuffer().AsParallelWriter();
+
+            // Entities with StateComponentB but not GeneralPurposeComponentA
+            Entities
+                .WithAll<StateComponentB>()
+                .WithNone<GeneralPurposeComponentA>()
+                .ForEach(
+                    (Entity entity, int entityInQueryIndex) =>
+                    {
+                    // This system is responsible for removing any ISystemStateComponentData instances it adds
+                    // Otherwise, the entity is never truly destroyed.
+                    parallelWriterECB.RemoveComponent<StateComponentB>(entityInQueryIndex, entity);
+                    })
+                .ScheduleParallel();
+            ecbSource.AddJobHandleForProducer(this.Dependency);
+
+        }
+
+        protected override void OnDestroy()
         {
-            // Add an ISystemStateComponentData instance
-            ConcurrentECB.AddComponent<StateComponentB>(jobIndex, entity, new StateComponentB() {State = 1});
+            // Implement OnDestroy to cleanup any resources allocated by this system.
+            // (This simplified example does not allocate any resources, so there is nothing to clean up.)
         }
     }
-
-    struct ProcessEntityJob : IJobForEachWithEntity<GeneralPurposeComponentA>
-    {
-        public EntityCommandBuffer.Concurrent ConcurrentECB;
-
-        public void Execute(Entity entity, int jobIndex, ref GeneralPurposeComponentA gpA)
-        {
-            // Process entity, possibly setting IsAlive false --
-            // In which case, destroy the entity
-            if (!gpA.IsAlive)
-            {
-                ConcurrentECB.DestroyEntity(jobIndex, entity);
-            }
-        }
-    }
-
-    struct CleanupEntityJob : IJobForEachWithEntity<StateComponentB>
-    {
-        public EntityCommandBuffer.Concurrent ConcurrentECB;
-
-        public void Execute(Entity entity, int jobIndex, [ReadOnly] ref StateComponentB state)
-        {
-            // This system is responsible for removing any ISystemStateComponentData instances it adds
-            // Otherwise, the entity is never truly destroyed.
-            ConcurrentECB.RemoveComponent<StateComponentB>(jobIndex, entity);
-        }
-    }
-#pragma warning restore 618
-
-    protected override JobHandle OnUpdate(JobHandle inputDependencies)
-    {
-        var newEntityJob = new NewEntityJob()
-        {
-            ConcurrentECB = m_ECBSource.CreateCommandBuffer().ToConcurrent()
-        };
-        var newJobHandle = newEntityJob.ScheduleSingle(m_newEntities, inputDependencies);
-        m_ECBSource.AddJobHandleForProducer(newJobHandle);
-
-        var processEntityJob = new ProcessEntityJob()
-        {ConcurrentECB = m_ECBSource.CreateCommandBuffer().ToConcurrent()};
-        var processJobHandle = processEntityJob.Schedule(m_activeEntities, newJobHandle);
-        m_ECBSource.AddJobHandleForProducer(processJobHandle);
-
-        var cleanupEntityJob = new CleanupEntityJob()
-        {
-            ConcurrentECB = m_ECBSource.CreateCommandBuffer().ToConcurrent()
-        };
-        var cleanupJobHandle = cleanupEntityJob.ScheduleSingle(m_destroyedEntities, processJobHandle);
-        m_ECBSource.AddJobHandleForProducer(cleanupJobHandle);
-
-        return cleanupJobHandle;
-    }
-
-    protected override void OnDestroy()
-    {
-        // Implement OnDestroy to cleanup any resources allocated by this system.
-        // (This simplified example does not allocate any resources.)
-    }
+    #endregion
 }
-#endregion

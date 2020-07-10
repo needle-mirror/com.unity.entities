@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -50,19 +51,19 @@ namespace Unity.Transforms
             public NativeMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToAdd;
             public NativeMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToRemove;
             public NativeHashMap<Entity, int>.ParallelWriter UniqueParents;
-            public ArchetypeChunkComponentType<PreviousParent> PreviousParentType;
+            public ComponentTypeHandle<PreviousParent> PreviousParentTypeHandle;
 
-            [ReadOnly] public ArchetypeChunkComponentType<Parent> ParentType;
-            [ReadOnly] public ArchetypeChunkEntityType EntityType;
+            [ReadOnly] public ComponentTypeHandle<Parent> ParentTypeHandle;
+            [ReadOnly] public EntityTypeHandle EntityTypeHandle;
             public uint LastSystemVersion;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                if (chunk.DidChange(ParentType, LastSystemVersion))
+                if (chunk.DidChange(ParentTypeHandle, LastSystemVersion))
                 {
-                    var chunkPreviousParents = chunk.GetNativeArray(PreviousParentType);
-                    var chunkParents = chunk.GetNativeArray(ParentType);
-                    var chunkEntities = chunk.GetNativeArray(EntityType);
+                    var chunkPreviousParents = chunk.GetNativeArray(PreviousParentTypeHandle);
+                    var chunkParents = chunk.GetNativeArray(ParentTypeHandle);
+                    var chunkEntities = chunk.GetNativeArray(EntityTypeHandle);
 
                     for (int j = 0; j < chunk.Count; j++)
                     {
@@ -104,7 +105,7 @@ namespace Unity.Transforms
                 for (int i = 0; i < parents.Length; i++)
                 {
                     var parent = parents[i];
-                    if (!ChildFromEntity.Exists(parent))
+                    if (!ChildFromEntity.HasComponent(parent))
                     {
                         ParentsMissingChild.Add(parent);
                     }
@@ -121,6 +122,12 @@ namespace Unity.Transforms
 
             public BufferFromEntity<Child> ChildFromEntity;
 
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private static void ThrowChildEntityNotInParent()
+            {
+                throw new InvalidOperationException("Child entity not in parent");
+            }
+
             int FindChildIndex(DynamicBuffer<Child> children, Entity entity)
             {
                 for (int i = 0; i < children.Length; i++)
@@ -129,7 +136,8 @@ namespace Unity.Transforms
                         return i;
                 }
 
-                throw new InvalidOperationException("Child entity not in parent");
+                ThrowChildEntityNotInParent();
+                return -1;
             }
 
             void RemoveChildrenFromParent(Entity parent, DynamicBuffer<Child> children)
@@ -275,9 +283,9 @@ namespace Unity.Transforms
                 ParentChildrenToAdd = parentChildrenToAdd.AsParallelWriter(),
                 ParentChildrenToRemove = parentChildrenToRemove.AsParallelWriter(),
                 UniqueParents = uniqueParents.AsParallelWriter(),
-                PreviousParentType = GetArchetypeChunkComponentType<PreviousParent>(false),
-                ParentType = GetArchetypeChunkComponentType<Parent>(true),
-                EntityType = GetArchetypeChunkEntityType(),
+                PreviousParentTypeHandle = GetComponentTypeHandle<PreviousParent>(false),
+                ParentTypeHandle = GetComponentTypeHandle<Parent>(true),
+                EntityTypeHandle = GetEntityTypeHandle(),
                 LastSystemVersion = LastSystemVersion
             };
             var gatherChangedParentsJobHandle = gatherChangedParentsJob.Schedule(m_ExistingParentsGroup);

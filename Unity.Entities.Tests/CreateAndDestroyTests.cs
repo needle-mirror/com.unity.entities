@@ -374,7 +374,7 @@ namespace Unity.Entities.Tests
 
             entities[0] = invalidEnt;
             Assert.That(() => { m_Manager.AddComponent<EcsTestData>(entities); },
-                Throws.InvalidOperationException.With.Message.Contains("entity does not exist"));
+                Throws.ArgumentException.With.Message.Contains("All entities passed to EntityManager must exist"));
             entities.Dispose();
         }
 

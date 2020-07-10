@@ -18,6 +18,11 @@ namespace Unity.Entities
             TypeIndex = type.TypeIndex;
         }
 
+        public ComponentTypeInArchetype(int typeIndex)
+        {
+            TypeIndex = typeIndex;
+        }
+
         public static bool operator==(ComponentTypeInArchetype lhs, ComponentTypeInArchetype rhs)
         {
             return lhs.TypeIndex == rhs.TypeIndex;

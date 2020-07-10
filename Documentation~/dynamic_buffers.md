@@ -8,7 +8,7 @@ Use dynamic buffer components to associate array-like data with an entity. Dynam
 
 To create a dynamic buffer, first declare a struct that implements [IBufferElementData](xref:Unity.Entities.IBufferElementData) and defines the elements stored in the buffer. For example, you can use the following struct for a buffer component that stores integers:
 
-[!code-cs[declare-element](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#declare-element)]
+[!code-cs[declare-element](../DocCodeSamples.Tests/DynamicBufferExamples.cs#declare-element)]
 
 To associate a dynamic buffer with an entity, add an [IBufferElementData](xref:Unity.Entities.IBufferElementData) component directly to the entity rather than adding the [dynamic buffer container](xref:Unity.Entities.DynamicBuffer`1) itself. 
 
@@ -22,7 +22,7 @@ To specify an “internal capacity" for a dynamic buffer component, use the [Int
 
 To declare a buffer, declare a struct that defines the type of element that you want to put into the buffer. The struct must implement [IBufferElementData](xref:Unity.Entities.IBufferElementData), like so:
 
-[!code-cs[declare-element-full](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#declare-element-full)]
+[!code-cs[declare-element-full](../DocCodeSamples.Tests/DynamicBufferExamples.cs#declare-element-full)]
 
 
 ## Adding buffer types to entities
@@ -31,13 +31,13 @@ To add a buffer to an entity, add the `IBufferElementData` struct that defines t
 
 ### Using EntityManager.AddBuffer()
 
-For more information, see the documentation on [EntityManager.AddBuffer()](xref:Unity.Enities.EntityManager.AddBuffer`1(Unity.Entities.Entity)).
+For more information, see the documentation on [EntityManager.AddBuffer()](xref:Unity.Entities.EntityManager.AddBuffer*).
 
-[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#add-with-manager)]
+[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#add-with-manager)]
 
 ### Using an archetype
 
-[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#add-with-archetype)]
+[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#add-with-archetype)]
 
 ### Using the `[GenerateAuthoringComponent]` attribute
 
@@ -68,7 +68,7 @@ Use [AddBuffer](xref:Unity.Entities.EntityCommandBuffer.AddBuffer``1(Unity.Entit
 
 The following job creates a new entity using a command buffer and then adds a dynamic buffer component using [EntityCommandBuffer.AddBuffer](xref:Unity.Entities.EntityCommandBuffer.AddBuffer``1(Unity.Entities.Entity)). The job also adds a number of elements to the dynamic buffer. 
 
-[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#add-in-job)]
+[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#add-in-job)]
 
 **Note:** You are not required to add data to the dynamic buffer immediately. However, you won't have access to the buffer again until after the entity command buffer you are using is executed.
 
@@ -80,19 +80,19 @@ You can use [EntityManager](xref:Unity.Entities.EntityManager), [systems](ecs_sy
 
 You can use an instance of the [EntityManager](xref:Unity.Entities.EntityManager) to access a dynamic buffer:
 
-[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#access-manager)]
+[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#access-manager)]
 
 ### Looking up buffers of another entity
 
 When you need to look up the buffer data belonging to another entity in a job, you can pass a [BufferFromEntity](xref:Unity.Entities.BufferFromEntity`1) variable to the job.
 
-[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#lookup-snippet)]
+[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#lookup-snippet)]
 
 ### SystemBase Entities.ForEach
 
 You can access dynamic buffers associated with the entities you process with Entities.ForEach by passing the buffer as one of your lambda function parameters. The following example adds all the values stored in the buffers of type, `MyBufferElement`:
 
-[!code-cs[access-buffer-system](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#access-buffer-system)]
+[!code-cs[access-buffer-system](../DocCodeSamples.Tests/DynamicBufferExamples.cs#access-buffer-system)]
 
 Note that we can write directly to the captured `sum` variable in this example because we execute the code with `Run()`. If we scheduled the function to run in a job, we could only write to a native container such as NativeArray, even though the result is a single value.
 
@@ -102,7 +102,7 @@ To access an individual buffer in an `IJobChunk` job, pass the buffer data type 
 
 Like the previous example, the following example adds up the contents of all dynamic buffers that contain elements of type, `MyBufferElement`. `IJobChunk` jobs can also run in parallel on each chunk, so in the example, it first stores the intermediate sum for each buffer in a native array and then uses a second job to calculate the final sum. In this case, the intermediate array holds one result for each chunk, rather than one result for each entity.
 
-[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#access-chunk-job)]
+[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#access-chunk-job)]
 
 ## Reinterpreting buffers
 
@@ -110,7 +110,7 @@ Buffers can be reinterpreted as a type of the same size. The intention is to
 allow controlled type-punning and to get rid of the wrapper element types when
 they get in the way. To reinterpret, call [Reinterpret&lt;T&gt;](xref:Unity.Entities.DynamicBuffer`1.Reinterpret*):
 
-[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#reinterpret-snippet)]
+[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#reinterpret-snippet)]
 
 The reinterpreted buffer instance retains the safety handle of the original
 buffer, and is safe to use. Reinterpreted buffers reference original data, so
@@ -122,4 +122,4 @@ others.
 ## Buffer reference invalidation
 Every [structural change](sync_points.md#structural-changes) invalidates all references to dynamic buffers. Structural changes generally cause entities to move from one chunk to another. Small dynamic buffers can reference memory within a chunk (as opposed to from main memory) and therefore, they need to be reacquired after a structural change.
 
-[!code-cs[declare](../package/DocCodeSamples.Tests/DynamicBufferExamples.cs#invalidation)]
+[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#invalidation)]

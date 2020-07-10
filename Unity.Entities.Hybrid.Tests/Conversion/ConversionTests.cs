@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -110,7 +112,7 @@ namespace Unity.Entities.Tests.Conversion
                 EntityMatch.Exact<Prefab>(referenced2, new MockData(), k_RootComponents));
         }
 
-        [Test, Ignore("Not implemented")]
+        [Test, Ignore("DOTS-2092 - Not implemented")]
         public void ConversionOfScriptableObjectReferenceOtherScriptableObject()
         {
             throw new NotImplementedException();
@@ -130,7 +132,7 @@ namespace Unity.Entities.Tests.Conversion
                 EntityMatch.Exact<Prefab, MockData>(referenced, new EntityRefTestData { Value = referenced }, k_RootComponents));
         }
 
-        [Test, Ignore("Not implemented")]
+        [Test, Ignore("DOTS-2092 - Not implemented")]
         public void ConversionOfScriptableObjectSelfReference()
         {
             throw new NotImplementedException();
@@ -151,7 +153,7 @@ namespace Unity.Entities.Tests.Conversion
                 EntityMatch.Exact(entity, new EntityRefTestData(), k_RootComponents));
         }
 
-        [Test, Ignore("Not implemented")]
+        [Test, Ignore("DOTS-2092 - Not implemented")]
         public void AssetReferenceOutsideConvertedGroupWarning()
         {
             throw new NotImplementedException();
@@ -324,6 +326,66 @@ namespace Unity.Entities.Tests.Conversion
                 var testConversionCleanup = world.GetOrCreateSystem<TestConversionCleanup>();
                 world.DestroySystem(testConversionCleanup);
             }
+        }
+
+        struct TestEntityData : IComponentData
+        {
+            public int Index;
+
+            public TestEntityData(int index)
+            {
+                Index = index;
+            }
+        }
+
+        class CreateAdditionalEntitySystem : GameObjectConversionSystem
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((Transform t) =>
+                {
+                    var e = CreateAdditionalEntity(t);
+                    DstEntityManager.AddComponent<TestEntityData>(e);
+                });
+            }
+        }
+
+        class CreateAdditionalEntityMultipleSystem : GameObjectConversionSystem
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((Transform t) =>
+                {
+                    var entities = new NativeArray<Entity>(3, Allocator.Temp);
+                    CreateAdditionalEntity(t, entities);
+                    for (int i = 0; i < entities.Length; i++)
+                        DstEntityManager.AddComponentData(entities[i], new TestEntityData(i));
+                });
+            }
+        }
+
+        [Test]
+        public void CreateAdditionalEntity_CreatesAdditionalEntity()
+        {
+            var go = CreateGameObject();
+            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings().WithExtraSystem<CreateAdditionalEntitySystem>());
+            EntitiesAssert.ContainsOnly(m_Manager,
+                EntityMatch.Exact(entity, k_RootComponents),
+                EntityMatch.Exact(new TestEntityData(0))
+            );
+        }
+
+        [Test]
+        public void CreateAdditionalEntity_WithMultiple_CreatesAdditionalEntity()
+        {
+            var go = CreateGameObject();
+            var entity = ConvertGameObjectHierarchy(go, MakeDefaultSettings().WithExtraSystem<CreateAdditionalEntityMultipleSystem>());
+            EntitiesAssert.ContainsOnly(m_Manager,
+                EntityMatch.Exact(entity, k_RootComponents),
+                EntityMatch.Exact(new TestEntityData(0)),
+                EntityMatch.Exact(new TestEntityData(1)),
+                EntityMatch.Exact(new TestEntityData(2))
+            );
         }
     }
 }

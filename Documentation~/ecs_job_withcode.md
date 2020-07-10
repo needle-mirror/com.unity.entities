@@ -8,7 +8,7 @@ The [Job.WithCode] construction provided by the [SystemBase] class is an easy wa
 
 The following example  uses one [Job.WithCode] lambda function to fill a [native array] with random numbers and another job to add those numbers together:
 
-[!code-cs[job-with-code-example](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#job-with-code-example)]
+[!code-cs[job-with-code-example](../DocCodeSamples.Tests/LambdaJobExamples.cs#job-with-code-example)]
 
 **Note:** To run a parallel job, implement [IJobFor], which you can schedule using [ScheduleParallel()] in the system [OnUpdate()] function.
 
@@ -21,7 +21,7 @@ When you schedule your job to run in the [C# Job System] using `Schedule()`, the
 * Captured variables must be declared as  [NativeArray] -- or other [native container] -- or a [blittable] type.  
 * To return data,  you must write the return value to a captured [native array], even if the data is a single value. (Note that you can write to any captured variable when executing with `Run()`.)
 
-[Job.WithCode] provides a set of functions to apply read-only and safety attributes to your captured [native container] variables. For example, you can use `WithReadOnly` to designate that you don't update the container and `WithDeallocateOnJobCompletion` to automatically dispose a container after the job finshes. ([Entities.ForEach] provides the same functions.)
+[Job.WithCode] provides a set of functions to apply read-only and safety attributes to your captured [native container] variables. For example, you can use `WithReadOnly` to designate that you don't update the container and `WithDisposeOnCompletion` to automatically dispose a container after the job finshes. ([Entities.ForEach] provides the same functions.)
 
 See [Job.WithCode] for more information about these modifiers and attributes.
  

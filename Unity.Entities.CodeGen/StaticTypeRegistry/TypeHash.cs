@@ -1,4 +1,4 @@
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -63,14 +63,14 @@ namespace Unity.Entities.CodeGen
 
             // UnityEngine objects have their own serialization mechanism so exclude hashing the type's
             // internals and just hash its name which is stable and important to how Entities will serialize
-            if (typeRef.IsPointer || typeDef.IsPrimitive || typeDef.IsEnum || typeDef.IsUnityEngineObject() || WorkaroundTypeNames.Contains(typeRef.FullName))
+            if (typeRef.IsArray || typeRef.IsGenericParameter || typeRef.IsPointer || typeDef.IsPrimitive || typeDef.IsEnum || typeDef.IsUnityEngineObject() || WorkaroundTypeNames.Contains(typeRef.FullName))
                 return hash;
 
             foreach (var field in typeDef.Fields)
             {
                 if (!field.IsStatic) // statics have no effect on data layout
                 {
-                    var fieldTypeRef = typeResolver.Resolve(field.FieldType);
+                    var fieldTypeRef = typeResolver.ResolveFieldType(field);
 
                     // Classes can have cyclical type definitions so prevent recursion if we've seen the type already
                     if (!cache.TryGetValue(fieldTypeRef, out ulong fieldTypeHash))
@@ -164,6 +164,19 @@ namespace Unity.Entities.CodeGen
             return hash;
         }
 
+        struct TypeReferenceComparer : IEqualityComparer<TypeReference>
+        {
+            public bool Equals(TypeReference x, TypeReference y)
+            {
+                return x.FullName.Equals(y.FullName);
+            }
+
+            public int GetHashCode(TypeReference obj)
+            {
+                return obj.FullName.GetHashCode();
+            }
+        }
+
         // Our StableTypeHashes purpose is to provide a version linking serialized component data to its runtime representation
         // As such the type hash has a few requirements:
         // R0 - TypeHashes apply to types serialized by Unity.Entities. The internals of a UnityEngine.Object reference
@@ -192,7 +205,7 @@ namespace Unity.Entities.CodeGen
         public static ulong CalculateStableTypeHash(TypeReference typeRef)
         {
             ulong versionHash = HashVersionAttribute(typeRef);
-            ulong typeHash = HashType(typeRef, new Dictionary<TypeReference, ulong>());
+            ulong typeHash = HashType(typeRef, new Dictionary<TypeReference, ulong>(new TypeReferenceComparer()));
 
             return CombineFNV1A64(versionHash, typeHash);
         }

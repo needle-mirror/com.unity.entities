@@ -1,4 +1,4 @@
-#if false // !UNITY_DOTSPLAYER
+#if false // !UNITY_DOTSRUNTIME
 using System;
 using NUnit.Framework;
 
@@ -64,14 +64,6 @@ namespace Unity.Entities.Tests
                 TestSystem.EntityQueryCache.ValidateMatchesCache(index, ref testBuilder, testDelegateTypes, 1);
             });
         }
-
-        [Test, Ignore("CreateArchetypeChunkArray allocs GC")] // this is due to safety sentinels; move to release build playmode test
-        public void ForEachSecondRun_DoesNotAlloc()
-        {
-            EntityQueryBuilder.F_ED<EcsTestData> emptyFunc = (Entity e, ref EcsTestData d) => {};
-
-            ValidateNoGCAllocs(() => TestSystem.Entities.ForEach(emptyFunc));
-        }
     }
 }
-#endif // !UNITY_DOTSPLAYER
+#endif // !UNITY_DOTSRUNTIME

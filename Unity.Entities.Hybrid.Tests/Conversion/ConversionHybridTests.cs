@@ -327,6 +327,20 @@ namespace Unity.Entities.Tests.Conversion
             CollectionAssert.AllItemsAreUnique(b);
             CollectionAssert.AllItemsAreUnique(c);
         }
+
+        [Test]
+        public void HybridComponentConversion_DoesNotThrow_WhenHybridIsDestroyed()
+        {
+            var gameObject = InstantiateGameObject(LoadPrefab("Prefab_MissingMB"));
+            gameObject.AddComponent<ConversionTestHybridComponent>().SomeValue = 123;
+
+            Entity entity = default;
+            Assert.DoesNotThrow(() =>
+            {
+                entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>());
+            });
+            Assert.That(m_Manager.HasComponent<CompanionLink>(entity), Is.True);
+        }
     }
 }
 #endif

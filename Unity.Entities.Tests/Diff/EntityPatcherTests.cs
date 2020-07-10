@@ -6,7 +6,7 @@ namespace Unity.Entities.Tests
     [TestFixture]
     sealed class EntityPatcherTests : EntityDifferTestFixture
     {
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !UNITY_PORTABLE_TEST_RUNNER
         // https://unity3d.atlassian.net/browse/DOTSR-1435
         // These tests cause crashes in the IL2CPP runner. Cause not yet debugged.
         [Test]
@@ -192,7 +192,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !NET_DOTS
         [Test]
         public unsafe void EntityPatcher_ApplyChanges_CreateSharedComponent()
         {
@@ -224,6 +223,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if !UNITY_DOTSRUNTIME  // Related to shared components
         [Test]
         public void EntityPatcher_ApplyChanges_ChangeSharedComponent()
         {
@@ -677,7 +677,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("Not currently supported")]
+        [DotsRuntimeFixme] // Requires Unity.Properties
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponents()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
@@ -706,8 +706,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
-// https://unity3d.atlassian.net/browse/DOTSR-1432
+        // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         [DotsRuntimeFixme] // No support for PinGCObject
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponentCollection()
@@ -743,8 +742,6 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(GetEntity(DstEntityManager, entityGuid0), c1.value1[2]);
             }
         }
-
-#endif
 
         [Test]
         public void EntityPatcher_ApplyChanges_AddComponent_ManagedComponents()
@@ -860,6 +857,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#endif    // !UNITY_DOTSPLAYER_IL2CPP
+#endif    // !UNITY_PORTABLE_TEST_RUNNER
     }
 }

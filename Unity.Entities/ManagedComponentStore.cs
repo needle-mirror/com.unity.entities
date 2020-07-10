@@ -31,7 +31,7 @@ namespace Unity.Entities
         }
 
         UnsafeList m_SharedComponentInfo = new UnsafeList(Allocator.Persistent);
-
+        private int m_SharedComponentVersion;
         internal object[] m_ManagedComponentData = new object[64];
 
         public void SetManagedComponentCapacity(int newCapacity)
@@ -244,10 +244,11 @@ namespace Unity.Entities
 
         private int Add(int typeIndex, int hashCode, object newData)
         {
+            m_SharedComponentVersion++;
             var info = new SharedComponentInfo
             {
                 RefCount = 1,
-                Version = 1,
+                Version = m_SharedComponentVersion,
                 ComponentType = typeIndex,
                 HashCode = hashCode
             };
@@ -278,13 +279,14 @@ namespace Unity.Entities
 
         public void IncrementSharedComponentVersion(int index)
         {
-            SharedComponentInfoPtr[index].Version++;
+            m_SharedComponentVersion++;
+            SharedComponentInfoPtr[index].Version = m_SharedComponentVersion;
         }
 
         public int GetSharedComponentVersion<T>(T sharedData) where T : struct
         {
             var index = FindSharedComponentIndex(TypeManager.GetTypeIndex<T>(), sharedData);
-            return index == -1 ? 0 : SharedComponentInfoPtr[index].Version;
+            return SharedComponentInfoPtr[index == -1 ? 0 : index].Version;
         }
 
         public T GetSharedComponentData<T>(int index) where T : struct
@@ -297,7 +299,7 @@ namespace Unity.Entities
 
         public object GetSharedComponentDataBoxed(int index, int typeIndex)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (index == 0)
                 return Activator.CreateInstance(TypeManager.GetType(typeIndex));
 #else
@@ -333,6 +335,11 @@ namespace Unity.Entities
 
             if (newCount != 0)
                 return;
+
+            // Bump default version when a shared component is removed completely.
+            // This ensures that when asking for a shared component that previously existed and now longer exists
+            // It will always return a change value.
+            IncrementSharedComponentVersion(0);
 
             var hashCode = infos[index].HashCode;
 
@@ -486,7 +493,7 @@ namespace Unity.Entities
                 var dstIndex = InsertSharedComponentAssumeNonDefaultMove(typeIndex, hashCode, srcData);
 
                 SharedComponentInfoPtr[dstIndex].RefCount += srcInfos[srcIndex].RefCount - 1;
-                SharedComponentInfoPtr[dstIndex].Version++;
+                IncrementSharedComponentVersion(dstIndex);
 
                 remap[srcIndex] = dstIndex;
             }
@@ -532,7 +539,7 @@ namespace Unity.Entities
                 int srcRefCount = remapPtr[srcIndex];
                 SharedComponentInfoPtr[dstIndex].RefCount += srcRefCount - 1;
                 srcManagedComponents.RemoveReference(srcIndex, srcRefCount);
-                SharedComponentInfoPtr[dstIndex].Version++;
+                IncrementSharedComponentVersion(dstIndex);
 
                 remapPtr[srcIndex] = dstIndex;
             }
@@ -564,7 +571,7 @@ namespace Unity.Entities
         public void PatchEntities(Archetype* archetype, Chunk* chunk, int entityCount,
             EntityRemapUtility.EntityRemapInfo* remapping)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             var firstManagedComponent = archetype->FirstManagedComponent;
             var numManagedComponents = archetype->NumManagedComponents;
             var hasHybridComponents = archetype->HasHybridComponents;
@@ -591,7 +598,7 @@ namespace Unity.Entities
 
         void PatchEntitiesForPrefab(int* managedComponents, int numManagedComponents, int allocatedCount, int remappingCount, Entity* remapSrc, Entity* remapDst)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             for (int i = 0; i < allocatedCount; ++i)
             {
                 for (int c = 0; c < numManagedComponents; c++)

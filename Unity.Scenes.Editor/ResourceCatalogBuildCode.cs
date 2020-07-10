@@ -25,7 +25,7 @@ namespace Unity.Scenes.Editor
 
             var strings = builder.Allocate(ref root.paths, sceneInfos.Length);
             for (int i = 0; i < sceneInfos.Length; i++)
-                builder.AllocateString(ref strings[i], sceneInfos[i].Path);
+                builder.AllocateString(ref strings[i], sceneInfos[i].Path.ToLower());
 
             BlobAssetReference<ResourceCatalogData>.Write(builder, sceneInfoPath, ResourceCatalogData.CurrentFileFormatVersion);
             builder.Dispose();

@@ -1,4 +1,7 @@
-using System.Runtime.CompilerServices;
+using System;
+#if !UNITY_DOTSRUNTIME
+using System.IO;
+#endif
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Unity.Collections.LowLevel.Unsafe;
@@ -46,6 +49,16 @@ namespace Unity.Entities.CodeGen
         public static DiagnosticMessage DCICE008(MethodDefinition methodToAnalyze, string methodName, Instruction methodCallInstruction)
         {
             return UserError.MakeError(nameof(DCICE008), $"Unable to patch method {methodName} in {methodToAnalyze.Name}.  Missing expected IL to load constant while parsing.", methodToAnalyze, methodCallInstruction);
+        }
+
+        public static DiagnosticMessage DCICE009(MethodDefinition method, Instruction instruction, FieldDefinition field)
+        {
+            return UserError.MakeError(nameof(DCICE009), $"Attempting to dispose {field.Name} in {method.Name} but it's type {field.FieldType} does not have a valid Dispose method.", method, instruction);
+        }
+
+        public static DiagnosticMessage DCICE010(MethodDefinition method, Instruction instruction)
+        {
+            return UserError.MakeError(nameof(DCICE010), $"Ldftn opcode was not preceeded with Ldloc opcode while IL was being re-written to keep DisplayClass on the stack for method {method.Name}.", method, instruction);
         }
     }
 
@@ -131,15 +144,19 @@ namespace Unity.Entities.CodeGen
             return MakeError(nameof(DC0014), $"Entities.ForEach Lambda expression parameter '{parameter.Name}' is not a supported parameter. Supported parameter names are {supportedParameters.SeparateByComma()}", method, instruction);
         }
 
+        /* This message is no longer valid.  Now covered by a message that includes more cases (DC0055/DC0056)
         public static DiagnosticMessage DC0015(string noneTypeName, MethodDefinition method, Instruction instruction)
         {
             return MakeError(nameof(DC0015), $"Entities.ForEach will never run because it both requires and excludes {noneTypeName}", method, instruction);
         }
+        */
 
+        /* This message is no longer valid.  Now covered by a message that includes more cases (DC0056)
         public static DiagnosticMessage DC0016(string noneTypeName, MethodDefinition method, Instruction instruction)
         {
             return MakeError(nameof(DC0016), $"Entities.ForEach lists both WithAny<{noneTypeName}() and WithNone<{noneTypeName}().", method, instruction);
         }
+        */
 
         public static DiagnosticMessage DC0019(MethodDefinition containingMethod, TypeReference sharedComponentType, Instruction instruction)
         {
@@ -173,11 +190,13 @@ namespace Unity.Entities.CodeGen
             return MakeError(nameof(DC0024), $"Entities.ForEach uses managed IComponentData {componentType.Name} by ref. To get write access, receive it without the ref modifier." , containingMethod, instruction);
         }
 
-        // Invalid type used as LambdaJob parameter or in With method invocation.
+        // Generic error code made more explicit
+        /*
         public static DiagnosticMessage DC0025(string message, MethodDefinition containingMethod, Instruction instruction)
         {
             return MakeError(nameof(DC0025), message, containingMethod, instruction);
         }
+        */
 
         public static DiagnosticMessage DC0026(string allTypeName, MethodDefinition method, Instruction instruction)
         {
@@ -326,6 +345,46 @@ namespace Unity.Entities.CodeGen
             return MakeError(nameof(DC0049), $"{methodName} in {methodToAnalyze.Name} has a dynamic parameter passed in with a variable as a parameter.  This method can only be invoked with a boolean literal as a parameter in Entities.ForEach.", methodToAnalyze, methodCallInstruction);
         }
 
+        public static DiagnosticMessage DC0050(TypeReference parameterType, MethodDefinition containingMethod, Instruction instruction)
+        {
+            return MakeError(nameof(DC0050), $"Type {parameterType.FullName} cannot be used as an Entities.ForEach parameter as generic types and generic parameters are not currently supported in Entities.ForEach", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0051(TypeReference argumentType, string invokedMethodName, MethodDefinition containingMethod, Instruction instruction)
+        {
+            return MakeError(nameof(DC0051), $"Type {argumentType.Name} cannot be used with {invokedMethodName} as generic types and parameters are not allowed", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0052(TypeReference argumentType, string invokedMethodName, MethodDefinition containingMethod, Instruction instruction)
+        {
+            return MakeError(nameof(DC0052), $"Type {argumentType.Name} cannot be used with {invokedMethodName} as it is not a supported component type", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0053(TypeDefinition systemType, MethodDefinition containingMethod, Instruction instruction)
+        {
+            return MakeError(nameof(DC0053), $"Entities.ForEach cannot be used in system {systemType.Name} as Entities.ForEach in generic system types are not supported.", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0054(string lambdaJobName, MethodDefinition containingMethod, Instruction instruction)
+        {
+            return MakeError(nameof(DC0054), $"DisplayClass for lambda {lambdaJobName} is a generic instance.  This usually indicates that a capturing Entities.ForEach was used in a generic method.  This is not currently supported.", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC0055(TypeReference lambdaParameterComponentType, MethodDefinition method, Instruction instruction)
+        {
+            return MakeWarning(nameof(DC0055), $"Entities.ForEach passes {lambdaParameterComponentType.Name} by value.  Any changes made will not be stored to the underlying component.  Pass with `in` or `ref` instead.", method, instruction);
+        }
+
+        public static DiagnosticMessage DC0056(string conflictingType1, string conflictingType2, TypeReference componentType, MethodDefinition method, Instruction instruction)
+        {
+            return MakeError(nameof(DC0056), $"Entities.ForEach has component {componentType.Name} in both {conflictingType1} and {conflictingType2}.  This is not permitted.", method, instruction);
+        }
+
+        public static DiagnosticMessage DC0057(MethodDefinition containingMethod, Instruction instruction)
+        {
+            return MakeError(nameof(DC0057), $"{nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges)} cannot be used with name Job.WithCode.  {nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges)} should instead be used with Entities.ForEach.", containingMethod, instruction);
+        }
+
         static DiagnosticMessage MakeInternal(DiagnosticType type, string errorCode, string messageData, MethodDefinition method, Instruction instruction)
         {
             var result = new DiagnosticMessage {Column = 0, Line = 0, DiagnosticType = type, File = ""};
@@ -337,14 +396,16 @@ namespace Unity.Entities.CodeGen
                 messageData = messageData + " Seeing this error indicates a bug in the dots compiler. We'd appreciate a bug report (About->Report a Bug...). Thnx! <3";
             }
 
-            messageData = $"error {errorCode}: {messageData}";
+            var errorType = type == DiagnosticType.Error ? "error" : "warning";
+            messageData = $"{errorType} {errorCode}: {messageData}";
             if (seq != null)
             {
                 result.File = seq.Document.Url;
                 result.Column = seq.StartColumn;
                 result.Line = seq.StartLine;
-#if !UNITY_DOTSPLAYER
-                result.MessageData = $"{seq.Document.Url}({seq.StartLine},{seq.StartColumn}): {messageData}";
+#if !UNITY_DOTSRUNTIME
+                var shortenedFilePath = seq.Document.Url.Replace($"{Environment.CurrentDirectory}{Path.DirectorySeparatorChar}", "");
+                result.MessageData = $"{shortenedFilePath}({seq.StartLine},{seq.StartColumn}): {messageData}";
 #else
                 result.MessageData = messageData;
 #endif
@@ -369,7 +430,9 @@ namespace Unity.Entities.CodeGen
 
         public static void Throw(this DiagnosticMessage dm)
         {
-            throw new FoundErrorInUserCodeException(new[] { dm});
+            if (dm.DiagnosticType != DiagnosticType.Error)
+                throw new InvalidOperationException("We should never throw exceptions for non-error Entities.ForEach diagnostic messages.");
+            throw new FoundErrorInUserCodeException(new[] { dm });
         }
     }
 }

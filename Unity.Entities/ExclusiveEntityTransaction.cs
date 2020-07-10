@@ -21,10 +21,6 @@ namespace Unity.Entities
             m_Manager = manager;
         }
 
-        internal void OnDestroy()
-        {
-        }
-
         internal EntityArchetype CreateArchetype(ComponentType* types, int count)
         {
             return m_Manager.CreateArchetype(types, count);

@@ -4,7 +4,7 @@
         "Unity.Entities.Tests",
         "Unity.Entities",
         "Unity.Properties",
-        "Unity.Scenes.Hybrid",
+        "Unity.Scenes",
         "Unity.Collections",
         "Unity.Scenes.Editor",
         "Unity.Entities.Hybrid",

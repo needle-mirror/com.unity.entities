@@ -30,28 +30,28 @@ namespace Unity.Transforms
         [BurstCompile]
         struct ToChildParentScaleInverse : IJobChunk
         {
-            [ReadOnly] public ArchetypeChunkComponentType<Scale> ScaleType;
-            [ReadOnly] public ArchetypeChunkComponentType<NonUniformScale> NonUniformScaleType;
-            [ReadOnly] public ArchetypeChunkComponentType<CompositeScale> CompositeScaleType;
-            [ReadOnly] public ArchetypeChunkBufferType<Child> ChildType;
+            [ReadOnly] public ComponentTypeHandle<Scale> ScaleTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<NonUniformScale> NonUniformScaleTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<CompositeScale> CompositeScaleTypeHandle;
+            [ReadOnly] public BufferTypeHandle<Child> ChildTypeHandle;
             [NativeDisableContainerSafetyRestriction] public ComponentDataFromEntity<ParentScaleInverse> ParentScaleInverseFromEntity;
             public uint LastSystemVersion;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                var hasScale = chunk.Has(ScaleType);
-                var hasNonUniformScale = chunk.Has(NonUniformScaleType);
-                var hasCompositeScale = chunk.Has(CompositeScaleType);
+                var hasScale = chunk.Has(ScaleTypeHandle);
+                var hasNonUniformScale = chunk.Has(NonUniformScaleTypeHandle);
+                var hasCompositeScale = chunk.Has(CompositeScaleTypeHandle);
 
                 if (hasCompositeScale)
                 {
-                    var didChange = chunk.DidChange(CompositeScaleType, LastSystemVersion) ||
-                        chunk.DidChange(ChildType, LastSystemVersion);
+                    var didChange = chunk.DidChange(CompositeScaleTypeHandle, LastSystemVersion) ||
+                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkCompositeScales = chunk.GetNativeArray(CompositeScaleType);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildType);
+                    var chunkCompositeScales = chunk.GetNativeArray(CompositeScaleTypeHandle);
+                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         var inverseScale = math.inverse(chunkCompositeScales[i].Value);
@@ -59,7 +59,7 @@ namespace Unity.Transforms
                         for (var j = 0; j < children.Length; j++)
                         {
                             var childEntity = children[j].Value;
-                            if (!ParentScaleInverseFromEntity.Exists(childEntity))
+                            if (!ParentScaleInverseFromEntity.HasComponent(childEntity))
                                 continue;
 
                             ParentScaleInverseFromEntity[childEntity] = new ParentScaleInverse {Value = inverseScale};
@@ -68,13 +68,13 @@ namespace Unity.Transforms
                 }
                 else if (hasScale)
                 {
-                    var didChange = chunk.DidChange(ScaleType, LastSystemVersion) ||
-                        chunk.DidChange(ChildType, LastSystemVersion);
+                    var didChange = chunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
+                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkScales = chunk.GetNativeArray(ScaleType);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildType);
+                    var chunkScales = chunk.GetNativeArray(ScaleTypeHandle);
+                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         var inverseScale = float4x4.Scale(1.0f / chunkScales[i].Value);
@@ -82,7 +82,7 @@ namespace Unity.Transforms
                         for (var j = 0; j < children.Length; j++)
                         {
                             var childEntity = children[j].Value;
-                            if (!ParentScaleInverseFromEntity.Exists(childEntity))
+                            if (!ParentScaleInverseFromEntity.HasComponent(childEntity))
                                 continue;
 
                             ParentScaleInverseFromEntity[childEntity] = new ParentScaleInverse {Value = inverseScale};
@@ -91,13 +91,13 @@ namespace Unity.Transforms
                 }
                 else // if (hasNonUniformScale)
                 {
-                    var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
-                        chunk.DidChange(ChildType, LastSystemVersion);
+                    var didChange = chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
+                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkNonUniformScales = chunk.GetNativeArray(NonUniformScaleType);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildType);
+                    var chunkNonUniformScales = chunk.GetNativeArray(NonUniformScaleTypeHandle);
+                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         var inverseScale = float4x4.Scale(1.0f / chunkNonUniformScales[i].Value);
@@ -105,7 +105,7 @@ namespace Unity.Transforms
                         for (var j = 0; j < children.Length; j++)
                         {
                             var childEntity = children[j].Value;
-                            if (!ParentScaleInverseFromEntity.Exists(childEntity))
+                            if (!ParentScaleInverseFromEntity.HasComponent(childEntity))
                                 continue;
 
                             ParentScaleInverseFromEntity[childEntity] = new ParentScaleInverse {Value = inverseScale};
@@ -137,10 +137,10 @@ namespace Unity.Transforms
         {
             var toParentScaleInverseJob = new ToChildParentScaleInverse
             {
-                ScaleType = GetArchetypeChunkComponentType<Scale>(true),
-                NonUniformScaleType = GetArchetypeChunkComponentType<NonUniformScale>(true),
-                CompositeScaleType = GetArchetypeChunkComponentType<CompositeScale>(true),
-                ChildType = GetArchetypeChunkBufferType<Child>(true),
+                ScaleTypeHandle = GetComponentTypeHandle<Scale>(true),
+                NonUniformScaleTypeHandle = GetComponentTypeHandle<NonUniformScale>(true),
+                CompositeScaleTypeHandle = GetComponentTypeHandle<CompositeScale>(true),
+                ChildTypeHandle = GetBufferTypeHandle<Child>(true),
                 ParentScaleInverseFromEntity = GetComponentDataFromEntity<ParentScaleInverse>(),
                 LastSystemVersion = LastSystemVersion
             };

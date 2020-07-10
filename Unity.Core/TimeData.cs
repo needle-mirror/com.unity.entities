@@ -26,7 +26,7 @@ namespace Unity.Core
             DeltaTime = deltaTime;
         }
 
-    #if !UNITY_DOTSPLAYER
+    #if !UNITY_DOTSRUNTIME
 
         // This member will be deprecated once a native fixed delta time is introduced in dots.
         [EditorBrowsable(EditorBrowsableState.Never)]

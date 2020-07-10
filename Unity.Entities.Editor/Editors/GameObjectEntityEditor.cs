@@ -16,7 +16,9 @@ namespace Unity.Entities.Editor
         public override void OnInspectorGUI()
         {
             var gameObjectEntity = (GameObjectEntity)target;
-            if (!gameObjectEntity.World.IsCreated || !gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
+            if (gameObjectEntity.World?.IsCreated != true)
+                return;
+            if (!gameObjectEntity.EntityManager.Exists(gameObjectEntity.Entity))
                 return;
 
             inclusionList.OnGUI(World.DefaultGameObjectInjectionWorld, gameObjectEntity.Entity);

@@ -11,8 +11,9 @@ namespace Unity.Entities
     /// * C#-defined [blittable types](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types)
     /// * bool
     /// * char
-    /// * <see cref="NativeString"/> (a fixed-sized character buffer)
     /// * <see cref="BlobAssetReference{T}"/> (a reference to a Blob data structure)
+    /// * <see cref="Collections.FixedString"/> (a fixed-sized character buffer)
+    /// * <see cref="Collections.FixedList"/>
     /// * [fixed arrays](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/fixed-statement) (in
     ///   an [unsafe](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/unsafe) context)
     /// * structs containing these unmanaged, blittable fields
@@ -78,9 +79,9 @@ namespace Unity.Entities
     /// To access the buffer of an entity in a <see cref="ComponentSystem"/>, use <see cref="EntityManager.GetBuffer{T}(Entity)"/>,
     /// where `T` is the IBufferElementData subtype.
     ///
-    /// To access the buffer of an entity in a <see cref="JobComponentSystem"/>, define a field of type,
-    /// <see cref="JobComponentSystem.GetBufferFromEntity{T}"/>, as part of the Job struct. Set the field value when you
-    /// schedule the Job with <see cref="EntityManager.GetBufferFromEntity{T}"/>.
+    /// To access the buffer of an entity in a <see cref="ComponentSystemBase"/> instance, define a field of type,
+    /// <see cref="ComponentSystemBase.GetBufferFromEntity{T}(bool)"/>, as part of the Job struct. Set the field value when you
+    /// schedule the Job with <see cref="EntityManager.GetBufferFromEntity{T}(bool)"/>.
     ///
     /// The DynamicBuffer interface provides array-like access to buffer contents. You can treat a buffer like a
     /// [NativeArray](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html). You can also use
@@ -236,7 +237,7 @@ namespace Unity.Entities
     /// original archetype. The system must then cleanup any state or resources and then remove the system state
     /// component. The ECS code only fully deletes the entity after the system removes the system state component.
     ///
-    /// See [System State Components](xref:ecs-system-state-components) for additional information.
+    /// See [System State Components](xref:ecs-system-state-component-data) for additional information.
     /// </remarks>
     public interface ISystemStateComponentData : IComponentData
     {

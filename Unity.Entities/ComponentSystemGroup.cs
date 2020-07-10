@@ -38,16 +38,16 @@ namespace Unity.Entities
         internal List<ComponentSystemBase> m_systemsToRemove = new List<ComponentSystemBase>();
 
         internal UnsafeList<UpdateIndex> m_MasterUpdateList;
-        internal UnsafeList<SystemRefUntyped> m_UnmanagedSystemsToUpdate;
-        internal UnsafeList<SystemRefUntyped> m_UnmanagedSystemsToRemove;
+        internal UnsafeList<SystemHandleUntyped> m_UnmanagedSystemsToUpdate;
+        internal UnsafeList<SystemHandleUntyped> m_UnmanagedSystemsToRemove;
 
         public virtual IEnumerable<ComponentSystemBase> Systems => m_systemsToUpdate;
 
         protected override void OnCreate()
         {
             base.OnCreate();
-            m_UnmanagedSystemsToUpdate = new UnsafeList<SystemRefUntyped>(0, Allocator.Persistent);
-            m_UnmanagedSystemsToRemove = new UnsafeList<SystemRefUntyped>(0, Allocator.Persistent);
+            m_UnmanagedSystemsToUpdate = new UnsafeList<SystemHandleUntyped>(0, Allocator.Persistent);
+            m_UnmanagedSystemsToRemove = new UnsafeList<SystemHandleUntyped>(0, Allocator.Persistent);
             m_MasterUpdateList = new UnsafeList<UpdateIndex>(0, Allocator.Persistent);
             Created = true;
         }
@@ -78,20 +78,26 @@ namespace Unity.Entities
 
                 // Check for duplicate Systems. Also see issue #1792
                 if (m_systemsToUpdate.IndexOf(sys) >= 0)
+                {
+                    if (m_systemsToRemove.Contains(sys))
+                    {
+                        m_systemsToRemove.Remove(sys);
+                    }
                     return;
+                }
 
                 m_systemsToUpdate.Add(sys);
                 m_systemSortDirty = true;
             }
         }
 
-        private int UnmanagedSystemIndex(SystemRefUntyped sysRef)
+        private int UnmanagedSystemIndex(SystemHandleUntyped sysHandle)
         {
             int len = m_UnmanagedSystemsToUpdate.Length;
             var ptr = m_UnmanagedSystemsToUpdate.Ptr;
             for (int i = 0; i < len; ++i)
             {
-                if (ptr[len] == sysRef)
+                if (ptr[i] == sysHandle)
                 {
                     return i;
                 }
@@ -99,17 +105,22 @@ namespace Unity.Entities
             return -1;
         }
 
-        internal void AddUnmanagedSystemToUpdateList(SystemRefUntyped sysRef)
+        internal void AddUnmanagedSystemToUpdateList(SystemHandleUntyped sysHandle)
         {
             CheckCreated();
 
-            if (-1 != UnmanagedSystemIndex(sysRef))
+            if (-1 != UnmanagedSystemIndex(sysHandle))
+            {
+                int index = m_UnmanagedSystemsToRemove.IndexOf(sysHandle);
+                if (-1 != index)
+                    m_UnmanagedSystemsToRemove.RemoveAt(index);
                 return;
+            }
 
             if (UseLegacySortOrder)
                 throw new InvalidOperationException("ISystemBase systems are not compatible with legacy sort order. Set UseLegacySortOrder to false to use ISystemBase systems.");
 
-            m_UnmanagedSystemsToUpdate.Add(sysRef);
+            m_UnmanagedSystemsToUpdate.Add(sysHandle);
             m_systemSortDirty = true;
         }
 
@@ -117,16 +128,22 @@ namespace Unity.Entities
         {
             CheckCreated();
 
-            m_systemSortDirty = true;
-            m_systemsToRemove.Add(sys);
+            if (m_systemsToUpdate.Contains(sys) && !m_systemsToRemove.Contains(sys))
+            {
+                m_systemSortDirty = true;
+                m_systemsToRemove.Add(sys);
+            }
         }
 
-        internal void RemoveUnmanagedSystemFromUpdateList(SystemRefUntyped sys)
+        internal void RemoveUnmanagedSystemFromUpdateList(SystemHandleUntyped sys)
         {
             CheckCreated();
 
-            m_systemSortDirty = true;
-            m_UnmanagedSystemsToRemove.Add(sys);
+            if (m_UnmanagedSystemsToUpdate.Contains(sys) && !m_UnmanagedSystemsToRemove.Contains(sys))
+            {
+                m_systemSortDirty = true;
+                m_UnmanagedSystemsToRemove.Add(sys);
+            }
         }
 
         [Obsolete("Use SortSystems(). (RemovedAfter 2020-07-30)")]
@@ -152,19 +169,27 @@ namespace Unity.Entities
                 }
             }
 
-            var elems = new List<ComponentSystemSorter.SystemElement>(m_systemsToUpdate.Count);
-
+            var elems = new ComponentSystemSorter.SystemElement[m_systemsToUpdate.Count];
             for (int i = 0; i < m_systemsToUpdate.Count; ++i)
             {
-                elems.Add(new ComponentSystemSorter.SystemElement { Index = new UpdateIndex(i, true), Type = m_systemsToUpdate[i].GetType() });
+                elems[i] = new ComponentSystemSorter.SystemElement
+                {
+                    Type = m_systemsToUpdate[i].GetType(),
+                    Index = new UpdateIndex(i, true),
+                    OrderingBucket = 1,
+                    updateBefore = new List<Type>(),
+                    nAfter = 0,
+                };
             }
 
-            ComponentSystemSorter.Sort(elems, this.GetType());
+            ComponentSystemSorter.FindConstraints(GetType(), elems);
+
+            ComponentSystemSorter.Sort(elems);
 
             var oldSystems = m_systemsToUpdate;
             m_systemsToUpdate = new List<ComponentSystemBase>(oldSystems.Count);
             m_MasterUpdateList.Clear();
-            for (int i = 0; i < elems.Count; ++i)
+            for (int i = 0; i < elems.Length; ++i)
             {
                 var index = elems[i].Index;
                 m_systemsToUpdate.Add(oldSystems[index.Index]);
@@ -183,6 +208,14 @@ namespace Unity.Entities
 
                 m_systemsToRemove.Clear();
             }
+
+            for(int i=0; i<m_UnmanagedSystemsToRemove.Length; ++i)
+            {
+                var sysHandle = m_UnmanagedSystemsToRemove[i];
+                m_UnmanagedSystemsToUpdate.RemoveAt(m_UnmanagedSystemsToUpdate.IndexOf(sysHandle));
+            }
+
+            m_UnmanagedSystemsToRemove.Clear();
         }
 
         private static void RecurseUpdate(ComponentSystemGroup group)
@@ -209,39 +242,63 @@ namespace Unity.Entities
 
             RemovePending();
 
-
-            // Build three lists of systems
-            var elems = new List<ComponentSystemSorter.SystemElement>[3]
-            {
-                new List<ComponentSystemSorter.SystemElement>(4),
-                new List<ComponentSystemSorter.SystemElement>(m_systemsToUpdate.Count + m_UnmanagedSystemsToUpdate.Length),
-                new List<ComponentSystemSorter.SystemElement>(4),
-            };
-
-            var ourType = GetType();
+            var groupType = GetType();
+            var allElems = new ComponentSystemSorter.SystemElement[m_systemsToUpdate.Count + m_UnmanagedSystemsToUpdate.Length];
+            var systemsPerBucket = new int[3];
             for (int i = 0; i < m_systemsToUpdate.Count; ++i)
             {
                 var system = m_systemsToUpdate[i];
                 var sysType = system.GetType();
-
-                // Take order first/last ordering into account
-                int ordering = ComputeSystemOrdering(sysType, ourType);
-                elems[ordering].Add(new ComponentSystemSorter.SystemElement { Index = new UpdateIndex(i, true), Type = sysType });
+                int orderingBucket = ComputeSystemOrdering(sysType, groupType);
+                allElems[i] = new ComponentSystemSorter.SystemElement
+                {
+                    Type = sysType,
+                    Index = new UpdateIndex(i, true),
+                    OrderingBucket = orderingBucket,
+                    updateBefore = new List<Type>(),
+                    nAfter = 0,
+                };
+                systemsPerBucket[orderingBucket]++;
             }
-
             for (int i = 0; i < m_UnmanagedSystemsToUpdate.Length; ++i)
             {
                 var sysType = World.GetTypeOfUnmanagedSystem(m_UnmanagedSystemsToUpdate[i]);
-                int ordering = ComputeSystemOrdering(sysType, ourType);
-                elems[ordering].Add(new ComponentSystemSorter.SystemElement {Index = new UpdateIndex(i, false), Type = sysType});
+                int orderingBucket = ComputeSystemOrdering(sysType, groupType);
+                allElems[m_systemsToUpdate.Count + i] = new ComponentSystemSorter.SystemElement
+                {
+                    Type = sysType,
+                    Index = new UpdateIndex(i, false),
+                    OrderingBucket = orderingBucket,
+                    updateBefore = new List<Type>(),
+                    nAfter = 0,
+                };
+                systemsPerBucket[orderingBucket]++;
             }
 
+            // Find & validate constraints between systems in the group
+            ComponentSystemSorter.FindConstraints(groupType, allElems);
+
+            // Build three lists of systems
+            var elemBuckets = new []
+            {
+                new ComponentSystemSorter.SystemElement[systemsPerBucket[0]],
+                new ComponentSystemSorter.SystemElement[systemsPerBucket[1]],
+                new ComponentSystemSorter.SystemElement[systemsPerBucket[2]],
+            };
+            var nextBucketIndex = new int[3];
+
+            for(int i=0; i<allElems.Length; ++i)
+            {
+                int bucket = allElems[i].OrderingBucket;
+                int index = nextBucketIndex[bucket]++;
+                elemBuckets[bucket][index] = allElems[i];
+            }
             // Perform the sort for each bucket.
             for (int i = 0; i < 3; ++i)
             {
-                if (elems[i].Count > 0)
+                if (elemBuckets[i].Length > 0)
                 {
-                    ComponentSystemSorter.Sort(elems[i], ourType);
+                    ComponentSystemSorter.Sort(elemBuckets[i]);
                 }
             }
 
@@ -250,7 +307,7 @@ namespace Unity.Entities
             m_systemsToUpdate = new List<ComponentSystemBase>(oldSystems.Count);
             for (int i = 0; i < 3; ++i)
             {
-                foreach (var e in elems[i])
+                foreach (var e in elemBuckets[i])
                 {
                     var index = e.Index;
                     if (index.IsManaged)
@@ -262,14 +319,14 @@ namespace Unity.Entities
 
             // Commit results to master update list
             m_MasterUpdateList.Clear();
-            m_MasterUpdateList.SetCapacity(elems[0].Count + elems[1].Count + elems[2].Count);
+            m_MasterUpdateList.SetCapacity(allElems.Length);
 
-            // Append buckets in order, but replace managed indicies with incrementinging indices
+            // Append buckets in order, but replace managed indices with incrementing indices
             // into the newly sorted m_systemsToUpdate list
             int managedIndex = 0;
             for (int i = 0; i < 3; ++i)
             {
-                foreach (var e in elems[i])
+                foreach (var e in elemBuckets[i])
                 {
                     if (e.Index.IsManaged)
                     {
@@ -293,7 +350,7 @@ namespace Unity.Entities
             }
         }
 
-        private static int ComputeSystemOrdering(Type sysType, Type ourType)
+        internal static int ComputeSystemOrdering(Type sysType, Type ourType)
         {
             foreach (var uga in TypeManager.GetSystemAttributes(sysType, typeof(UpdateInGroupAttribute)))
             {
@@ -326,7 +383,7 @@ namespace Unity.Entities
             RecurseUpdate(this);
         }
 
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
         public void RecursiveLogToConsole()
         {
             foreach (var sys in m_systemsToUpdate)
@@ -448,7 +505,7 @@ namespace Unity.Entities
                 catch (Exception e)
                 {
                     Debug.LogException(e);
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
                     // When in a DOTS Runtime build, throw this upstream -- continuing after silently eating an exception
                     // is not what you'll want, except maybe once we have LiveLink.  If you're looking at this code
                     // because your LiveLink dots runtime build is exiting when you don't want it to, feel free
@@ -460,19 +517,21 @@ namespace Unity.Entities
                 if (World.QuitUpdate)
                     break;
             }
+
+            World.InternalDestroyPendingUnmanagedSystems();
         }
     }
 
     public static class ComponentSystemGroupExtensions
     {
-        internal static void AddSystemToUpdateList(this ComponentSystemGroup self, SystemRefUntyped sysRef)
+        internal static void AddSystemToUpdateList(this ComponentSystemGroup self, SystemHandleUntyped sysHandle)
         {
-            self.AddUnmanagedSystemToUpdateList(sysRef);
+            self.AddUnmanagedSystemToUpdateList(sysHandle);
         }
 
-        internal static void RemoveSystemFromUpdateList(this ComponentSystemGroup self, SystemRefUntyped sysRef)
+        internal static void RemoveSystemFromUpdateList(this ComponentSystemGroup self, SystemHandleUntyped sysHandle)
         {
-            self.RemoveUnmanagedSystemFromUpdateList(sysRef);
+            self.RemoveUnmanagedSystemFromUpdateList(sysHandle);
         }
     }
 }

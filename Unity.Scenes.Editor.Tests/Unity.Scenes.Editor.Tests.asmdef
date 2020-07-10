@@ -3,7 +3,7 @@
     "references": [
         "Unity.Entities.Tests",
         "Unity.Entities",
-        "Unity.Scenes.Hybrid",
+        "Unity.Scenes",
         "Unity.Scenes.Editor",
         "Unity.Entities.Hybrid",
         "Unity.Entities.Hybrid.Tests",
@@ -12,7 +12,6 @@
         "Unity.Entities.TestComponents",
         "Unity.Mathematics",
         "Unity.Build",
-        "Unity.Build.Common",
         "Unity.Collections"
     ],
     "includePlatforms": [

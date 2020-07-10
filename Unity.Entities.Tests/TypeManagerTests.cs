@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Transforms;
+using UnityEngine;
 
 #pragma warning disable 649
 
@@ -33,8 +35,7 @@ namespace Unity.Entities.Tests
         {
             int empty;
         }
-#if !UNITY_DOTSPLAYER_IL2CPP
-// https://unity3d.atlassian.net/browse/DOTSR-1433
+
         struct TestTypeWithBool : IComponentData, IEquatable<TestTypeWithBool>
         {
             bool empty;
@@ -64,7 +65,6 @@ namespace Unity.Entities.Tests
                 return empty.GetHashCode();
             }
         }
-#endif
 
         public struct GenericComponent<T> : IComponentData
         {
@@ -85,16 +85,12 @@ namespace Unity.Entities.Tests
             Assert.AreNotEqual(archetype1, archetype2);
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
-// https://unity3d.atlassian.net/browse/DOTSR-1433
         [Test]
         public void TestPrimitiveButNotBlittableTypesAllowed()
         {
             Assert.AreEqual(1, TypeManager.GetTypeInfo<TestTypeWithBool>().SizeInChunk);
             Assert.AreEqual(2, TypeManager.GetTypeInfo<TestTypeWithChar>().SizeInChunk);
         }
-
-#endif
 
         // We need to decide whether this should actually be allowed; for now, add a test to make sure
         // we don't break things more than they already are.
@@ -127,7 +123,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void BufferTypeClassificationWorks()
         {
-            var t  = TypeManager.GetTypeInfo<IntElement>();
+            var t = TypeManager.GetTypeInfo<IntElement>();
             Assert.AreEqual(TypeManager.TypeCategory.BufferData, t.Category);
             Assert.AreEqual(99, t.BufferCapacity);
             Assert.AreEqual(UnsafeUtility.SizeOf<BufferHeader>() + 99 * sizeof(int), t.SizeInChunk);
@@ -238,7 +234,109 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSPLAYER
+        [UpdateBefore(typeof(PresentationSystemGroup))]
+        [UpdateAfter(typeof(InitializationSystemGroup))]
+        class TestComponentSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        class TestComponentSystemGroup : ComponentSystemGroup
+        {
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        [Test]
+        public void TestGetSystems()
+        {
+            var allSystemTypes = TypeManager.GetSystems();
+            bool foundTestSystem = false;
+            for(int i = 0; i < allSystemTypes.Count;++i)
+            {
+                var sys = allSystemTypes[i];
+                if(sys == typeof(PresentationSystemGroup)) // A group we know will always exist
+                {
+                    foundTestSystem = true;
+                    break;
+                }
+            }
+            Assert.IsTrue(foundTestSystem);
+        }
+
+        [Test]
+        [Conditional("DEBUG")]
+        public void TestGetSystemName()
+        {
+#if UNITY_DOTSRUNTIME
+            Assert.AreEqual("Unity.Entities.Tests.TypeManagerTests/TestComponentSystem", TypeManager.GetSystemName(typeof(TestComponentSystem)));
+#else
+            Assert.AreEqual("Unity.Entities.Tests.TypeManagerTests+TestComponentSystem", TypeManager.GetSystemName(typeof(TestComponentSystem)));
+#endif
+        }
+
+        [Test]
+        public void TestGetSystemAttributes()
+        {
+            var updateBeforeAttributes = TypeManager.GetSystemAttributes(typeof(TestComponentSystem), typeof(UpdateBeforeAttribute));
+            Assert.AreEqual(1, updateBeforeAttributes.Length);
+            Assert.AreEqual(typeof(PresentationSystemGroup), ((UpdateBeforeAttribute)updateBeforeAttributes[0]).SystemType);
+
+            var updateAfterAttributes = TypeManager.GetSystemAttributes(typeof(TestComponentSystem), typeof(UpdateAfterAttribute));
+            Assert.AreEqual(1, updateAfterAttributes.Length);
+            Assert.AreEqual(typeof(InitializationSystemGroup), ((UpdateAfterAttribute)updateAfterAttributes[0]).SystemType);
+        }
+
+        [Test]
+        public void TestIsComponentSystemGroup()
+        {
+            Assert.IsTrue(!TypeManager.IsSystemAGroup(typeof(TestComponentSystem)));
+            Assert.IsTrue(TypeManager.IsSystemAGroup(typeof(TestComponentSystemGroup)));
+        }
+
+        [WorldSystemFilter(WorldSystemFilterFlags.Default)]
+        class DefaultFilteredSystem : SystemBase{ protected override void OnUpdate() { } }
+        [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
+        class ProcessAfterLoadFilteredSystem : SystemBase { protected override void OnUpdate() { } }
+        [ExecuteAlways]
+        class ExecuteAlwaysFilteredSystem : SystemBase { protected override void OnUpdate() { } }
+
+        int ValidateFilterFlags(NativeHashMap<int, WorldSystemFilterFlags> allTypesMap, WorldSystemFilterFlags expectedFilterFlags, WorldSystemFilterFlags requiredFlags = WorldSystemFilterFlags.Default)
+        {
+            Assert.IsTrue(expectedFilterFlags != WorldSystemFilterFlags.All);
+
+            var filteredTypes = TypeManager.GetSystems(expectedFilterFlags, requiredFlags);
+            foreach(var t in filteredTypes)
+            {
+                var actualFilterFlags = TypeManager.GetSystemFilterFlags(t);
+
+                Assert.IsTrue((expectedFilterFlags & actualFilterFlags) != 0, $"Flags for system {t} do not match");
+                Assert.GreaterOrEqual((int)actualFilterFlags, (int)requiredFlags, $"Actual Flags for system {t} should be greater than or equal to required flags");
+            }
+
+            return filteredTypes.Count;
+        }
+
+        [Test]
+        public void GetSystemsWorldSystemFilterFlags()
+        {
+            var allTypes = TypeManager.GetSystems(WorldSystemFilterFlags.All);
+            var allTypesMap = new NativeHashMap<int, WorldSystemFilterFlags>(allTypes.Count, Allocator.Temp);
+            foreach (var t in allTypes)
+                allTypesMap.Add(t.GetHashCode(), TypeManager.GetSystemFilterFlags(t));
+
+            var numDefaultSystems = ValidateFilterFlags(allTypesMap, WorldSystemFilterFlags.Default, WorldSystemFilterFlags.Default);
+            var numProcessAfterLoadSystems = ValidateFilterFlags(allTypesMap, WorldSystemFilterFlags.ProcessAfterLoad, WorldSystemFilterFlags.ProcessAfterLoad);
+            var numCombinedSystems = ValidateFilterFlags(allTypesMap, WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ProcessAfterLoad);
+            Assert.AreEqual(numCombinedSystems, numDefaultSystems + numProcessAfterLoadSystems);
+            Assert.IsTrue(numCombinedSystems <= allTypes.Count);
+            allTypesMap.Dispose();
+        }
+
+#if !UNITY_DOTSRUNTIME // No reflection support in TypeManager in DOTS Runtime even without TinyBCL; no UnityEngine in DOTS Runtime
         [DisableAutoTypeRegistration]
         struct NonBlittableComponentData : IComponentData
         {
@@ -549,7 +647,7 @@ namespace Unity.Entities.Tests
 #endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME // No UnityEngine in DOTS Runtime
         [DisableAutoTypeRegistration]
         class ManagedComponentDataNoDefaultConstructor : IComponentData, IEquatable<ManagedComponentDataNoDefaultConstructor>
         {
@@ -580,7 +678,7 @@ namespace Unity.Entities.Tests
             );
         }
 
-    #pragma warning disable 649
+#pragma warning disable 649
         class TestScriptableObjectWithFields : UnityEngine.ScriptableObject
         {
             public int Value;

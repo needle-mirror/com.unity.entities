@@ -242,4 +242,4 @@ namespace Unity.Entities.Tests
     }
 }
 
-#endif // UNITY_DOTSPLAYER_IL2CPP
+#endif // NET_DOTS

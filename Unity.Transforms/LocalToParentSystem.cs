@@ -17,8 +17,8 @@ namespace Unity.Transforms
         [BurstCompile]
         struct UpdateHierarchy : IJobChunk
         {
-            [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> LocalToWorldType;
-            [ReadOnly] public ArchetypeChunkBufferType<Child> ChildType;
+            [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandle;
+            [ReadOnly] public BufferTypeHandle<Child> ChildTypeHandle;
             [ReadOnly] public BufferFromEntity<Child> ChildFromEntity;
             [ReadOnly] public ComponentDataFromEntity<LocalToParent> LocalToParentFromEntity;
             [ReadOnly] public EntityQueryMask LocalToWorldWriteGroupMask;
@@ -45,7 +45,7 @@ namespace Unity.Transforms
                     localToWorldMatrix = LocalToWorldFromEntity[entity].Value;
                 }
 
-                if (ChildFromEntity.Exists(entity))
+                if (ChildFromEntity.HasComponent(entity))
                 {
                     var children = ChildFromEntity[entity];
                     for (int i = 0; i < children.Length; i++)
@@ -58,11 +58,11 @@ namespace Unity.Transforms
             public void Execute(ArchetypeChunk chunk, int index, int entityOffset)
             {
                 bool updateChildrenTransform =
-                    chunk.DidChange<LocalToWorld>(LocalToWorldType, LastSystemVersion) ||
-                    chunk.DidChange<Child>(ChildType, LastSystemVersion);
+                    chunk.DidChange<LocalToWorld>(LocalToWorldTypeHandle, LastSystemVersion) ||
+                    chunk.DidChange<Child>(ChildTypeHandle, LastSystemVersion);
 
-                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldType);
-                var chunkChildren = chunk.GetBufferAccessor(ChildType);
+                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
+                var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
                 for (int i = 0; i < chunk.Count; i++)
                 {
                     var localToWorldMatrix = chunkLocalToWorld[i].Value;
@@ -105,16 +105,16 @@ namespace Unity.Transforms
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
-            var localToWorldType = GetArchetypeChunkComponentType<LocalToWorld>(true);
-            var childType = GetArchetypeChunkBufferType<Child>(true);
+            var localToWorldType = GetComponentTypeHandle<LocalToWorld>(true);
+            var childType = GetBufferTypeHandle<Child>(true);
             var childFromEntity = GetBufferFromEntity<Child>(true);
             var localToParentFromEntity = GetComponentDataFromEntity<LocalToParent>(true);
             var localToWorldFromEntity = GetComponentDataFromEntity<LocalToWorld>();
 
             var updateHierarchyJob = new UpdateHierarchy
             {
-                LocalToWorldType = localToWorldType,
-                ChildType = childType,
+                LocalToWorldTypeHandle = localToWorldType,
+                ChildTypeHandle = childType,
                 ChildFromEntity = childFromEntity,
                 LocalToParentFromEntity = localToParentFromEntity,
                 LocalToWorldFromEntity = localToWorldFromEntity,

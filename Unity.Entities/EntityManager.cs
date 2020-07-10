@@ -44,6 +44,7 @@ namespace Unity.Entities
     [Preserve]
     [NativeContainer]
     [DebuggerTypeProxy(typeof(EntityManagerDebugView))]
+    [BurstCompatible]
     public unsafe partial struct EntityManager : IEquatable<EntityManager>
     {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -56,23 +57,32 @@ namespace Unity.Entities
         {
             s_staticSafetyId.Data = AtomicSafetyHandle.NewStaticSafetyId<EntityManager>();
         }
-
 #endif
-        private bool m_JobMode;
+        private bool m_IsInExclusiveTransaction;
 #endif
 
         [NativeDisableUnsafePtrRestriction]
         private EntityDataAccess* m_EntityDataAccess;
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void AssertIsExclusiveTransaction()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (m_IsInExclusiveTransaction == !m_EntityDataAccess->IsInExclusiveTransaction)
+            {
+                if (m_IsInExclusiveTransaction)
+                    throw new InvalidOperationException("EntityManager cannot be used from this context because it is part of an exclusive transaction that has already ended.");
+                throw new InvalidOperationException("EntityManager cannot be used from this context because it is not part of the exclusive transaction that is currently active.");
+            }
+#endif
+        }
+
         internal EntityDataAccess* GetCheckedEntityDataAccess()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
-            if (m_JobMode != m_EntityDataAccess->m_JobMode)
-            {
-                throw new InvalidOperationException($"EntityManager cannot be used from this context job mode {m_JobMode} != current mode {m_EntityDataAccess->m_JobMode}");
-            }
 #endif
+            AssertIsExclusiveTransaction();
             return m_EntityDataAccess;
         }
 
@@ -150,7 +160,7 @@ namespace Unity.Entities
         /// <summary>
         /// A EntityQuery instance that matches all components.
         /// </summary>
-        public EntityQuery UniversalQuery => GetCheckedEntityDataAccess()->ManagedEntityDataAccess.m_UniversalQuery;
+        public EntityQuery UniversalQuery => GetCheckedEntityDataAccess()->m_UniversalQuery;
 
         /// <summary>
         /// An object providing debugging information and operations.
@@ -166,11 +176,29 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        /// The total reserved address space for all Chunks in all Worlds.
+        /// </summary>
+        public static ulong TotalChunkAddressSpaceInBytes
+        {
+            get => Entities.EntityComponentStore.TotalChunkAddressSpaceInBytes;
+            set => Entities.EntityComponentStore.TotalChunkAddressSpaceInBytes = value;
+        }
+
         internal void Initialize(World world)
         {
             TypeManager.Initialize();
             StructuralChange.Initialize();
             EntityCommandBuffer.Initialize();
+            ECBInterop.Initialize();
+            ChunkIterationUtility.Initialize();
+
+            // Pick any recorded types that have come in after a domain reload.
+            SystemBaseRegistry.InitializePendingTypes();
+
+#if !UNITY_DOTSRUNTIME
+            CreateJobReflectionData();
+#endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Safety = AtomicSafetyHandle.Create();
@@ -183,12 +211,39 @@ namespace Unity.Entities
             AtomicSafetyHandle.SetStaticSafetyId(ref m_Safety, s_staticSafetyId.Data);
 #endif
 
-            m_JobMode = false;
+            m_IsInExclusiveTransaction = false;
 #endif
             m_EntityDataAccess = (EntityDataAccess*)UnsafeUtility.Malloc(sizeof(EntityDataAccess), 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_EntityDataAccess, sizeof(EntityDataAccess));
             EntityDataAccess.Initialize(m_EntityDataAccess, world);
         }
+
+#if !UNITY_DOTSRUNTIME
+        private void CreateJobReflectionData()
+        {
+            // Until we have reliable IL postprocessing or code generation we will have to resort to making these initialization calls manually.
+            IJobBurstScheduableExtensions.JobStruct<EntityComponentStore.EntityBatchFromEntityChunkDataShared>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<EntityComponentStore.SortEntityInChunk>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<EntityComponentStore.GetOrCreateDestroyedEntitiesJob>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<EntityDataAccess.DestroyChunks>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<ChunkPatchEntities>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<MoveChunksJob>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<MoveAllChunksJob>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<GatherAllManagedComponentIndicesJob>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<GatherManagedComponentIndicesInChunkJob>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<MoveFilteredChunksBetweenArchetypexJob>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<GatherChunksAndOffsetsJob>.Initialize();
+            IJobBurstScheduableExtensions.JobStruct<GatherChunksAndOffsetsWithFilteringJob>.Initialize();
+
+            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<EntityComponentStore.GatherEntityInChunkForEntities>.Initialize();
+            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<RemapChunksFilteredJob>.Initialize();
+            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<RemapAllChunksJob>.Initialize();
+            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<RemapAllArchetypesJob>.Initialize();
+            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<GatherChunks>.Initialize();
+            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<GatherChunksWithFiltering>.Initialize();
+            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<JoinChunksJob>.Initialize();
+        }
+#endif
 
         internal void PreDisposeCheck()
         {
@@ -196,6 +251,7 @@ namespace Unity.Entities
             GetCheckedEntityDataAccess()->DependencyManager->PreDisposeCheck();
         }
 
+        [NotBurstCompatible]
         internal void DestroyInstance()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

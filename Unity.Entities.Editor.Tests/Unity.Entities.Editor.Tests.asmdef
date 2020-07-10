@@ -8,7 +8,6 @@
         "Unity.Entities.Editor",
         "Unity.Entities.Tests",
         "Unity.Build",
-        "Unity.Build.Common",
         "Unity.Build.Classic",
         "Unity.Build.Classic.Private",
         "Unity.Properties"

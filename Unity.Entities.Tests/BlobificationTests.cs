@@ -1,7 +1,7 @@
-#if !UNITY_DOTSPLAYER
 using UnityEngine;
 using NUnit.Framework;
 using System;
+using System.Diagnostics;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -9,6 +9,13 @@ using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Collections.LowLevel.Unsafe;
 using Assert = NUnit.Framework.Assert;
+using Unity.Mathematics;
+using System.IO;
+using Unity.IO.LowLevel.Unsafe;
+#if UNITY_DOTSRUNTIME
+using Unity.Tiny;
+using Unity.Tiny.IO;
+#endif
 
 public class BlobTests : ECSTestsFixture
 {
@@ -20,21 +27,21 @@ public class BlobTests : ECSTestsFixture
     {
         public BlobArray<float> floatArray;
         public BlobPtr<float> nullPtr;
-        public BlobPtr<Vector3> oneVector3;
+        public BlobPtr<float3> oneVector3;
         public float embeddedFloat;
         public BlobArray<BlobArray<int>> nestedArray;
         public BlobString str;
         public BlobString emptyStr;
     }
 
-    static unsafe BlobAssetReference<MyData> ConstructBlobData()
+    static unsafe BlobBuilder ConstructBlobBuilder()
     {
         var builder = new BlobBuilder(Allocator.Temp);
 
         ref var root = ref builder.ConstructRoot<MyData>();
 
         var floatArray = builder.Allocate(ref root.floatArray, 3);
-        ref Vector3 oneVector3 = ref builder.Allocate(ref root.oneVector3);
+        ref float3 oneVector3 = ref builder.Allocate(ref root.oneVector3);
         var nestedArrays = builder.Allocate(ref root.nestedArray, 2);
 
         var nestedArray0 = builder.Allocate(ref nestedArrays[0], 1);
@@ -52,15 +59,21 @@ public class BlobTests : ECSTestsFixture
         floatArray[2] = 2;
 
         root.embeddedFloat = 4;
-        oneVector3 = new Vector3(3, 3, 3);
+        oneVector3 = new float3(3, 3, 3);
 
+        return builder;
+    }
+
+    static unsafe BlobAssetReference<MyData> ConstructBlobData()
+    {
+        var builder = ConstructBlobBuilder();
         var blobAsset = builder.CreateBlobAssetReference<MyData>(Allocator.Persistent);
-
         builder.Dispose();
 
         return blobAsset;
     }
 
+    [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
     static void ValidateBlobData(ref MyData root)
     {
         // not using Assert.AreEqual here because the asserts have to execute in burst jobs
@@ -73,7 +86,7 @@ public class BlobTests : ECSTestsFixture
             throw new AssertionException("ValidateBlobData didn't match");
         if (2 != root.floatArray[2])
             throw new AssertionException("ValidateBlobData didn't match");
-        if (new Vector3(3, 3, 3) != root.oneVector3.Value)
+        if (!new float3(3, 3, 3).Equals(root.oneVector3.Value))
             throw new AssertionException("ValidateBlobData didn't match");
 
         if (4 != root.embeddedFloat)
@@ -109,7 +122,7 @@ public class BlobTests : ECSTestsFixture
         Assert.AreEqual(0, root.floatArray[0]);
         Assert.AreEqual(1, root.floatArray[1]);
         Assert.AreEqual(2, root.floatArray[2]);
-        Assert.AreEqual(new Vector3(3, 3, 3), root.oneVector3.Value);
+        Assert.AreEqual(new float3(3, 3, 3), root.oneVector3.Value);
         Assert.AreEqual(4, root.embeddedFloat);
 
         Assert.AreEqual(1, root.nestedArray[0].Length);
@@ -152,8 +165,8 @@ public class BlobTests : ECSTestsFixture
         public BlobAssetReference<MyData> blobAsset;
     }
 
-
-    [BurstCompile(CompileSynchronously = true)]
+    // Cannot be compiled by Burst because of the call to `builder.AllocateString` in `ConstructBlobBuilder`.
+    //[BurstCompile(CompileSynchronously = true)]
     struct ConstructAccessAndDisposeBlobData : IJob
     {
         public void Execute()
@@ -164,13 +177,13 @@ public class BlobTests : ECSTestsFixture
         }
     }
 
-    [Ignore("DisposeSentinel in NativeList prevents this. Fix should be in 19.3")]
     [Test]
-    public  void BurstedConstructionAndAccess()
+    public void BurstedConstructionAndAccess()
     {
         new ConstructAccessAndDisposeBlobData().Schedule().Complete();
     }
 
+#if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
 #pragma warning disable 618
     [BurstCompile(CompileSynchronously = true)]
     struct AccessAndDisposeBlobDataBurst : IJobForEach<ComponentWithBlobData>
@@ -183,6 +196,7 @@ public class BlobTests : ECSTestsFixture
         }
     }
 #pragma warning restore 618
+
 
     [Test]
     public  void ReadAndDestroyBlobDataFromBurstJob()
@@ -248,6 +262,7 @@ public class BlobTests : ECSTestsFixture
         jobData.ExpectException = true;
         jobData.Schedule(EmptySystem).Complete();
     }
+#endif
 
     [Test]
     public void BlobAssetReferenceIsComparable()
@@ -310,7 +325,7 @@ public class BlobTests : ECSTestsFixture
             builder.Allocate(ref root.oneVector3);
 
             // Throw on access expected here
-            root.oneVector3.Value = Vector3.zero;
+            root.oneVector3.Value = float3.zero;
         });
 
         builder.Dispose();
@@ -504,5 +519,153 @@ public class BlobTests : ECSTestsFixture
 
         return entities;
     }
-}
+
+#if !UNITY_DOTSRUNTIME
+    [Test]
+    public void BlobAssetReferenceTryRead()
+    {
+        const int kVersion = 42;
+        const int kIncorrectVersion = 13;
+        Assert.AreNotEqual(kVersion, kIncorrectVersion);
+
+        string path = "BlobAssetReferenceIOTestData.blob";
+        if (File.Exists(path))
+            File.Delete(path);
+
+        try
+        {
+            bool result = false;
+            var blobBuilder = ConstructBlobBuilder();
+            BlobAssetReference<MyData>.Write(blobBuilder, path, kVersion);
+
+            result = BlobAssetReference<MyData>.TryRead(path, kIncorrectVersion, out var incorrectBlobResult);
+            Assert.IsTrue(!result);
+
+            result = BlobAssetReference<MyData>.TryRead(path, kVersion, out var correctBlobResult);
+            Assert.IsTrue(result);
+            ValidateBlobData(ref correctBlobResult.Value);
+            correctBlobResult.Dispose();
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+#else
+    [Test]
+    public unsafe void BlobAssetReferenceTryRead()
+    {
+        const int kVersion = 42;
+        const int kIncorrectVersion = 13;
+        Assert.AreNotEqual(kVersion, kIncorrectVersion);
+
+        string path = "BlobAssetReferenceIOTestData.blob";
+        var startTime = Time.realtimeSinceStartup;
+        var op = IOService.RequestAsyncRead(path);
+        while (op.GetStatus() <= AsyncOp.Status.InProgress)
+        {
+            if ((Time.realtimeSinceStartup - startTime) > 5.0 /*seconds*/)
+                break;
+        }
+        Assert.IsTrue(op.GetStatus() == AsyncOp.Status.Success);
+
+        bool result = false;
+        op.GetData(out var data, out var dataSize);
+        result = BlobAssetReference<MyData>.TryRead(data, kIncorrectVersion, out var incorrectBlobResult);
+        Assert.IsTrue(!result);
+
+        result = BlobAssetReference<MyData>.TryRead(data, kVersion, out var correctBlobResult);
+        Assert.IsTrue(result);
+        ValidateBlobData(ref correctBlobResult.Value);
+
+        correctBlobResult.Dispose();
+        op.Dispose();
+    }
 #endif
+
+    public struct Node
+    {
+        BlobPtr<byte> _parent;
+        BlobArray<byte> _children;
+        public int id;
+
+        // Core CLR can't handle cyclic references.
+        // https://github.com/dotnet/runtime/issues/5479
+        // Thus we do this workaround for blob ptr
+        unsafe public ref BlobPtr<Node> parent
+        {
+            get
+            {
+                return ref UnsafeUtility.AsRef<BlobPtr<Node>>(UnsafeUtility.AddressOf(ref _parent));
+            }
+        }
+
+        unsafe public ref BlobArray<Node> children
+        {
+           get
+            {
+                return ref UnsafeUtility.AsRef<BlobArray<Node>>(UnsafeUtility.AddressOf(ref _children));
+            }
+        }
+    }
+
+    [Test]
+    public void BlobSetPointer()
+    {
+        BlobBuilder builder = new BlobBuilder(Allocator.Temp);
+        {
+            ref var rootNode = ref builder.ConstructRoot<Node>();
+
+            rootNode.id = 0;
+
+            var children = builder.Allocate(ref rootNode.children, 2);
+
+            builder.SetPointer(ref children[0].parent, ref rootNode);
+            children[0].id = 1;
+            builder.SetPointer(ref children[1].parent, ref rootNode);
+            children[1].id = 2;
+
+            var grandChildren = builder.Allocate(ref children[1].children, 1);
+
+            builder.SetPointer(ref grandChildren[0].parent, ref children[1]);
+            grandChildren[0].id = 3;
+        }
+
+        var blob = builder.CreateBlobAssetReference<Node>(Allocator.Temp);
+
+        builder.Dispose();
+
+        {
+            ref var rootNode = ref blob.Value;
+
+            ref var child0 = ref rootNode.children[0];
+            ref var child1 = ref rootNode.children[1];
+
+            ref var grandChild = ref child1.children[0];
+
+            Assert.AreEqual(0, rootNode.id);
+            Assert.AreEqual(1, child0.id);
+            Assert.AreEqual(2, child1.id);
+            Assert.AreEqual(3, grandChild.id);
+
+            Assert.IsFalse(rootNode.parent.IsValid);
+            Assert.AreEqual(0, child0.parent.Value.id);
+            Assert.AreEqual(0, child1.parent.Value.id);
+            Assert.AreEqual(2, grandChild.parent.Value.id);
+        }
+
+        blob.Dispose();
+    }
+
+    [Test]
+    public void BlobSetPointerException()
+    {
+        Assert.Throws<ArgumentException>(() => {
+            BlobBuilder builder = new BlobBuilder(Allocator.Temp);
+            ref var rootNode = ref builder.ConstructRoot<Node>();
+            var child = new Node();
+            builder.SetPointer(ref rootNode.parent, ref child);
+            });
+    }
+}

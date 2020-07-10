@@ -1,5 +1,6 @@
 using System;
 using Unity.Entities;
+using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Hybrid.Tests
 {
@@ -7,6 +8,7 @@ namespace Unity.Entities.Hybrid.Tests
     public struct TestWithCustomDefaultGameObjectInjectionWorld
     {
         public World PreviousGameObjectInjectionWorld;
+        private PlayerLoopSystem m_PrevPlayerLoop;
 
         public void Setup()
         {
@@ -21,7 +23,6 @@ namespace Unity.Entities.Hybrid.Tests
             if (PreviousGameObjectInjectionWorld != null && !PreviousGameObjectInjectionWorld.IsCreated)
                 PreviousGameObjectInjectionWorld = null;
             World.DefaultGameObjectInjectionWorld = PreviousGameObjectInjectionWorld;
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(PreviousGameObjectInjectionWorld);
         }
     }
 }

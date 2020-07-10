@@ -4,7 +4,7 @@ using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME // IJobForEach is deprecated
     class IJobForEachCombinationsTests : ECSTestsFixture
     {
 #pragma warning disable 618
@@ -496,7 +496,6 @@ namespace Unity.Entities.Tests
             CheckResultsAndDispose(entities, 4, true);
         }
 
-#if !UNITY_DOTSPLAYER
         [Test]
         public void JobProcessBufferStress_1([Values] CallMode call, [Values] ProcessMode mode, [Values(0, 1, 1000)] int entityCount)
         {
@@ -665,7 +664,6 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-#endif
     }
-#endif //  UNITY_DOTSPLAYER
+#endif //  UNITY_DOTSRUNTIME
 }

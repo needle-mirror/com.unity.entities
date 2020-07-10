@@ -85,8 +85,8 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i];
-                var shared = chunk.GetSharedComponentData(m_Manager.GetArchetypeChunkSharedComponentType<SharedData1>(), m_Manager);
-                var testDataArray = chunk.GetNativeArray(m_Manager.GetArchetypeChunkComponentType<EcsTestData>(true));
+                var shared = chunk.GetSharedComponentData(m_Manager.GetSharedComponentTypeHandle<SharedData1>(), m_Manager);
+                var testDataArray = chunk.GetNativeArray(m_Manager.GetComponentTypeHandle<EcsTestData>(true));
                 for (int j = 0; j < testDataArray.Length; ++j)
                 {
                     Assert.AreEqual(shared.value, testDataArray[i].value % 5);
@@ -236,8 +236,8 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i];
-                var shared = chunk.GetSharedComponentData(m_Manager.GetArchetypeChunkSharedComponentType<SharedData1>(), m_Manager);
-                var testDataArray = chunk.GetNativeArray(m_Manager.GetArchetypeChunkComponentType<EcsTestData>(true));
+                var shared = chunk.GetSharedComponentData(m_Manager.GetSharedComponentTypeHandle<SharedData1>(), m_Manager);
+                var testDataArray = chunk.GetNativeArray(m_Manager.GetComponentTypeHandle<EcsTestData>(true));
                 for (int j = 0; j < testDataArray.Length; ++j)
                 {
                     Assert.AreEqual(shared.value, testDataArray[i].value % 5);
@@ -273,8 +273,8 @@ namespace Unity.Entities.Tests
             var chunksPerValue = new int[5];
             var chunks = srcGroup.CreateArchetypeChunkArray(Allocator.TempJob);
 
-            var sharedData1Type = creationManager.GetArchetypeChunkSharedComponentType<SharedData1>();
-            var ecsTestData2Type = creationManager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var sharedData1Type = creationManager.GetSharedComponentTypeHandle<SharedData1>();
+            var ecsTestData2Type = creationManager.GetComponentTypeHandle<EcsTestData2>(false);
 
             foreach (var chunk in chunks)
             {
@@ -564,14 +564,14 @@ namespace Unity.Entities.Tests
         {
             const int creationWorldVersion = 42;
             const int dstWorldVersion = 500;
-            const int initialSharedVersion = 2;
+            const int initialSharedVersion = 3;
             //@TODO: AddSharedComponentData should be optimized to only do one move
             const int initialOrderVersion = 5;
 
             var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
-            Assert.AreEqual(0, m_Manager.GetSharedComponentOrderVersion(new SharedData1(1)));
+            Assert.AreEqual(1, m_Manager.GetSharedComponentOrderVersion(new SharedData1(1)));
             Assert.AreEqual(0, m_Manager.GetComponentOrderVersion<EcsTestData>());
 
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -604,7 +604,7 @@ namespace Unity.Entities.Tests
             creationWorld.Dispose();
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 // https://unity3d.atlassian.net/browse/DOTSR-1432
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

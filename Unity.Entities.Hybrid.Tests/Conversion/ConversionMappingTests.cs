@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Entities.Conversion;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -242,6 +244,48 @@ namespace Unity.Entities.Tests.Conversion
             StringAssert.Contains("is a Prefab that was not declared for conversion", x.Message);
         }
 
+        [Test]
+        public void CreateAdditionalEntities_WithNull_Throws()
+        {
+            var x = Assert.Throws<ArgumentNullException>(() => m_MappingSystem.CreateAdditionalEntities(null, default));
+            Assert.That(x.Message, Contains.Substring("must be called with a valid UnityEngine.Object"));
+        }
+
+        [Test]
+        public void CreateAdditionalEntities_WithComponent_Throws()
+        {
+            var component = CreateGameObject().AddComponent<TestBehaviour>();
+
+            Assert.Throws<InvalidOperationException>(() => m_MappingSystem.CreateAdditionalEntities(component, default));
+        }
+
+        [Test]
+        public void CreateAdditionalEntities_WithUnconvertedGameObject_Throws()
+        {
+            var go = CreateGameObject();
+
+            var x = Assert.Throws<ArgumentException>(() => m_MappingSystem.CreateAdditionalEntities(go, default));
+            StringAssert.IsMatch(".*GameObject.*was not included in the conversion.*", x.Message);
+        }
+
+        [Test]
+        public void CreateAdditionalEntities_WithUndeclaredPrefab_Throws()
+        {
+            var prefab = LoadPrefab("Prefab");
+
+            var x = Assert.Throws<ArgumentException>(() => m_MappingSystem.CreateAdditionalEntities(prefab, default));
+            StringAssert.Contains("is a Prefab that was not declared for conversion", x.Message);
+        }
+
+        [Test]
+        public void CreateAdditionalEntities_WithZeroArray_DoesNotThrow()
+        {
+            var go = CreateGameObject();
+            m_MappingSystem.CreatePrimaryEntity(go);
+            Assert.DoesNotThrow(() => m_MappingSystem.CreateAdditionalEntities(go, default));
+        }
+
+
         //@TODO: CreateAdditionalEntity_ with prefab, gameobject, asset
 
         [Test]
@@ -335,6 +379,64 @@ namespace Unity.Entities.Tests.Conversion
             var go = CreateGameObject();
 
             Assert.That(m_MappingSystem.GetEntities(go), Is.Empty);
+        }
+
+        [Test]
+        public void GetEntities_ReturnsPrimaryEntity()
+        {
+            var go0 = CreateGameObject("go0");
+
+            var entity0 = m_MappingSystem.CreatePrimaryEntity(go0);
+            var entities0 = m_MappingSystem.GetEntities(go0);
+            CollectionAssert.AreEqual(new[] { entity0 }, entities0);
+        }
+
+        [Test]
+        public void GetEntities_WithCreateAdditionalEntity_ReturnsAdditionalEntities()
+        {
+            var go0 = CreateGameObject("go0");
+
+            var entity0 = m_MappingSystem.CreatePrimaryEntity(go0);
+            var additional0 = m_MappingSystem.CreateAdditionalEntity(go0);
+            var additional1 = m_MappingSystem.CreateAdditionalEntity(go0);
+            var entities0 = m_MappingSystem.GetEntities(go0);
+            CollectionAssert.AreEqual(new[] { entity0, additional0, additional1 }, entities0);
+        }
+
+        [Test]
+        public void GetEntities_WithCreateAdditionalEntities_ReturnsAdditionalEntities()
+        {
+            var go0 = CreateGameObject("go0");
+
+            var entity0 = m_MappingSystem.CreatePrimaryEntity(go0);
+            var additional = new NativeArray<Entity>(2, Allocator.Temp);
+            m_MappingSystem.CreateAdditionalEntities(go0, additional);
+            var entities0 = m_MappingSystem.GetEntities(go0);
+            CollectionAssert.AreEqual(new[] { entity0, additional[0], additional[1] }, entities0);
+        }
+
+        [Test] public void GetEntities_WithZeroCreateAdditionalEntities_ReturnsOnlyPrimary()
+        {
+            var go0 = CreateGameObject("go0");
+
+            var entity0 = m_MappingSystem.CreatePrimaryEntity(go0);
+            m_MappingSystem.CreateAdditionalEntities(go0, default);
+            var entities0 = m_MappingSystem.GetEntities(go0);
+            CollectionAssert.AreEqual(new[] { entity0 }, entities0);
+        }
+
+        [Test]
+        public void GetEntities_WithManyCreateAdditionalEntities_ReturnsAdditionalEntities()
+        {
+            var go0 = CreateGameObject("go0");
+
+            var entities = new NativeArray<Entity>(10000, Allocator.Temp);
+            var entity0 = m_MappingSystem.CreatePrimaryEntity(go0);
+            m_MappingSystem.CreateAdditionalEntities(go0, entities);
+            var entities0 = m_MappingSystem.GetEntities(go0);
+            var result = new List<Entity>(1 + entities.Length) {entity0};
+            result.AddRange(entities);
+            CollectionAssert.AreEqual(result, entities0);
         }
 
         [Test]

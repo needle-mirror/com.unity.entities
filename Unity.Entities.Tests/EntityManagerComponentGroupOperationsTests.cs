@@ -178,12 +178,12 @@ namespace Unity.Entities.Tests
 #endif
         IComponentData
         {
-            return m_Manager.GetChunk(e).GetChangeVersion(m_Manager.GetArchetypeChunkComponentType<T>(true));
+            return m_Manager.GetChunk(e).GetChangeVersion(m_Manager.GetComponentTypeHandle<T>(true));
         }
 
         uint GetSharedComponentDataVersion<T>(Entity e) where T : struct, ISharedComponentData
         {
-            return m_Manager.GetChunk(e).GetChangeVersion(m_Manager.GetArchetypeChunkSharedComponentType<T>());
+            return m_Manager.GetChunk(e).GetChangeVersion(m_Manager.GetSharedComponentTypeHandle<T>());
         }
 
         [Test]
@@ -378,7 +378,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // ISharedComponentData
         public void AddRemoveComponentWithGroupPreservesChangeVersions_ManagedComponents()
         {
             m_ManagerDebug.SetGlobalSystemVersion(10);

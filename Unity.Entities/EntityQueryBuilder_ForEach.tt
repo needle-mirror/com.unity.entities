@@ -185,12 +185,12 @@ IEnumerable<string> GetGenericConstraints(Category[] categories) =>
 
 string[] AccessFunction =
 {
-    "GetArchetypeChunkComponentType",       // ref ComponentData
-    "GetArchetypeChunkComponentType",       // in ComponentData
-    "GetArchetypeChunkComponentType",       // class
-    "GetArchetypeChunkBufferType",          // IBufferElementData
-    "GetArchetypeChunkBufferType",          // in IBufferElementData
-    "GetArchetypeChunkSharedComponentType", // ISharedComponentData
+    "GetComponentTypeHandle",       // ref ComponentData
+    "GetComponentTypeHandle",       // in ComponentData
+    "GetComponentTypeHandle",       // class
+    "GetBufferTypeHandle",          // IBufferElementData
+    "GetBufferTypeHandle",          // in IBufferElementData
+    "GetSharedComponentTypeHandle", // ISharedComponentData
 };
 
 static string[] IsReadOnly=
@@ -225,8 +225,8 @@ string[] MutableChunkGetArray =
 
 string[] ArrayAccess =
 {
-    "ref UnsafeUtilityEx.ArrayElementAsRef<T{0}>(array{0}, i)", // ref ComponentData
-    "in UnsafeUtilityEx.ArrayElementAsRef<T{0}>(array{0}, i)",  // in ComponentData
+    "ref UnsafeUtility.ArrayElementAsRef<T{0}>(array{0}, i)",   // ref ComponentData
+    "in UnsafeUtility.ArrayElementAsRef<T{0}>(array{0}, i)",    // in ComponentData
     "array{0}[i]",                                              // class
     "array{0}[i]",                                              // IBufferElementData
     "array{0}[i]",                                              // in IBufferElementData
@@ -236,7 +236,7 @@ string[] ArrayAccess =
 string[] MutableArrayAccess =
 {
     "ref a{0}",                                                 // ComponentData
-    "in UnsafeUtilityEx.ArrayElementAsRef<T{0}>(array{0}, i)",  // in ComponentData
+    "in UnsafeUtility.ArrayElementAsRef<T{0}>(array{0}, i)",    // in ComponentData
     "array{0}[i]",                                              // class
     "array{0}[i]",                                              // IBufferElementData
     "array{0}[i]",                                              // in IBufferElementData

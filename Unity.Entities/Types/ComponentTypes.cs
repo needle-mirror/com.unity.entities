@@ -62,7 +62,7 @@ namespace Unity.Entities
 
         public ComponentType GetComponentType(int index)
         {
-            return TypeManager.GetType(m_sorted[index]);
+            return ComponentType.ReadWrite(m_sorted[index]);
         }
 
         public ComponentTypes(ComponentType a)

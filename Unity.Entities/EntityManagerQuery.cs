@@ -16,6 +16,7 @@ namespace Unity.Entities
         /// <param name="requiredComponents">An array containing the component types.</param>
         /// <returns>The EntityQuery derived from the specified array of component types.</returns>
         /// <seealso cref="EntityQueryDesc"/>
+        [NotBurstCompatible]
         public EntityQuery CreateEntityQuery(params ComponentType[] requiredComponents)
         {
             var access = GetCheckedEntityDataAccess();
@@ -30,6 +31,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="queriesDesc">A queryDesc identifying a set of component types.</param>
         /// <returns>The EntityQuery corresponding to the queryDesc.</returns>
+        [NotBurstCompatible]
         public EntityQuery CreateEntityQuery(params EntityQueryDesc[] queriesDesc)
         {
             var access = GetCheckedEntityDataAccess();
@@ -52,7 +54,7 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
             access->BeforeStructuralChange();
-            return access->ManagedEntityDataAccess.m_UniversalQuery.CreateArchetypeChunkArray(allocator);
+            return access->m_UniversalQuery.CreateArchetypeChunkArray(allocator);
         }
 
         /// <summary>
@@ -83,16 +85,13 @@ namespace Unity.Entities
         /// There is a maximum limit of 1024 EntityQueryMasks that can be created.  EntityQueryMasks cannot be created
         /// from EntityQueries with filters.
         /// </summary>
+        /// <remarks>Note that EntityQueryMask only filters by Archetype, it doesn't support EntityQuery shared component or change filtering.</remarks>
         /// <param name="query">The EntityQuery that describes the EntityQueryMask.</param>
         /// <returns>The EntityQueryMask corresponding to the EntityQuery.</returns>
         public EntityQueryMask GetEntityQueryMask(EntityQuery query)
         {
             var access = GetCheckedEntityDataAccess();
             var queryImpl = query._GetImpl();
-
-            if (query.HasFilter())
-                throw new Exception("GetEntityQueryMask can only be called on an EntityQuery without a filter applied to it."
-                    + "  You can call EntityQuery.ResetFilter to remove the filters from an EntityQuery.");
 
             if (queryImpl->_QueryData->EntityQueryMask.IsCreated())
                 return queryImpl->_QueryData->EntityQueryMask;
@@ -121,6 +120,7 @@ namespace Unity.Entities
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
 
+        [NotBurstCompatible]
         internal EntityQuery CreateEntityQuery(ComponentType* requiredComponents, int count)
         {
             var access = GetCheckedEntityDataAccess();

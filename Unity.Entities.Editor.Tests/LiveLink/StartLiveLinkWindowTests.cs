@@ -1,3 +1,4 @@
+using Bee.Core;
 using NUnit.Framework;
 using System;
 using System.IO;
@@ -5,10 +6,10 @@ using Unity.Build;
 using Unity.Build.Classic;
 using Unity.Build.Classic.Private;
 using Unity.Build.Common;
-using Unity.BuildSystem.NativeProgramSupport;
 using Unity.Scenes.Editor.Build;
 using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Tests
@@ -95,7 +96,7 @@ namespace Unity.Entities.Editor.Tests
                 configuration.SetComponent(new GeneralSettings());
                 configuration.SetComponent(new LiveLink());
                 configuration.SetComponent(new SceneList { BuildCurrentScene = true });
-                configuration.SetComponent(new ClassicBuildProfile { Platform = Platform.Windows });
+                configuration.SetComponent(new MockClassicBuildProfile());
                 configuration.SetComponent(new OutputBuildDirectory { OutputDirectory = "Builds" });
                 configuration.SetComponent(new ClassicScriptingSettings());
             }));
@@ -103,7 +104,7 @@ namespace Unity.Entities.Editor.Tests
             {
                 configuration.SetComponent(new GeneralSettings());
                 configuration.SetComponent(new SceneList { BuildCurrentScene = true });
-                configuration.SetComponent(new ClassicBuildProfile { Platform = Platform.Windows });
+                configuration.SetComponent(new MockClassicBuildProfile());
                 configuration.SetComponent(new OutputBuildDirectory { OutputDirectory = "Builds" });
                 configuration.SetComponent(new ClassicScriptingSettings());
             }));
@@ -128,7 +129,7 @@ namespace Unity.Entities.Editor.Tests
             {
                 configuration.SetComponent(new GeneralSettings());
                 configuration.SetComponent(new SceneList { BuildCurrentScene = true });
-                configuration.SetComponent(new ClassicBuildProfile { Platform = Platform.Windows });
+                configuration.SetComponent(new MockClassicBuildProfile());
                 configuration.SetComponent(new OutputBuildDirectory { OutputDirectory = "TestConfigurationBuilds" });
                 configuration.SetComponent(new ClassicScriptingSettings());
             }));
@@ -155,17 +156,43 @@ namespace Unity.Entities.Editor.Tests
             return AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(cfg));
         }
 
+        [HideInInspector]
+        class MockClassicBuildProfile : IBuildPipelineComponent
+        {
+            public bool SetupEnvironment()
+            {
+                return false;
+            }
+            public BuildPipelineBase Pipeline { get; set; } = new MockClassicNonIncrementalPipeline();
+            public int SortingIndex { get; }
+        }
+
+        class MockPlatform : Platform
+        {
+            public override bool HasPosix { get; }
+        }
+
         // This class is not directly referenced, but it is instanciated nonetheless.
         // It's used when running tests, to compensate for missing platform packages.
         class MockClassicNonIncrementalPipeline : ClassicNonIncrementalPipelineBase
         {
+            private Platform m_Platform;
             protected override RunResult OnRun(RunContext context)
             {
                 throw new NotImplementedException();
             }
 
-            protected override BuildTarget BuildTarget { get; } = BuildTarget.StandaloneWindows;
-            public override Platform Platform { get; } = Platform.Windows;
+            protected override BuildTarget BuildTarget { get; } = BuildTarget.NoTarget;
+
+            public override Platform Platform
+            {
+                get => m_Platform;
+            }
+
+            public MockClassicNonIncrementalPipeline()
+            {
+                m_Platform = new MockPlatform();
+            }
         }
     }
 }

@@ -21,7 +21,7 @@ namespace Unity.Entities
         {
             queryManager->m_DependencyManager = dependencyManager;
             queryManager->m_GroupDataChunkAllocator = new BlockAllocator(AllocatorManager.Persistent, 16 * 1024 * 1024); // 16MB should be enough
-            ref var groupCache = ref UnsafeUtilityEx.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref queryManager->m_EntityGroupDataCacheUntyped);
+            ref var groupCache = ref UnsafeUtility.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref queryManager->m_EntityGroupDataCacheUntyped);
             groupCache = new UnsafeMultiHashMap<int, int>(1024, Allocator.Persistent);
             queryManager->m_EntityGroupDatas = new UnsafeEntityQueryDataPtrList(0, Allocator.Persistent);
             queryManager->m_EntityQueryMasksAllocated = 0;
@@ -34,7 +34,7 @@ namespace Unity.Entities
 
         void Dispose()
         {
-            ref var groupCache = ref UnsafeUtilityEx.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityGroupDataCacheUntyped);
+            ref var groupCache = ref UnsafeUtility.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityGroupDataCacheUntyped);
             groupCache.Dispose();
             for (var g = 0; g < m_EntityGroupDatas.Length; ++g)
             {
@@ -450,7 +450,7 @@ namespace Unity.Entities
             for (var i = 0; i < queryCount; ++i)
                 hash = hash * 397 ^ query[i].GetHashCode();
             EntityQueryData* cachedQuery = null;
-            ref var groupCache = ref UnsafeUtilityEx.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityGroupDataCacheUntyped);
+            ref var groupCache = ref UnsafeUtility.As<UntypedUnsafeHashMap, UnsafeMultiHashMap<int, int>>(ref m_EntityGroupDataCacheUntyped);
 
             if (groupCache.TryGetFirstValue(hash, out var entityGroupDataIndex, out var iterator))
             {

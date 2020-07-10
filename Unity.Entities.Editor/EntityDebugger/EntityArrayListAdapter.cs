@@ -108,7 +108,7 @@ namespace Unity.Entities.Editor
             {
                 get
                 {
-                    var entityArray = adapter.chunkArray[currentChunk].GetNativeArray(adapter.entityManager.GetArchetypeChunkEntityType());
+                    var entityArray = adapter.chunkArray[currentChunk].GetNativeArray(adapter.entityManager.GetEntityTypeHandle());
                     var entity = entityArray[currentIndexInChunk];
 
                     adapter.currentItem.id = entity.Index;
@@ -141,7 +141,7 @@ namespace Unity.Entities.Editor
         {
             foreach (var chunk in chunkArray)
             {
-                var array = chunk.GetNativeArray(entityManager.GetArchetypeChunkEntityType());
+                var array = chunk.GetNativeArray(entityManager.GetEntityTypeHandle());
                 foreach (var entity in array)
                 {
                     if (entity.Index == index)

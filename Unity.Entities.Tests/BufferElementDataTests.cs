@@ -196,6 +196,51 @@ namespace Unity.Entities.Tests
             CheckBufferContents(buffer, new int[] { 0, 1, 2, 3, 4, 5, 6, 8 });
         }
 
+        [Test]
+        public void RemoveAtSwapBack_WithFirstElement_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            buffer.Add(0);
+            buffer.Add(1);
+            buffer.Add(2);
+            buffer.RemoveAtSwapBack(0);
+            CheckBufferContents(buffer, new [] { 2, 1 });
+        }
+
+        [Test]
+        public void RemoveAtSwapBack_WithMiddleElement_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            buffer.Add(0);
+            buffer.Add(1);
+            buffer.Add(2);
+            buffer.RemoveAtSwapBack(1);
+            CheckBufferContents(buffer, new [] { 0, 2 });
+        }
+
+        [Test]
+        public void RemoveAtSwapBack_WithLastElement_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            buffer.Add(0);
+            buffer.Add(1);
+            buffer.Add(2);
+            buffer.RemoveAtSwapBack(2);
+            CheckBufferContents(buffer, new [] { 0, 1 });
+        }
+
+        [Test]
+        public void RemoveAtSwapBack_WithInvalidIndex_Throws()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            buffer.Add(0);
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveAtSwapBack(17));
+        }
+
         private static void CheckBufferContents(DynamicBuffer<EcsIntElement> buffer, int[] refs)
         {
             Assert.AreEqual(refs.Length, buffer.Length);
@@ -244,6 +289,133 @@ namespace Unity.Entities.Tests
             buffer.RemoveRange(5, 4);
 
             CheckBufferContents(buffer, new int[] { 0, 1, 2, 3, 4 });
+        }
+
+        [Test]
+        public void RemoveRange_WithEmptyRange_NoChanges()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            for (int i = 0; i < 9; ++i)
+                buffer.Add(i);
+
+            buffer.RemoveRange(0, 0);
+            for (int i = 0; i < 9; ++i)
+                buffer.RemoveRange(i, 0);
+
+            CheckBufferContents(buffer, new[] {0, 1, 2, 3, 4, 5, 6, 7, 8});
+        }
+
+        [Test]
+        public void RemoveRange_WithInvalidIndex_Throws()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            buffer.Add(0);
+            buffer.Add(1);
+            buffer.Add(2);
+            buffer.Add(3);
+
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveRange(-1, 2));
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveRange(-1, 7));
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveRange(2, 4));
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveRange(5, 2));
+        }
+
+        [Test]
+        public void RemoveRangeSwapBack_WithInvalidIndex_Throws()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            buffer.Add(0);
+            buffer.Add(1);
+            buffer.Add(2);
+            buffer.Add(3);
+
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveRangeSwapBack(-1, 2));
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveRangeSwapBack(-1, 7));
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveRangeSwapBack(2, 4));
+            Assert.Throws<IndexOutOfRangeException>(() => buffer.RemoveRangeSwapBack(5, 2));
+        }
+
+        [Test]
+        public void RemoveRangeSwapBack_WithFullBuffer_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            for (int i = 0; i < 9; ++i)
+                buffer.Add(i);
+
+            buffer.RemoveRangeSwapBack(0, 9);
+
+            CheckBufferContents(buffer, new int[] {});
+        }
+
+        [Test]
+        public void RemoveRangeSwapBack_WithEmptyRange_NoChanges()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            for (int i = 0; i < 9; ++i)
+                buffer.Add(i);
+
+            buffer.RemoveRangeSwapBack(0, 0);
+            for (int i = 0; i < 9; ++i)
+                buffer.RemoveRangeSwapBack(i, 0);
+
+            CheckBufferContents(buffer, new[] {0, 1, 2, 3, 4, 5, 6, 7, 8});
+        }
+
+        [Test]
+        public void RemoveRangeSwapBack_WithStartRange_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            for (int i = 0; i < 9; ++i)
+                buffer.Add(i);
+
+            buffer.RemoveRangeSwapBack(0, 2);
+
+            CheckBufferContents(buffer, new[] {7, 8, 2, 3, 4, 5, 6});
+        }
+
+        [Test]
+        public void RemoveRangeSwapBack_WithMiddleRange_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            for (int i = 0; i < 9; ++i)
+                buffer.Add(i);
+
+            buffer.RemoveRangeSwapBack(4, 2);
+
+            CheckBufferContents(buffer, new[] {0, 1, 2, 3, 7, 8, 6});
+        }
+
+        [Test]
+        public void RemoveRangeSwapBack_WithMiddleRangeOverlappingEnd_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            for (int i = 0; i < 9; ++i)
+                buffer.Add(i);
+
+            buffer.RemoveRangeSwapBack(6, 2);
+
+            CheckBufferContents(buffer, new[] {0, 1, 2, 3, 4, 5, 8});
+        }
+
+        [Test]
+        public void RemoveRangeSwapBack_WithEndRange_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            for (int i = 0; i < 9; ++i)
+                buffer.Add(i);
+
+            buffer.RemoveRangeSwapBack(7, 2);
+
+            CheckBufferContents(buffer, new[] {0, 1, 2, 3, 4, 5, 6});
         }
 
         [Test]
@@ -297,7 +469,7 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsIntElement));
 
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
-            var buffers = chunks[0].GetBufferAccessor(m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false));
+            var buffers = chunks[0].GetBufferAccessor(m_Manager.GetBufferTypeHandle<EcsIntElement>(false));
 
             Assert.AreEqual(2, buffers.Length);
             Assert.AreEqual(0, buffers[0].Length);
@@ -324,8 +496,8 @@ namespace Unity.Entities.Tests
             m_Manager.GetBuffer<EcsIntElement>(entityInt).CopyFrom(new EcsIntElement[] { 1, 2, 3 });
 
             var intLookup = EmptySystem.GetBufferFromEntity<EcsIntElement>();
-            Assert.IsTrue(intLookup.Exists(entityInt));
-            Assert.IsFalse(intLookup.Exists(new Entity()));
+            Assert.IsTrue(intLookup.HasComponent(entityInt));
+            Assert.IsFalse(intLookup.HasComponent(new Entity()));
 
             Assert.AreEqual(2, intLookup[entityInt][1].Value);
         }
@@ -338,7 +510,11 @@ namespace Unity.Entities.Tests
             intArray.Add(12);
             m_Manager.DestroyEntity(entityInt);
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 intArray.Add(123);
             });
@@ -351,7 +527,11 @@ namespace Unity.Entities.Tests
             var intArray = m_Manager.GetBuffer<EcsIntElement>(entityInt);
             m_Manager.DestroyEntity(entityInt);
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 intArray.Add(123);
             });
@@ -365,7 +545,11 @@ namespace Unity.Entities.Tests
             var array = buffer[entityInt];
             m_Manager.DestroyEntity(entityInt);
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 array.Add(123);
             });
@@ -378,7 +562,12 @@ namespace Unity.Entities.Tests
             var buffer = m_Manager.GetBuffer<EcsIntElement>(entityInt);
             buffer.CopyFrom(new EcsIntElement[] { 1, 2, 3 });
             m_Manager.AddComponentData(entityInt, new EcsTestData() { value = 20 });
-            Assert.Throws<InvalidOperationException>(() => { buffer.Add(4); });
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
+            Assert.Throws<InvalidOperationException>(() =>
+#endif
+                { buffer.Add(4); });
         }
 
         [Test]
@@ -493,12 +682,20 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, array[0].Value);
             Assert.AreEqual(1, array.Length);
             buffer.Add(2);
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 int value = array[0].Value;
             });
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 array[0] = 5;
             });
@@ -521,12 +718,20 @@ namespace Unity.Entities.Tests
 
             b0.Add(1);
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 int value = a0[0].Value;
             });
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 int value = a1[0].Value;
             });
@@ -555,7 +760,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // IJob
         public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -569,7 +773,7 @@ namespace Unity.Entities.Tests
 
         struct WriteJob : IJobChunk
         {
-            public ArchetypeChunkBufferType<EcsIntElement> Int;
+            public BufferTypeHandle<EcsIntElement> Int;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
@@ -595,8 +799,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        [IgnoreInPortableTests("There are Assert.Throws in the WriteJob, which the runner doesn't find or support.")]
         public void ReadWriteDynamicBuffer()
         {
             // Create multiple chunks so we ensure we are doing parallel for writing to buffers
@@ -611,7 +813,7 @@ namespace Unity.Entities.Tests
             var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
             var job = new WriteJob
             {
-                Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntElement>()
+                Int = EmptySystem.GetBufferTypeHandle<EcsIntElement>()
             };
 
             job.Schedule(group).Complete();
@@ -620,7 +822,7 @@ namespace Unity.Entities.Tests
         struct ReadOnlyJob : IJobChunk
         {
             [ReadOnly]
-            public ArchetypeChunkBufferType<EcsIntElement> Int;
+            public BufferTypeHandle<EcsIntElement> Int;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
@@ -655,21 +857,19 @@ namespace Unity.Entities.Tests
             var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntElement)}});
             var job = new ReadOnlyJob
             {
-                Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntElement>(readOnlyType)
+                Int = EmptySystem.GetBufferTypeHandle<EcsIntElement>(readOnlyType)
             };
 
             job.Schedule(group).Complete();
         }
 
         [Test]
-        [DotsRuntimeFixme] // IJob. Turned on, and seems to work locally, failed in CI.
         public void ReadOnlyDynamicBufferReadOnly()
         {
             ReadOnlyDynamicBufferImpl(true);
         }
 
         [Test]
-        [DotsRuntimeFixme] // IJob
         public void ReadOnlyDynamicBufferWritable()
         {
             ReadOnlyDynamicBufferImpl(false);
@@ -685,7 +885,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // IJob + Safety Handles
         public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntElement));
@@ -716,7 +915,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // IJob
         public void NativeArrayInJobReadOnly()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntElement));

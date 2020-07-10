@@ -89,24 +89,40 @@ namespace Unity.Entities.Conversion
             Data[newId] = data;
         }
 
-        // walk to end of the given list, add new entry and return (id = node id within multilist, serial = node # within sublist)
         public (int id, int serial) AddTail(int headIdIndex)
         {
-            var headId = HeadIds[headIdIndex];
-
-            for (int currentId = headId, serial = 1;; ++serial)
+            unsafe
             {
-                var next = Next[currentId];
-                if (next < 0)
-                {
-                    var newId = Alloc();
-                    Next[currentId] = newId;
-                    Next[newId] = -1;
-                    return (newId, serial);
-                }
-
-                currentId = next;
+                int id;
+                int serial = AddTail(headIdIndex, &id, 1);
+                return (id, serial);
             }
+        }
+
+        // walk to end of the given list, add new entries and return the index of the first node added in the sublist.
+        public unsafe int AddTail(int headIdIndex, int* outIds, int count)
+        {
+            var headId = HeadIds[headIdIndex];
+            int currentId = headId;
+            int serial = 1;
+            {
+                int next = Next[currentId];
+                while (next > 0)
+                {
+                    currentId = next;
+                    next = Next[currentId];
+                    serial++;
+                }
+            }
+
+            Alloc(outIds, count);
+            for (int i = 0; i < count; i++)
+            {
+                Next[currentId] = outIds[i];
+                currentId = outIds[i];
+            }
+            Next[currentId] = -1;
+            return serial;
         }
 
         // walk to end of the given list, add new entry and return (id = node id within multilist, serial = node # within sublist)
@@ -200,6 +216,24 @@ namespace Unity.Entities.Conversion
             NextFree = Next[newId];
 
             return newId;
+        }
+
+        unsafe void Alloc(int* outIds, int count)
+        {
+            if (count == 0)
+                return;
+            if (NextFree < 0 || count > 1)
+                EnsureCapacity(MultiList.CalcEnsureCapacity(Next.Length, Next.Length + count));
+
+            int next = NextFree;
+            for (int i = 0; i < count; i++)
+            {
+                var newId = next;
+                outIds[i] = newId;
+                next = Next[newId];
+            }
+
+            NextFree = next;
         }
 
         void SetCapacity(int newCapacity)

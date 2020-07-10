@@ -1,15 +1,60 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using Unity.Entities;
-using Unity.Jobs;
 using Unity.Collections;
 
 namespace Doc.CodeSamples.Tests
 {
-    public class DynamicBuffersManual : MonoBehaviour
+    #region add-in-job
+    using Unity.Entities;
+    using Unity.Jobs;
+
+    public class CreateEntitiesWithBuffers : SystemBase
     {
+        // A command buffer system executes command buffers in its own OnUpdate
+        public EntityCommandBufferSystem CommandBufferSystem;
+
+        protected override void OnCreate()
+        {
+            // Get the command buffer system
+            CommandBufferSystem
+                = World.DefaultGameObjectInjectionWorld.GetExistingSystem<EndSimulationEntityCommandBufferSystem>();
+        }
+
+        protected override void OnUpdate()
+        {
+            // The command buffer to record commands,
+            // which are executed by the command buffer system later in the frame
+            EntityCommandBuffer.ParallelWriter commandBuffer
+                = CommandBufferSystem.CreateCommandBuffer().AsParallelWriter();
+            //The DataToSpawn component tells us how many entities with buffers to create
+            Entities.ForEach((Entity spawnEntity, int entityInQueryIndex, in DataToSpawn data) =>
+            {
+                for (int e = 0; e < data.EntityCount; e++)
+                {
+                    //Create a new entity for the command buffer
+                    Entity newEntity = commandBuffer.CreateEntity(entityInQueryIndex);
+
+                    //Create the dynamic buffer and add it to the new entity
+                    DynamicBuffer<MyBufferElement> buffer =
+                        commandBuffer.AddBuffer<MyBufferElement>(entityInQueryIndex, newEntity);
+
+                    //Reinterpret to plain int buffer
+                    DynamicBuffer<int> intBuffer = buffer.Reinterpret<int>();
+
+                    //Optionally, populate the dynamic buffer
+                    for (int j = 0; j < data.ElementCount; j++)
+                    {
+                        intBuffer.Add(j);
+                    }
+                }
+
+                //Destroy the DataToSpawn entity since it has done its job
+                commandBuffer.DestroyEntity(entityInQueryIndex, spawnEntity);
+            }).ScheduleParallel();
+
+            CommandBufferSystem.AddJobHandleForProducer(this.Dependency);
+        }
     }
+    #endregion
 
     #region declare-element
 
@@ -108,44 +153,6 @@ namespace Doc.CodeSamples.Tests
             #endregion
         }
 
-        #region add-in-job
-
-#pragma warning disable 618
-        struct DataSpawnJob : IJobForEachWithEntity<DataToSpawn>
-        {
-            // A command buffer marshals structural changes to the data
-            public EntityCommandBuffer.Concurrent CommandBuffer;
-
-            //The DataToSpawn component tells us how many entities with buffers to create
-            public void Execute(Entity spawnEntity, int index, [ReadOnly] ref DataToSpawn data)
-            {
-                for (int e = 0; e < data.EntityCount; e++)
-                {
-                    //Create a new entity for the command buffer
-                    Entity newEntity = CommandBuffer.CreateEntity(index);
-
-                    //Create the dynamic buffer and add it to the new entity
-                    DynamicBuffer<MyBufferElement> buffer =
-                        CommandBuffer.AddBuffer<MyBufferElement>(index, newEntity);
-
-                    //Reinterpret to plain int buffer
-                    DynamicBuffer<int> intBuffer = buffer.Reinterpret<int>();
-
-                    //Optionally, populate the dynamic buffer
-                    for (int j = 0; j < data.ElementCount; j++)
-                    {
-                        intBuffer.Add(j);
-                    }
-                }
-
-                //Destroy the DataToSpawn entity since it has done its job
-                CommandBuffer.DestroyEntity(index, spawnEntity);
-            }
-        }
-#pragma warning restore 618
-
-        #endregion
-
         protected override void OnUpdate()
         {
             throw new System.NotImplementedException();
@@ -162,9 +169,9 @@ namespace Doc.CodeSamples.Tests
 
             Entities.ForEach((DynamicBuffer<MyBufferElement> buffer) =>
             {
-                foreach (var integer in buffer.Reinterpret<int>())
+                for(int i = 0; i < buffer.Length; i++)
                 {
-                    sum += integer;
+                    sum += buffer[i].Value;
                 }
             }).Run();
 
@@ -188,9 +195,9 @@ namespace Doc.CodeSamples.Tests
             public void Execute()
             {
                 int sum = 0;
-                foreach (int integer in sums)
+                for(int i = 0; i < sums.Length; i++)
                 {
-                    sum += integer;
+                    sum += sums[i];
                 }
 
                 //Note: Debug.Log is not burst-compatible
@@ -210,9 +217,9 @@ namespace Doc.CodeSamples.Tests
             Entities
                 .WithStoreEntityQueryInField(ref query)
                 .ForEach((int entityInQueryIndex, Entity entity, in DynamicBuffer<MyBufferElement> buffer) => {
-                    foreach (int integer in buffer.Reinterpret<int>())
+                    for(int i = 0; i < buffer.Length; i++)
                     {
-                        intermediateSums[entityInQueryIndex] += integer;
+                        intermediateSums[entityInQueryIndex] += buffer[i].Value;
                     }
                 })
                 .ScheduleParallel();
@@ -222,12 +229,12 @@ namespace Doc.CodeSamples.Tests
 
             //Schedule the second job, which depends on the first
             Job
-                .WithDeallocateOnJobCompletion(intermediateSums)
+                .WithDisposeOnCompletion(intermediateSums)
                 .WithCode(() =>
                 {
-                    foreach (int integer in intermediateSums)
+                    for(int i = 0; i < intermediateSums.Length; i++)
                     {
-                        sum[0] += integer;
+                        sum[0] += intermediateSums[i];
                     }
                     //if we do not specify dependencies, the job depends on the Dependency property
                 }).Schedule();
@@ -261,7 +268,7 @@ namespace Doc.CodeSamples.Tests
         public struct BuffersInChunks : IJobChunk
         {
             //The data type and safety object
-            public ArchetypeChunkBufferType<MyBufferElement> BufferType;
+            public BufferTypeHandle<MyBufferElement> BufferTypeHandle;
 
             //An array to hold the output, intermediate sums
             public NativeArray<int> sums;
@@ -272,15 +279,15 @@ namespace Doc.CodeSamples.Tests
             {
                 //A buffer accessor is a list of all the buffers in the chunk
                 BufferAccessor<MyBufferElement> buffers
-                    = chunk.GetBufferAccessor(BufferType);
+                    = chunk.GetBufferAccessor(BufferTypeHandle);
 
                 for (int c = 0; c < chunk.Count; c++)
                 {
                     //An individual dynamic buffer for a specific entity
                     DynamicBuffer<MyBufferElement> buffer = buffers[c];
-                    foreach (MyBufferElement element in buffer)
+                    for(int i = 0; i < buffer.Length; i++)
                     {
-                        sums[chunkIndex] += element.Value;
+                        sums[chunkIndex] += buffer[i].Value;
                     }
                 }
             }
@@ -293,9 +300,9 @@ namespace Doc.CodeSamples.Tests
             public NativeArray<int> result;
             public void Execute()
             {
-                foreach (int integer in sums)
+                for(int i  = 0; i < sums.Length; i++)
                 {
-                    result[0] += integer;
+                    result[0] += sums[i];
                 }
             }
         }
@@ -309,7 +316,7 @@ namespace Doc.CodeSamples.Tests
 
             //Schedule the first job to add all the buffer elements
             BuffersInChunks bufferJob = new BuffersInChunks();
-            bufferJob.BufferType = GetArchetypeChunkBufferType<MyBufferElement>();
+            bufferJob.BufferTypeHandle = GetBufferTypeHandle<MyBufferElement>();
             bufferJob.sums = intermediateSums;
             this.Dependency = bufferJob.ScheduleParallel(query, this.Dependency);
 
@@ -356,9 +363,9 @@ namespace Doc.CodeSamples.Tests
 
             Entities.ForEach((DynamicBuffer<FloatBufferElement> buffer) =>
             {
-                foreach (var element in buffer.Reinterpret<float>())
+                for(int i = 0; i < buffer.Length; i++)
                 {
-                    sum += element;
+                    sum += buffer[i].Value;
                 }
             });
 

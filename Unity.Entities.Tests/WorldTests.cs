@@ -7,6 +7,10 @@ using Unity.Collections;
 using Unity.Core;
 using Unity.Jobs;
 using Unity.Mathematics;
+using System.Diagnostics;
+#if !UNITY_DOTSRUNTIME
+using UnityEngine.LowLevel;
+#endif
 #if !UNITY_PORTABLE_TEST_RUNNER
 using System.Reflection;
 using System.Linq;
@@ -70,23 +74,22 @@ namespace Unity.Entities.Tests
         [Test]
         public void WorldVersionIsConsistent()
         {
-            var world = new World("WorldX");
+            using (var world = new World("WorldX"))
+            {
+                Assert.AreEqual(0, world.Version);
 
-            Assert.AreEqual(0, world.Version);
+                var version = world.Version;
+                world.GetOrCreateSystem<TestManager>();
+                Assert.AreNotEqual(version, world.Version);
 
-            var version = world.Version;
-            world.GetOrCreateSystem<TestManager>();
-            Assert.AreNotEqual(version, world.Version);
+                version = world.Version;
+                var manager = world.GetOrCreateSystem<TestManager>();
+                Assert.AreEqual(version, world.Version);
 
-            version = world.Version;
-            var manager = world.GetOrCreateSystem<TestManager>();
-            Assert.AreEqual(version, world.Version);
-
-            version = world.Version;
-            world.DestroySystem(manager);
-            Assert.AreNotEqual(version, world.Version);
-
-            world.Dispose();
+                version = world.Version;
+                world.DestroySystem(manager);
+                Assert.AreNotEqual(version, world.Version);
+            }
         }
 
         [Test]
@@ -121,15 +124,16 @@ namespace Unity.Entities.Tests
         [Test]
         public void SystemThrowingInOnCreateIsRemoved()
         {
-            var world = new World("WorldX");
-            Assert.AreEqual(0, world.Systems.Count);
+            using (var world = new World("WorldX"))
+            {
+                Assert.AreEqual(0, world.Systems.Count);
 
-            Assert.Throws<AssertionException>(() => world.GetOrCreateSystem<SystemThrowingInOnCreateIsRemovedSystem>());
+                Assert.Throws<AssertionException>(() =>
+                    world.GetOrCreateSystem<SystemThrowingInOnCreateIsRemovedSystem>());
 
-            // throwing during OnCreateManager does not add the manager to the behaviour manager list
-            Assert.AreEqual(0, world.Systems.Count);
-
-            world.Dispose();
+                // throwing during OnCreateManager does not add the manager to the behaviour manager list
+                Assert.AreEqual(0, world.Systems.Count);
+            }
         }
 
         class SystemIsAccessibleDuringOnCreateManagerSystem : ComponentSystem
@@ -146,12 +150,12 @@ namespace Unity.Entities.Tests
         [IgnoreInPortableTests("There is an Assert.AreEqual(object, object) which in the SystemIsAccessibleDuringOnCreateManagerSystem.OnCreate, which the runner doesn't find.")]
         public void SystemIsAccessibleDuringOnCreateManager()
         {
-            var world = new World("WorldX");
-            Assert.AreEqual(0, world.Systems.Count);
-            world.CreateSystem<SystemIsAccessibleDuringOnCreateManagerSystem>();
-            Assert.AreEqual(1, world.Systems.Count);
-
-            world.Dispose();
+            using (var world = new World("WorldX"))
+            {
+                Assert.AreEqual(0, world.Systems.Count);
+                world.CreateSystem<SystemIsAccessibleDuringOnCreateManagerSystem>();
+                Assert.AreEqual(1, world.Systems.Count);
+            }
         }
 
         //@TODO: Test for adding a manager from one world to another.
@@ -159,65 +163,62 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void WorldNoOverlappingChunkSequenceNumbers()
         {
-            var worldA = new World("WorldA");
-            var worldB = new World("WorldB");
-
-            World.DefaultGameObjectInjectionWorld = worldB;
-
-            worldA.EntityManager.CreateEntity();
-            worldB.EntityManager.CreateEntity();
-
-            var worldAChunks = worldA.EntityManager.GetAllChunks();
-            var worldBChunks = worldB.EntityManager.GetAllChunks();
-
-            for (int i = 0; i < worldAChunks.Length; i++)
+            using(var worldA = new World("WorldA"))
+            using(var worldB = new World("WorldB"))
             {
-                var chunkA = worldAChunks[i].m_Chunk;
-                for (int j = 0; j < worldBChunks.Length; j++)
+                World.DefaultGameObjectInjectionWorld = worldB;
+
+                worldA.EntityManager.CreateEntity();
+                worldB.EntityManager.CreateEntity();
+
+                var worldAChunks = worldA.EntityManager.GetAllChunks();
+                var worldBChunks = worldB.EntityManager.GetAllChunks();
+
+                for (int i = 0; i < worldAChunks.Length; i++)
                 {
-                    var chunkB = worldBChunks[i].m_Chunk;
-                    var sequenceNumberDiff = chunkA->SequenceNumber - chunkB->SequenceNumber;
+                    var chunkA = worldAChunks[i].m_Chunk;
+                    for (int j = 0; j < worldBChunks.Length; j++)
+                    {
+                        var chunkB = worldBChunks[i].m_Chunk;
+                        var sequenceNumberDiff = chunkA->SequenceNumber - chunkB->SequenceNumber;
 
-                    // Any chunk sequence numbers in different worlds should be separated by at least 32 bits
-                    Assert.IsTrue(sequenceNumberDiff > 1 << 32);
+                        // Any chunk sequence numbers in different worlds should be separated by at least 32 bits
+                        Assert.IsTrue(sequenceNumberDiff > 1 << 32);
+                    }
                 }
+
+                worldAChunks.Dispose();
+                worldBChunks.Dispose();
             }
-
-            worldAChunks.Dispose();
-            worldBChunks.Dispose();
-
-            worldA.Dispose();
-            worldB.Dispose();
         }
 
         [Test]
         public unsafe void WorldChunkSequenceNumbersNotReused()
         {
-            var worldA = new World("WorldA");
-
-            ulong lastChunkSequenceNumber = 0;
+            using (var worldA = new World("WorldA"))
             {
-                var entity = worldA.EntityManager.CreateEntity();
-                var chunk = worldA.EntityManager.GetChunk(entity);
-                lastChunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
+                ulong lastChunkSequenceNumber = 0;
+                {
+                    var entity = worldA.EntityManager.CreateEntity();
+                    var chunk = worldA.EntityManager.GetChunk(entity);
+                    lastChunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
 
-                worldA.EntityManager.DestroyEntity(entity);
+                    worldA.EntityManager.DestroyEntity(entity);
+                }
+
+                for (int i = 0; i < 1000; i++)
+                {
+                    var entity = worldA.EntityManager.CreateEntity();
+                    var chunk = worldA.EntityManager.GetChunk(entity);
+                    var chunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
+
+                    // Sequence numbers should be increasing and should not be reused when chunk is re-used (after zero count)
+                    Assert.IsTrue(chunkSequenceNumber > lastChunkSequenceNumber);
+                    lastChunkSequenceNumber = chunkSequenceNumber;
+
+                    worldA.EntityManager.DestroyEntity(entity);
+                }
             }
-
-            for (int i = 0; i < 1000; i++)
-            {
-                var entity = worldA.EntityManager.CreateEntity();
-                var chunk = worldA.EntityManager.GetChunk(entity);
-                var chunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
-
-                // Sequence numbers should be increasing and should not be reused when chunk is re-used (after zero count)
-                Assert.IsTrue(chunkSequenceNumber > lastChunkSequenceNumber);
-                lastChunkSequenceNumber = chunkSequenceNumber;
-
-                worldA.EntityManager.DestroyEntity(entity);
-            }
-
-            worldA.Dispose();
         }
 
         [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -236,7 +237,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void WorldSimulation_FixedStep_Simple()
+        public void WorldSimulation_FixedRateUtils_Simple()
         {
             using (var world = new World("World A"))
             {
@@ -294,7 +295,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void WorldSimulation_FixedStep_CatchUp()
+        public void WorldSimulation_FixedRateUtils_CatchUp()
         {
             using (var world = new World("World A"))
             {
@@ -312,44 +313,133 @@ namespace Unity.Entities.Tests
                     world.SetTime(timeData);
                 }
 
-                FixedRateUtils.EnableFixedRateWithCatchUp(sim, 1.0f);
+                FixedRateUtils.EnableFixedRateWithCatchUp(sim, 0.1f);
 
                 // first frame will tick at elapsedTime=0
-                AdvanceWorldTime(0.5f);
+                AdvanceWorldTime(0.05f);
                 world.Update();
                 Assert.AreEqual(0.0, uc.lastUpdateTime, 0.001f);
-                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(0.1, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(1, uc.updateCount);
 
-                // Advance elapsed time to 1.6 seconds. the second tick should occur at 1.0
-                AdvanceWorldTime(1.1f);
+                // Advance elapsed time to 0.16 seconds. the second tick should occur at 0.1
+                AdvanceWorldTime(0.11f);
                 world.Update();
-                Assert.AreEqual(1.0, uc.lastUpdateTime, 0.001f);
-                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(0.1, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(0.1, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(1, uc.updateCount);
 
-                // Advance elapsed time to 1.7 seconds. No tick should occur.
-                AdvanceWorldTime(0.1f);
+                // Advance elapsed time to 0.17 seconds. No tick should occur.
+                AdvanceWorldTime(0.01f);
                 world.Update();
-                Assert.AreEqual(1.0, uc.lastUpdateTime, 0.001f);
-                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(0.1, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(0.1, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(0, uc.updateCount);
 
-                // Advance elapsed time to 2.7 seconds. The third tick should occur at 2.0
-                AdvanceWorldTime(1.0f);
+                // Advance elapsed time to 0.27 seconds. The third tick should occur at 0.20
+                AdvanceWorldTime(0.1f);
                 world.Update();
-                Assert.AreEqual(2.0, uc.lastUpdateTime, 0.001f);
-                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(0.2, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(0.1, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(1, uc.updateCount);
 
-                // Advance elapsed time to 4.9 seconds. The fourth and fifth ticks should occur at 3.0 and 4.0.
-                AdvanceWorldTime(2.2f);
+                // Advance elapsed time to 0.49 seconds. The fourth and fifth ticks should occur at 0.30 and 0.40.
+                AdvanceWorldTime(0.22f);
                 world.Update();
-                Assert.AreEqual(4.0, uc.lastUpdateTime, 0.001f);
-                Assert.AreEqual(1.0, uc.lastUpdateDeltaTime, 0.001f);
+                Assert.AreEqual(0.40, uc.lastUpdateTime, 0.001f);
+                Assert.AreEqual(0.1, uc.lastUpdateDeltaTime, 0.001f);
                 Assert.AreEqual(2, uc.updateCount);
             }
         }
+
+#if !UNITY_DOTSRUNTIME
+        // Player loop manipulation tests
+        [Test]
+        public void IsInPlayerLoop_WorldNotInPlayerLoop_ReturnsFalse()
+        {
+            using (var world = new World("Test World"))
+            {
+                world.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+            }
+        }
+
+        [Test]
+        public void IsInPlayerLoop_WorldInPlayerLoop_ReturnsTrue()
+        {
+            using (var world = new World("Test World"))
+            {
+                world.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(world, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+            }
+        }
+
+        [Test]
+        public void RemoveFromPlayerLoop_WorldNotInPlayerLoop_DoesntThrow()
+        {
+            using (var world = new World("Test World"))
+            {
+                world.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(world, ref playerLoop);
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+            }
+        }
+
+        [Test]
+        public void RemoveFromPlayerLoop_WorldInPlayerLoop_Works()
+        {
+            using (var world = new World("Test World"))
+            {
+                world.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(world, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(world, ref playerLoop);
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+            }
+        }
+
+        [Test]
+        public void AddToPlayerLoop_AddTwoWorlds_BothAreAdded()
+        {
+            using (var worldA = new World("Test World A"))
+            using (var worldB = new World("Test World B"))
+            {
+                worldA.CreateSystem<InitializationSystemGroup>();
+                worldB.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldA, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldB, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
+            }
+        }
+
+        [Test]
+        public void RemoveFromPlayerLoop_OtherWorldsInPlayerLoop_NotAffected()
+        {
+            using (var worldA = new World("Test World A"))
+            using (var worldB = new World("Test World B"))
+            {
+                worldA.CreateSystem<InitializationSystemGroup>();
+                worldB.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldA, ref playerLoop);
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldB, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
+
+                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(worldA, ref playerLoop);
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
+            }
+        }
+#endif
 
 #if !UNITY_PORTABLE_TEST_RUNNER
 // https://unity3d.atlassian.net/browse/DOTSR-1432
@@ -450,14 +540,15 @@ namespace Unity.Entities.Tests
         [Test]
         public void World_DisposeWithRunningJobs_Succeeds()
         {
-            var w = new World("Test");
-            // Ordering is important, the owner system needs to be destroyed before the user system
-            var user = w.GetOrCreateSystem<ContainerUsingSystem>();
-            var owner = w.GetOrCreateSystem<ContainerOwnerSystem>();
+            using (var w = new World("Test"))
+            {
+                // Ordering is important, the owner system needs to be destroyed before the user system
+                var user = w.GetOrCreateSystem<ContainerUsingSystem>();
+                var owner = w.GetOrCreateSystem<ContainerOwnerSystem>();
 
-            owner.Update();
-            user.Update();
-            w.Dispose();
+                owner.Update();
+                user.Update();
+            }
         }
 
         public static World[] CopyWorlds(bool alsoClear = false)
@@ -646,6 +737,18 @@ namespace Unity.Entities.Tests
         }
 
         #if !NET_DOTS
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void ThrowCountIsWrong()
+        {
+            throw new InvalidOperationException("count is wrong");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void ThrowResolveFailed()
+        {
+            throw new InvalidOperationException("resolve failed");
+        }
+
         internal delegate void RunBurstTest(IntPtr allocPtr, IntPtr sysPtr);
         [BurstCompile(CompileSynchronously = true)]
         static void RunStressTest(IntPtr allocPtr, IntPtr sys_)
@@ -662,16 +765,16 @@ namespace Unity.Entities.Tests
             }
 
             if (CountLiveByBits(ref *alloc) != 4096)
-                throw new InvalidOperationException("count is wrong");
+                ThrowCountIsWrong();
 
             if (CountLiveByPointer(ref *alloc) != 4096)
-                throw new InvalidOperationException("count is wrong");
+                ThrowCountIsWrong();
 
             // They should all resolve
             for (int i = 0; i < 4096; ++i)
             {
                 if (null == alloc->Resolve(handles[i], versions[i]))
-                    throw new InvalidOperationException("Resolve failed");
+                    ThrowResolveFailed();
             }
 
             // Free every other system
@@ -687,24 +790,20 @@ namespace Unity.Entities.Tests
                 if (freed)
                 {
                     if (null != alloc->Resolve(handles[i], versions[i]))
-                    {
-                        throw new InvalidOperationException("Resolve failed");
-                    }
+                        ThrowResolveFailed();
                 }
                 else
                 {
                     if (null == alloc->Resolve(handles[i], versions[i]))
-                    {
-                        throw new InvalidOperationException("Resolve failed");
-                    }
+                        ThrowResolveFailed();
                 }
             }
 
             if (CountLiveByBits(ref *alloc) != 2048)
-                throw new InvalidOperationException("count is wrong");
+                ThrowCountIsWrong();
 
             if (CountLiveByPointer(ref *alloc) != 2048)
-                throw new InvalidOperationException("count is wrong");
+                ThrowCountIsWrong();
         }
 
         [Test]

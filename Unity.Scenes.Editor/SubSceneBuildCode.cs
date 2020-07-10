@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Unity.Build;
-using Unity.Build.Common;
+using Unity.Collections;
 using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Build.Content;
@@ -45,25 +44,42 @@ namespace Unity.Scenes.Editor
             var bundleNames = new List<string>();
             var subSceneGuids = scenePathsForBuild.SelectMany(scenePath => SceneMetaDataImporter.GetSubSceneGuids(AssetDatabase.AssetPathToGUID(scenePath))).Distinct().ToList();
 
-            foreach (var subSceneGuid in subSceneGuids)
+            var requiresRefresh = false;
+            var sceneBuildConfigGuids = new NativeArray<GUID>(subSceneGuids.Count, Allocator.TempJob);
+            for (int i=0;i != sceneBuildConfigGuids.Length;i++)
             {
-                var hash128Guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(subSceneGuid, new Hash128(buildConfigurationGuid));
+                sceneBuildConfigGuids[i] = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(subSceneGuids[i], new Hash128(buildConfigurationGuid), out var thisRequiresRefresh);
+                requiresRefresh |= thisRequiresRefresh;
+            }
+            if (requiresRefresh)
+                AssetDatabase.Refresh();
 
-                var hash = AssetDatabaseCompatibility.GetArtifactHash(hash128Guid.ToString(), typeof(SubSceneImporter), ImportMode.Synchronous);
-                AssetDatabaseCompatibility.GetArtifactPaths(hash, out var artifactPaths);
+            var artifactHashes = new NativeArray<UnityEngine.Hash128>(subSceneGuids.Count, Allocator.TempJob);
+            AssetDatabaseCompatibility.ProduceArtifactsRefreshIfNecessary(sceneBuildConfigGuids, typeof(SubSceneImporter), artifactHashes);
 
+            for (int i=0;i != sceneBuildConfigGuids.Length;i++)
+            {
+                var sceneGuid = subSceneGuids[i];
+                var sceneBuildConfigGuid = sceneBuildConfigGuids[i];
+                var artifactHash = artifactHashes[i];
+
+                bool foundEntityHeader = false;
+                AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out var artifactPaths);
                 foreach (var artifactPath in artifactPaths)
                 {
+                    //@TODO: This looks like a workaround. Whats going on here?
                     var ext = Path.GetExtension(artifactPath).Replace(".", "");
+
                     if (ext == EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesHeader))
                     {
-                        var destinationFile = outputStreamingAssetsDirectory + "/" + EntityScenesPaths.RelativePathInStreamingAssetsFolderFor(subSceneGuid, EntityScenesPaths.PathType.EntitiesHeader, -1);
+                        foundEntityHeader = true;
+                        var destinationFile = outputStreamingAssetsDirectory + "/" + EntityScenesPaths.RelativePathInStreamingAssetsFolderFor(sceneGuid, EntityScenesPaths.PathType.EntitiesHeader, -1);
                         RegisterFileCopy(artifactPath, destinationFile);
                     }
 
                     if (ext == EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesBinary))
                     {
-                        var destinationFile = outputStreamingAssetsDirectory + "/" + EntityScenesPaths.RelativePathInStreamingAssetsFolderFor(subSceneGuid, EntityScenesPaths.PathType.EntitiesBinary, EntityScenesPaths.GetSectionIndexFromPath(artifactPath));
+                        var destinationFile = outputStreamingAssetsDirectory + "/" + EntityScenesPaths.RelativePathInStreamingAssetsFolderFor(sceneGuid, EntityScenesPaths.PathType.EntitiesBinary, EntityScenesPaths.GetSectionIndexFromPath(artifactPath));
                         RegisterFileCopy(artifactPath, destinationFile);
                     }
 
@@ -71,12 +87,12 @@ namespace Unity.Scenes.Editor
                     {
                         content.CustomAssets.Add(new CustomContent
                         {
-                            Asset = hash128Guid,
+                            Asset = sceneBuildConfigGuid,
                             Processor = (guid, processor) =>
                             {
                                 var sectionIndex = EntityScenesPaths.GetSectionIndexFromPath(artifactPath);
                                 processor.GetObjectIdentifiersAndTypesForSerializedFile(artifactPath, out ObjectIdentifier[] objectIds, out Type[] types);
-                                var bundlePath = EntityScenesPaths.GetLoadPath(subSceneGuid, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
+                                var bundlePath = EntityScenesPaths.GetLoadPath(sceneGuid, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
                                 var bundleName = Path.GetFileName(bundlePath);
                                 processor.CreateAssetEntryForObjectIdentifiers(objectIds, artifactPath, bundleName, bundleName, typeof(ReferencedUnityObjects));
                                 bundleNames.Add(bundleName);
@@ -84,7 +100,15 @@ namespace Unity.Scenes.Editor
                         });
                     }
                 }
+
+                if (!foundEntityHeader)
+                {
+                    Debug.LogError($"Failed to build EntityScene for '{AssetDatabaseCompatibility.GuidToPath(sceneGuid)}'");
+                }
             }
+
+            sceneBuildConfigGuids.Dispose();
+            artifactHashes.Dispose();
 
             if (content.CustomAssets.Count <= 0)
                 return;

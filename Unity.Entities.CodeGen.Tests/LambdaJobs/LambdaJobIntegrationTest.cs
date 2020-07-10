@@ -9,7 +9,6 @@ using Unity.CompilationPipeline.Common.Diagnostics;
 
 namespace Unity.Entities.CodeGen.Tests.LambdaJobs.Infrastructure
 {
-    [TestFixture]
     public abstract class LambdaJobIntegrationTest : IntegrationTest
     {
         protected override string ExpectedPath

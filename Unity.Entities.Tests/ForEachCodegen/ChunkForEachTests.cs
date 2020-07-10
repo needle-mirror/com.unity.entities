@@ -44,7 +44,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             public JobHandle SimpleForEach()
             {
-                var type = EntityManager.GetArchetypeChunkComponentType<EcsTestData>(false);
+                var type = EntityManager.GetComponentTypeSafetyHandle<EcsTestData>(false);
 
                 return Chunks.WithAll<EcsTestData2>()
                     .ForEach((archetypeChunk, chunkIndex, indexOfFirstEntityInQuery) =>

@@ -3,14 +3,13 @@
     "references": [
         "Unity.Build",
         "Unity.Build.Classic",
-        "Unity.Build.Common",
         "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
         "Unity.Mathematics",
         "Unity.Mathematics.Extensions",
         "Unity.Properties",
-        "Unity.Scenes.Hybrid",
+        "Unity.Scenes",
         "Unity.ScriptableBuildPipeline.Editor",
         "Unity.Serialization"
     ],

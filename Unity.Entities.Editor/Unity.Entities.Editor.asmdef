@@ -6,13 +6,14 @@
         "Unity.Entities.Hybrid",
         "Unity.Mathematics",
         "Unity.Properties",
+        "Unity.Properties.Editor",
         "Unity.Scenes.Editor",
-        "Unity.Scenes.Hybrid",
+        "Unity.Scenes",
         "Unity.Serialization",
         "Unity.Build",
-        "Unity.Build.Common",
         "Unity.Build.Classic",
-        "UnityEditor.UI"
+        "UnityEditor.UI",
+        "Unity.Build.Classic.Private"
     ],
     "includePlatforms": [
         "Editor"

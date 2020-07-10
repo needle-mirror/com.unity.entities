@@ -45,7 +45,7 @@ namespace Unity.Assertions
         [Conditional("UNITY_ASSERTIONS")]
         public static void IsNull<T>(T value) where T : class
         {
-            #if NET_DOTS
+            #if UNITY_DOTSRUNTIME
             IsTrue(ReferenceEquals(value, null));
             #else
             UnityEngine.Assertions.Assert.IsNull(value);
@@ -55,7 +55,7 @@ namespace Unity.Assertions
         [Conditional("UNITY_ASSERTIONS")]
         public static void IsNull<T>(T value, string message) where T : class
         {
-            #if NET_DOTS
+            #if UNITY_DOTSRUNTIME
             IsTrue(ReferenceEquals(value, null), message);
             #else
             UnityEngine.Assertions.Assert.IsNull(value, message);
@@ -65,7 +65,7 @@ namespace Unity.Assertions
         [Conditional("UNITY_ASSERTIONS")]
         public static void IsNotNull<T>(T value) where T : class
         {
-            #if NET_DOTS
+            #if UNITY_DOTSRUNTIME
             IsFalse(ReferenceEquals(value, null));
             #else
             UnityEngine.Assertions.Assert.IsNotNull(value);
@@ -75,7 +75,7 @@ namespace Unity.Assertions
         [Conditional("UNITY_ASSERTIONS")]
         public static void IsNotNull<T>(T value, string message) where T : class
         {
-            #if NET_DOTS
+            #if UNITY_DOTSRUNTIME
             IsFalse(ReferenceEquals(value, null), message);
             #else
             UnityEngine.Assertions.Assert.IsNotNull(value, message);
@@ -109,7 +109,7 @@ namespace Unity.Assertions
         [Conditional("UNITY_ASSERTIONS")]
         public static void AreEqual<T>(T expected, T actual, string message)
         {
-            #if NET_DOTS
+            #if UNITY_DOTSRUNTIME
             UnityEngine.Assertions.Assert.AreEqual(expected, actual);
             #else
             UnityEngine.Assertions.Assert.AreEqual(expected, actual, message);
@@ -125,7 +125,7 @@ namespace Unity.Assertions
         [Conditional("UNITY_ASSERTIONS")]
         public static void AreNotEqual<T>(T expected, T actual, string message)
         {
-            #if NET_DOTS
+            #if UNITY_DOTSRUNTIME
             UnityEngine.Assertions.Assert.AreNotEqual(expected, actual);
             #else
             UnityEngine.Assertions.Assert.AreNotEqual(expected, actual, message);

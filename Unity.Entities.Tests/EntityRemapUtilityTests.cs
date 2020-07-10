@@ -20,18 +20,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("NOT IMPLEMENTED")]
-        public void AddEntityRemappingThrowsForInvalidSource()
-        {
-        }
-
-        [Test]
-        [Ignore("NOT IMPLEMENTED")]
-        public void RemapEntityThrowsForInvalidSource()
-        {
-        }
-
-        [Test]
         public void RemapEntityMapsSourceToTarget()
         {
             var a = new Entity { Index = 1, Version = 2 };
@@ -64,7 +52,7 @@ namespace Unity.Entities.Tests
 
         static TypeManager.EntityOffsetInfo[] GetEntityOffsets(System.Type type)
         {
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME // Work needed to make CalculateEntityOffsets compatible with DOTS Runtime (comment with explanation at that code)
             return EntityRemapUtility.CalculateEntityOffsets(type);
 #else
             unsafe {
@@ -117,7 +105,7 @@ namespace Unity.Entities.Tests
         }
 
         struct EmbeddedEntityStruct
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
             : IComponentData
 #endif
         {

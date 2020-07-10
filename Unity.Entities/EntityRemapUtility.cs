@@ -89,7 +89,7 @@ namespace Unity.Entities
             public ComponentType Type;
         }
 
-#if NET_DOTS
+#if UNITY_DOTSRUNTIME
         // @TODO TINY -- Need to use UnsafeArray to provide a view of the data in sEntityOffsetArray in the static type manager
         public static EntityOffsetInfo[] CalculateEntityOffsets<T>()
         {

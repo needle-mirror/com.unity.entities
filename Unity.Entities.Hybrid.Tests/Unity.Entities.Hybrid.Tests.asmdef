@@ -12,9 +12,9 @@
         "Unity.Mathematics",
         "Unity.Build",
         "Unity.Build.Classic",
-        "Unity.Build.Common",
         "Unity.Burst",
-        "Unity.Entities.Hybrid.EndToEnd.Tests"
+        "Unity.Entities.Hybrid.EndToEnd.Tests",
+        "Unity.Scenes"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

@@ -1,4 +1,4 @@
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 // https://unity3d.atlassian.net/browse/DOTSR-1432
 
 using System;
@@ -19,7 +19,7 @@ namespace Unity.Entities.Tests
         {
             var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
             m_Manager.CreateEntity(archetype, entities);
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
             var managedEntities = new Entity[entities.Length];
             for (int i = 0; i < entities.Length; i++)
             {
@@ -222,8 +222,8 @@ namespace Unity.Entities.Tests
 
             group.SetChangedFilterRequiredVersion(30);
 
-            var testType1 = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false);
-            var testType2 = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var testType1 = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            var testType2 = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
 
             var queriedChunks1 = group.CreateArchetypeChunkArray(Allocator.TempJob);
 
@@ -289,7 +289,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.SetGlobalSystemVersion(20);
             for (int i = 0; i < createdChunks1.Length; ++i)
             {
-                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData>());
+                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                 array[0] = new EcsTestData {value = 10};
             }
             var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -299,7 +299,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.SetGlobalSystemVersion(30);
             for (int i = 0; i < createdChunks1.Length; ++i)
             {
-                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData2>());
+                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
             var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -347,7 +347,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.SetGlobalSystemVersion(20);
             for (int i = 0; i < createdChunks1.Length; ++i)
             {
-                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData>());
+                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                 array[0] = new EcsTestData {value = 10};
             }
             var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -357,7 +357,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.SetGlobalSystemVersion(30);
             for (int i = 0; i < createdChunks1.Length; ++i)
             {
-                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData2>());
+                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
             var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -412,11 +412,11 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < createdChunks1.Length; ++i)
             {
                 {
-                    var array = createdChunks1[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData>());
+                    var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                     array[0] = new EcsTestData {value = 10};
                 }
                 {
-                    var array = createdChunks3[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData>());
+                    var array = createdChunks3[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                     array[0] = new EcsTestData {value = 10};
                 }
             }
@@ -427,7 +427,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.SetGlobalSystemVersion(30);
             for (int i = 0; i < createdChunks1.Length; ++i)
             {
-                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData2>());
+                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
             var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -477,11 +477,11 @@ namespace Unity.Entities.Tests
             for (int i = 0; i < createdChunks1.Length; ++i)
             {
                 {
-                    var array = createdChunks1[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData>());
+                    var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                     array[0] = new EcsTestData {value = 10};
                 }
                 {
-                    var array = createdChunks3[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData>());
+                    var array = createdChunks3[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                     array[0] = new EcsTestData {value = 10};
                 }
             }
@@ -492,7 +492,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.SetGlobalSystemVersion(30);
             for (int i = 0; i < createdChunks1.Length; ++i)
             {
-                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetArchetypeChunkComponentType<EcsTestData2>());
+                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
             var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -529,7 +529,7 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(() => group.ToComponentDataArray<EcsTestData2>(Allocator.TempJob));
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME // IJobForEach is deprecated
 
         [AlwaysUpdateSystem]
         public class WriteEcsTestDataSystem : JobComponentSystem
@@ -740,17 +740,6 @@ namespace Unity.Entities.Tests
                 Throws.Exception.With.Message.Matches("You have reached the limit of 1024 unique EntityQueryMasks, and cannot generate any more."));
         }
 
-        [Test]
-        public void GetEntityQueryMaskThrowsOnFilter()
-        {
-            var queryMatches = EmptySystem.GetEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
-            queryMatches.SetSharedComponentFilter(new EcsTestSharedComp(42));
-
-            Assert.That(() => m_Manager.GetEntityQueryMask(queryMatches),
-                Throws.Exception.With.Message.Matches("GetEntityQueryMask can only be called on an EntityQuery without a filter applied to it."
-                    + "  You can call EntityQuery.ResetFilter to remove the filters from an EntityQuery."));
-        }
-
 #endif
 
         [Test]
@@ -765,6 +754,20 @@ namespace Unity.Entities.Tests
                 queryMaskMatches.Index == queryMaskMatches2.Index &&
                 queryMaskMatches.EntityComponentStore == queryMaskMatches2.EntityComponentStore);
         }
+
+        [Test]
+        public void GetEntityQueryMaskIgnoresFilter()
+        {
+            var queryMatches = EmptySystem.GetEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+            queryMatches.SetSharedComponentFilter(new EcsTestSharedComp(42));
+
+            var matching = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+            var different = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+
+            Assert.IsTrue(m_Manager.GetEntityQueryMask(queryMatches).Matches(matching));
+            Assert.IsFalse(m_Manager.GetEntityQueryMask(queryMatches).Matches(different));
+        }
+
 
         [Test]
         public void Matches()
@@ -799,7 +802,7 @@ namespace Unity.Entities.Tests
             Assert.True(queryMask.Matches(entity));
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME // IJobForEach is deprecated
         [AlwaysUpdateSystem]
         public class CachedSystemQueryTestSystem : JobComponentSystem
         {
@@ -855,7 +858,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(queryA, queryB);
         }
 
-#endif // !UNITY_DOTSPLAYER
+#endif // !UNITY_DOTSRUNTIME
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         private class ManagedComponent : IComponentData
@@ -918,16 +921,19 @@ namespace Unity.Entities.Tests
         {
             using (var world = new World("temp"))
             {
-                Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(world.EntityManager.UniversalQuery, typeof(EcsTestData)));
-                Assert.Throws<ArgumentException>(() => m_Manager.AddSharedComponentData(world.EntityManager.UniversalQuery, new EcsTestSharedComp()));
-                Assert.Throws<ArgumentException>(() => m_Manager.DestroyEntity(world.EntityManager.UniversalQuery));
-                Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent<EcsTestData>(world.EntityManager.UniversalQuery));
+                Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent(world.EntityManager.UniversalQuery, typeof(EcsTestData)));
+                Assert.Throws<InvalidOperationException>(() => m_Manager.AddSharedComponentData(world.EntityManager.UniversalQuery, new EcsTestSharedComp()));
+                Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(world.EntityManager.UniversalQuery));
+                Assert.Throws<InvalidOperationException>(() => m_Manager.RemoveComponent<EcsTestData>(world.EntityManager.UniversalQuery));
 
+                // TODO: Leaks string allocs in Burst; Can be re-enabled when DOTS-1963 is closed
+                /*
                 using (var cmd = new EntityCommandBuffer(Allocator.TempJob))
                 {
                     cmd.AddComponent(world.EntityManager.UniversalQuery, typeof(EcsTestData));
-                    Assert.Throws<ArgumentException>(() => cmd.Playback(m_Manager));
+                    Assert.Throws<InvalidOperationException>(() => cmd.Playback(m_Manager));
                 }
+                */
             }
         }
 
@@ -1002,7 +1008,12 @@ namespace Unity.Entities.Tests
         {
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             query.Dispose();
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent(query, typeof(EcsTestData2)));
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(
+#else
+            Assert.Throws<InvalidOperationException>(
+#endif
+                () => m_Manager.AddComponent(query, typeof(EcsTestData2)));
         }
 
         [Test]
@@ -1064,4 +1075,4 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif // UNITY_DOTSPLAYER_IL2CPP
+#endif // NET_DOTS

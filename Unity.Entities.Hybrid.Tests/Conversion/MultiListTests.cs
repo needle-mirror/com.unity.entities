@@ -89,6 +89,50 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
+        public unsafe void AddTailMultiple_WithoutHead_Throws()
+        {
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(0, null, 0));
+        }
+
+        [Test]
+        public unsafe void AddTailMultiple_WithZeroCount_DoesNotAdd()
+        {
+            m_MultiList.AddHead(0, "0a");
+            m_MultiList.AddTail(0, null, 0);
+            MultiListDebugUtility.ValidateIntegrity(ref m_MultiList);
+            var data = MultiListDebugUtility.SelectAllData(m_MultiList);
+            Assert.That(data, Is.EqualTo(new[] {new[] {"0a"}}));
+        }
+
+        [Test]
+        public unsafe void AddTailMultiple_WithSingle_AddsSingle()
+        {
+            m_MultiList.AddHead(0, "0a");
+            int id;
+            m_MultiList.AddTail(0, &id, 1);
+            m_MultiList.Data[id] = "0b";
+            MultiListDebugUtility.ValidateIntegrity(ref m_MultiList);
+            var data = MultiListDebugUtility.SelectAllData(m_MultiList);
+            Assert.That(data, Is.EqualTo(new[] {new[] {"0a", "0b"}}));
+        }
+
+        [Test]
+        public unsafe void AddTailMultiple_WithMultiple_AddsMultiple()
+        {
+            m_MultiList.AddHead(0, "0a");
+            int* ids = stackalloc int[5];
+            m_MultiList.AddTail(0, ids, 5);
+            m_MultiList.Data[ids[0]] = "0b";
+            m_MultiList.Data[ids[1]] = "0c";
+            m_MultiList.Data[ids[2]] = "0d";
+            m_MultiList.Data[ids[3]] = "0e";
+            m_MultiList.Data[ids[4]] = "0f";
+            MultiListDebugUtility.ValidateIntegrity(ref m_MultiList);
+            var data = MultiListDebugUtility.SelectAllData(m_MultiList);
+            Assert.That(data, Is.EqualTo(new[] {new[] {"0a", "0b", "0c", "0d", "0e", "0f"}}));
+        }
+
+        [Test]
         public void Add_BuildsNewList()
         {
             m_MultiList.Add(0, "0a"); // add head

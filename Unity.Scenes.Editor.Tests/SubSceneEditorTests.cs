@@ -45,7 +45,7 @@ public class SubSceneEditorTests
         return SubSceneContextMenu.CreateNewSubScene(go.name, args, interactionMode);
     }
 
-    [Test, Ignore("DOTS-1515")]
+    [Test]
     public void CreateEmptySubScene()
     {
         Assert.DoesNotThrow(() => CreateSubScene("EmptySubScene", "ParentScene", InteractionMode.AutomatedAction, SubSceneContextMenu.NewSubSceneMode.EmptyScene));

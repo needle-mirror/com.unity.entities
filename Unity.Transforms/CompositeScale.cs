@@ -40,25 +40,25 @@ namespace Unity.Transforms
         [BurstCompile]
         struct ToCompositeScale : IJobChunk
         {
-            [ReadOnly] public ArchetypeChunkComponentType<Scale> ScaleType;
-            [ReadOnly] public ArchetypeChunkComponentType<NonUniformScale> NonUniformScaleType;
-            [ReadOnly] public ArchetypeChunkComponentType<ScalePivot> ScalePivotType;
-            [ReadOnly] public ArchetypeChunkComponentType<ScalePivotTranslation> ScalePivotTranslationType;
-            public ArchetypeChunkComponentType<CompositeScale> CompositeScaleType;
+            [ReadOnly] public ComponentTypeHandle<Scale> ScaleTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<NonUniformScale> NonUniformScaleTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<ScalePivot> ScalePivotTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<ScalePivotTranslation> ScalePivotTranslationTypeHandle;
+            public ComponentTypeHandle<CompositeScale> CompositeScaleTypeHandle;
             public uint LastSystemVersion;
 
             public void Execute(ArchetypeChunk chunk, int index, int entityOffset)
             {
-                var chunkScalePivotTranslations = chunk.GetNativeArray(ScalePivotTranslationType);
-                var chunkScales = chunk.GetNativeArray(ScaleType);
-                var chunkNonUniformScale = chunk.GetNativeArray(NonUniformScaleType);
-                var chunkScalePivots = chunk.GetNativeArray(ScalePivotType);
-                var chunkCompositeScales = chunk.GetNativeArray(CompositeScaleType);
+                var chunkScalePivotTranslations = chunk.GetNativeArray(ScalePivotTranslationTypeHandle);
+                var chunkScales = chunk.GetNativeArray(ScaleTypeHandle);
+                var chunkNonUniformScale = chunk.GetNativeArray(NonUniformScaleTypeHandle);
+                var chunkScalePivots = chunk.GetNativeArray(ScalePivotTypeHandle);
+                var chunkCompositeScales = chunk.GetNativeArray(CompositeScaleTypeHandle);
 
-                var hasScalePivotTranslation = chunk.Has(ScalePivotTranslationType);
-                var hasScale = chunk.Has(ScaleType);
-                var hasNonUniformScale = chunk.Has(NonUniformScaleType);
-                var hasScalePivot = chunk.Has(ScalePivotType);
+                var hasScalePivotTranslation = chunk.Has(ScalePivotTranslationTypeHandle);
+                var hasScale = chunk.Has(ScaleTypeHandle);
+                var hasNonUniformScale = chunk.Has(NonUniformScaleTypeHandle);
+                var hasScalePivot = chunk.Has(ScalePivotTypeHandle);
                 var count = chunk.Count;
 
                 var hasAnyScale = hasScale || hasNonUniformScale;
@@ -67,7 +67,7 @@ namespace Unity.Transforms
                 // 001
                 if (!hasAnyScale && !hasScalePivotTranslation && hasScalePivot)
                 {
-                    var didChange = chunk.DidChange(ScalePivotType, LastSystemVersion);
+                    var didChange = chunk.DidChange(ScalePivotTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
@@ -78,7 +78,7 @@ namespace Unity.Transforms
                 // 010
                 else if (!hasAnyScale && hasScalePivotTranslation && !hasScalePivot)
                 {
-                    var didChange = chunk.DidChange(ScalePivotTranslationType, LastSystemVersion);
+                    var didChange = chunk.DidChange(ScalePivotTranslationTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
@@ -93,7 +93,7 @@ namespace Unity.Transforms
                 // 011
                 else if (!hasAnyScale && hasScalePivotTranslation && hasScalePivot)
                 {
-                    var didChange = chunk.DidChange(ScalePivotTranslationType, LastSystemVersion);
+                    var didChange = chunk.DidChange(ScalePivotTranslationTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
@@ -112,7 +112,7 @@ namespace Unity.Transforms
                     // Has both valid input, but Scale overwrites.
                     if (hasScale)
                     {
-                        var didChange = chunk.DidChange(ScaleType, LastSystemVersion);
+                        var didChange = chunk.DidChange(ScaleTypeHandle, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -124,7 +124,7 @@ namespace Unity.Transforms
                     }
                     else // if (hasNonUniformScale)
                     {
-                        var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion);
+                        var didChange = chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -141,8 +141,8 @@ namespace Unity.Transforms
                     // Has both valid input, but Scale overwrites.
                     if (hasScale)
                     {
-                        var didChange = chunk.DidChange(ScaleType, LastSystemVersion) ||
-                            chunk.DidChange(ScalePivotType, LastSystemVersion);
+                        var didChange = chunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotTypeHandle, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -161,8 +161,8 @@ namespace Unity.Transforms
                     }
                     else // if (hasNonUniformScalee)
                     {
-                        var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
-                            chunk.DidChange(ScalePivotType, LastSystemVersion);
+                        var didChange = chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotTypeHandle, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -186,8 +186,8 @@ namespace Unity.Transforms
                     // Has both valid input, but Scale overwrites.
                     if (hasScale)
                     {
-                        var didChange = chunk.DidChange(ScaleType, LastSystemVersion) ||
-                            chunk.DidChange(ScalePivotTranslationType, LastSystemVersion);
+                        var didChange = chunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotTranslationTypeHandle, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -202,8 +202,8 @@ namespace Unity.Transforms
                     }
                     else // if (hasNonUniformScale)
                     {
-                        var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
-                            chunk.DidChange(ScalePivotTranslationType, LastSystemVersion);
+                        var didChange = chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotTranslationTypeHandle, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -223,9 +223,9 @@ namespace Unity.Transforms
                     // Has both valid input, but Scale overwrites.
                     if (hasScale)
                     {
-                        var didChange = chunk.DidChange(ScaleType, LastSystemVersion) ||
-                            chunk.DidChange(ScalePivotTranslationType, LastSystemVersion) ||
-                            chunk.DidChange(ScalePivotType, LastSystemVersion);
+                        var didChange = chunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotTranslationTypeHandle, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotTypeHandle, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -246,9 +246,9 @@ namespace Unity.Transforms
                     }
                     else // if (hasNonUniformScale)
                     {
-                        var didChange = chunk.DidChange(NonUniformScaleType, LastSystemVersion) ||
-                            chunk.DidChange(ScalePivotTranslationType, LastSystemVersion) ||
-                            chunk.DidChange(ScalePivotType, LastSystemVersion);
+                        var didChange = chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotTranslationTypeHandle, LastSystemVersion) ||
+                            chunk.DidChange(ScalePivotTypeHandle, LastSystemVersion);
                         if (!didChange)
                             return;
 
@@ -292,19 +292,19 @@ namespace Unity.Transforms
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
-            var compositeScaleType = GetArchetypeChunkComponentType<CompositeScale>(false);
-            var scaleType = GetArchetypeChunkComponentType<Scale>(true);
-            var scaleAxisType = GetArchetypeChunkComponentType<NonUniformScale>(true);
-            var scalePivotTranslationType = GetArchetypeChunkComponentType<ScalePivotTranslation>(true);
-            var scalePivotType = GetArchetypeChunkComponentType<ScalePivot>(true);
+            var compositeScaleType = GetComponentTypeHandle<CompositeScale>(false);
+            var scaleType = GetComponentTypeHandle<Scale>(true);
+            var scaleAxisType = GetComponentTypeHandle<NonUniformScale>(true);
+            var scalePivotTranslationType = GetComponentTypeHandle<ScalePivotTranslation>(true);
+            var scalePivotType = GetComponentTypeHandle<ScalePivot>(true);
 
             var toCompositeScaleJob = new ToCompositeScale
             {
-                CompositeScaleType = compositeScaleType,
-                NonUniformScaleType = scaleAxisType,
-                ScaleType = scaleType,
-                ScalePivotType = scalePivotType,
-                ScalePivotTranslationType = scalePivotTranslationType,
+                CompositeScaleTypeHandle = compositeScaleType,
+                NonUniformScaleTypeHandle = scaleAxisType,
+                ScaleTypeHandle = scaleType,
+                ScalePivotTypeHandle = scalePivotType,
+                ScalePivotTranslationTypeHandle = scalePivotTranslationType,
                 LastSystemVersion = LastSystemVersion
             };
             var toCompositeScaleJobHandle = toCompositeScaleJob.Schedule(m_Group, inputDeps);

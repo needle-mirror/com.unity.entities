@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using System.Reflection;
 using Unity.Entities.Serialization;
+using Unity.Scenes;
 using UnityEditor;
 using UnityEngine;
 

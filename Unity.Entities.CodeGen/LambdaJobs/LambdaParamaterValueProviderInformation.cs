@@ -225,7 +225,7 @@ namespace Unity.Entities.CodeGen
                 {
                     var provider = moduleDefinition.ImportReference(typeof(LambdaParameterValueProvider_NativeThreadIndex));
                     var runtime = moduleDefinition.ImportReference(typeof(LambdaParameterValueProvider_NativeThreadIndex.Runtime));
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
                     var isReadonly = true;
 #else
                     // Tiny's Job System currently will set the NativeThreadIndex at the beginning of the function to be Bursted.

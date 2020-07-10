@@ -1,5 +1,5 @@
 using System.Linq;
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -114,7 +114,7 @@ namespace Unity.Entities.CodeGen
             foreach (var fieldInfoData in fieldNameInstructionMap.Keys)
             {
                 // Determine field offset, field type etc...
-                fieldInfoData.FieldOffset = TypeUtils.GetFieldOffsetByFieldPath(fieldInfoData.FieldPath, fieldInfoData.BaseType, kArchBits, out fieldInfoData.FieldType);
+                fieldInfoData.FieldOffset = TypeUtils.GetFieldOffsetByFieldPath(fieldInfoData.FieldPath, fieldInfoData.BaseType, ArchBits, out fieldInfoData.FieldType);
 
                 if (fieldInfoData.FieldType == null)
                     throw new ArgumentException($"Could not find the field '{fieldInfoData.FieldPath}' within the type '{fieldInfoData.BaseType.FullName}'. Please double check your TypeManager.GetFieldInfo() field path argument");

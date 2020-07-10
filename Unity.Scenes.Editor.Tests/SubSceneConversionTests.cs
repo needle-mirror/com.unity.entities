@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -7,6 +8,7 @@ using Unity.Entities.Hybrid.Tests;
 using Unity.Entities.Tests;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.LowLevel;
 using UnityEngine.TestTools;
 
 namespace Unity.Scenes.Editor.Tests
@@ -16,12 +18,14 @@ namespace Unity.Scenes.Editor.Tests
         TestWithTempAssets m_TempAssets;
         TestWithSubScenes m_SubSceneTest;
         TestWithCustomDefaultGameObjectInjectionWorld m_World;
+        private PlayerLoopSystem m_PrevPlayerLoop;
         Texture m_Texture1;
         Texture m_Texture2;
 
         [OneTimeSetUp]
         public void SetUp()
         {
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
             m_TempAssets.SetUp();
             m_SubSceneTest.Setup();
             m_World.Setup();
@@ -38,6 +42,7 @@ namespace Unity.Scenes.Editor.Tests
             m_World.TearDown();
             m_SubSceneTest.TearDown();
             m_TempAssets.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
         }
 
         [TearDown]
@@ -109,26 +114,28 @@ namespace Unity.Scenes.Editor.Tests
                 Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
             });
 
+            Assert.IsFalse(sceneSystem.IsSceneLoaded(sceneEntity), "Scene should not be loaded yet.");
+
             // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
             world.Update();
-
             Assert.IsTrue(sceneSystem.IsSceneLoaded(sceneEntity), "Failed to load scene");
+
             AssetDatabase.DeleteAsset(AssetDatabase.GetAssetPath(subScene.SceneAsset));
 
-            // Spin a few turns to give the system time to detect the change. The scene systems are expected to take a
-            // few frames to detect changes.
+            // Block the import of this subscene so that we can get a single-frame result for this test
+            var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, ImportMode.Synchronous);
+            Assert.IsTrue(hash.IsValid, "Failed to import SubScene.");
+
             LogAssert.Expect(LogType.Error, new Regex("Loading Entity Scene failed.*"));
-            for (int i = 0; i < 5; i++)
-            {
-                AssetDatabase.Refresh();
-                world.Update();
-            }
+
+            // TODO: Editor doesn't update if it doesn't have focus, so we must explicitly update the world to process the load.
+            world.Update();
 
             Assert.IsFalse(sceneSystem.IsSceneLoaded(sceneEntity), "Scene should not be loaded");
         }
 
 #if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-        [Test, Ignore("Currently fails, but this is an edge case")]
+        [Test, Ignore("DOTS-1422 - Currently fails, but this is an edge case")]
         public void SubScene_WithNullAsset_ImportsAndLoads()
             => SubScene_WithAsset_ImportsAndLoads(null);
 
@@ -559,6 +566,78 @@ namespace Unity.Scenes.Editor.Tests
             var buildSettings = default(Unity.Entities.Hash128);
             var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, ImportMode.Synchronous);
             Assert.IsTrue(hash.IsValid);
+        }
+
+        [Test]
+        public void SubScene_WithDependencyOnAssetInScene_Reimport_EndToEnd()
+        {
+            var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "SubScene", false, () =>
+            {
+                var go = new GameObject();
+                var authoring = go.AddComponent<DependencyTestAuthoring>();
+                var sphereHolder = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                authoring.Asset = sphereHolder.GetComponent<MeshFilter>().sharedMesh;
+                UnityEngine.Object.DestroyImmediate(sphereHolder);
+                return new List<GameObject> { go };
+            });
+
+            var buildSettings = default(Unity.Entities.Hash128);
+            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, ImportMode.Synchronous);
+            Assert.IsTrue(originalHash.IsValid);
+
+            SubSceneInspectorUtility.ForceReimport(new []{subScene});
+
+            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, ImportMode.Synchronous);
+            Assert.IsTrue(newHashCreated.IsValid);
+            Assert.AreNotEqual(originalHash, newHashCreated);
+
+            SubSceneInspectorUtility.ForceReimport(new []{subScene});
+
+            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, ImportMode.Synchronous);
+            Assert.IsTrue(newHashUpdated.IsValid);
+            Assert.AreNotEqual(newHashCreated, newHashUpdated);
+            Assert.AreNotEqual(originalHash, newHashUpdated);
+        }
+
+        [Test]
+        public void SubScene_WithDependencyOnAssetInScene_ClearCache_EndToEnd()
+        {
+            var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "SubScene", false, () =>
+            {
+                var go = new GameObject();
+                var authoring = go.AddComponent<DependencyTestAuthoring>();
+                var sphereHolder = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                authoring.Asset = sphereHolder.GetComponent<MeshFilter>().sharedMesh;
+                UnityEngine.Object.DestroyImmediate(sphereHolder);
+                return new List<GameObject> { go };
+            });
+
+            var buildSettings = default(Unity.Entities.Hash128);
+            var originalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, ImportMode.Synchronous);
+            Assert.IsTrue(originalHash.IsValid);
+
+            // Clear Cache (First time this creates global dependency asset, so we will test both steps)
+            EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
+
+            var newHashCreated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, ImportMode.Synchronous);
+            Assert.IsTrue(newHashCreated.IsValid);
+            Assert.AreNotEqual(originalHash, newHashCreated);
+
+            // Clear Cache (This updates existing asset)
+            EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
+
+            var newHashUpdated = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, ImportMode.Synchronous);
+            Assert.IsTrue(newHashUpdated.IsValid);
+            Assert.AreNotEqual(newHashCreated, newHashUpdated);
+            Assert.AreNotEqual(originalHash, newHashUpdated);
+
+            // Delete created dependency, this cleans up test but also we need to verify that the scene returns to the original hash
+            AssetDatabase.DeleteAsset(EntitiesCacheUtility.globalEntitiesDependencyDir);
+            AssetDatabase.Refresh();
+
+            // With the dependency deleted, the hash should return to the original
+            var finalHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, buildSettings, ImportMode.Synchronous);
+            Assert.AreEqual(originalHash, finalHash);
         }
     }
 }

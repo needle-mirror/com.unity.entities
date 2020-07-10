@@ -10,7 +10,7 @@ using Unity.Properties.Internal;
 
 namespace Unity.Entities
 {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
     unsafe class ManagedObjectBlobs :
         IPropertyBagVisitor,
         IPropertyVisitor,
@@ -22,8 +22,8 @@ namespace Unity.Entities
         HashSet<object> m_References;
 
         // Blob Asset Ptr Storage
-        NativeList<SerializeUtility.BlobAssetPtr> m_BlobAssets;
-        NativeHashMap<SerializeUtility.BlobAssetPtr, int> m_BlobAssetMap;
+        NativeList<BlobAssetPtr> m_BlobAssets;
+        NativeHashMap<BlobAssetPtr, int> m_BlobAssetMap;
 
         /// <summary>
         /// Gathers all blob asset references within the specified object.
@@ -33,7 +33,7 @@ namespace Unity.Entities
         /// <param name="blobAssetMap">Mapping to track existing blob asset references encountered.</param>
         /// <exception cref="ArgumentNullException">The given object was null.</exception>
         /// <exception cref="MissingPropertyBagException">The given object has no property bag associated with it.</exception>
-        public void GatherBlobAssetReferences(object obj, NativeList<SerializeUtility.BlobAssetPtr> blobAssets, NativeHashMap<SerializeUtility.BlobAssetPtr, int> blobAssetMap)
+        public void GatherBlobAssetReferences(object obj, NativeList<BlobAssetPtr> blobAssets, NativeHashMap<BlobAssetPtr, int> blobAssetMap)
         {
             if (null == obj)
             {
@@ -94,7 +94,7 @@ namespace Unity.Entities
                     return;
             }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
             if (value is UnityEngine.Object)
                 return;
 #endif
@@ -119,7 +119,11 @@ namespace Unity.Entities
         /// <returns>The status of the adapter visit.</returns>
         VisitStatus IVisit<BlobAssetReferenceData>.Visit<TContainer>(Property<TContainer, BlobAssetReferenceData> property, ref TContainer container, ref BlobAssetReferenceData value)
         {
-            var blobAssetPtr = new SerializeUtility.BlobAssetPtr(value.Header);
+            if (null == value.m_Ptr)
+                return VisitStatus.Stop;
+
+            var blobAssetPtr = new BlobAssetPtr(value.Header);
+
             if (!m_BlobAssetMap.TryGetValue(blobAssetPtr, out _))
             {
                 var index = m_BlobAssets.Length;

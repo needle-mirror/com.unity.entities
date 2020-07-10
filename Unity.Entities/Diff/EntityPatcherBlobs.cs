@@ -1,6 +1,8 @@
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
+#if !NET_DOTS
+using Unity.Properties;
+#endif
 
 namespace Unity.Entities
 {
@@ -60,19 +62,9 @@ namespace Unity.Entities
         public void ReleaseUnusedBlobAssets()
         {
             using (var chunks = EntityManager.CreateEntityQuery(EntityGuidQueryDesc).CreateArchetypeChunkArray(Allocator.TempJob))
-            using (var blobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
-            using (var blobAssetsMap = new NativeHashMap<ulong, int>(1, Allocator.TempJob))
+            using (var blobAssets = EntityDiffer.GetBlobAssetsWithDistinctHash(EntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore, chunks, Allocator.TempJob))
             {
-                new EntityDiffer.GatherUniqueBlobAssetReferences
-                {
-                    TypeInfo = TypeManager.GetTypeInfoPointer(),
-                    BlobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsetsPointer(),
-                    Chunks = chunks,
-                    BlobAssets = blobAssets,
-                    BlobAssetsMap = blobAssetsMap
-                }.Schedule().Complete();
-
-                m_BlobAssetBatchPtr->RemoveUnusedBlobAssets(blobAssetsMap);
+                m_BlobAssetBatchPtr->RemoveUnusedBlobAssets(blobAssets.BlobAssetsMap);
             }
         }
 
@@ -93,7 +85,11 @@ namespace Unity.Entities
         {
             if (createdBlobAssets.Length == 0 && blobAssetReferenceChanges.Length == 0)
                 return;
+
             s_ApplyBlobAssetChangesProfilerMarker.Begin();
+
+            var managedObjectBlobAssetReferencePatches = new NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>(blobAssetReferenceChanges.Length, Allocator.Temp);
+
             var patcherBlobAssetSystem = entityManager.World.GetOrCreateSystem<EntityPatcherBlobAssetSystem>();
 
             var blobAssetDataPtr = (byte*)createdBlobAssetData.GetUnsafePtr();
@@ -144,16 +140,12 @@ namespace Unity.Entities
                                 var pointer = (byte*)entityManager.GetBufferRawRW(entity, component.TypeIndex);
                                 UnsafeUtility.MemCpy(pointer + targetOffset, &targetBlobAssetReferenceData, sizeof(BlobAssetReferenceData));
                             }
-#if !NET_DOTS
-                            else if (component.IsManagedComponent)
+                            else if (component.IsManagedComponent || component.IsSharedComponent)
                             {
-                                var obj = entityManager.GetComponentObject<object>(entity, component);
-                                var pointer = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(obj, out ulong handle);
-                                pointer += TypeManager.ObjectOffset;
-                                UnsafeUtility.MemCpy(pointer + targetOffset, &targetBlobAssetReferenceData, sizeof(BlobAssetReferenceData));
-                                UnsafeUtility.ReleaseGCObject(handle);
+                                managedObjectBlobAssetReferencePatches.Add(
+                                    new EntityComponentPair { Entity = entity, Component = component },
+                                    new ManagedObjectBlobAssetReferencePatch { Id = targetOffset, Target = blobAssetReferenceChanges[i].Value });
                             }
-#endif
                             else
                             {
                                 var pointer = (byte*)entityManager.GetComponentDataRawRW(entity, component.TypeIndex);
@@ -163,11 +155,63 @@ namespace Unity.Entities
                     }
                     while (packedEntities.TryGetNextValue(out entity, ref iterator));
                 }
-                s_ApplyBlobAssetChangesProfilerMarker.End();
             }
+            s_ApplyBlobAssetChangesProfilerMarker.End();
+
+#if !UNITY_DOTSRUNTIME
+            var managedObjectPatcher = new ManagedObjectEntityBlobAssetReferencePatcher();
+
+            // Apply all managed entity patches
+            using (var keys = managedObjectBlobAssetReferencePatches.GetKeyArray(Allocator.Temp))
+            {
+                foreach (var pair in keys)
+                {
+                    var patches = managedObjectBlobAssetReferencePatches.GetValuesForKey(pair);
+
+                    if (pair.Component.IsManagedComponent)
+                    {
+                        var obj = entityManager.GetComponentObject<object>(pair.Entity, pair.Component);
+                        managedObjectPatcher.ApplyPatches(ref obj, patches);
+                    }
+                    else if (pair.Component.IsSharedComponent)
+                    {
+                        var obj = entityManager.GetSharedComponentData(pair.Entity, pair.Component.TypeIndex);
+                        managedObjectPatcher.ApplyPatches(ref obj, patches);
+                        entityManager.SetSharedComponentDataBoxedDefaultMustBeNull(pair.Entity, pair.Component.TypeIndex, obj);
+                    }
+
+                    patches.Dispose();
+                }
+            }
+#endif
+
+            managedObjectBlobAssetReferencePatches.Dispose();
 
             // Workaround to catch some special cases where the memory is never released. (e.g. reloading a scene, toggling live-link on/off).
             patcherBlobAssetSystem.ReleaseUnusedBlobAssets();
         }
+
+#if !UNITY_DOTSRUNTIME
+        class ManagedObjectEntityBlobAssetReferencePatcher : PropertyVisitor, Properties.Adapters.IVisit<BlobAssetReferenceData>
+        {
+            NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator Patches;
+
+            public ManagedObjectEntityBlobAssetReferencePatcher()
+            {
+                AddAdapter(this);
+            }
+
+            public void ApplyPatches(ref object obj, NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator patches)
+            {
+                Patches = patches;
+                PropertyContainer.Visit(obj, this);
+            }
+
+            VisitStatus Properties.Adapters.IVisit<BlobAssetReferenceData>.Visit<TContainer>(Property<TContainer, BlobAssetReferenceData> property, ref TContainer container, ref BlobAssetReferenceData value)
+            {
+                return VisitStatus.Stop;
+            }
+        }
+#endif
     }
 }

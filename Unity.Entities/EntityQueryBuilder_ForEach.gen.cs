@@ -26,6 +26,7 @@ namespace Unity.Entities
             using (InsideForEach())
             #endif
             {
+
                 var query = m_Query;
                 if (query == default)
                 {
@@ -7933,5 +7934,8 @@ namespace Unity.Entities
                 }
             }
         }
+
     }
+
 } // namespace Unity.Entities
+

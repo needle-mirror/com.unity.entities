@@ -9,7 +9,7 @@ using Unity.Properties.Internal;
 
 namespace Unity.Entities
 {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
     /// <summary>
     /// Unity.Properties visitor used to deep clone object instances. This is an internal class.
     /// </summary>
@@ -63,7 +63,7 @@ namespace Unity.Entities
 
             var type = obj.GetType();
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
             // UnityEngine references are always by reference.
             if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 return obj;
@@ -257,7 +257,7 @@ namespace Unity.Entities
             {
                 var type = srcValue.GetType();
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
                 // UnityEngine references can be copied as-is.
                 if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 {

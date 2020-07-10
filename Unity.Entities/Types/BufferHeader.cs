@@ -1,15 +1,18 @@
 using System;
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
     [StructLayout(LayoutKind.Explicit)]
+    [NoAlias]
     internal unsafe struct BufferHeader
     {
         public const int kMinimumCapacity = 8;
 
+        [NoAlias]
         [FieldOffset(0)] public byte* Pointer;
         [FieldOffset(8)] public int Length;
         [FieldOffset(12)] public int Capacity;

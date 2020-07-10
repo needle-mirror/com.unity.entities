@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests
                 for (int i = 0; i < N; ++i)
                     result[i] = a + b;
 
-#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS    // TODO: Don't have the library in the editor that grants access.
+#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS    // TODO: Don't have the library in the editor that grants access.
                 AssertOnThread(result.m_Safety.IsAllowedToWrite());
                 AssertOnThread(!result.m_Safety.IsAllowedToRead());
 #endif
@@ -106,14 +106,14 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS    // Don't have the C# version in the editor.
+#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS    // Don't have the C# version in the editor.
                 AssertOnThread(!input.m_Safety.IsAllowedToWrite());
                 AssertOnThread(input.m_Safety.IsAllowedToRead());
                 AssertOnThread(result.m_Safety.IsAllowedToWrite());
                 AssertOnThread(!result.m_Safety.IsAllowedToRead());
 
 #if UNITY_SINGLETHREADED_JOBS
-                AssertOnThread(JobsUtility.IsExecutingJob());
+                AssertOnThread(JobsUtility.IsExecutingJob);
 #endif
 #endif
                 for (int i = 0; i < N; ++i)
@@ -124,7 +124,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void Run3SimpleJobsInSerial()
         {
-#if UNITY_SINGLETHREADED_JOBS && UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
             // Note the safety handles use Persistent, so only track TempJob
             long heapMem = UnsafeUtility.GetHeapSize(Allocator.TempJob);
 #endif
@@ -142,18 +142,14 @@ namespace Unity.Entities.Tests
             SimpleAddSerial job2 = new SimpleAddSerial() {a = 2, input = jobResult1, result = jobResult2};
             SimpleAddSerial job3 = new SimpleAddSerial() {a = 3, input = jobResult2, result = jobResult3};
 
-#if UNITY_SINGLETHREADED_JOBS && UNITY_DOTSPLAYER
-            Assert.IsFalse(JobsUtility.IsExecutingJob());
-#endif
+            Assert.IsFalse(JobsUtility.IsExecutingJob);
 
             JobHandle handle1 = job1.Schedule();
             JobHandle handle2 = job2.Schedule(handle1);
             JobHandle handle3 = job3.Schedule(handle2);
             handle3.Complete();
 
-#if UNITY_SINGLETHREADED_JOBS && UNITY_DOTSPLAYER
-            Assert.IsFalse(JobsUtility.IsExecutingJob());
-#endif
+            Assert.IsFalse(JobsUtility.IsExecutingJob);
 
             for (int i = 0; i < SimpleAddSerial.N; ++i)
             {
@@ -162,7 +158,7 @@ namespace Unity.Entities.Tests
 
             jobResult3.Dispose();
 
-#if UNITY_SINGLETHREADED_JOBS && UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
             long postWork = UnsafeUtility.GetHeapSize(Allocator.TempJob);
             Assert.IsTrue(heapMem == postWork);    // make sure cleanup happened, including DeallocateOnJobCompletion
 #endif
@@ -240,7 +236,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS   // Don't have the C# version in the editor.
+#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS   // Don't have the C# version in the editor.
                 AssertOnThread(!input.m_Safety.IsAllowedToWrite());
                 AssertOnThread(input.m_Safety.IsAllowedToRead());
                 AssertOnThread(result.m_Safety.IsAllowedToWrite());
@@ -309,7 +305,7 @@ namespace Unity.Entities.Tests
 
             public void Execute(int i)
             {
-#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS    // Don't have the C# version in the editor.
+#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS    // Don't have the C# version in the editor.
                 AssertOnThread(!a.m_Safety.IsAllowedToWrite());
                 AssertOnThread(a.m_Safety.IsAllowedToRead());
                 AssertOnThread(!b.m_Safety.IsAllowedToWrite());
@@ -564,7 +560,7 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSPLAYER && ENABLE_UNITY_COLLECTIONS_CHECKS   // Don't have the C# version in the editor.
+#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS   // Don't have the C# version in the editor.
                 Assert.IsTrue(result.m_Safety.IsAllowedToWrite());
                 Assert.IsTrue(!result.m_Safety.IsAllowedToRead());
 #endif
@@ -592,17 +588,16 @@ namespace Unity.Entities.Tests
             map.Dispose();
         }
 
-        public struct SimpleChunk<T> : IJobChunk
-            where T : struct, IEquatable<T>
+        public struct SimpleChunkJob : IJobChunk
         {
-            public ArchetypeChunkComponentType<EcsTestData> testType;
+            public ComponentTypeHandle<EcsTestData> TestTypeHandle;
 
             [ReadOnly]
-            public NativeList<T> listOfT;
+            public NativeList<int> listOfInt;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                NativeArray<EcsTestData> chunkData = chunk.GetNativeArray(testType);
+                NativeArray<EcsTestData> chunkData = chunk.GetNativeArray(TestTypeHandle);
 
                 for (int i = 0; i < chunk.Count; ++i)
                 {
@@ -627,10 +622,10 @@ namespace Unity.Entities.Tests
             NativeList<int> listOfInt = new NativeList<int>(1, Allocator.TempJob);
 
             EntityQuery query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
-            var job = new SimpleChunk<int>
+            var job = new SimpleChunkJob
             {
-                testType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false),
-                listOfT = listOfInt
+                TestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false),
+                listOfInt = listOfInt
             };
             switch (mode)
             {

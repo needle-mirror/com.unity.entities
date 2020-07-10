@@ -10,6 +10,7 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
+using Unity.Entities.CodeGen;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen")]
 namespace Unity.Entities.CodeGen

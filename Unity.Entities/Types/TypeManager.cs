@@ -47,7 +47,7 @@ namespace Unity.Entities
     {
     }
 
-#if NET_DOTS
+#if UNITY_DOTSRUNTIME
     /// <summary>
     /// [GenerateFieldInfo] is used to signify the type or method this attribute is on should be scanned to replace
     /// GetFieldInfo<T>("xxx.xxx") calls with a compile-time generated FieldInfo struct. See the declaration of
@@ -140,8 +140,9 @@ namespace Unity.Entities
         static List<FastEquality.TypeInfo>  s_FastEqualityTypeInfoList;
         static List<Type>                   s_Types;
         static List<string>                 s_TypeNames;
+        public static IEnumerable<TypeInfo> AllTypes { get { return s_TypeInfos.GetSubArray(0, s_TypeCount); } }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
         static bool                         s_AppDomainUnloadRegistered;
         static double                       s_TypeInitializationTime;
         static Dictionary<Type, int>        s_ManagedTypeToIndex;
@@ -150,7 +151,6 @@ namespace Unity.Entities
         internal static Type                UnityEngineObjectType;
         internal static Type                GameObjectEntityType;
 
-        public static IEnumerable<TypeInfo> AllTypes { get { return Enumerable.Take(s_TypeInfos, s_TypeCount); } }
 
         // TODO: this creates a dependency on UnityEngine, but makes splitting code in separate assemblies easier. We need to remove it during the biggere refactor.
         struct ObjectOffsetType
@@ -290,7 +290,7 @@ namespace Unity.Entities
             {
                 get
                 {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
                     Type type = TypeManager.GetType(m_TypeInfo.TypeIndex);
                     if (type != null)
                         return type.FullName;
@@ -403,7 +403,7 @@ namespace Unity.Entities
             Assert.AreEqual(s_TypeCount, typeInfo.TypeIndex & ClearFlagsMask);
             s_TypeCount++;
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (type != null)
             {
                 SharedTypeIndex.Get(type) = typeInfo.TypeIndex;
@@ -427,7 +427,7 @@ namespace Unity.Entities
                 return;
             s_Initialized = true;
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (!s_AppDomainUnloadRegistered)
             {
                 // important: this will always be called from a special unload thread (main thread will be blocking on this)
@@ -460,7 +460,7 @@ namespace Unity.Entities
             RegisterSpecialComponents();
             Assert.IsTrue(kInitialTypeCount == s_TypeCount);
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             InitializeAllComponentTypes();
 #else
             // Registers all types and their static info from the static type registry
@@ -488,7 +488,7 @@ namespace Unity.Entities
             var entityTypeIndex = 1;
             ulong entityStableTypeHash;
             int entityFastEqIndex = -1;
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             entityStableTypeHash = TypeHash.CalculateStableTypeHash(typeof(Entity));
             entityFastEqIndex = s_FastEqualityTypeInfoList.Count;
             s_FastEqualityTypeInfoList.Add(FastEquality.CreateTypeInfo(typeof(Entity)));
@@ -532,7 +532,7 @@ namespace Unity.Entities
 
             ShutdownSystemsState();
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             s_FailedTypeBuildException = null;
             s_ManagedTypeToIndex.Clear();
 #endif
@@ -551,7 +551,7 @@ namespace Unity.Entities
 
         private static int FindTypeIndex(Type type)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (type == null)
                 return 0;
 
@@ -576,6 +576,7 @@ namespace Unity.Entities
             ManagedException(typeof(T));
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         static void BurstException<T>()
         {
             throw new ArgumentException($"Unknown Type:`{typeof(T)}` All ComponentType must be known at compile time & be successfully registered. For generic components, each concrete type must be registered with [RegisterGenericComponentType].");
@@ -583,7 +584,7 @@ namespace Unity.Entities
 
         static void ManagedException(Type type)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             s_FailedTypeBuildException.TryGetValue(type, out var exception);
             // When the type is known but failed to build, we repeat the reason why it failed to build instead.
             if (exception != null)
@@ -619,7 +620,7 @@ namespace Unity.Entities
 
         public static bool Equals<T>(ref T left, ref T right) where T : struct
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo<T>().FastEqualityIndex];
             if (typeInfo.Layouts != null || typeInfo.EqualFn != null)
                 return FastEquality.Equals(ref left, ref right, typeInfo);
@@ -632,7 +633,7 @@ namespace Unity.Entities
 
         public static bool Equals(void* left, void* right, int typeIndex)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex];
             return FastEquality.Equals(left, right, typeInfo);
 #else
@@ -643,7 +644,7 @@ namespace Unity.Entities
 
         public static bool Equals(object left, object right, int typeIndex)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (left == null || right == null)
             {
                 return left == right;
@@ -673,7 +674,7 @@ namespace Unity.Entities
 
         public static bool Equals(object left, void* right, int typeIndex)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             var leftptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(left, out var lhandle) + ObjectOffset;
 
             var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex];
@@ -688,7 +689,7 @@ namespace Unity.Entities
 
         public static int GetHashCode<T>(ref T val) where T : struct
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo<T>().FastEqualityIndex];
             return FastEquality.GetHashCode(ref val, typeInfo);
 #else
@@ -698,7 +699,7 @@ namespace Unity.Entities
 
         public static int GetHashCode(void* val, int typeIndex)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex];
             return FastEquality.GetHashCode(val, typeInfo);
 #else
@@ -709,7 +710,7 @@ namespace Unity.Entities
 
         public static int GetHashCode(object val, int typeIndex)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (IsManagedComponent(typeIndex))
             {
                 var typeInfo = s_FastEqualityTypeInfoList[GetTypeInfo(typeIndex).FastEqualityIndex];
@@ -739,7 +740,7 @@ namespace Unity.Entities
 
         public static object ConstructComponentFromBuffer(int typeIndex, void* data)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             var tinfo = GetTypeInfo(typeIndex);
             Type type = GetType(typeIndex);
             object obj = Activator.CreateInstance(type);
@@ -810,7 +811,7 @@ namespace Unity.Entities
             return alignmentInBytes;
         }
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
 
         private static bool IsSupportedComponentType(Type type)
         {
@@ -1011,7 +1012,7 @@ namespace Unity.Entities
                 }
                 catch (Exception e)
                 {
-                    #if !NET_DOTS
+                    #if !UNITY_DOTSRUNTIME
                     if (type != null)
                     {
                         // Explicitly clear the shared type index.
@@ -1460,7 +1461,7 @@ namespace Unity.Entities
             public static readonly SharedStatic<int> Ref = SharedStatic<int>.GetOrCreate<TypeManagerKeyContext, TComponent>();
         }
 
-#if NET_DOTS
+#if UNITY_DOTSRUNTIME
         public struct FieldInfo
         {
             public Type BaseType;
@@ -1591,7 +1592,7 @@ namespace Unity.Entities
         /// Registers, all at once, the type registry information generated for each assembly.
         /// </summary>
         /// <param name="registries"></param>
-        internal static void RegisterAssemblyTypes(TypeRegistry[] registries)
+        internal unsafe static void RegisterAssemblyTypes(TypeRegistry[] registries)
         {
             // The standard doesn't guarantee that we will not call this method concurrently so we need to
             // ensure the code here can handle multiple modules registering their types at once
@@ -1617,6 +1618,12 @@ namespace Unity.Entities
                         s_Types.Add(type);
                     }
 
+                    foreach (var typeName in typeRegistry.TypeNames)
+                    {
+                        s_TypeNames.Add(typeName);
+                    }
+
+#if (UNITY_MACOSX || UNITY_LINUX) && UNITY_DOTSRUNTIME_DOTNET
                     foreach (var offset in typeRegistry.EntityOffsets)
                     {
                         s_EntityOffsetList.Add(new EntityOffsetInfo() { Offset = offset });
@@ -1625,11 +1632,6 @@ namespace Unity.Entities
                     foreach (var offset in typeRegistry.BlobAssetReferenceOffsets)
                     {
                         s_BlobAssetRefOffsetList.Add(new EntityOffsetInfo() { Offset = offset });
-                    }
-
-                    foreach (var typeName in typeRegistry.TypeNames)
-                    {
-                        s_TypeNames.Add(typeName);
                     }
 
                     // TODO: Replace this with a memcpy of ILPP'd TypeInfos and then fixup the values inline in s_TypeInfos
@@ -1668,6 +1670,33 @@ namespace Unity.Entities
                         // Setup our new TypeIndices into the appropriately types SharedTypeIndex<TComponent> shared static
                         typeRegistry.SetSharedTypeIndices(newTypeIndices, typeRegistry.TypeInfos.Length);
                     }
+#else
+                    s_EntityOffsetList.AddRange(typeRegistry.EntityOffsetsPtr, typeRegistry.EntityOffsetsCount);
+                    s_BlobAssetRefOffsetList.AddRange(typeRegistry.BlobAssetReferenceOffsetsPtr, typeRegistry.BlobAssetReferenceOffsetsCount);
+                    {
+                        var typeInfoOffset = ((TypeInfo*)s_TypeInfos.GetUnsafePtr()) + s_TypeCount;
+                        UnsafeUtility.MemCpy(typeInfoOffset, typeRegistry.TypeInfosPtr, typeRegistry.TypeInfosCount * UnsafeUtility.SizeOf<TypeInfo>());
+
+                        int* newTypeIndices = stackalloc int[typeRegistry.TypeInfosCount];
+                        for (int i = 0; i < typeRegistry.TypeInfosCount; ++i)
+                        {
+                            TypeInfo* pTypeInfo = ((TypeInfo*)s_TypeInfos.GetUnsafePtr()) + i + s_TypeCount;
+                            pTypeInfo->TypeIndex += typeIndexOffset;
+                            pTypeInfo->EntityOffsetStartIndex += entityOffsetsOffset;
+                            pTypeInfo->BlobAssetRefOffsetStartIndex += blobOffsetsOffset;
+
+                            // we will adjust these values when we recalculate the writegroups below
+                            pTypeInfo->WriteGroupCount = 0; 
+                            pTypeInfo->WriteGroupStartIndex = -1;
+
+                            s_StableTypeHashToTypeIndex.Add(pTypeInfo->StableTypeHash, pTypeInfo->TypeIndex);
+                            newTypeIndices[i] = pTypeInfo->TypeIndex;
+                        }
+                        // Setup our new TypeIndices into the appropriately types SharedTypeIndex<TComponent> shared static
+                        typeRegistry.SetSharedTypeIndices(newTypeIndices, typeRegistry.TypeInfosCount);
+                        s_TypeCount += typeRegistry.TypeInfosCount;
+                    }
+#endif
 
                     if (typeRegistry.Types.Length > 0)
                     {
@@ -1680,7 +1709,7 @@ namespace Unity.Entities
                     }
 
                     // Register system types
-                    TypeManager.RegisterAssemblySystemTypes(typeRegistry);
+                    RegisterAssemblySystemTypes(typeRegistry);
                 }
                 GatherAndInitializeWriteGroups(initializeTypeIndexOffset, registries);
             }
@@ -1693,7 +1722,7 @@ namespace Unity.Entities
             }
         }
 
-        static void GatherAndInitializeWriteGroups(int typeIndexOffset, TypeRegistry[] registries)
+        static unsafe void GatherAndInitializeWriteGroups(int typeIndexOffset, TypeRegistry[] registries)
         {
             // A this point we have loaded all Types and know all TypeInfos. Now we need to
             // go back through each assembly, determine if a type has a write group, and if so
@@ -1707,8 +1736,13 @@ namespace Unity.Entities
             NativeHashMap<int, int> writeGroupMap = new NativeHashMap<int, int>(1024, Allocator.Temp);
             foreach (var typeRegistry in registries)
             {
-                foreach (var typeInfo in typeRegistry.TypeInfos)
+                for (int i = 0; i < typeRegistry.TypeInfosCount; ++i)
                 {
+#if (UNITY_MACOSX || UNITY_LINUX) && UNITY_DOTSRUNTIME_DOTNET
+                    var typeInfo = typeRegistry.TypeInfos[i];
+#else
+                    var typeInfo = typeRegistry.TypeInfosPtr[i];
+#endif
                     if (typeInfo.WriteGroupCount > 0)
                     {
                         var typeIndex = typeInfo.TypeIndex + typeIndexOffset;
@@ -1731,7 +1765,8 @@ namespace Unity.Entities
                         }
                     }
                 }
-                typeIndexOffset += typeRegistry.TypeInfos.Length;
+
+                typeIndexOffset += typeRegistry.TypeInfosCount;
             }
 
             using (var keys = writeGroupMap.GetKeyArray(Allocator.Temp))
@@ -1739,19 +1774,19 @@ namespace Unity.Entities
                 foreach (var typeIndex in keys)
                 {
                     var index = typeIndex & ClearFlagsMask;
-                    var typeInfo = s_TypeInfos[index];
+                    var typeInfo = (TypeInfo*)s_TypeInfos.GetUnsafePtr() + index;
 
                     var valueIndex = writeGroupMap[typeIndex];
                     var valueSet = hashSetList[valueIndex];
                     using (var values = valueSet.GetKeyArray(Allocator.Temp))
                     {
-                        typeInfo.WriteGroupStartIndex = s_WriteGroupList.Length;
-                        typeInfo.WriteGroupCount = values.Length;
+                        typeInfo->WriteGroupStartIndex = s_WriteGroupList.Length;
+                        typeInfo->WriteGroupCount = values.Length;
+
                         foreach (var ti in values)
                             s_WriteGroupList.Add(ti);
                     }
 
-                    s_TypeInfos[index] = typeInfo;
                     valueSet.Dispose();
                 }
             }
@@ -1766,8 +1801,8 @@ namespace Unity.Entities
 #endif
     }
 
-#if NET_DOTS
-    public class TypeRegistry
+#if UNITY_DOTSRUNTIME
+    public unsafe class TypeRegistry
     {
         // TODO: Have Burst generate a native function ptr we can invoke instead of using a delegate
         public delegate bool GetBoxedEqualsFn(object lhs, object rhs, int typeIndexNoFlags);
@@ -1788,14 +1823,25 @@ namespace Unity.Entities
 
 #pragma warning disable 0649
         public string AssemblyName;
+
+        // Mono builds have problems reading from RVA
         public TypeManager.TypeInfo[] TypeInfos;
-        public Type[] Types;
-        public string[] TypeNames;
         public int[] EntityOffsets;
         public int[] BlobAssetReferenceOffsets;
+
+        public TypeManager.TypeInfo* TypeInfosPtr;
+        public int TypeInfosCount;
+        public int* EntityOffsetsPtr;
+        public int EntityOffsetsCount;
+        public int* BlobAssetReferenceOffsetsPtr;
+        public int BlobAssetReferenceOffsetsCount;
+
+        public Type[] Types;
+        public string[] TypeNames;
         public Type[] WriteGroups;
 
         public Type[] SystemTypes;
+        public WorldSystemFilterFlags[] SystemFilterFlags;
         public string[] SystemTypeNames;
         public bool[] IsSystemGroup;
 #pragma warning restore 0649

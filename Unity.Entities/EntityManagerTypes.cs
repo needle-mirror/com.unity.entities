@@ -15,7 +15,7 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>
         /// To access a component stored in a chunk, you must have the type registry information for the component.
-        /// This function provides that information. Use the returned <see cref="ArchetypeChunkComponentType{T}"/>
+        /// This function provides that information. Use the returned <see cref="ComponentTypeHandle{T}"/>
         /// object with the functions of an <see cref="ArchetypeChunk"/> object to get information about the components
         /// in that chunk and to access the component values.
         /// </remarks>
@@ -23,16 +23,16 @@ namespace Unity.Entities
         /// or read and write. For managed components isReadonly will always be treated as false.</param>
         /// <typeparam name="T">The compile-time type of the component.</typeparam>
         /// <returns>The run-time type information of the component.</returns>
-        public ArchetypeChunkComponentType<T> GetArchetypeChunkComponentType<T>(bool isReadOnly)
+        public ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var access = GetCheckedEntityDataAccess();
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            return new ArchetypeChunkComponentType<T>(
-                access->DependencyManager->Safety.GetSafetyHandleForArchetypeChunkComponentType(typeIndex, isReadOnly), isReadOnly,
+            return new ComponentTypeHandle<T>(
+                access->DependencyManager->Safety.GetSafetyHandleForComponentTypeHandle(typeIndex, isReadOnly), isReadOnly,
                 GlobalSystemVersion);
 #else
-            return new ArchetypeChunkComponentType<T>(isReadOnly, GlobalSystemVersion);
+            return new ComponentTypeHandle<T>(isReadOnly, GlobalSystemVersion);
 #endif
         }
 
@@ -41,21 +41,21 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>
         /// To access a component stored in a chunk, you must have the type registry information for the component.
-        /// This function provides that information. Use the returned <see cref="ArchetypeChunkComponentTypeDynamic"/>
+        /// This function provides that information. Use the returned <see cref="DynamicComponentTypeHandle"/>
         /// object with the functions of an <see cref="ArchetypeChunk"/> object to get information about the components
         /// in that chunk and to access the component values.
         /// </remarks>
         /// <param name="componentType">Type of the component</param>
         /// <returns>The run-time type information of the component.</returns>
-        public ArchetypeChunkComponentTypeDynamic GetArchetypeChunkComponentTypeDynamic(ComponentType componentType)
+        public DynamicComponentTypeHandle GetDynamicComponentTypeHandle(ComponentType componentType)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var access = GetCheckedEntityDataAccess();
-            return new ArchetypeChunkComponentTypeDynamic(componentType,
-                access->DependencyManager->Safety.GetSafetyHandleForArchetypeChunkComponentTypeDynamic(componentType.TypeIndex, componentType.AccessModeType == ComponentType.AccessMode.ReadOnly),
+            return new DynamicComponentTypeHandle(componentType,
+                access->DependencyManager->Safety.GetSafetyHandleForDynamicComponentTypeHandle(componentType.TypeIndex, componentType.AccessModeType == ComponentType.AccessMode.ReadOnly),
                 GlobalSystemVersion);
 #else
-            return new ArchetypeChunkComponentTypeDynamic(componentType, GlobalSystemVersion);
+            return new DynamicComponentTypeHandle(componentType, GlobalSystemVersion);
 #endif
         }
 
@@ -65,17 +65,17 @@ namespace Unity.Entities
         /// <remarks>
         /// To access a component stored in a chunk, you must have the type registry information for the component.
         /// This function provides that information for buffer components. Use the returned
-        /// <see cref="ArchetypeChunkComponentType{T}"/> object with the functions of an <see cref="ArchetypeChunk"/>
+        /// <see cref="ComponentTypeHandle{T}"/> object with the functions of an <see cref="ArchetypeChunk"/>
         /// object to get information about the components in that chunk and to access the component values.
         /// </remarks>
         /// <param name="isReadOnly">Specify whether the access to the component through this object is read only
         /// or read and write. </param>
         /// <typeparam name="T">The compile-time type of the buffer elements.</typeparam>
         /// <returns>The run-time type information of the buffer component.</returns>
-        public ArchetypeChunkBufferType<T> GetArchetypeChunkBufferType<T>(bool isReadOnly)
+        public BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly)
             where T : struct, IBufferElementData
         {
-            return GetCheckedEntityDataAccess()->GetArchetypeChunkBufferType<T>(isReadOnly);
+            return GetCheckedEntityDataAccess()->GetBufferTypeHandle<T>(isReadOnly);
         }
 
         /// <summary>
@@ -84,20 +84,20 @@ namespace Unity.Entities
         /// <remarks>
         /// To access a component stored in a chunk, you must have the type registry information for the component.
         /// This function provides that information for shared components. Use the returned
-        /// <see cref="ArchetypeChunkComponentType{T}"/> object with the functions of an <see cref="ArchetypeChunk"/>
+        /// <see cref="ComponentTypeHandle{T}"/> object with the functions of an <see cref="ArchetypeChunk"/>
         /// object to get information about the components in that chunk and to access the component values.
         /// </remarks>
         /// <typeparam name="T">The compile-time type of the shared component.</typeparam>
         /// <returns>The run-time type information of the shared component.</returns>
-        public ArchetypeChunkSharedComponentType<T> GetArchetypeChunkSharedComponentType<T>()
+        public SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>()
             where T : struct, ISharedComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var access = GetCheckedEntityDataAccess();
-            return new ArchetypeChunkSharedComponentType<T>(access->DependencyManager->Safety.GetSafetyHandleForArchetypeChunkSharedComponentType(typeIndex));
+            return new SharedComponentTypeHandle<T>(access->DependencyManager->Safety.GetSafetyHandleForSharedComponentTypeHandle(typeIndex));
 #else
-            return new ArchetypeChunkSharedComponentType<T>(false);
+            return new SharedComponentTypeHandle<T>(false);
 #endif
         }
 
@@ -109,18 +109,18 @@ namespace Unity.Entities
         ///
         /// To access any component stored in a chunk, you must have the type registry information for the component.
         /// This function provides that information for the implicit <see cref="Entity"/> component. Use the returned
-        /// <see cref="ArchetypeChunkComponentType{T}"/> object with the functions of an <see cref="ArchetypeChunk"/>
+        /// <see cref="ComponentTypeHandle{T}"/> object with the functions of an <see cref="ArchetypeChunk"/>
         /// object to access the component values.
         /// </remarks>
         /// <returns>The run-time type information of the Entity component.</returns>
-        public ArchetypeChunkEntityType GetArchetypeChunkEntityType()
+        public EntityTypeHandle GetEntityTypeHandle()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var access = GetCheckedEntityDataAccess();
-            return new ArchetypeChunkEntityType(
-                access->DependencyManager->Safety.GetSafetyHandleForArchetypeChunkEntityType());
+            return new EntityTypeHandle(
+                access->DependencyManager->Safety.GetSafetyHandleForEntityTypeHandle());
 #else
-            return new ArchetypeChunkEntityType(false);
+            return new EntityTypeHandle(false);
 #endif
         }
 

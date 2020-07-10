@@ -18,6 +18,7 @@ namespace Unity.Entities.Conversion
     partial struct ConversionJournalData : IDisposable
     {
         NativeHashMap<int, int> m_HeadIdIndices; // object instanceId -> front index
+        int m_HeadIdIndicesCount;
 
         // Only for UnityEngine component types to be stored in a companion GameObject
         Dictionary<GameObject, int> m_HybridHeadIdIndices; // maps to MultiList m_HybridTypes
@@ -38,6 +39,7 @@ namespace Unity.Entities.Conversion
         public void Init()
         {
             m_HeadIdIndices = new NativeHashMap<int, int>(1000, Allocator.Persistent);
+            m_HeadIdIndicesCount = 0;
             m_HybridHeadIdIndices = new Dictionary<GameObject, int>();
 
             m_Entities.Init();
@@ -72,7 +74,7 @@ namespace Unity.Entities.Conversion
         {
             if (!m_HeadIdIndices.TryGetValue(objectInstanceId, out var headIdIndex))
             {
-                headIdIndex = m_HeadIdIndices.Count();
+                headIdIndex = m_HeadIdIndicesCount++;
                 m_HeadIdIndices.Add(objectInstanceId, headIdIndex);
 
                 var headIdsCapacity = headIdIndex + 1;
@@ -116,6 +118,13 @@ namespace Unity.Entities.Conversion
             m_HeadIdIndices.TryGetValue(objectInstanceId, out var headIdIndex)
             ? store.AddTail(headIdIndex) : (-1, 0);
 
+        unsafe int AddTail<T>(int objectInstanceId, ref MultiList<T> store, int* outIds, int count)
+        {
+            if (!m_HeadIdIndices.TryGetValue(objectInstanceId, out var headIdIndex))
+                return 0;
+            return store.AddTail(headIdIndex, outIds, count);
+        }
+
         int GetHeadId<T>(int objectInstanceId, ref MultiList<T> store)
         {
             if (!m_HeadIdIndices.TryGetValue(objectInstanceId, out var headIdIndex))
@@ -151,6 +160,9 @@ namespace Unity.Entities.Conversion
 
         public (int id, int serial) ReserveAdditionalEntity(int objectInstanceId) =>
             AddTail(objectInstanceId, ref m_Entities);
+
+        public unsafe int ReserveAdditionalEntities(int objectInstanceId, int* outIds, int count) =>
+            AddTail(objectInstanceId, ref m_Entities, outIds, count);
 
         public void RecordAdditionalEntityAt(int atId, Entity entity) =>
             m_Entities.Data[atId] = entity;

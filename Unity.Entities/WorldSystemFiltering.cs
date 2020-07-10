@@ -44,34 +44,44 @@ namespace Unity.Entities
     /// <remarks>Defines where internal Unity systems should be created. The existence of these flags and
     /// the specialized Worlds they represent are subject to change.</remarks>
     [Flags]
-    public enum WorldSystemFilterFlags
+    public enum WorldSystemFilterFlags : uint
     {
         /// <summary>
         /// The default <see cref="World"/>.
+        /// Systems without a [WorldSystemFilter] attribute are by default placed in this world.
         /// </summary>
-        Default                  = 1 << 0,
+        Default                         = 1 << 0,
         /// <summary>
         /// A specialized World created for converting GameObjects to entities.
         /// </summary>
-        GameObjectConversion     = HybridGameObjectConversion | DotsRuntimeGameObjectConversion,
+        GameObjectConversion            = HybridGameObjectConversion | DotsRuntimeGameObjectConversion,
         /// <summary>
         /// A specialized World created for optimizing scene rendering.
         /// </summary>
-        EntitySceneOptimizations = 1 << 2,
+        EntitySceneOptimizations        = 1 << 2,
         /// <summary>
-        /// A specialized World created for processing a scene after load
+        /// A specialized World created for processing a scene after load.
         /// </summary>
-        ProcessAfterLoad = 1 << 3,
+        ProcessAfterLoad                = 1 << 3,
         /// <summary>
-        /// Conversion systems that should run for Hybrid
+        /// Conversion systems that should run for Hybrid.
         /// Example: Hybrid renderer conversion systems
         /// </summary>
-        HybridGameObjectConversion = 1 << 4,
+        HybridGameObjectConversion      = 1 << 4,
         /// <summary>
-        /// Conversion systems that should run for Dots runtime
+        /// Conversion systems that should run for Dots runtime.
         /// Example: Tiny renderer conversion systems
         /// </summary>
-        DotsRuntimeGameObjectConversion = 1 << 5
+        DotsRuntimeGameObjectConversion = 1 << 5,
+        /// <summary>
+        /// The main World created when running in the Editor.
+        /// Example: Editor LiveLink system
+        /// </summary>
+        Editor                          = 1 << 6,
+        /// <summary>
+        /// Flag to include all system groups defined above as well as systems decorated with [DisableAutoCreation].
+        /// </summary>
+        All                             = ~0u
     }
 
 

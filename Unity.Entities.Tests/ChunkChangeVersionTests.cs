@@ -512,12 +512,12 @@ namespace Unity.Entities.Tests
 
         unsafe struct CollectBufferLength : IJobChunk
         {
-            [ReadOnly] public ArchetypeChunkBufferType<EcsIntElement> EcsIntElementType;
+            [ReadOnly] public BufferTypeHandle<EcsIntElement> EcsIntElementTypeHandle;
             [NativeDisableUnsafePtrRestriction] public int* Count;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                var buffer = chunk.GetBufferAccessor(EcsIntElementType);
+                var buffer = chunk.GetBufferAccessor(EcsIntElementTypeHandle);
                 *Count = buffer.Length;
             }
         }
@@ -535,7 +535,7 @@ namespace Unity.Entities.Tests
             int* count = stackalloc int[1];
             var collectBufferLengthJob = new CollectBufferLength
             {
-                EcsIntElementType = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(true),
+                EcsIntElementTypeHandle = m_Manager.GetBufferTypeHandle<EcsIntElement>(true),
                 Count = count
             };
             collectBufferLengthJob.Run(query);
@@ -544,6 +544,34 @@ namespace Unity.Entities.Tests
             AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
             AssetHasBufferChangeVersion<EcsIntElement>(e0, OldVersion);
             AssetHasChunkOrderVersion(e1, OldVersion);
+        }
+
+        struct MyChunk : IJobChunk
+        {
+            public Unity.Entities.ComponentTypeHandle<EcsTestData> Value;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                chunk.GetNativeArray(Value);
+            }
+        }
+
+        [Test]
+        public void SystemVersionIsCapturedAtScheduleTime()
+        {
+            m_Manager.Debug.SetGlobalSystemVersion(1);
+
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+            var job = new MyChunk {Value = m_Manager.GetComponentTypeHandle<EcsTestData>(false)};
+            var jobHandle = job.Schedule(query);
+
+            m_Manager.Debug.SetGlobalSystemVersion(2);
+
+            jobHandle.Complete();
+
+            AssetHasChangeVersion<EcsTestData>(e0, 1);
         }
     }
 }

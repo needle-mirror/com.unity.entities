@@ -9,7 +9,7 @@ using Unity.Transforms;
 
 namespace Unity.Entities.Tests
 {
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME   // no more IJobForEach - deprecated
     public class IJobForEachTests : ECSTestsFixture
     {
         const int TEST_VALUE = 42;
@@ -167,7 +167,6 @@ namespace Unity.Entities.Tests
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
-        [DotsRuntimeFixme]  // Need nativejobs and unified threading path
         public void JobWithMissingDependency()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -341,7 +340,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(5,  m_Manager.GetComponentData<EcsTestData>(entityInGroupB).value);
         }
 
-#if !UNITY_DOTSPLAYER
         [Test]
         public void JobProcessWithMismatchedComponentGroupThrowsException()
         {
@@ -377,21 +375,8 @@ namespace Unity.Entities.Tests
             handle.Complete();
         }
 
-#endif
-
-        [Test]
-        [Ignore("TODO")]
-        public void TestCoverageFor_ComponentSystemBase_InjectNestedIJobForEachJobs()
-        {
-        }
-
-        [Test]
-        [Ignore("TODO")]
-        public void DuplicateComponentTypeParametersThrows()
-        {
-        }
     }
-#endif // !UNITY_DOTSPLAYER
+#endif // !UNITY_DOTSRUNTIME
 }
 
 #pragma warning restore 618

@@ -27,17 +27,20 @@ namespace Unity.Entities.Editor.Tests
         struct StructComponentData : IComponentData
         {
             public Category Category;
+            public float FloatValue;
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         class ClassComponentData : IComponentData
         {
             public Category Category;
+            public float FloatValue;
         }
 
         class ClassComponentData2 : IComponentData
         {
             public Category Category;
+            public float FloatValue;
         }
 #endif
 
@@ -45,6 +48,7 @@ namespace Unity.Entities.Editor.Tests
         {
             public int Value;
             public Category Category;
+            public float FloatValue;
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -52,21 +56,24 @@ namespace Unity.Entities.Editor.Tests
         {
             public Category Category;
             public GameObject GameObject;
+            public float FloatValue;
         }
 #endif
 
         struct SharedComponentData : ISharedComponentData
         {
             public Category Category;
+            public float FloatValue;
         }
 
         struct BufferElement : IBufferElementData
         {
             public Category Category;
             public int Value;
+            public float FloatValue;
         }
 
-        class TestVisitor : PropertyVisitor,
+        class TestComponentCategoryVisitor : PropertyVisitor,
             IVisit<StructComponentData>,
             IVisit<StructChunkData>,
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -82,7 +89,7 @@ namespace Unity.Entities.Editor.Tests
         {
             public GameObject GameObject { private get; set; }
 
-            public TestVisitor()
+            public TestComponentCategoryVisitor()
             {
                 AddAdapter(this);
             }
@@ -156,6 +163,123 @@ namespace Unity.Entities.Editor.Tests
             }
         }
 
+        class TestDataWriteBackVisitor : PropertyVisitor,
+            IVisit<StructComponentData>,
+            IVisit<StructChunkData>,
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            IVisit<ClassComponentData>,
+            IVisit<ClassComponentData2>,
+            IVisit<ClassChunkData>,
+#endif
+            IVisit<SharedComponentData>,
+            IVisit<BufferElement>,
+            IVisit<DynamicBufferContainer<BufferElement>>
+        {
+            public GameObject GameObject { private get; set; }
+            public bool Read { get; set; }
+            public float Value { get; }
+            public Category Category { get; }
+
+            public TestDataWriteBackVisitor(bool read, float value, Category category)
+            {
+                Read = read;
+                Value = value;
+                Category = category;
+                AddAdapter(this);
+            }
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, StructComponentData> property, ref TContainer container, ref StructComponentData data)
+            {
+                if (!Category.HasFlag(Category.StructData))
+                    return VisitStatus.Stop;
+                if (Read)
+                    Assert.That(data.FloatValue, Is.EqualTo(Value));
+                else
+                    data.FloatValue = Value;
+                return VisitStatus.Stop;
+            }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            public VisitStatus Visit<TContainer>(Property<TContainer, ClassComponentData> property, ref TContainer container, ref ClassComponentData data)
+            {
+                if (!Category.HasFlag(Category.ClassData))
+                    return VisitStatus.Stop;
+                if (Read)
+                    Assert.That(data.FloatValue, Is.EqualTo(Value));
+                else
+                    data.FloatValue = Value;
+                return VisitStatus.Stop;
+            }
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, ClassComponentData2> property, ref TContainer container, ref ClassComponentData2 data)
+            {
+                if (!Category.HasFlag(Category.ClassData))
+                    return VisitStatus.Stop;
+                if (Read)
+                    Assert.That(data.FloatValue, Is.EqualTo(Value));
+                else
+                    data.FloatValue = Value;
+                return VisitStatus.Stop;
+            }
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, ClassChunkData> property, ref TContainer container, ref ClassChunkData data)
+            {
+                if (!Category.HasFlag(Category.ClassChunkData))
+                    return VisitStatus.Stop;
+                if (Read)
+                    Assert.That(data.FloatValue, Is.EqualTo(Value));
+                else
+                    data.FloatValue = Value;
+                return VisitStatus.Stop;
+            }
+#endif
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, SharedComponentData> property, ref TContainer container, ref SharedComponentData data)
+            {
+                if (!Category.HasFlag(Category.SharedData))
+                    return VisitStatus.Stop;
+                if (Read)
+                    Assert.That(data.FloatValue, Is.EqualTo(Value));
+                else
+                    data.FloatValue = Value;
+                return VisitStatus.Stop;
+            }
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, StructChunkData> property, ref TContainer container, ref StructChunkData data)
+            {
+                if (!Category.HasFlag(Category.StructChunkData))
+                    return VisitStatus.Stop;
+                if (Read)
+                    Assert.That(data.FloatValue, Is.EqualTo(Value));
+                else
+                    data.FloatValue = Value;
+                return VisitStatus.Stop;
+            }
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, DynamicBufferContainer<BufferElement>> property, ref TContainer container, ref DynamicBufferContainer<BufferElement> data)
+            {
+                if (!Category.HasFlag(Category.BufferData))
+                    return VisitStatus.Stop;
+                if (Read)
+                    Assert.That(data.Count, Is.EqualTo(51));
+                else
+                    data.Add( new BufferElement{ FloatValue = data.Count * Value });
+
+                return VisitStatus.Unhandled;
+            }
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, BufferElement> property, ref TContainer container, ref BufferElement data)
+            {
+                if (!Category.HasFlag(Category.BufferData))
+                    return VisitStatus.Stop;
+                if (Read)
+                    Assert.That(data.FloatValue, Is.EqualTo(Value * (property as IListElementProperty).Index));
+                else
+                    data.FloatValue = Value * (property as IListElementProperty).Index;
+                return VisitStatus.Stop;
+            }
+        }
+
         GameObject _gameObject;
 
         public override void Setup()
@@ -205,7 +329,54 @@ namespace Unity.Entities.Editor.Tests
             m_Manager.SetComponentData(entity, new ClassComponentData { Category = Category.ClassData });
 #endif
             m_Manager.SetComponentData(entity, new StructComponentData { Category = Category.StructData });
-            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, true), new TestVisitor { GameObject = _gameObject});
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, true), new TestComponentCategoryVisitor { GameObject = _gameObject});
+        }
+
+         [Test]
+        public void EntityContainer_WhenVisited_CanReadAndWriteData()
+        {
+            var entity = m_Manager.CreateEntity(typeof(StructComponentData),
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+                typeof(ClassComponentData),
+#endif
+                typeof(SharedComponentData));
+
+            m_Manager.AddChunkComponentData<StructChunkData>(entity);
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            m_Manager.AddChunkComponentData<ClassChunkData>(entity);
+#endif
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            m_Manager.AddComponentObject(entity, new ClassComponentData2 { Category = Category.ClassData });
+#endif
+
+            var buffer = m_Manager.AddBuffer<BufferElement>(entity);
+            for (var i = 0; i < 50; ++i)
+                buffer.Add(new BufferElement {Category = Category.BufferData, FloatValue = i});
+
+            m_Manager.SetSharedComponentData(entity, new SharedComponentData { Category = Category.SharedData });
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity), new StructChunkData { Value = 25, Category = Category.StructChunkData });
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity), new ClassChunkData { GameObject = _gameObject, Category = Category.ClassChunkData });
+            m_Manager.SetComponentData(entity, new ClassComponentData { Category = Category.ClassData });
+#endif
+            m_Manager.SetComponentData(entity, new StructComponentData { Category = Category.StructData });
+
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(false, 25, Category.StructChunkData));
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(true, 25, Category.StructChunkData));
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(false, 25, Category.ClassChunkData));
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(true, 25, Category.ClassChunkData));
+
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(false, 25, Category.StructData));
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(true, 25, Category.StructData));
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(false, 25, Category.ClassData));
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(true, 25, Category.ClassData));
+
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(false, 25, Category.SharedData));
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(true, 25, Category.SharedData));
+
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(false, 25, Category.BufferData));
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(true, 25, Category.BufferData));
         }
     }
 }

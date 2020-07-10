@@ -1,4 +1,4 @@
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
 /* MIT License
 
 Copyright (c) 2016 JetBrains http://www.jetbrains.com

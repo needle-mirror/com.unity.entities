@@ -1,4 +1,4 @@
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -43,6 +43,47 @@ namespace Unity.Entities.CodeGen
         int m_TotalBlobAssetRefOffsetCount;
         int m_TotalWriteGroupCount;
 
+        internal FieldReference GenerateConstantData(TypeDefinition constantStorageTypeDef, byte[] data)
+        {
+            const string kConstantDataFieldNamePrefix = "ConstantData";
+            int constantDataCount = constantStorageTypeDef.NestedTypes.Count(t => t.Name.StartsWith(kConstantDataFieldNamePrefix));
+
+            var constantDataTypeDef = new TypeDefinition(constantStorageTypeDef.Namespace, $"{kConstantDataFieldNamePrefix}{constantDataCount}", TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.AnsiClass, AssemblyDefinition.MainModule.ImportReference(typeof(ValueType)));
+            constantStorageTypeDef.NestedTypes.Add(constantDataTypeDef);
+            constantDataTypeDef.IsExplicitLayout = true;
+            constantDataTypeDef.PackingSize = 1;
+            constantDataTypeDef.ClassSize = data.Length;
+
+            var constantDataFieldDef = new FieldDefinition($"Value{constantDataCount}", FieldAttributes.Static | FieldAttributes.InitOnly | FieldAttributes.HasFieldRVA, constantDataTypeDef);
+            constantDataFieldDef.InitialValue = data;
+            constantStorageTypeDef.Fields.Add(constantDataFieldDef);
+
+            return constantDataFieldDef;
+        }
+
+        /// <summary>
+        /// Populates the registry's BlobAssetReferenceOffsets int array.
+        /// Offsets are laid out contiguously in memory such that the memory layout for Types A (2 entities), B (3 entities), C (0 entities) D (2 entities) is as such: aabbbdd
+        /// </summary>
+        internal void GenerateBlobAssetReferenceArray(ILProcessor il, in TypeGenInfoList typeGenInfoList, FieldReference fieldRef, bool isStaticField)
+        {
+            var intRef = AssemblyDefinition.MainModule.ImportReference(typeof(int));
+            PushNewArray(il, intRef, m_TotalBlobAssetRefOffsetCount);
+
+            int blobOffsetIndex = 0;
+            foreach (var typeGenInfo in typeGenInfoList)
+            {
+                foreach (var offset in typeGenInfo.BlobAssetRefOffsets)
+                {
+                    PushNewArrayElement(il, blobOffsetIndex++);
+                    EmitLoadConstant(il, offset);
+                    il.Emit(OpCodes.Stelem_Any, intRef);
+                }
+            }
+
+            StoreTopOfStackToField(il, fieldRef, isStaticField);
+        }
+
         /// <summary>
         /// Populates the registry's entityOffset int array.
         /// Offsets are laid out contiguously in memory such that the memory layout for Types A (2 entites), B (3 entities), C (0 entities) D (2 entities) is as such: aabbbdd
@@ -86,29 +127,6 @@ namespace Unity.Entities.CodeGen
         }
 
         /// <summary>
-        /// Populates the registry's entityOffset int array.
-        /// Offsets are laid out contiguously in memory such that the memory layout for Types A (2 entities), B (3 entities), C (0 entities) D (2 entities) is as such: aabbbdd
-        /// </summary>
-        internal void GenerateBlobAssetReferenceArray(ILProcessor il, in TypeGenInfoList typeGenInfoList, FieldReference fieldRef, bool isStaticField)
-        {
-            var intRef = AssemblyDefinition.MainModule.ImportReference(typeof(int));
-            PushNewArray(il, intRef, m_TotalBlobAssetRefOffsetCount);
-
-            int blobOffsetIndex = 0;
-            foreach (var typeGenInfo in typeGenInfoList)
-            {
-                foreach (var offset in typeGenInfo.BlobAssetRefOffsets)
-                {
-                    PushNewArrayElement(il, blobOffsetIndex++);
-                    EmitLoadConstant(il, offset);
-                    il.Emit(OpCodes.Stelem_Any, intRef);
-                }
-            }
-
-            StoreTopOfStackToField(il, fieldRef, isStaticField);
-        }
-
-        /// <summary>
         /// Populates the registry's writeGroup int array.
         /// WriteGroup TypeIndices are laid out contiguously in memory such that the memory layout for Types A (2 writegroup elements),
         /// B (3 writegroup elements), C (0 writegroup elements) D (2 writegroup elements) is as such: aabbbdd
@@ -130,6 +148,47 @@ namespace Unity.Entities.CodeGen
             }
 
             StoreTopOfStackToField(il, fieldRef, isStaticField);
+        }
+
+        /// <summary>
+        /// Populates the registry's TypeInfo array in typeIndex order.
+        /// </summary>
+        internal unsafe byte[] GenerateTypeInfoBlobArray(TypeGenInfoList typeGenInfoList)
+        {
+            var typeInfoSize = sizeof(TypeInfo);
+            var blob = new byte[typeInfoSize * typeGenInfoList.Count];
+            if (typeGenInfoList.Count == 0)
+                return blob;
+
+            fixed (byte* pData = &blob[0])
+            {
+                for (int i = 0; i < typeGenInfoList.Count; ++i)
+                {
+                    var typeGenInfo = typeGenInfoList[i];
+                    var typeInfo = new TypeInfo(
+                        typeGenInfo.TypeIndex,
+                        typeGenInfo.TypeCategory,
+                        typeGenInfo.EntityOffsetIndex == -1 ? -1 : typeGenInfo.EntityOffsets.Count,
+                        typeGenInfo.EntityOffsetIndex,
+                        typeGenInfo.MemoryOrdering,
+                        typeGenInfo.StableHash,
+                        typeGenInfo.BufferCapacity,
+                        typeGenInfo.SizeInChunk,
+                        typeGenInfo.ElementSize,
+                        typeGenInfo.Alignment,
+                        typeGenInfo.MaxChunkCapacity,
+                        typeGenInfo.WriteGroupTypes.Count,
+                        typeGenInfo.WriteGroupsIndex,
+                        typeGenInfo.BlobAssetRefOffsets.Count,
+                        typeGenInfo.BlobAssetRefOffsetIndex,
+                        0, // FastEqualityIndex - should be 0 until we can remove field altogether
+                        typeGenInfo.AlignAndSize.size
+                    );
+                    *((TypeInfo*)pData + i) = typeInfo;
+                }
+            }
+
+            return blob;
         }
 
         /// <summary>
@@ -646,7 +705,7 @@ namespace Unity.Entities.CodeGen
                         }
                         else
                         {
-                            if (fieldTypeRef.IsPointer && kArchBits == 64)
+                            if (fieldTypeRef.IsPointer && ArchBits == 64)
                             {
                                 // Xor top and bottom of pointer
                                 //
@@ -716,6 +775,8 @@ namespace Unity.Entities.CodeGen
             }
         }
 
+        [Obsolete("Ensure you pass a TypeReference to this function. A TypeDefinition is not acceptable. (RemovedAfter 2020-05-17)", true)]
+        void CalculateMemoryOrderingAndStableHash(TypeDefinition typeDef, out ulong memoryOrder, out ulong stableHash) { throw new Exception(); }
         void CalculateMemoryOrderingAndStableHash(TypeReference typeRef, out ulong memoryOrder, out ulong stableHash)
         {
             if (typeRef == null)
@@ -754,9 +815,9 @@ namespace Unity.Entities.CodeGen
 
             if (!isManaged)
             {
-                entityOffsets = TypeUtils.GetEntityFieldOffsets(typeRef, kArchBits);
-                blobAssetRefOffsets = TypeUtils.GetFieldOffsetsOf("Unity.Entities.BlobAssetReference`1", typeRef, kArchBits);
-                alignAndSize = TypeUtils.AlignAndSizeOfType(typeRef, kArchBits);
+                entityOffsets = TypeUtils.GetEntityFieldOffsets(typeRef, ArchBits);
+                blobAssetRefOffsets = TypeUtils.GetFieldOffsetsOf("Unity.Entities.BlobAssetReference`1", typeRef, ArchBits);
+                alignAndSize = TypeUtils.AlignAndSizeOfType(typeRef, ArchBits);
             }
 
             int typeIndex = m_TotalTypeCount++;

@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
 namespace Unity.Entities
@@ -32,126 +30,38 @@ namespace Unity.Entities
             }
         }
 
-        // @TODO: Re-enable burst on this... in some editor cases the memory can get unmapped and throw.
-        // [BurstCompile]
-        internal struct GatherUniqueBlobAssetReferences : IJob
+        internal struct BlobAssetsWithDistinctHash : IDisposable
         {
-            [NativeDisableUnsafePtrRestriction] public TypeManager.TypeInfo* TypeInfo;
-            [NativeDisableUnsafePtrRestriction] public TypeManager.EntityOffsetInfo* BlobAssetRefOffsets;
-            [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             public NativeList<BlobAssetPtr> BlobAssets;
             public NativeHashMap<ulong, int> BlobAssetsMap;
 
-            public void Execute()
+            public BlobAssetsWithDistinctHash(Allocator allocator)
             {
-                for (var chunkIndex = 0; chunkIndex < Chunks.Length; chunkIndex++)
-                {
-                    var chunk = Chunks[chunkIndex].m_Chunk;
-                    var archetype = chunk->Archetype;
-
-                    if (!archetype->ContainsBlobAssetRefs)
-                        continue;
-
-                    var typesCount = archetype->TypesCount;
-                    var entityCount = Chunks[chunkIndex].Count;
-
-                    for (var unorderedTypeIndexInArchetype = 0; unorderedTypeIndexInArchetype < typesCount; unorderedTypeIndexInArchetype++)
-                    {
-                        var typeIndexInArchetype = archetype->TypeMemoryOrder[unorderedTypeIndexInArchetype];
-
-                        GatherBlobAssetsMemoryOrdered(archetype, chunk, typeIndexInArchetype, entityCount);
-                    }
-                }
+                BlobAssets = new NativeList<BlobAssetPtr>(1, allocator);
+                BlobAssetsMap = new NativeHashMap<ulong, int>(1, allocator);
             }
 
-            void GatherBlobAssetsMemoryOrdered(Archetype* archetype, Chunk* chunk, int typeIndexInArchetype, int entityCount)
+            public void Dispose()
             {
-                var componentTypeInArchetype = archetype->Types[typeIndexInArchetype];
-
-                if (componentTypeInArchetype.IsZeroSized || componentTypeInArchetype.IsSharedComponent)
-                    return;
-
-                var typeInfo = TypeInfo[componentTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
-                var blobAssetRefCount = typeInfo.BlobAssetRefOffsetCount;
-
-                if (blobAssetRefCount == 0)
-                    return;
-
-                var blobAssetRefOffsets = BlobAssetRefOffsets + typeInfo.BlobAssetRefOffsetStartIndex;
-                var chunkBuffer = chunk->Buffer;
-                var subArrayOffset = archetype->Offsets[typeIndexInArchetype];
-                var componentArrayStart = chunkBuffer + subArrayOffset;
-
-                if (componentTypeInArchetype.IsBuffer)
-                {
-                    var header = (BufferHeader*)componentArrayStart;
-                    var strideSize = archetype->SizeOfs[typeIndexInArchetype];
-                    var elementSize = typeInfo.ElementSize;
-
-                    for (var entityIndex = 0; entityIndex < entityCount; entityIndex++)
-                    {
-                        var bufferStart = BufferHeader.GetElementPointer(header);
-                        var bufferEnd = bufferStart + header->Length * elementSize;
-
-                        for (var componentData = bufferStart; componentData < bufferEnd; componentData += elementSize)
-                        {
-                            AddBlobAssets(componentData, blobAssetRefOffsets, blobAssetRefCount);
-                        }
-
-                        header = (BufferHeader*)(((byte*)header) + strideSize);
-                    }
-                }
-                else
-                {
-                    var componentSize = archetype->SizeOfs[typeIndexInArchetype];
-                    var end = componentArrayStart + componentSize * entityCount;
-
-                    for (var componentData = componentArrayStart; componentData < end; componentData += componentSize)
-                    {
-                        AddBlobAssets(componentData, blobAssetRefOffsets, blobAssetRefCount);
-                    }
-                }
+                BlobAssets.Dispose();
+                BlobAssetsMap.Dispose();
             }
 
-            void AddBlobAssets(
-                byte* componentData,
-                TypeManager.EntityOffsetInfo* blobAssetRefOffsets,
-                int blobAssetRefCount)
+            public void TryAdd(BlobAssetPtr blobAssetPtr)
             {
-                for (var i = 0; i < blobAssetRefCount; ++i)
-                {
-                    var blobAssetRefOffset = blobAssetRefOffsets[i].Offset;
-                    var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + blobAssetRefOffset);
+                if (BlobAssetsMap.TryGetValue(blobAssetPtr.Header->Hash, out _))
+                    return;
 
-                    if (blobAssetRefPtr->m_Ptr == null)
-                        continue;
-
-                    // @TODO: remove validation checks to re-enable burst
-                    void* validationPtr = null;
-                    try
-                    {
-                        // Try to read ValidationPtr, this might throw if the memory has been unmapped
-                        validationPtr = blobAssetRefPtr->Header->ValidationPtr;
-                    }
-                    catch (Exception)
-                    {
-                    }
-
-                    if (validationPtr != blobAssetRefPtr->m_Ptr)
-                        continue;
-
-                    if (BlobAssetsMap.TryGetValue(blobAssetRefPtr->Header->Hash, out _))
-                        continue;
-
-                    BlobAssetsMap.TryAdd(blobAssetRefPtr->Header->Hash, BlobAssets.Length);
-                    BlobAssets.Add(new BlobAssetPtr(blobAssetRefPtr->Header));
-                }
+                BlobAssetsMap.TryAdd(blobAssetPtr.Header->Hash, BlobAssets.Length);
+                BlobAssets.Add(new BlobAssetPtr(blobAssetPtr.Header));
             }
         }
 
-        struct BlobAssetPtrComparer : IComparer<BlobAssetPtr>
+        [BurstCompile]
+        struct SortBlobAssetPtr : IJob
         {
-            public int Compare(BlobAssetPtr x, BlobAssetPtr y) => x.CompareTo(y);
+            public NativeArray<BlobAssetPtr> Array;
+            public void Execute() => Array.Sort(new BlobAssetPtrHashComparer());
         }
 
         [BurstCompile]
@@ -167,12 +77,14 @@ namespace Unity.Entities
                 var afterIndex = 0;
                 var beforeIndex = 0;
 
+                var comparer = new BlobAssetPtrHashComparer();
+
                 while (afterIndex < AfterBlobAssets.Length && beforeIndex < BeforeBlobAssets.Length)
                 {
                     var afterBlobAsset = AfterBlobAssets[afterIndex];
                     var beforeBlobAsset = BeforeBlobAssets[beforeIndex];
 
-                    var compare = afterBlobAsset.CompareTo(beforeBlobAsset);
+                    var compare = comparer.Compare(afterBlobAsset, beforeBlobAsset);
 
                     if (compare < 0)
                     {
@@ -237,32 +149,182 @@ namespace Unity.Entities
             }
         }
 
-        static NativeList<BlobAssetPtr> GetReferencedBlobAssets(
+        internal static BlobAssetsWithDistinctHash GetBlobAssetsWithDistinctHash(
+            ManagedComponentStore managedComponentStore,
             NativeArray<ArchetypeChunk> chunks,
-            Allocator allocator,
-            out JobHandle jobHandle,
-            JobHandle dependsOn = default)
+            Allocator allocator)
         {
-            var blobAssets = new NativeList<BlobAssetPtr>(1, allocator);
-            var blobAssetsMap = new NativeHashMap<ulong, int>(1, allocator);
+            var blobAssetsWithDistinctHash = new BlobAssetsWithDistinctHash(allocator);
 
-            var gatherUniqueBlobAssets = new GatherUniqueBlobAssetReferences
+            var typeInfoPtr = TypeManager.GetTypeInfoPointer();
+            var blobAssetRefOffsetPtr = TypeManager.GetBlobAssetRefOffsetsPointer();
+
+            var managedObjectBlobs = new ManagedObjectBlobs();
+            var managedObjectBlobAssets = new NativeList<BlobAssetPtr>(16, Allocator.Temp);
+            var managedObjectBlobAssetsMap = new NativeHashMap<BlobAssetPtr, int>(16, Allocator.Temp);
+
+            for (var chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
             {
-                TypeInfo = TypeManager.GetTypeInfoPointer(),
-                BlobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsetsPointer(),
-                Chunks = chunks,
-                BlobAssets = blobAssets,
-                BlobAssetsMap = blobAssetsMap
-            }.Schedule(dependsOn);
+                var chunk = chunks[chunkIndex].m_Chunk;
+                var archetype = chunk->Archetype;
 
-            var sortBlobAssets = new SortNativeArrayWithComparer<BlobAssetPtr, BlobAssetPtrComparer>
+                // skip this chunk only if we are _certain_ there are no blob asset refs.
+                if (archetype->NumManagedComponents == 0 && archetype->NumSharedComponents == 0 && !archetype->ContainsBlobAssetRefs)
+                    continue;
+
+                var typesCount = archetype->TypesCount;
+                var entityCount = chunks[chunkIndex].Count;
+
+                for (var unorderedTypeIndexInArchetype = 0; unorderedTypeIndexInArchetype < typesCount; unorderedTypeIndexInArchetype++)
+                {
+                    var typeIndexInArchetype = archetype->TypeMemoryOrder[unorderedTypeIndexInArchetype];
+
+                    var componentTypeInArchetype = archetype->Types[typeIndexInArchetype];
+
+                    if (componentTypeInArchetype.IsZeroSized)
+                        continue;
+
+                    var chunkBuffer = chunk->Buffer;
+                    var subArrayOffset = archetype->Offsets[typeIndexInArchetype];
+                    var componentArrayStart = chunkBuffer + subArrayOffset;
+
+                    if (componentTypeInArchetype.IsManagedComponent)
+                    {
+                        var componentSize = archetype->SizeOfs[typeIndexInArchetype];
+                        var end = componentArrayStart + componentSize * entityCount;
+
+                        for (var componentData = componentArrayStart; componentData < end; componentData += componentSize)
+                        {
+                            var managedComponentIndex = *(int*)componentData;
+                            var managedComponentValue = managedComponentStore.GetManagedComponent(managedComponentIndex);
+
+                            if (null != managedComponentValue)
+                                managedObjectBlobs.GatherBlobAssetReferences(managedComponentValue, managedObjectBlobAssets, managedObjectBlobAssetsMap);
+                        }
+                    }
+                    else
+                    {
+                        var typeInfo = typeInfoPtr[componentTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
+                        var blobAssetRefCount = typeInfo.BlobAssetRefOffsetCount;
+
+                        if (blobAssetRefCount == 0)
+                            continue;
+
+                        var blobAssetRefOffsets = blobAssetRefOffsetPtr + typeInfo.BlobAssetRefOffsetStartIndex;
+
+                        if (componentTypeInArchetype.IsBuffer)
+                        {
+                            var header = (BufferHeader*)componentArrayStart;
+                            var strideSize = archetype->SizeOfs[typeIndexInArchetype];
+                            var elementSize = typeInfo.ElementSize;
+
+                            for (var entityIndex = 0; entityIndex < entityCount; entityIndex++)
+                            {
+                                var bufferStart = BufferHeader.GetElementPointer(header);
+                                var bufferEnd = bufferStart + header->Length * elementSize;
+
+                                for (var componentData = bufferStart; componentData < bufferEnd; componentData += elementSize)
+                                {
+                                    AddBlobAssetsWithDistinctHash(componentData, blobAssetRefOffsets, blobAssetRefCount, blobAssetsWithDistinctHash);
+                                }
+
+                                header = (BufferHeader*)(((byte*)header) + strideSize);
+                            }
+                        }
+                        else
+                        {
+                            var componentSize = archetype->SizeOfs[typeIndexInArchetype];
+                            var end = componentArrayStart + componentSize * entityCount;
+
+                            for (var componentData = componentArrayStart; componentData < end; componentData += componentSize)
+                            {
+                                AddBlobAssetsWithDistinctHash(componentData, blobAssetRefOffsets, blobAssetRefCount, blobAssetsWithDistinctHash);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (var chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
             {
-                Array = blobAssets.AsDeferredJobArray()
-            }.Schedule(gatherUniqueBlobAssets);
+                var chunk = chunks[chunkIndex].m_Chunk;
+                var archetype = chunk->Archetype;
+                var sharedComponentValues = chunk->SharedComponentValues;
 
-            jobHandle = blobAssetsMap.Dispose(sortBlobAssets);
+                for (var i = 0; i < archetype->NumSharedComponents; i++)
+                {
+                    var sharedComponentIndex = sharedComponentValues[i];
 
-            return blobAssets;
+                    if (sharedComponentIndex == 0)
+                        continue;
+
+                    var sharedComponentValue = managedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndex);
+                    managedObjectBlobs.GatherBlobAssetReferences(sharedComponentValue, managedObjectBlobAssets, managedObjectBlobAssetsMap);
+                }
+            }
+
+            for (var i = 0; i < managedObjectBlobAssets.Length; i++)
+            {
+                var blobAssetPtr = managedObjectBlobAssets[i];
+
+                void* validationPtr = null;
+                try
+                {
+                    // Try to read ValidationPtr, this might throw if the memory has been unmapped
+                    validationPtr = blobAssetPtr.Header->ValidationPtr;
+                }
+                catch (Exception)
+                {
+                    // Ignored
+                }
+
+                if (validationPtr != blobAssetPtr.Data)
+                    continue;
+
+                blobAssetsWithDistinctHash.TryAdd(blobAssetPtr);
+            }
+
+            managedObjectBlobAssets.Dispose();
+            managedObjectBlobAssetsMap.Dispose();
+
+            new SortBlobAssetPtr
+            {
+                Array = blobAssetsWithDistinctHash.BlobAssets.AsDeferredJobArray()
+            }.Run();
+
+            return blobAssetsWithDistinctHash;
+        }
+
+        static void AddBlobAssetsWithDistinctHash(
+            byte* componentData,
+            TypeManager.EntityOffsetInfo* blobAssetRefOffsets,
+            int blobAssetRefCount,
+            BlobAssetsWithDistinctHash blobAssets)
+        {
+            for (var i = 0; i < blobAssetRefCount; ++i)
+            {
+                var blobAssetRefOffset = blobAssetRefOffsets[i].Offset;
+                var blobAssetRefPtr = (BlobAssetReferenceData*)(componentData + blobAssetRefOffset);
+
+                if (blobAssetRefPtr->m_Ptr == null)
+                    continue;
+
+                void* validationPtr = null;
+                try
+                {
+                    // Try to read ValidationPtr, this might throw if the memory has been unmapped
+                    validationPtr = blobAssetRefPtr->Header->ValidationPtr;
+                }
+                catch (Exception)
+                {
+                    // Ignored
+                }
+
+                if (validationPtr != blobAssetRefPtr->m_Ptr)
+                    continue;
+
+                blobAssets.TryAdd(new BlobAssetPtr(blobAssetRefPtr->Header));
+            }
         }
 
         static BlobAssetChanges GetBlobAssetChanges(

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 
@@ -52,7 +52,7 @@ namespace Unity.Entities
         /// Reports whether the EntityManager has been initialized yet.
         /// </summary>
         /// <value>True, if the EntityManager's OnCreateManager() function has finished.</value>
-        [Obsolete("Use World.IsCreated. EntityManager lifetimes are tied to the world they came from. (RemovedAfter 2020-08-01)")]
+        [Obsolete("Use World.IsCreated. EntityManager lifetimes are tied to the world they came from. (RemoveAfter 2020-08-01)")]
         public bool IsCreated => DeprecatedRegistry.IsAlive(this);
 
         // Temporarily allow conversion from null reference to allow existing packages to compile.

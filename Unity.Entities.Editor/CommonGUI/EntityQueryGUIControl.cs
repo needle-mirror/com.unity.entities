@@ -65,7 +65,7 @@ namespace Unity.Entities.Editor
                 {
                     style = EntityQueryGUI.StyleForAccessMode(type.AccessModeType, archetypeQueryMode);
                 }
-                var content = new GUIContent((string)EntityQueryGUI.SpecifiedTypeName(type.GetManagedType()));
+                var content = new GUIContent(Properties.Editor.TypeUtility.GetTypeDisplayName(type.GetManagedType()));
 
                 styles.Add(style);
                 names.Add(content);

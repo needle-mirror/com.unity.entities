@@ -106,12 +106,10 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct SortNativeArrayWithComparer<T, TComparer> : IJob
-            where T : struct
-            where TComparer : struct, IComparer<T>
+        struct SortEntityInChunk : IJob
         {
-            public NativeArray<T> Array;
-            public void Execute() => Array.Sort(new TComparer());
+            public NativeArray<EntityInChunkWithGuid> Array;
+            public void Execute() => Array.Sort(new EntityInChunkWithGuidComparer());
         }
 
         [BurstCompile]
@@ -209,7 +207,7 @@ namespace Unity.Entities
                 Entities = entities
             }.Schedule(archetypeChunkChangeSet.Chunks.Length, 64, dependsOn);
 
-            var sortEntities = new SortNativeArrayWithComparer<EntityInChunkWithGuid, EntityInChunkWithGuidComparer>
+            var sortEntities = new SortEntityInChunk
             {
                 Array = entities
             }.Schedule(gatherEntitiesByChunk);

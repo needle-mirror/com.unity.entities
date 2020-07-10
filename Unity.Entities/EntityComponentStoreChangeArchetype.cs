@@ -21,6 +21,15 @@ namespace Unity.Entities
             return true;
         }
 
+        public void AddComponents(Entity entity, ComponentTypes types)
+        {
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponents(GetChunk(entity), types);
+            if (archetypeChunkFilter.Archetype == null)
+                return;
+
+            Move(entity, ref archetypeChunkFilter);
+        }
+
         public bool RemoveComponent(Entity entity, ComponentType type)
         {
             var dstChunk = GetChunkWithEmptySlotsWithRemovedComponent(entity, type);
@@ -29,6 +38,15 @@ namespace Unity.Entities
 
             Move(entity, dstChunk);
             return true;
+        }
+
+        public void RemoveComponents(Entity entity, ComponentTypes types)
+        {
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponents(GetChunk(entity), types);
+            if (archetypeChunkFilter.Archetype == null)  // none were removed
+                return;
+
+            Move(entity, ref archetypeChunkFilter);
         }
 
         bool AddComponent(EntityBatchInChunk entityBatchInChunk, ComponentType componentType, int sharedComponentIndex = 0)
@@ -78,6 +96,28 @@ namespace Unity.Entities
             }
         }
 
+        public void AddComponents(ArchetypeChunk* chunks, int chunkCount, ComponentTypes types)
+        {
+            Archetype* prevArchetype = null;
+            ArchetypeChunkFilter archetypeChunkFilter = default(ArchetypeChunkFilter);
+
+            for (int i = 0; i < chunkCount; i++)
+            {
+                var chunk = chunks[i].m_Chunk;
+                var archetype = chunk->Archetype;
+
+                if (archetype != prevArchetype)
+                {
+                    // returns default if no types added
+                    archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponents(chunk, types);
+                    prevArchetype = archetype;
+                }
+
+                if (archetypeChunkFilter.Archetype != null)
+                    Move(chunk, ref archetypeChunkFilter);
+            }
+        }
+
         public void RemoveComponent(ArchetypeChunk* chunks, int chunkCount, ComponentType componentType)
         {
             Archetype* prevArchetype = null;
@@ -104,6 +144,28 @@ namespace Unity.Entities
             }
         }
 
+        public void RemoveComponents(ArchetypeChunk* chunks, int chunkCount, ComponentTypes types)
+        {
+            Archetype* prevArchetype = null;
+            ArchetypeChunkFilter archetypeChunkFilter = default(ArchetypeChunkFilter);
+
+            for (int i = 0; i < chunkCount; i++)
+            {
+                var chunk = chunks[i].m_Chunk;
+                var archetype = chunk->Archetype;
+
+                if (archetype != prevArchetype)
+                {
+                    // returns default if no types removed
+                    archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponents(chunk, types);
+                    prevArchetype = archetype;
+                }
+
+                if (archetypeChunkFilter.Archetype != null)
+                    Move(chunk, ref archetypeChunkFilter);
+            }
+        }
+
         public void AddComponent(UnsafeList* sortedEntityBatchList, ComponentType type, int existingSharedComponentIndex)
         {
             Assert.IsFalse(type.IsChunkComponent);
@@ -122,15 +184,6 @@ namespace Unity.Entities
                 RemoveComponent(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], type);
         }
 
-        public void AddComponents(Entity entity, ComponentTypes types)
-        {
-            var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponents(GetChunk(entity), types);
-            if (archetypeChunkFilter.Archetype == null)
-                return;
-
-            Move(entity, ref archetypeChunkFilter);
-        }
-
         public bool AddComponentWithValidation(Entity entity, ComponentType componentType)
         {
             if (HasComponent(entity, componentType))
@@ -142,6 +195,13 @@ namespace Unity.Entities
             return true;
         }
 
+        public void AddMultipleComponentsWithValidation(Entity entity, ComponentTypes componentTypes)
+        {
+            AssertCanAddComponents(entity, componentTypes);
+            AddComponents(entity, componentTypes);
+        }
+
+
         public void AddComponentWithValidation(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
             ComponentType componentType, ComponentDependencyManager* dependencyManager)
         {
@@ -150,7 +210,6 @@ namespace Unity.Entities
             var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
             if (chunks.Length > 0)
             {
-
                 //@TODO the fast path for a chunk that contains a single entity is only possible if the chunk doesn't have a Locked Entity Order
                 //but we should still be allowed to add zero sized components to chunks with a Locked Entity Order, even ones that only contain a single entity
 
@@ -163,12 +222,12 @@ namespace Unity.Entities
                 else
                 {
                 */
-                AddComponent((ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks),
-                    chunks.Length, componentType);
+                AddComponent((ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType);
                 /*
                 }
                 */
             }
+
             chunks.Dispose();
         }
 
@@ -179,6 +238,13 @@ namespace Unity.Entities
             var removed = RemoveComponent(entity, componentType);
 
             return removed;
+        }
+
+        public void RemoveMultipleComponentsWithValidation(Entity entity, ComponentTypes componentTypes)
+        {
+            ValidateEntity(entity);
+            AssertCanRemoveComponents(entity, componentTypes);
+            RemoveComponents(entity, componentTypes);
         }
 
         public void RemoveComponentWithValidation(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
@@ -194,7 +260,7 @@ namespace Unity.Entities
             if (chunks.Length == 0)
                 return;
 
-            RemoveComponent((ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType);
+            RemoveComponent((ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType);
         }
 
         public void SetSharedComponentDataIndex(Entity entity, ComponentType componentType, int dstSharedComponentDataIndex)
@@ -240,7 +306,8 @@ namespace Unity.Entities
         void Move(Entity entity, ref ArchetypeChunkFilter archetypeChunkFilter)
         {
             var srcEntityInChunk = GetEntityInChunk(entity);
-            var entityBatch = new EntityBatchInChunk { Chunk = srcEntityInChunk.Chunk, Count = 1, StartIndex = srcEntityInChunk.IndexInChunk };
+            var entityBatch = new EntityBatchInChunk
+                {Chunk = srcEntityInChunk.Chunk, Count = 1, StartIndex = srcEntityInChunk.IndexInChunk};
 
             Move(entityBatch, ref archetypeChunkFilter);
         }

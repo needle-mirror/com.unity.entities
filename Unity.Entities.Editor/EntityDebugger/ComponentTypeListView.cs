@@ -22,7 +22,7 @@ namespace Unity.Entities.Editor
             this.previouslySelected = previouslySelected;
             typeNames = new List<GUIContent>(types.Count);
             for (var i = 0; i < types.Count; ++i)
-                typeNames.Add(new GUIContent(EntityQueryGUI.SpecifiedTypeName(types[i].GetManagedType())));
+                typeNames.Add(new GUIContent(Properties.Editor.TypeUtility.GetTypeDisplayName(types[i].GetManagedType())));
             Reload();
         }
 

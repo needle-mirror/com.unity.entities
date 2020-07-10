@@ -61,7 +61,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(testData.value, 2);
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 // https://unity3d.atlassian.net/browse/DOTSR-1432
 // EntitiesAssert isn't currently supported
 

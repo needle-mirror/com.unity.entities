@@ -19,6 +19,7 @@ namespace Unity.Entities
         /// <remarks>For performance, entity names only exist when running in the Unity Editor.</remarks>
         /// <param name="entity">The Entity object of the entity of interest.</param>
         /// <returns>The entity name.</returns>
+        [NotBurstCompatible]
         public string GetName(Entity entity)
         {
             return GetCheckedEntityDataAccess()->EntityComponentStore->GetName(entity);
@@ -30,6 +31,7 @@ namespace Unity.Entities
         /// <remarks>For performance, entity names only exist when running in the Unity Editor.</remarks>
         /// <param name="entity">The Entity object of the entity to name.</param>
         /// <param name="name">The name to assign.</param>
+        [NotBurstCompatible]
         public void SetName(Entity entity, string name)
         {
             GetCheckedEntityDataAccess()->EntityComponentStore->SetName(entity, name);
@@ -55,7 +57,7 @@ namespace Unity.Entities
             var chunks = GetAllChunks();
             var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
             var array = new NativeArray<Entity>(count, allocator);
-            var entityType = GetArchetypeChunkEntityType();
+            var entityType = GetEntityTypeHandle();
             var offset = 0;
 
             for (int i = 0; i < chunks.Length; i++)
@@ -89,7 +91,7 @@ namespace Unity.Entities
 
                 for (var i = 0; i < archetype.Archetype->Chunks.Count; ++i)
                 {
-                    var chunk = archetype.Archetype->Chunks.p[i];
+                    var chunk = archetype.Archetype->Chunks[i];
                     ChunkDataUtility.MemsetUnusedChunkData(chunk, value);
                 }
             }
@@ -195,7 +197,7 @@ namespace Unity.Entities
 #endif
             }
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             public object GetComponentBoxed(Entity entity, ComponentType type)
             {
                 m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->AssertEntityHasComponent(entity, type);
@@ -285,7 +287,7 @@ namespace Unity.Entities
                 var chunkHeaderType = new ComponentType(typeof(ChunkHeader));
                 var chunkQuery = eda->EntityQueryManager->CreateEntityQuery(eda, &chunkHeaderType, 1);
 
-                int totalEntitiesFromQuery = eda->ManagedEntityDataAccess.m_UniversalQuery.CalculateEntityCount() + chunkQuery.CalculateEntityCount();
+                int totalEntitiesFromQuery = eda->m_UniversalQuery.CalculateEntityCount() + chunkQuery.CalculateEntityCount();
                 Assert.AreEqual(eda->EntityComponentStore->CountEntities(), totalEntitiesFromQuery);
 
                 chunkQuery.Dispose();

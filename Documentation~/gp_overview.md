@@ -15,7 +15,7 @@ The systems include:
 
 You can use the Unity Editor (with the required DOTS packages) to create DOTS-based games. In the Editor, you use GameObjects as normal to author a Scene and the ECS code converts the GameObjects to entities. 
 
-The biggest difference when you use DOTS is that instead of writing your own [MonoBehaviours](https://docs.unity3d.com/ScriptReference/MonoBehaviour.html) to store instance data and implement custom game logic, you define [ECS components](ecs_components) to store the data at runtime, and write [systems](ecs_systems) for the custom logic. 
+The biggest difference when you use DOTS is that instead of writing your own [MonoBehaviours](https://docs.unity3d.com/ScriptReference/MonoBehaviour.html) to store instance data and implement custom game logic, you define [ECS components](ecs_components.md) to store the data at runtime, and write [systems](ecs_systems.md) for the custom logic. 
 
 ### GameObject conversion
 
@@ -25,7 +25,7 @@ You can implement an [IConvertGameObjectToEntity](xref:Unity.Entities.IConvertGa
 
 ![](images/CreatingGameplay.png)
 
-The ECS conversion code converts a GameObject if it either has a [ConvertToEntity](xref:Unity.Entities.Hybrid.ConvertToEntity) MonoBehaviour component, or if it is part of a SubScene. In either case, the conversion systems provided for various DOTS features, such as Unity.Transforms and Unity.Hybrid.Render, process the GameObject or the Scene Asset and any of their child GameObjects. 
+The ECS conversion code converts a GameObject if it either has a [ConvertToEntity](xref:Unity.Entities.ConvertToEntity) MonoBehaviour component, or if it is part of a SubScene. In either case, the conversion systems provided for various DOTS features, such as Unity.Transforms and Unity.Hybrid.Render, process the GameObject or the Scene Asset and any of their child GameObjects. 
 
 One difference between converting GameObjects with ConvertToEntity and converting with a SubScene is that ECS serializes and saves to disk the entity data it generates from converting a SubScene. You can load or stream this serialized data very quickly at run time. In contrast, ECS always converts GameObjects with ConvertToEntity MonoBehaviours at runtime.
 

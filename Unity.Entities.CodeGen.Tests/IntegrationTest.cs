@@ -28,7 +28,7 @@ namespace Unity.Entities.CodeGen.Tests
 
         protected void RunTest(TypeReference type)
         {
-            // Ideally these tests to run in Release codegen or otherwise the generated IL won't be deterministic (due to differences between /optimize+ and /optimize-.
+            // Ideally these tests to run in Release codegen or otherwise the generated IL won't be deterministic (due to differences between /optimize+ and /optimize-).
             // We attempt to make the tests generate the same decompiled C# in any case (by making sure all variables are used).
             if (IsAssemblyBuiltAsDebug())
                 UnityEngine.Debug.LogWarning("Integration tests should only be run with release code optimizations turned on for consistent codegen.  Switch your settings in Preferences->External Tools->Editor Attaching (in 2019.3) or Preferences->General->Code Optimization On Startup (in 2020.1+) to be able to run these tests.");
@@ -50,9 +50,14 @@ namespace Unity.Entities.CodeGen.Tests
             var actualAttributes = new List<string>();
             var expectedAttributes = new List<string>();
 
+            string failureReason = default;
             bool success = expectedLines.Length == actualLines.Length;
             if (!success)
-                Console.WriteLine($"Incorrect number of lines.  Expected lines: {expectedLines.Length}, actual lines: {actualLines.Length}");
+            {
+                failureReason = $"Incorrect number of lines. Make sure the expectation file contains only the C#, not the IL. Expected lines: {expectedLines.Length}, actual lines: {actualLines.Length}";
+                Console.WriteLine(failureReason);
+            }
+
             if (success)
             {
                 for (int i = 0; i < actualLines.Length; ++i)
@@ -70,7 +75,8 @@ namespace Unity.Entities.CodeGen.Tests
                     if (expectedLine != actualLine)
                     {
                         success = false;
-                        Console.WriteLine($"Mismatched line at {i}.\nExpected line:\n\n{expectedLine}\n\nActual line:\n\n{actualLine}\n\n");
+                        failureReason = $"Mismatched line at {i}.\nExpected line:\n\n{expectedLine}\n\nActual line:\n\n{actualLine}\n\n";
+                        Console.WriteLine(failureReason);
                         break;
                     }
                 }
@@ -82,7 +88,8 @@ namespace Unity.Entities.CodeGen.Tests
                     success = false;
                     var expectedAttributesStr = String.Join("\n", expectedAttributes);
                     var actualAttributesStr = String.Join("\n", actualAttributes);
-                    Console.WriteLine($"Mismatched attributes.\nExpected attributes:\n\n{expectedAttributesStr}\n\nActual attributes:\n\n {actualAttributesStr}\n\n");
+                    failureReason = $"Mismatched attributes.\nExpected attributes:\n\n{expectedAttributesStr}\n\nActual attributes:\n\n {actualAttributesStr}\n\n";
+                    Console.WriteLine(failureReason);
                 }
             }
 
@@ -92,7 +99,7 @@ namespace Unity.Entities.CodeGen.Tests
                 var path = $@"{tempFolder}decompiled.cs";
                 File.WriteAllText(path, jobCSharp + Environment.NewLine + Environment.NewLine + AdditionalIL);
                 Console.WriteLine("Actual Decompiled C#: ");
-                Console.WriteLine((string)jobCSharp);
+                Console.WriteLine(jobCSharp);
                 if (!String.IsNullOrEmpty(AdditionalIL))
                 {
                     Console.WriteLine("Addition IL: ");
@@ -104,7 +111,7 @@ namespace Unity.Entities.CodeGen.Tests
             if (shouldOverWrite)
                 return;
 
-            Assert.IsTrue(success);
+            Assert.IsTrue(success, $"Test failed: {failureReason}.");
         }
     }
 }

@@ -108,12 +108,12 @@ namespace Unity.Entities.Tests
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
-            ArchetypeChunkEntityType entityType = m_Manager.GetArchetypeChunkEntityType();
+            EntityTypeHandle entityTypeHandle = m_Manager.GetEntityTypeHandle();
 
             for (int i = 0; i < chunks.Length; ++i)
             {
                 ArchetypeChunk chunk = chunks[i];
-                var entitiesInChunk = chunk.GetNativeArray(entityType);
+                var entitiesInChunk = chunk.GetNativeArray(entityTypeHandle);
 
                 for (int k = 0; k < chunk.Count; ++k)
                 {

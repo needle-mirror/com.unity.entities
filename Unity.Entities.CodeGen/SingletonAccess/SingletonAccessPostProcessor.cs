@@ -45,10 +45,6 @@ namespace Unity.Entities.CodeGen
                     {
                         madeChange |= Rewrite(containingMethod, entityQueryFields);
                     }
-                    catch (PostProcessException ppe)
-                    {
-                        AddDiagnostic(ppe.ToDiagnosticMessage(containingMethod));
-                    }
                     catch (FoundErrorInUserCodeException)
                     {
                         throw;

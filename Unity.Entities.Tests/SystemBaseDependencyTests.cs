@@ -1,8 +1,8 @@
 using System;
-#if !UNITY_DOTSPLAYER
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 #pragma warning disable 649
 
 namespace Unity.Entities.Tests
@@ -179,7 +179,7 @@ namespace Unity.Entities.Tests
         {
             public struct EmptyJob : IJobChunk
             {
-                public ArchetypeChunkComponentType<EcsTestData> TestDataType;
+                public ComponentTypeHandle<EcsTestData> TestDataTypeHandle;
                 public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
                 {
                 }
@@ -189,7 +189,7 @@ namespace Unity.Entities.Tests
             {
                 Dependency = new EmptyJob
                 {
-                    TestDataType = GetArchetypeChunkComponentType<EcsTestData>()
+                    TestDataTypeHandle = GetComponentTypeHandle<EcsTestData>()
                 }.ScheduleParallel(EntityManager.UniversalQuery, Dependency);
             }
         }
@@ -254,35 +254,42 @@ namespace Unity.Entities.Tests
 
         class SystemBaseEntitiesForEachScheduling : SystemBase
         {
-            public bool RunScheduleParallel = false;
+            public int ScheduleMode;
             public NativeArray<Entity> CreatedEntities;
 
             protected override void OnUpdate()
             {
-                if (RunScheduleParallel)
+                if (ScheduleMode == 0)
                     Entities.ForEach((int nativeThreadIndex, ref EcsTestData thing) =>
                     {
                         thing.value = nativeThreadIndex;
                     }).ScheduleParallel();
-                else
+                else if (ScheduleMode == 1)
                     Entities.ForEach((int nativeThreadIndex, ref EcsTestData thing) =>
                     {
                         thing.value = nativeThreadIndex;
                     }).Schedule();
+                else
+                    Entities.ForEach((int nativeThreadIndex, ref EcsTestData thing) =>
+                    {
+                        thing.value = nativeThreadIndex;
+                    }).Run();
             }
 
             protected override void OnCreate()
             {
                 var archetype = EntityManager.CreateArchetype(new ComponentType[] {typeof(EcsTestData)});
                 CreatedEntities = EntityManager.CreateEntity(archetype, 8000, Allocator.Persistent);
+                foreach (var entity in CreatedEntities)
+                    EntityManager.SetComponentData(entity, new EcsTestData(-1));
             }
         }
 
         [Test]
-        public void SystemBaseEntitiesForEachScheduling_Scheduled_RunsOverAllComponents([Values(false, true)] bool runScheduleParallel)
+        public void SystemBaseEntitiesForEachScheduling_ScheduleAndRun_RunsOverAllComponentsWithCorrectThreadIndex([Values(0, 1, 2)] int runScheduleMode)
         {
             var system = World.CreateSystem<SystemBaseEntitiesForEachScheduling>();
-            system.RunScheduleParallel = runScheduleParallel;
+            system.ScheduleMode = runScheduleMode;
 
             Assert.DoesNotThrow(() =>
             {
@@ -293,9 +300,18 @@ namespace Unity.Entities.Tests
             foreach (var entity in system.CreatedEntities)
             {
                 var testData = system.EntityManager.GetComponentData<EcsTestData>(entity);
-                Assert.NotZero(testData.value);
 
-                if (!runScheduleParallel && prevThreadIndex != -1)
+                // Ensure thread index is correct for the mode as well as validating all components were touched
+#if !UNITY_SINGLETHREADED_JOBS
+                if (runScheduleMode < 2)
+                    Assert.True(testData.value > 0);
+                else
+                    Assert.Zero(testData.value);
+#else
+                Assert.Zero(testData.value);
+#endif
+
+                if (runScheduleMode != 0 && prevThreadIndex != -1)
                     Assert.AreEqual(testData.value, prevThreadIndex);
                 prevThreadIndex = testData.value;
             }
@@ -348,4 +364,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif

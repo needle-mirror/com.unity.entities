@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Conversion;
 using UnityEngine;
@@ -41,6 +42,8 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     GameObjectConversionMappingSystem m_MappingSystem;
 
     public EntityManager DstEntityManager => m_MappingSystem.DstEntityManager;
+
+    internal GameObjectConversionSettings Settings => m_MappingSystem?.Settings;
 
     protected override void OnCreate()
     {
@@ -141,8 +144,20 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
         m_MappingSystem.TryGetPrimaryEntity(uobject);
     public Entity TryGetPrimaryEntity(Component component) =>
         m_MappingSystem.TryGetPrimaryEntity(component != null ? component.gameObject : null);
+
+    /// <summary>
+    /// Returns the primary entity associated with the given object. This entity is from the destination world.
+    /// </summary>
+    /// <param name="uobject">The object to get the primary entity for.</param>
+    /// <returns>The primary entity associated with the given entity. This is the null entity if there is no primary entity for the object.</returns>
     public Entity GetPrimaryEntity(UnityObject uobject) =>
         m_MappingSystem.GetPrimaryEntity(uobject);
+
+    /// <summary>
+    /// Returns the primary entity associated with the given GameObject of the given component. This entity is from the destination world.
+    /// </summary>
+    /// <param name="component">The component for whose GameObject to get the primary entity for.</param>
+    /// <returns>The primary entity associated with the given entity. This is the null entity if there is no primary entity for the object.</returns>
     public Entity GetPrimaryEntity(Component component) =>
         m_MappingSystem.GetPrimaryEntity(component != null ? component.gameObject : null);
 
@@ -157,13 +172,64 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     public Entity GetSceneSectionEntity(Entity entity) =>
         m_MappingSystem.GetSceneSectionEntity(entity);
 
+    /// <summary>
+    /// Creates an additional entity in the destination world. The entity is associated with the given object. New entities
+    /// should be created using this method since it ensures that the resulting entities have all data required for conversion correctly set up.
+    /// </summary>
+    /// <param name="uobject">The object that the new entity will be associated with.</param>
+    /// <returns>The newly created entity.</returns>
     public Entity CreateAdditionalEntity(UnityObject uobject) =>
         m_MappingSystem.CreateAdditionalEntity(uobject);
+
+    /// <summary>
+    /// Creates an additional entity in the destination world. The entity is associated with the GameObject of the given component. New entities should
+    /// be created using this method since it ensures that the resulting entities have all data required for conversion
+    /// correctly set up.
+    /// </summary>
+    /// <param name="component">A component of the GameObject that the new entity will be associated with.</param>
+    /// <returns>The newly created entity.</returns>
     public Entity CreateAdditionalEntity(Component component) =>
         m_MappingSystem.CreateAdditionalEntity(component != null ? component.gameObject : null);
 
+    /// <summary>
+    /// Creates multiple additional entities in the destination world. The entities are associated with the given object. New entities should be created
+    /// using this method since it ensures that the resulting entities have all data required for conversion correctly
+    /// set up.
+    /// </summary>
+    /// <param name="uobject">The object that the new entities will be associated with.</param>
+    /// <param name="outEntities">This will be filled with the newly created entities.</param>
+    /// <returns>The newly created entity.</returns>
+    public void CreateAdditionalEntity(UnityObject uobject, NativeArray<Entity> outEntities) =>
+        m_MappingSystem.CreateAdditionalEntities(uobject, outEntities);
+
+    /// <summary>
+    /// Creates multiple additional entities in the destination world. The entities are associated with the GameObject of the given component. New
+    /// entities should be created using this method since it ensures that the resulting entities have all data required
+    /// for conversion correctly set up.
+    /// </summary>
+    /// <param name="component">A component of the GameObject that the new entities will be associated with.</param>
+    /// <param name="outEntities">This will be filled with the newly created entities.</param>
+    /// <returns>The newly created entity.</returns>
+    public void CreateAdditionalEntity(Component component, NativeArray<Entity> outEntities) =>
+        m_MappingSystem.CreateAdditionalEntities(component != null ? component.gameObject : null, outEntities);
+
+    /// <summary>
+    /// Returns all entities in the destination world that are associated with the given object. This includes the primary entity associated with
+    /// the object as well as all additional entities that were associated with this object. The first entity returned
+    /// by the enumerator is the primary entity.
+    /// </summary>
+    /// <param name="uobject">The object to get the entities for.</param>
+    /// <returns>An enumerator that returns the associated entities.</returns>
     public MultiListEnumerator<Entity> GetEntities(UnityObject uobject) =>
         m_MappingSystem.GetEntities(uobject);
+
+    /// <summary>
+    /// Returns all entities in the destination world that are associated with the GameObject of the given component. This includes the primary
+    /// entity associated with the object as well as all additional entities that were associated with this object. The
+    /// first entity returned by the enumerator is the primary entity.
+    /// </summary>
+    /// <param name="component">The component whose GameObject to get the entities for.</param>
+    /// <returns>An enumerator that returns the associated entities.</returns>
     public MultiListEnumerator<Entity> GetEntities(Component component) =>
         m_MappingSystem.GetEntities(component != null ? component.gameObject : null);
 

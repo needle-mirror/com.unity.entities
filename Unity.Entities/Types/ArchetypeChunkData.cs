@@ -9,9 +9,9 @@ namespace Unity.Entities
     [DebuggerTypeProxy(typeof(ArchetypeChunkDataDebugView))]
     internal unsafe struct ArchetypeChunkData
     {
-        public Chunk** p;
-        public int Capacity;
-        public int Count;
+        private Chunk** p;
+        public int Capacity { get; private set; }
+        public int Count { get; private set; }
 
         readonly int SharedComponentCount;
         readonly int ComponentCount;
@@ -46,6 +46,12 @@ namespace Unity.Entities
             SharedComponentCount = sharedComponentCount;
             ComponentCount = componentCount;
         }
+
+        public Chunk* this[int index]
+        {
+            get { return p[index]; }
+        }
+
 
         public void Grow(int nextCapacity)
         {
@@ -184,6 +190,16 @@ namespace Unity.Entities
                 ChangeVersions[(i * Capacity) + chunkIndex] = changeVersion;
 
             EntityCount[chunkIndex] = chunk->Count;
+        }
+
+        public void MoveChunks(in ArchetypeChunkData srcChunks)
+        {
+            if (Capacity < Count + srcChunks.Count)
+                Grow(Count + srcChunks.Count);
+
+            UnsafeUtility.MemCpy(p + Count, srcChunks.p, sizeof(Chunk*) * srcChunks.Count);
+
+            Count += srcChunks.Count;
         }
 
         public void RemoveAtSwapBack(int chunkIndex)

@@ -8,7 +8,7 @@ using Unity.Properties.Internal;
 
 namespace Unity.Entities
 {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
     unsafe class ManagedObjectRemap :
         IPropertyBagVisitor,
         IPropertyVisitor,
@@ -128,7 +128,7 @@ namespace Unity.Entities
                     return;
             }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
             if (value is UnityEngine.Object)
                 return;
 #endif

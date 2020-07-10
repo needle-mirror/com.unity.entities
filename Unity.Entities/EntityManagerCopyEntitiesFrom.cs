@@ -12,6 +12,7 @@ namespace Unity.Entities
         /// Instantiates / Copies all entities from srcEntityManager and copies them into this EntityManager.
         /// Entity references on components that are being cloned to entities inside the srcEntities set are remapped to the instantiated entities.
         /// </summary>
+        [NotBurstCompatible]
         public void CopyEntitiesFrom(EntityManager srcEntityManager, NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities = default)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -51,11 +52,12 @@ namespace Unity.Entities
         /// Copies all entities from srcEntityManager and replaces all entities in this EntityManager
         /// </summary>
         /// <remarks>
-        /// Guarantees that the chunk layout & order of the entities will match exactly, thus this method can be used for deterministic rollback.
+        /// Guarantees that the chunk layout and order of the entities will match exactly, thus this method can be used for deterministic rollback.
         /// This feature is not complete and only supports a subset of the EntityManager features at the moment:
         /// * Currently it copies all SystemStateComponents (They should not be copied)
         /// * Currently does not support class based components
         /// </remarks>
+        [NotBurstCompatible]
         public void CopyAndReplaceEntitiesFrom(EntityManager srcEntityManager)
         {
             srcEntityManager.CompleteAllJobs();
@@ -64,8 +66,8 @@ namespace Unity.Entities
             var srcAccess = srcEntityManager.GetCheckedEntityDataAccess();
             var selfAccess = GetCheckedEntityDataAccess();
 
-            using (var srcChunks = srcAccess->ManagedEntityDataAccess.m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var srcChunksJob))
-            using (var dstChunks = selfAccess->ManagedEntityDataAccess.m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var dstChunksJob))
+            using (var srcChunks = srcAccess->m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var srcChunksJob))
+            using (var dstChunks = selfAccess->m_UniversalQueryWithChunks.CreateArchetypeChunkArrayAsync(Allocator.TempJob, out var dstChunksJob))
             {
                 using (var archetypeChunkChanges = EntityDiffer.GetArchetypeChunkChanges(
                     srcChunks,
@@ -76,7 +78,7 @@ namespace Unity.Entities
                 {
                     archetypeChunkChangesJob.Complete();
 
-                    EntityDiffer.CopyAndReplaceChunks(srcEntityManager, this, selfAccess->ManagedEntityDataAccess.m_UniversalQueryWithChunks, archetypeChunkChanges);
+                    EntityDiffer.CopyAndReplaceChunks(srcEntityManager, this, selfAccess->m_UniversalQueryWithChunks, archetypeChunkChanges);
                     Unity.Entities.EntityComponentStore.AssertSameEntities(srcAccess->EntityComponentStore, selfAccess->EntityComponentStore);
                 }
             }

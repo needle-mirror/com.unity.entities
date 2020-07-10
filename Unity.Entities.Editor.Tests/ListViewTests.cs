@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.Tests;
 using UnityEditor.IMGUI.Controls;
+using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Editor.Tests
 {
@@ -33,13 +34,15 @@ namespace Unity.Entities.Editor.Tests
         {
             base.Setup();
 
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(World.DefaultGameObjectInjectionWorld);
-
             World2 = new World("Test World 2");
             var emptySys = World2.GetOrCreateSystem<EmptySystem>();
             var simGroup = World.GetOrCreateSystem<SimulationSystemGroup>();
             simGroup.AddSystemToUpdateList(emptySys);
             simGroup.SortSystems();
+
+            var playerLoop = PlayerLoop.GetDefaultPlayerLoop(); // TODO(DOTS-2283): shouldn't stomp default player loop here
+            ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(World.DefaultGameObjectInjectionWorld, ref playerLoop);
+            PlayerLoop.SetPlayerLoop(playerLoop);
         }
 
         public override void TearDown()
@@ -48,8 +51,6 @@ namespace Unity.Entities.Editor.Tests
             World2 = null;
 
             base.TearDown();
-
-            ScriptBehaviourUpdateOrder.UpdatePlayerLoop(m_PreviousWorld);
         }
 
         [Test]

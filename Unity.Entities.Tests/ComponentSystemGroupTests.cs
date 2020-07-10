@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -19,18 +20,18 @@ namespace Unity.Entities.Tests
         {
         }
 
-#if NET_DOTS
-        private class TestSystemBase : ComponentSystem
-        {
-            protected override void OnUpdate() => throw new System.NotImplementedException();
-        }
-
-#else
         private class TestSystemBase : JobComponentSystem
         {
             protected override JobHandle OnUpdate(JobHandle inputDeps) => throw new System.NotImplementedException();
         }
+
+        public override void Setup()
+        {
+            base.Setup();
+#if UNITY_DOTSRUNTIME
+            LogAssert.ExpectReset();
 #endif
+        }
 
         [Test]
         public void SortEmptyParentSystem([Values(true, false)] bool legacy)
@@ -113,9 +114,6 @@ namespace Unity.Entities.Tests
 // https://unity3d.atlassian.net/browse/DOTSR-1432
 
         [Test]
-#if NET_DOTS
-        [Ignore("Tiny pre-compiles systems. Many tests will fail if they exist, not just this one.")]
-#endif
         public void DetectCircularDependency_Throws([Values(true, false)] bool legacy)
         {
             var parent = World.CreateSystem<TestGroup>();
@@ -153,7 +151,7 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(foundCycleMatch);
         }
 
-#endif // UNITY_DOTSPLAYER_IL2CPP
+#endif // UNITY_DOTSRUNTIME_IL2CPP
 
         class Unconstrained1System : TestSystemBase
         {
@@ -212,7 +210,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
+#if !UNITY_DOTSRUNTIME // DOTS Runtime does not eat the Exception so this test can not pass (the 3rd assert will always fail)
         [Test]
         public void SystemInGroupThrows_LaterSystemsRun([Values(true, false)] bool legacy)
         {
@@ -224,16 +222,16 @@ namespace Unity.Entities.Tests
             parent.AddSystemToUpdateList(child1);
             parent.AddSystemToUpdateList(child2);
             parent.AddSystemToUpdateList(child3);
-            parent.Update();
             LogAssert.Expect(LogType.Exception, new Regex(child2.ExceptionMessage));
+            parent.Update();
+            LogAssert.NoUnexpectedReceived();
             Assert.AreEqual(1, child1.CompleteUpdateCount);
             Assert.AreEqual(0, child2.CompleteUpdateCount);
             Assert.AreEqual(1, child3.CompleteUpdateCount);
         }
-
 #endif
 
-#if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
+#if !NET_DOTS
         [Test]
         public void SystemThrows_SystemNotRemovedFromUpdate([Values(true, false)] bool legacy)
         {
@@ -241,17 +239,23 @@ namespace Unity.Entities.Tests
             parent.UseLegacySortOrder = legacy;
             var child = World.CreateSystem<ThrowingSystem>();
             parent.AddSystemToUpdateList(child);
-            parent.Update();
             LogAssert.Expect(LogType.Exception, new Regex(child.ExceptionMessage));
+#if UNITY_DOTSRUNTIME
+            Assert.Throws<InvalidOperationException>(() => parent.Update());
+#else
             parent.Update();
+#endif
             LogAssert.Expect(LogType.Exception, new Regex(child.ExceptionMessage));
+#if UNITY_DOTSRUNTIME
+            Assert.Throws<InvalidOperationException>(() => parent.Update());
+#else
+            parent.Update();
+#endif
+            LogAssert.NoUnexpectedReceived();
 
             Assert.AreEqual(0, child.CompleteUpdateCount);
         }
 
-#endif
-
-#if !NET_DOTS // Tiny precompiles systems, and lacks a Regex overload for LogAssert.Expect()
         [UpdateAfter(typeof(NonSibling2System))]
         class NonSibling1System : TestSystemBase
         {
@@ -267,9 +271,10 @@ namespace Unity.Entities.Tests
             var parent = World.CreateSystem<TestGroup>();
             parent.UseLegacySortOrder = legacy;
             var child = World.CreateSystem<NonSibling1System>();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\] attribute on .+NonSibling1System targeting.+NonSibling2System"));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+NonSibling1System.+belongs to a different ComponentSystemGroup"));
+            LogAssert.NoUnexpectedReceived();
         }
 
         [Test]
@@ -278,14 +283,12 @@ namespace Unity.Entities.Tests
             var parent = World.CreateSystem<TestGroup>();
             parent.UseLegacySortOrder = legacy;
             var child = World.CreateSystem<NonSibling2System>();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\] attribute on .+NonSibling2System targeting.+NonSibling1System"));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+NonSibling2System.+belongs to a different ComponentSystemGroup"));
+            LogAssert.NoUnexpectedReceived();
         }
 
-#endif
-
-#if !NET_DOTS
         [UpdateAfter(typeof(NotEvenASystem))]
         class InvalidUpdateAfterSystem : TestSystemBase
         {
@@ -304,9 +307,10 @@ namespace Unity.Entities.Tests
             var parent = World.CreateSystem<TestGroup>();
             parent.UseLegacySortOrder = legacy;
             var child = World.CreateSystem<InvalidUpdateAfterSystem>();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+InvalidUpdateAfterSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+InvalidUpdateAfterSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
+            LogAssert.NoUnexpectedReceived();
         }
 
         [Test]
@@ -315,9 +319,10 @@ namespace Unity.Entities.Tests
             var parent = World.CreateSystem<TestGroup>();
             parent.UseLegacySortOrder = legacy;
             var child = World.CreateSystem<InvalidUpdateBeforeSystem>();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+InvalidUpdateBeforeSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+InvalidUpdateBeforeSystem.+NotEvenASystem is not a subclass of ComponentSystemBase"));
+            LogAssert.NoUnexpectedReceived();
         }
 
         [UpdateAfter(typeof(UpdateAfterSelfSystem))]
@@ -335,9 +340,10 @@ namespace Unity.Entities.Tests
             var parent = World.CreateSystem<TestGroup>();
             parent.UseLegacySortOrder = legacy;
             var child = World.CreateSystem<UpdateAfterSelfSystem>();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+UpdateAfterSelfSystem.+cannot be updated after itself."));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateAfter\].+UpdateAfterSelfSystem.+cannot be updated after itself."));
+            LogAssert.NoUnexpectedReceived();
         }
 
         [Test]
@@ -346,9 +352,10 @@ namespace Unity.Entities.Tests
             var parent = World.CreateSystem<TestGroup>();
             parent.UseLegacySortOrder = legacy;
             var child = World.CreateSystem<UpdateBeforeSelfSystem>();
+            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+UpdateBeforeSelfSystem.+cannot be updated before itself."));
             parent.AddSystemToUpdateList(child);
             parent.SortSystems();
-            LogAssert.Expect(LogType.Warning, new Regex(@"Ignoring invalid \[UpdateBefore\].+UpdateBeforeSelfSystem.+cannot be updated before itself."));
+            LogAssert.NoUnexpectedReceived();
         }
 
         [Test]
@@ -553,6 +560,251 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(new ComponentSystemBase[] {childb}, updates.ToArray());
         }
 
+        [UpdateInGroup(typeof(int))]
+        public class GroupIsntAComponentSystem : EmptySystem
+        {
+        }
+
+        [Test]
+        public void UpdateInGroup_TargetNotASystem_Throws()
+        {
+            World w = new World("Test World");
+#if UNITY_DOTSRUNTIME
+            // In DOTSR, the IsSystemAGroup() call will throw
+            Assert.Throws<ArgumentException>(() =>
+                DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystem)));
+#else
+            // In hybrid, IsSystemAGroup() returns false for non-system inputs
+            Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystem)),
+                Throws.InvalidOperationException.With.Message.Contains("must be derived from ComponentSystemGroup"));
+#endif
+            w.Dispose();
+        }
+
+        [UpdateInGroup(typeof(TestSystem))]
+        public class GroupIsntAComponentSystemGroup : EmptySystem
+        {
+        }
+
+        [Test]
+        public void UpdateInGroup_TargetNotAGroup_Throws()
+        {
+            World w = new World("Test World");
+#if NET_DOTS
+            Assert.Throws<InvalidOperationException>(() =>
+                DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w,
+                    typeof(GroupIsntAComponentSystemGroup)));
+#else
+            Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystemGroup)),
+                Throws.InvalidOperationException.With.Message.Contains("must be derived from ComponentSystemGroup"));
+#endif
+            w.Dispose();
+        }
+
+        [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true, OrderLast = true)]
+        public class FirstAndLast : EmptySystem
+        {
+        }
+
+        public void UpdateInGroup_OrderFirstAndOrderLast_Throws()
+        {
+            World w = new World("Test World");
+            var systemTypes = new[] {typeof(FirstAndLast), typeof(TestGroup)};
+#if NET_DOTS
+            Assert.Throws<InvalidOperationException>(() =>
+                DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, systemTypes));
+#else
+            Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, systemTypes),
+                Throws.InvalidOperationException.With.Message.Contains("can not specify both OrderFirst=true and OrderLast=true"));
+#endif
+            w.Dispose();
+        }
+
+        // All the ordering constraints below are valid (though some are redundant). All should sort correctly without warnings.
+        [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
+        [UpdateBefore(typeof(FirstSystem))]
+        public class FirstBeforeFirstSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
+        [UpdateBefore(typeof(MiddleSystem))] // redundant
+        [UpdateBefore(typeof(LastSystem))] // redundant
+        public class FirstSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
+        [UpdateAfter(typeof(FirstSystem))]
+        public class FirstAfterFirstSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup))]
+        [UpdateAfter(typeof(FirstSystem))] // redundant
+        [UpdateBefore(typeof(MiddleSystem))]
+        public class MiddleAfterFirstSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup))]
+        public class MiddleSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup))]
+        [UpdateAfter(typeof(MiddleSystem))]
+        [UpdateBefore(typeof(LastSystem))] // redundant
+        public class MiddleBeforeLastSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
+        [UpdateBefore(typeof(LastSystem))]
+        public class LastBeforeLastSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
+        [UpdateAfter(typeof(FirstSystem))] // redundant
+        [UpdateAfter(typeof(MiddleSystem))] // redundant
+        public class LastSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
+        [UpdateAfter(typeof(LastSystem))]
+        public class LastAfterLastSystem : EmptySystem { }
+
+        [Test]
+        public void ComponentSystemSorter_ValidUpdateConstraints_SortCorrectlyWithNoWarnings()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            parent.UseLegacySortOrder = false; // OrderFirst/OrderLast don't work with legacy sorting
+            var systems = new List<EmptySystem>
+            {
+                World.CreateSystem<FirstBeforeFirstSystem>(),
+                World.CreateSystem<FirstSystem>(),
+                World.CreateSystem<FirstAfterFirstSystem>(),
+                World.CreateSystem<MiddleAfterFirstSystem>(),
+                World.CreateSystem<MiddleSystem>(),
+                World.CreateSystem<MiddleBeforeLastSystem>(),
+                World.CreateSystem<LastBeforeLastSystem>(),
+                World.CreateSystem<LastSystem>(),
+                World.CreateSystem<LastAfterLastSystem>(),
+            };
+            // Insert in reverse order
+            for (int i = systems.Count - 1; i >= 0; --i)
+            {
+                parent.AddSystemToUpdateList(systems[i]);
+            }
+
+            parent.SortSystems();
+
+            CollectionAssert.AreEqual(systems, parent.Systems);
+            LogAssert.NoUnexpectedReceived();
+        }
+
+#if !UNITY_DOTSRUNTIME_IL2CPP
+
+        // Invalid constraints
+        [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
+        public class DummyFirstSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
+        public class DummyLastSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
+        [UpdateAfter(typeof(DummyLastSystem))] // can't update after an OrderLast without also being OrderLast
+        public class FirstAfterLastSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup))]
+        [UpdateBefore(typeof(DummyFirstSystem))] // can't update before an OrderFirst without also being OrderFirst
+        public class MiddleBeforeFirstSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup))]
+        [UpdateAfter(typeof(DummyLastSystem))] // can't update after an OrderLast without also being OrderLast
+        public class MiddleAfterLastSystem : EmptySystem { }
+
+        [UpdateInGroup(typeof(TestGroup), OrderLast = true)]
+        [UpdateBefore(typeof(DummyFirstSystem))] // can't update before an OrderFirst without also being OrderFirst
+        public class LastBeforeFirstSystem : EmptySystem { }
+
+        [Test] // runtime string formatting
+        public void ComponentSystemSorter_OrderFirstUpdateAfterOrderLast_WarnAndIgnoreConstraint()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            parent.UseLegacySortOrder = false; // OrderFirst/OrderLast don't work with legacy sorting
+            var systems = new List<EmptySystem>
+            {
+                World.CreateSystem<FirstAfterLastSystem>(),
+                World.CreateSystem<DummyLastSystem>(),
+            };
+            // Insert in reverse order
+            for (int i = systems.Count - 1; i >= 0; --i)
+            {
+                parent.AddSystemToUpdateList(systems[i]);
+            }
+
+            LogAssert.Expect(LogType.Warning, "Ignoring invalid [UpdateAfter(Unity.Entities.Tests.ComponentSystemGroupTests+DummyLastSystem)] attribute on Unity.Entities.Tests.ComponentSystemGroupTests+FirstAfterLastSystem because OrderFirst/OrderLast has higher precedence.");
+            parent.SortSystems();
+            LogAssert.NoUnexpectedReceived();
+
+            CollectionAssert.AreEqual(systems, parent.Systems);
+        }
+
+        [Test] // runtime string formatting
+        public void ComponentSystemSorter_MiddleUpdateBeforeOrderFirst_WarnAndIgnoreConstraint()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            parent.UseLegacySortOrder = false; // OrderFirst/OrderLast don't work with legacy sorting
+            var systems = new List<EmptySystem>
+            {
+                World.CreateSystem<DummyFirstSystem>(),
+                World.CreateSystem<MiddleBeforeFirstSystem>(),
+            };
+            // Insert in reverse order
+            for (int i = systems.Count - 1; i >= 0; --i)
+            {
+                parent.AddSystemToUpdateList(systems[i]);
+            }
+
+            LogAssert.Expect(LogType.Warning, "Ignoring invalid [UpdateBefore(Unity.Entities.Tests.ComponentSystemGroupTests+DummyFirstSystem)] attribute on Unity.Entities.Tests.ComponentSystemGroupTests+MiddleBeforeFirstSystem because OrderFirst/OrderLast has higher precedence.");
+            parent.SortSystems();
+            LogAssert.NoUnexpectedReceived();
+            CollectionAssert.AreEqual(systems, parent.Systems);
+        }
+
+        [Test] // runtime string formatting
+        public void ComponentSystemSorter_MiddleUpdateAfterOrderLast_WarnAndIgnoreConstraint()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            parent.UseLegacySortOrder = false; // OrderFirst/OrderLast don't work with legacy sorting
+            var systems = new List<EmptySystem>
+            {
+                World.CreateSystem<MiddleAfterLastSystem>(),
+                World.CreateSystem<DummyLastSystem>(),
+            };
+            // Insert in reverse order
+            for (int i = systems.Count - 1; i >= 0; --i)
+            {
+                parent.AddSystemToUpdateList(systems[i]);
+            }
+
+            LogAssert.Expect(LogType.Warning, "Ignoring invalid [UpdateAfter(Unity.Entities.Tests.ComponentSystemGroupTests+DummyLastSystem)] attribute on Unity.Entities.Tests.ComponentSystemGroupTests+MiddleAfterLastSystem because OrderFirst/OrderLast has higher precedence.");
+            parent.SortSystems();
+            LogAssert.NoUnexpectedReceived();
+            CollectionAssert.AreEqual(systems, parent.Systems);
+        }
+
+        [Test] // runtime string formatting
+        public void ComponentSystemSorter_OrderLastUpdateBeforeOrderFirst_WarnAndIgnoreConstraint()
+        {
+            var parent = World.CreateSystem<TestGroup>();
+            parent.UseLegacySortOrder = false; // OrderFirst/OrderLast don't work with legacy sorting
+            var systems = new List<EmptySystem>
+            {
+                World.CreateSystem<DummyFirstSystem>(),
+                World.CreateSystem<LastBeforeFirstSystem>(),
+            };
+            // Insert in reverse order
+            for (int i = systems.Count - 1; i >= 0; --i)
+            {
+                parent.AddSystemToUpdateList(systems[i]);
+            }
+
+            LogAssert.Expect(LogType.Warning, "Ignoring invalid [UpdateBefore(Unity.Entities.Tests.ComponentSystemGroupTests+DummyFirstSystem)] attribute on Unity.Entities.Tests.ComponentSystemGroupTests+LastBeforeFirstSystem because OrderFirst/OrderLast has higher precedence.");
+            parent.SortSystems();
+            LogAssert.NoUnexpectedReceived();
+            CollectionAssert.AreEqual(systems, parent.Systems);
+        }
+
+#endif
+
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
         public class OFL_A : EmptySystem
         {
@@ -577,14 +829,13 @@ namespace Unity.Entities.Tests
         {
         }
 
-#if !NET_DOTS
         [Test]
         public void OrderFirstLastWorks([Values(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 30, 31)] int bits, [Values(true, false)] bool legacyMode)
         {
             var parent = World.CreateSystem<TestGroup>();
             parent.UseLegacySortOrder = legacyMode;
 
-            // Add in reverse prder
+            // Add in reverse order
             if (0 != (bits & (1 << 4))) { parent.AddSystemToUpdateList(World.CreateSystem<OFL_E>()); }
             if (0 != (bits & (1 << 3))) { parent.AddSystemToUpdateList(World.CreateSystem<OFL_D>()); }
             if (0 != (bits & (1 << 2))) { parent.AddSystemToUpdateList(World.CreateSystem<OFL_C>()); }
@@ -597,8 +848,10 @@ namespace Unity.Entities.Tests
             string prev = null;
             foreach (var sys in parent.Systems)
             {
-                var curr = sys.GetType().Name;
-                Assert.IsTrue(prev == null || prev.CompareTo(curr) < 0);
+                var curr = TypeManager.GetSystemName(sys.GetType());
+                // no string.CompareTo() in DOTS Runtime, but in this case we know only the last character will be different
+                int len = curr.Length;
+                Assert.IsTrue(prev == null || (prev[len-1] < curr[len-1]));
                 prev = curr;
             }
         }
@@ -619,6 +872,7 @@ namespace Unity.Entities.Tests
             }
         }
 
+        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
         [Test]
         public void LegacySortDoesNotWorkWithUnmanagedSystems()
         {
@@ -626,9 +880,11 @@ namespace Unity.Entities.Tests
             parent.UseLegacySortOrder = true;
 
             var sys = World.AddSystem<MyUnmanagedSystem>();
-            Assert.Throws<InvalidOperationException>(() => parent.AddSystemToUpdateList(sys));
+            var handle = sys.Handle;
+            Assert.Throws<InvalidOperationException>(() => parent.AddSystemToUpdateList(handle));
         }
 
+        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
         [Test]
         public void NewSortWorksWithBoth()
         {
@@ -637,7 +893,7 @@ namespace Unity.Entities.Tests
             var sys = World.AddSystem<MyUnmanagedSystem>();
             var s1 = World.GetOrCreateSystem<TestSystem>();
 
-            parent.AddSystemToUpdateList(sys);
+            parent.AddSystemToUpdateList(sys.Handle);
             parent.AddSystemToUpdateList(s1);
 
             parent.SortSystems();
@@ -646,6 +902,104 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => parent.SortSystemUpdateList());
 #pragma warning restore 618
         }
-#endif
+
+        [Test]
+        public void ComponentSystemGroup_RemoveThenReAddManagedSystem_SystemIsInGroup()
+        {
+            var group = World.CreateSystem<TestGroup>();
+            var sys = World.CreateSystem<TestSystem>();
+            group.AddSystemToUpdateList(sys);
+
+            group.RemoveSystemFromUpdateList(sys);
+            group.AddSystemToUpdateList(sys);
+            // This is where removals are processed
+            group.SortSystems();
+            var expectedSystems = new List<ComponentSystemBase> {sys};
+            CollectionAssert.AreEqual(expectedSystems, group.Systems);
+        }
+
+        [Test]
+        public void ComponentSystemGroup_RemoveSystemNotInGroup_Ignored()
+        {
+            var group = World.CreateSystem<TestGroup>();
+            var sys = World.CreateSystem<TestSystem>();
+            // group.AddSystemToUpdateList(sys); // the point here is to remove a system _not_ in the group
+            group.RemoveSystemFromUpdateList(sys);
+            Assert.AreEqual(0, group.m_systemsToRemove.Count);
+        }
+
+        [Test]
+        public void ComponentSystemGroup_DuplicateRemove_Ignored()
+        {
+            var group = World.CreateSystem<TestGroup>();
+            var sys = World.CreateSystem<TestSystem>();
+            group.AddSystemToUpdateList(sys);
+
+            group.RemoveSystemFromUpdateList(sys);
+            group.RemoveSystemFromUpdateList(sys);
+            var expectedSystems = new List<ComponentSystemBase> {sys};
+            CollectionAssert.AreEqual(expectedSystems, group.m_systemsToRemove);
+        }
+
+        struct UnmanagedTestSystem : ISystemBase
+        {
+            public void OnCreate(ref SystemState state)
+            {
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+            }
+        }
+
+        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
+        [Test]
+        public void ComponentSystemGroup_RemoveThenReAddUnmanagedSystem_SystemIsInGroup()
+        {
+            var group = World.CreateSystem<TestGroup>();
+            group.UseLegacySortOrder = false;
+            var sys = World.AddSystem<UnmanagedTestSystem>();
+            group.AddSystemToUpdateList(sys.Handle);
+            Assert.IsTrue(group.m_UnmanagedSystemsToUpdate.Contains(sys.Handle.MHandle), "system not in group after initial add");
+
+            group.RemoveSystemFromUpdateList(sys.Handle);
+            group.AddSystemToUpdateList(sys.Handle);
+            Assert.IsTrue(group.m_UnmanagedSystemsToUpdate.Contains(sys.Handle.MHandle), "system not in group after remove-and-add");
+
+            group.SortSystems();
+            Assert.IsTrue(group.m_UnmanagedSystemsToUpdate.Contains(sys.Handle.MHandle), "system not in group after re-sorting");
+        }
+
+        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
+        [Test]
+        public void ComponentSystemGroup_RemoveUnmanagedSystemNotInGroup_Ignored()
+        {
+            var group = World.CreateSystem<TestGroup>();
+            group.UseLegacySortOrder = false;
+            var sys = World.AddSystem<UnmanagedTestSystem>();
+            // group.AddSystemToUpdateList(sys.Handle); // the point here is to remove a system _not_ in the group
+            group.RemoveSystemFromUpdateList(sys.Handle);
+            Assert.AreEqual(0, group.m_UnmanagedSystemsToRemove.Length);
+        }
+
+        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
+        [Test]
+        public void ComponentSystemGroup_DuplicateRemoveUnmanaged_Ignored()
+        {
+            var group = World.CreateSystem<TestGroup>();
+            group.UseLegacySortOrder = false;
+            var sys = World.AddSystem<UnmanagedTestSystem>();
+            group.AddSystemToUpdateList(sys.Handle);
+
+            group.RemoveSystemFromUpdateList(sys.Handle);
+            group.RemoveSystemFromUpdateList(sys.Handle);
+            var expectedSystems = new List<SystemHandleUntyped> {sys.Handle};
+            Assert.AreEqual(1, group.m_UnmanagedSystemsToRemove.Length);
+            Assert.AreEqual(sys.Handle.MHandle, group.m_UnmanagedSystemsToRemove[0]);
+        }
     }
 }

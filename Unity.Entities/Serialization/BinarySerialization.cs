@@ -2,8 +2,8 @@ using System;
 #if !NET_DOTS
 using System.IO;
 using Unity.Assertions;
-using Unity.IO.LowLevel.Unsafe;
 #endif
+using Unity.IO.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -93,28 +93,52 @@ namespace Unity.Entities.Serialization
 #if !NET_DOTS
     public unsafe class StreamBinaryReader : BinaryReader
     {
+#if UNITY_EDITOR
+        private Stream stream;
+        private byte[] buffer;
+#else
         private readonly string filePath;
         private long bytesRead;
+#endif
 
-        [Obsolete("bufferSize parameter is no longer required. Use the single argument constructor for StreamBinaryReader instead. (RemovedAfter 2020-06-09)", false)]
-        public StreamBinaryReader(string filePath, long bufferSize = 65536) : this(filePath)
+        public StreamBinaryReader(string filePath, long bufferSize = 65536)
         {
-        }
-
-        public StreamBinaryReader(string filePath)
-        {
-            bytesRead = 0;
-            this.filePath = filePath;
             if (string.IsNullOrEmpty(filePath))
                 throw new ArgumentException("The filepath can neither be null nor empty", nameof(filePath));
+
+            #if UNITY_EDITOR
+            stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            buffer = new byte[bufferSize];
+            #else
+            bytesRead = 0;
+            this.filePath = filePath;
+            #endif
         }
 
         public void Dispose()
         {
+            #if UNITY_EDITOR
+            stream.Dispose();
+            #endif
         }
 
         public void ReadBytes(void* data, int bytes)
         {
+            #if UNITY_EDITOR
+            int remaining = bytes;
+            int bufferSize = buffer.Length;
+
+            fixed(byte* fixedBuffer = buffer)
+            {
+                while (remaining != 0)
+                {
+                    int read = stream.Read(buffer, 0, Math.Min(remaining, bufferSize));
+                    remaining -= read;
+                    UnsafeUtility.MemCpy(data, fixedBuffer, read);
+                    data = (byte*)data + read;
+                }
+            }
+            #else
             var readCmd = new ReadCommand
             {
                 Size = bytes, Offset = bytesRead, Buffer = data
@@ -134,6 +158,7 @@ namespace Unity.Entities.Serialization
                 throw new IOException($"Failed to read from {filePath}!");
             }
             bytesRead += bytes;
+            #endif
         }
     }
 

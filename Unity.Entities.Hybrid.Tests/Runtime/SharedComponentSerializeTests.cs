@@ -8,6 +8,8 @@ using UnityEngine;
 using Unity.Entities.Serialization;
 using Object = UnityEngine.Object;
 using Unity.Collections;
+using Unity.Scenes;
+
 #pragma warning disable 649
 
 namespace Unity.Entities.Tests

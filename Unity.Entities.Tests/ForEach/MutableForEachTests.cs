@@ -52,7 +52,7 @@ namespace Unity.Entities.Tests
                         for (int i = 0; i < chunks.Length; ++i)
                         {
                             var chunk = chunks[i];
-                            var shared = chunk.GetSharedComponentData(m_mgr.GetArchetypeChunkSharedComponentType<T>(), m_mgr);
+                            var shared = chunk.GetSharedComponentData(m_mgr.GetSharedComponentTypeHandle<T>(), m_mgr);
                             Values[count++] = shared;
                         }
                     Assert.AreEqual(group.CalculateEntityCount(), count);

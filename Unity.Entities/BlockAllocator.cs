@@ -69,22 +69,30 @@ namespace Unity.Entities
 #endif
         }
 
-        public byte* Allocate(int bytesToAllocate, int alignment)
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void CheckAllocationToLarge(int bytesToAllocate)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (bytesToAllocate > ms_BlockSize)
                 throw new ArgumentException($"Cannot allocate more than {ms_BlockSize} in BlockAllocator. Requested: {bytesToAllocate}");
-#endif
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void CheckExceededBudget()
+        {
+            if (m_blocks.Length == m_blocks.Capacity)
+                throw new ArgumentException($"Cannot exceed budget of {ms_BudgetInBytes} in BlockAllocator.");
+        }
+
+        public byte* Allocate(int bytesToAllocate, int alignment)
+        {
+            CheckAllocationToLarge(bytesToAllocate);
             var nextByteOffsetAligned = (m_nextByteOffset + alignment - 1) & ~(alignment - 1);
             var nextBlockSize = nextByteOffsetAligned + bytesToAllocate;
             if (m_blocks.Length == 0 || nextBlockSize > ms_BlockSize)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (m_blocks.Length == m_blocks.Capacity)
-                    throw new ArgumentException($"Cannot exceed budget of {ms_BudgetInBytes} in BlockAllocator.");
-#endif
+                CheckExceededBudget();
                 // Allocate a fresh block of memory
-                m_blocks.Add((byte*)AllocatorManager.Allocate(m_handle, sizeof(byte), ms_BlockAlignment, ms_BlockSize));
+                m_blocks.Add(AllocatorManager.Allocate(m_handle, sizeof(byte), ms_BlockAlignment, ms_BlockSize));
                 m_allocations.Add(0);
                 nextByteOffsetAligned = 0;
             }

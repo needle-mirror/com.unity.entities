@@ -7,7 +7,7 @@ using Unity.Mathematics;
 
 namespace Unity.Entities.Tests.Types
 {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME // No UnsafeUtility.GetFieldOffset or UnsafeUtility.SizeOf(Type), so LayoutUtility isn't implemented even with Tiny BCL
     [TestFixture]
     public class LayoutUtilityManagedTests : ECSTestsFixture
     {

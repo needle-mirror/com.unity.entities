@@ -35,10 +35,10 @@ You can use [entity command buffers](xref:ecs-entity-command-buffer) (ECBs) to q
  
  See [Entity Command Buffers] for more information about using command buffers and command buffer systems.
 
-[EntityManager]: xref:Unity.Entites.EntityManager
+[EntityManager]: xref:Unity.Entities.EntityManager
 [ECB]: xref:Unity.Entities.EntityCommandBuffer
 [EntityCommandBufferSystem]: xref:Unity.Entities.EntityCommandBuffer
 [ComponentSystemGroup]: xref:Unity.Entities.ComponentSystemGroup
 [entity command buffers]: entity_command_buffer.md
-[DynamicBuffer]: xref:Unity.Entities.DynamicBuffer``1
+[DynamicBuffer]: xref:Unity.Entities.DynamicBuffer`1
 [ComponentSystemBase.GetComponentDataFromEntity]: xref:Unity.Entities.ComponentSystemBase.GetComponentDataFromEntity*

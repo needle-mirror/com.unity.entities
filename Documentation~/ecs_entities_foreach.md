@@ -10,7 +10,7 @@ To execute a job lambda function, you either schedule the job using `Schedule()`
 
 The following example illustrates a simple [SystemBase] implementation that uses [Entities.ForEach] to read one component (Velocity in this case) and write to another (Translation):
 
-[!code-cs[entities-foreach-example](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#entities-foreach-example)]
+[!code-cs[entities-foreach-example](../DocCodeSamples.Tests/LambdaJobExamples.cs#entities-foreach-example)]
 
 Note the use of the keywords `ref` and `in` on the parameters of the ForEach lambda function. Use `ref` for components that you write to, and `in` for components that you only read. Marking components as read-only helps the job scheduler execute your jobs more efficiently.
 
@@ -20,7 +20,7 @@ Note the use of the keywords `ref` and `in` on the parameters of the ForEach lam
 
 The following example selects entities that have the components, Destination, Source, and LocalToWorld; and have at least one of the components, Rotation, Translation, or Scale; but which do not have a LocalToParent component.
 
-[!code-cs[entity-query](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#entity-query)]
+[!code-cs[entity-query](../DocCodeSamples.Tests/LambdaJobExamples.cs#entity-query)]
 
 In this example, only the Destination and Source components can be accessed inside the lambda function since they are the only components in the parameter list.
 
@@ -30,7 +30,7 @@ To access the [EntityQuery] object created by [Entities.ForEach], use [WithStore
 
 The following example illustrates how to access the EntityQuery object implicitly created for an [Entities.ForEach] construction. In this case, the example uses the EntityQuery object to invoke the [CalculateEntityCount()] method. The example uses this count to create a native array with enough space to store one value per entity selected by the query:
 
-[!code-cs[store-query](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#store-query)]
+[!code-cs[store-query](../DocCodeSamples.Tests/LambdaJobExamples.cs#store-query)]
 
 <a name="optional-components"></a>
 ### Optional components
@@ -42,7 +42,7 @@ You cannot create a query specifying optional components (using WithAny&lt;T,U&g
 
 In cases where you only want to process an entity component when another entity of that component has changed since the last time the current [SystemBase] instance has run, you can enable change filtering using WithChangeFilter&lt;T&gt;. The component type used in the change filter must either be in the lambda function parameter list or part of a WithAll&lt;T&gt; statement.
 
-[!code-cs[with-change-filter](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#with-change-filter)]
+[!code-cs[with-change-filter](../DocCodeSamples.Tests/LambdaJobExamples.cs#with-change-filter)]
 
 An entity query supports change filtering on up to two component types.
 
@@ -55,7 +55,7 @@ Entities with shared components are grouped into chunks with other entities havi
 
 The following example selects entities grouped by a Cohort ISharedComponentData. The lambda function in this example sets a DisplayColor IComponentData component based on the entity’s cohort:
 
-[!code-cs[with-shared-component](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#with-shared-component)]
+[!code-cs[with-shared-component](../DocCodeSamples.Tests/LambdaJobExamples.cs#with-shared-component)]
 
 The example uses the EntityManager to get all the unique cohort values. It then schedules a lambda job for each cohort, passing the new color to the lambda function as a captured variable. 
 
@@ -66,7 +66,7 @@ When you define the lambda function to use with [Entities.ForEach], you can decl
 
 A typical lambda function looks like:
 
-[!code-cs[lambda-params](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#lambda-params)]
+[!code-cs[lambda-params](../DocCodeSamples.Tests/LambdaJobExamples.cs#lambda-params)]
 
 By default, you can pass up to eight parameters to an Entities.ForEach lambda function. (If you need to pass more parameters, you can [define a custom delegate](#custom-delegates).) When using the standard delegates, you must group the parameters in the following order:
 
@@ -89,7 +89,7 @@ You can use more than 8 arguments in a ForEach lambda function. by declaring you
 
 You can declare the three [special, named parameters](#named-parameters) `entity`, `entityInQueryIndex`, and `nativeThreadIndex` anywhere in your parameter list. Do not use `ref` or `in` modifiers for these parameters. 
 
-[!code-cs[lambda-params](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#lambda-params-many)]
+[!code-cs[lambda-params](../DocCodeSamples.Tests/LambdaJobExamples.cs#lambda-params-many)]
 
 **Note:** The default limit of eight arguments for a ForEach lambda function was chosen because declaring too many delegates and overloads has a negative effect on IDE performance. A unique delegate type and ForEach overload is required for each combination of ref/in/value and number of arguments. 
 
@@ -106,13 +106,13 @@ To designate a component passed to the lambda function as read-only, use the `in
 
 The following example passes a Source component parameter to the job as read-only, and a Destination component parameter as writable: 
 
-[!code-cs[read-write-modifiers](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#read-write-modifiers)]
+[!code-cs[read-write-modifiers](../DocCodeSamples.Tests/LambdaJobExamples.cs#read-write-modifiers)]
 
 **Note:** Currently, you cannot pass chunk components to the Entities.ForEach lambda function.
 
 For dynamic buffers, use DynamicBuffer&lt;T&gt; rather than the Component type stored in the buffer:
 
-[!code-cs[dynamicbuffer](../package/DocCodeSamples.Tests/LambdaJobExamples.cs#dynamicbuffer)]
+[!code-cs[dynamicbuffer](../DocCodeSamples.Tests/LambdaJobExamples.cs#dynamicbuffer)]
 
 <a name="named-parameters"></a>
 ### Special, named parameters
@@ -120,8 +120,8 @@ For dynamic buffers, use DynamicBuffer&lt;T&gt; rather than the Component type s
 In addition to components, you can pass the following special, named parameters to the Entities.ForEach lambda function, which are assigned values based on the entity the job is currently processing:
 
 * **`Entity entity`** — the Entity instance of the current entity. (The parameter can be named anything as long as the type is Entity.)
-* **`int entityInQueryIndex`** — the index of the entity in the list of all entities selected by the query. Use the entity index value when you have a [native array] that you need to fill with a unique value for each entity. You can use the entityInQueryIndex as the index in that array. The entityInQueryIndex should also be used as the jobIndex for adding commands to a concurrent [EntityCommandBuffer].
-* **`int nativeThreadIndex`** — a unique index for the thread executing the current iteration of the lambda function. When you execute the lambda function using Run(), nativeThreadIndex is always zero. (Do not use `nativeThreadIndex` as the `jobIndex` of a concurrent [EntityCommandBuffer]; use `entityInQueryIndex`instead.)
+* **`int entityInQueryIndex`** — the index of the entity in the list of all entities selected by the query. Use the entity index value when you have a [native array] that you need to fill with a unique value for each entity. You can use the entityInQueryIndex as the index in that array. The entityInQueryIndex should also be used as the `sortKey` for adding commands to a concurrent [EntityCommandBuffer].
+* **`int nativeThreadIndex`** — a unique index for the thread executing the current iteration of the lambda function. When you execute the lambda function using Run(), nativeThreadIndex is always zero. (Do not use `nativeThreadIndex` as the `sortKey` of a concurrent [EntityCommandBuffer]; use `entityInQueryIndex`instead.)
 
 <a name="capturing-variables"></a>
 ## Capturing variables
@@ -132,7 +132,9 @@ You can capture local variables for Entities.ForEach lambda functions. When you 
 * A job can only write to captured variables that are native containers. (To “return” a single value, create a [native array] with one element.)
 
 If you read a [native container], but don't write to it, always specify read-only access using `WithReadOnly(variable)`. 
-See [SystemBase.Entities] for more information about setting attributes for captured variables. The attributes you can specify include, `DeallocateOnJobCompletion`, `NativeDisableParallelForRestriction`, and others. [Entities.ForEach] provides these as functions because the C# language doesn't allow attibutes on local variables.
+See [SystemBase.Entities] for more information about setting attributes for captured variables. The attributes you can specify include `NativeDisableParallelForRestriction` and others. [Entities.ForEach] provides these as functions because the C# language doesn't allow attibutes on local variables.
+
+You can also indicate that you want captured NativeContainers or types that contain NativeContainers to be Disposed of after your [Entities.ForEach] runs by using `WithDisposeOnCompletion(variable)`.  This will either Dispose of the types immediately after the lambda runs (in the case of `Run()`) or schedule them to be Diposed later with a Job and return the JobHandle (in the case of `Schedule()`/`ScheduleParallel()`).
 
 **Note:** When executing the function with `Run()` you can write to captured variables that are not native containers. However, you should still use blittable types where possible so that the function can be compiled with [Burst].
 
@@ -147,7 +149,7 @@ The following table shows which features are currently supported in [Entities.Fo
 | Capture local value type      | x                                               | x        | x                    |
 | Capture local reference type  | x (only WithoutBurst)                           |          |                      |
 | Writing to captured variables | x                                               |          |                      |
-| Use field on the system class     | x (only WithoutBurst)                           |          |                      |
+| Use field on the system class | x (only WithoutBurst)                           |          |                      |
 | Methods on reference types    | x (only WithoutBurst)                           |          |                      |
 | Shared Components             | x (only WithoutBurst)                           |          |                      |
 | Managed Components            | x (only WithoutBurst)                           |          |                      |
@@ -156,7 +158,7 @@ The following table shows which features are currently supported in [Entities.Fo
 | SystemBase.SetComponent       | x                                               | x        |                      |
 | GetComponentDataFromEntity    | x                                               | x        | x (only as ReadOnly) |
 | HasComponent                  | x                                               | x        | x                    |
-| WithDeallocateOnJobCompletion | x                                               | x        | x                    |
+| WithDisposeOnCompletion       | x                                               | x        | x                    |
 
 An [Entities.ForEach] construction uses specialized intermediate language (IL) compilation post-processing to translate the code you write for the construction into correct ECS code. This translation allows you to express the intent of your algorithm without having to include complex, boilerplate code. However, it can mean that some common ways of writing code are not allowed.
 

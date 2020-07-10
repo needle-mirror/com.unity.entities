@@ -92,24 +92,24 @@ namespace Unity.Transforms
         [BurstCompile]
         struct RotationEulerToRotation : IJobChunk
         {
-            public ArchetypeChunkComponentType<Rotation> RotationType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationEulerXYZ> RotationEulerXYZType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationEulerXZY> RotationEulerXZYType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationEulerYXZ> RotationEulerYXZType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationEulerYZX> RotationEulerYZXType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationEulerZXY> RotationEulerZXYType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationEulerZYX> RotationEulerZYXType;
+            public ComponentTypeHandle<Rotation> RotationTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationEulerXYZ> RotationEulerXyzTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationEulerXZY> RotationEulerXzyTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationEulerYXZ> RotationEulerYxzTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationEulerYZX> RotationEulerYzxTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationEulerZXY> RotationEulerZxyTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationEulerZYX> RotationEulerZyxTypeHandle;
             public uint LastSystemVersion;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                if (chunk.Has(RotationEulerXYZType))
+                if (chunk.Has(RotationEulerXyzTypeHandle))
                 {
-                    if (!chunk.DidChange(RotationEulerXYZType, LastSystemVersion))
+                    if (!chunk.DidChange(RotationEulerXyzTypeHandle, LastSystemVersion))
                         return;
 
-                    var chunkRotations = chunk.GetNativeArray(RotationType);
-                    var chunkRotationEulerXYZs = chunk.GetNativeArray(RotationEulerXYZType);
+                    var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+                    var chunkRotationEulerXYZs = chunk.GetNativeArray(RotationEulerXyzTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         chunkRotations[i] = new Rotation
@@ -118,13 +118,13 @@ namespace Unity.Transforms
                         };
                     }
                 }
-                else if (chunk.Has(RotationEulerXZYType))
+                else if (chunk.Has(RotationEulerXzyTypeHandle))
                 {
-                    if (!chunk.DidChange(RotationEulerXZYType, LastSystemVersion))
+                    if (!chunk.DidChange(RotationEulerXzyTypeHandle, LastSystemVersion))
                         return;
 
-                    var chunkRotations = chunk.GetNativeArray(RotationType);
-                    var chunkRotationEulerXZYs = chunk.GetNativeArray(RotationEulerXZYType);
+                    var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+                    var chunkRotationEulerXZYs = chunk.GetNativeArray(RotationEulerXzyTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         chunkRotations[i] = new Rotation
@@ -133,13 +133,13 @@ namespace Unity.Transforms
                         };
                     }
                 }
-                else if (chunk.Has(RotationEulerYXZType))
+                else if (chunk.Has(RotationEulerYxzTypeHandle))
                 {
-                    if (!chunk.DidChange(RotationEulerYXZType, LastSystemVersion))
+                    if (!chunk.DidChange(RotationEulerYxzTypeHandle, LastSystemVersion))
                         return;
 
-                    var chunkRotations = chunk.GetNativeArray(RotationType);
-                    var chunkRotationEulerYXZs = chunk.GetNativeArray(RotationEulerYXZType);
+                    var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+                    var chunkRotationEulerYXZs = chunk.GetNativeArray(RotationEulerYxzTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         chunkRotations[i] = new Rotation
@@ -148,13 +148,13 @@ namespace Unity.Transforms
                         };
                     }
                 }
-                else if (chunk.Has(RotationEulerYZXType))
+                else if (chunk.Has(RotationEulerYzxTypeHandle))
                 {
-                    if (!chunk.DidChange(RotationEulerYZXType, LastSystemVersion))
+                    if (!chunk.DidChange(RotationEulerYzxTypeHandle, LastSystemVersion))
                         return;
 
-                    var chunkRotations = chunk.GetNativeArray(RotationType);
-                    var chunkRotationEulerYZXs = chunk.GetNativeArray(RotationEulerYZXType);
+                    var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+                    var chunkRotationEulerYZXs = chunk.GetNativeArray(RotationEulerYzxTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         chunkRotations[i] = new Rotation
@@ -163,13 +163,13 @@ namespace Unity.Transforms
                         };
                     }
                 }
-                else if (chunk.Has(RotationEulerZXYType))
+                else if (chunk.Has(RotationEulerZxyTypeHandle))
                 {
-                    if (!chunk.DidChange(RotationEulerZXYType, LastSystemVersion))
+                    if (!chunk.DidChange(RotationEulerZxyTypeHandle, LastSystemVersion))
                         return;
 
-                    var chunkRotations = chunk.GetNativeArray(RotationType);
-                    var chunkRotationEulerZXYs = chunk.GetNativeArray(RotationEulerZXYType);
+                    var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+                    var chunkRotationEulerZXYs = chunk.GetNativeArray(RotationEulerZxyTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         chunkRotations[i] = new Rotation
@@ -178,13 +178,13 @@ namespace Unity.Transforms
                         };
                     }
                 }
-                else if (chunk.Has(RotationEulerZYXType))
+                else if (chunk.Has(RotationEulerZyxTypeHandle))
                 {
-                    if (!chunk.DidChange(RotationEulerZYXType, LastSystemVersion))
+                    if (!chunk.DidChange(RotationEulerZyxTypeHandle, LastSystemVersion))
                         return;
 
-                    var chunkRotations = chunk.GetNativeArray(RotationType);
-                    var chunkRotationEulerZYXs = chunk.GetNativeArray(RotationEulerZYXType);
+                    var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+                    var chunkRotationEulerZYXs = chunk.GetNativeArray(RotationEulerZyxTypeHandle);
                     for (var i = 0; i < chunk.Count; i++)
                     {
                         chunkRotations[i] = new Rotation
@@ -200,13 +200,13 @@ namespace Unity.Transforms
         {
             var job = new RotationEulerToRotation()
             {
-                RotationType = GetArchetypeChunkComponentType<Rotation>(false),
-                RotationEulerXYZType = GetArchetypeChunkComponentType<RotationEulerXYZ>(true),
-                RotationEulerXZYType = GetArchetypeChunkComponentType<RotationEulerXZY>(true),
-                RotationEulerYXZType = GetArchetypeChunkComponentType<RotationEulerYXZ>(true),
-                RotationEulerYZXType = GetArchetypeChunkComponentType<RotationEulerYZX>(true),
-                RotationEulerZXYType = GetArchetypeChunkComponentType<RotationEulerZXY>(true),
-                RotationEulerZYXType = GetArchetypeChunkComponentType<RotationEulerZYX>(true),
+                RotationTypeHandle = GetComponentTypeHandle<Rotation>(false),
+                RotationEulerXyzTypeHandle = GetComponentTypeHandle<RotationEulerXYZ>(true),
+                RotationEulerXzyTypeHandle = GetComponentTypeHandle<RotationEulerXZY>(true),
+                RotationEulerYxzTypeHandle = GetComponentTypeHandle<RotationEulerYXZ>(true),
+                RotationEulerYzxTypeHandle = GetComponentTypeHandle<RotationEulerYZX>(true),
+                RotationEulerZxyTypeHandle = GetComponentTypeHandle<RotationEulerZXY>(true),
+                RotationEulerZyxTypeHandle = GetComponentTypeHandle<RotationEulerZYX>(true),
                 LastSystemVersion = LastSystemVersion
             };
             return job.Schedule(m_Group, inputDependencies);

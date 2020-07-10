@@ -10,6 +10,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Tests;
 using UnityEditor;
+using UnityEditor.Experimental;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -95,7 +96,7 @@ namespace Unity.Scenes.Editor.Tests
             // This call ensures that the asset worker is already running and no test times out because we're still
             // waiting for the asset worker. Effectively this doesn't change the runtime that much since we will have
             // to wait for the import to finish in most of the tests anyway.
-            GetLiveLinkArtifactHash(s_TempMaterialGuid, ImportMode.Synchronous);
+            GeEntitySceneArtifactHash(s_SubSceneWithSections.SceneGUID, s_LiveLinkBuildConfigGuid, ImportMode.Synchronous);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -194,7 +195,7 @@ namespace Unity.Scenes.Editor.Tests
             // for these kinds of guids, the last component encodes the file identifier
             h.Value.w = 0;
             GUID guid = h;
-            return GUIDHelper.IsBuiltinAsset(in guid);
+            return GUIDHelper.IsBuiltin(in guid);
         }
 
         [Test]
@@ -254,7 +255,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
-        [Ignore("Doesn't currently work because LiveLink cannot distinguish invalid assets from assets that are still importing.")]
+        [Ignore("DOTS-1112 - Doesn't currently work because LiveLink cannot distinguish invalid assets from assets that are still importing.")]
         public IEnumerator EditorComputesAssetHashForInvalidAssets()
         {
             DoConnect();
@@ -273,6 +274,7 @@ namespace Unity.Scenes.Editor.Tests
 
         static Hash128 GetLiveLinkArtifactHash(string guid, ImportMode syncMode = ImportMode.NoImport) => AssetDatabaseCompatibility.GetArtifactHash(guid, typeof(LiveLinkBuildImporter), syncMode);
         static Hash128 GetLiveLinkArtifactHash(GUID guid, ImportMode syncMode = ImportMode.NoImport) => GetLiveLinkArtifactHash(guid.ToString(), syncMode);
+        static Hash128 GeEntitySceneArtifactHash(GUID guid, GUID buildConfig, ImportMode syncMode = ImportMode.NoImport) => EntityScenesPaths.GetSubSceneArtifactHash(guid, buildConfig, syncMode);
 
         IEnumerable WaitForAssets(Dictionary<Hash128, Hash128> outHashesByGUID, int player = 1)
         {
@@ -371,6 +373,7 @@ namespace Unity.Scenes.Editor.Tests
         {
             DoConnect();
 
+
             s_Connection.PostMessageArray(1, LiveLinkMsg.PlayerRequestAssetTargetHash, new[] { (Hash128)s_TempMaterialGuid });
 
             var hashesByGUID = new Dictionary<Hash128, Hash128>();
@@ -405,7 +408,7 @@ namespace Unity.Scenes.Editor.Tests
         /// </summary>
         /// <returns></returns>
         [UnityTest]
-        [Ignore("Doesn't currently work because LiveLink cannot distinguish invalid assets from assets that are still importing.")]
+        [Ignore("DOTS-1112 - Doesn't currently work because LiveLink cannot distinguish invalid assets from assets that are still importing.")]
         public IEnumerator EditorTracksAssetChanges_DeleteAsset()
         {
             DoConnect();
@@ -474,6 +477,9 @@ namespace Unity.Scenes.Editor.Tests
         [UnityTest]
         public IEnumerator EditorComputesSubSceneHash()
         {
+            // Force material to build to make sure we get dependencies as well
+            LiveLinkBuildPipeline.CalculateTargetHash(s_TempMaterialGuid, EditorUserBuildSettings.activeBuildTarget, ImportMode.Synchronous);
+
             DoConnect();
 
             AssetDatabase.TryGetGUIDAndLocalFileIdentifier(s_SubSceneWithSections.SceneAsset, out var subSceneGuidString, out long _);
@@ -483,6 +489,9 @@ namespace Unity.Scenes.Editor.Tests
                 BuildConfigurationGuid = s_LiveLinkBuildConfigGuid,
             };
             Assert.IsTrue(subSceneGuid.Guid.IsValid);
+
+            // Force subscene to import so messages are deterministic
+            EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid.Guid, subSceneGuid.BuildConfigurationGuid, ImportMode.Synchronous);
 
             s_Connection.PostMessageArray(1, LiveLinkMsg.PlayerRequestSubSceneTargetHash, new[] { subSceneGuid });
 
@@ -497,6 +506,17 @@ namespace Unity.Scenes.Editor.Tests
                 var hash = EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid.Guid, subSceneGuid.BuildConfigurationGuid, ImportMode.NoImport);
                 Assert.AreEqual(hash, assets[0].TargetHash);
             }
+
+            #if !UNITY_DISABLE_MANAGED_COMPONENTS
+            var assetMsg = AssertNextMessage(LiveLinkMsg.EditorResponseAssetTargetHash, 1);
+            using (var assets = ReceiveArray<ResolvedAssetID>(assetMsg))
+            {
+                Assert.AreEqual(4, assets.Length);
+                Assert.AreEqual(s_TempMaterialGuid, (GUID)assets[0].GUID);
+                var hash = LiveLinkBuildPipeline.CalculateTargetHash(s_TempMaterialGuid, EditorUserBuildSettings.activeBuildTarget, ImportMode.NoImport);
+                Assert.AreEqual((Unity.Entities.Hash128)hash, assets[0].TargetHash);
+            }
+            #endif
 
             AssertNumMessages(0);
         }
@@ -522,6 +542,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
+        [Ignore("This test is unstable. The AssetDatabase contains race conditions which can deadlock the editor. Jira: DOTS-1914")]
         public IEnumerator EditorSendsSubSceneEndToEnd()
         {
             DoConnect();
@@ -569,7 +590,6 @@ namespace Unity.Scenes.Editor.Tests
             AssertFileReceived($"{targetHash}.0.entities");
             AssertFileReceived($"{targetHash}.2.entities");
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-            AssertFileReceived($"{targetHash}.2.refguids");
             AssertFileReceived($"{targetHash}.2.bundle");
 #endif
             AssertFileReceived($"{targetHash}.entityheader");
@@ -607,14 +627,16 @@ namespace Unity.Scenes.Editor.Tests
         public void EditorRespondsToHandshake()
         {
             var editorLiveLinkId = LiveLinkUtility.GetEditorLiveLinkId();
+            var editorLiveLinkCacheGUID = LiveLinkUtility.LiveLinkCacheGUID;
             s_Connection.PostConnect(1);
             s_Connection.IncomingMessages.Clear();
 
             s_Connection.PostMessage(1, LiveLinkMsg.PlayerRequestHandshakeLiveLink, s_LiveLinkBuildConfigGuid);
 
             var msg = AssertNextMessage(LiveLinkMsg.EditorResponseHandshakeLiveLink, 1);
-            var incomingId = msg.EventArgs.Receive<long>();
-            Assert.AreEqual(editorLiveLinkId, incomingId);
+            var handshake = msg.EventArgs.Receive<LiveLinkHandshake>();
+            Assert.AreEqual(editorLiveLinkId, handshake.LiveLinkId);
+            Assert.AreEqual(editorLiveLinkCacheGUID, handshake.LiveLinkCacheGUID);
 
             AssertNumMessages(0);
 

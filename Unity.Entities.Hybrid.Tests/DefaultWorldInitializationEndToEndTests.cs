@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Unity.Entities.Hybrid.Tests;
+using UnityEngine.LowLevel;
 using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
@@ -7,10 +8,12 @@ namespace Unity.Entities.Tests
     public class DefaultWorldInitializationEndToEndTests
     {
         TestWithCustomDefaultGameObjectInjectionWorld m_DefaultWorld;
+        private PlayerLoopSystem m_PrevPlayerLoop;
 
         [SetUp]
         public void Setup()
         {
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
             m_DefaultWorld.Setup();
         }
 
@@ -26,6 +29,7 @@ namespace Unity.Entities.Tests
         public void TearDown()
         {
             m_DefaultWorld.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
         }
     }
 }

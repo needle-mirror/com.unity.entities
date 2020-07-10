@@ -189,12 +189,7 @@ namespace Unity.Entities
                     ClearMissingReferences(srcEntityManager, srcChunks, out clearMissingReferencesJob, srcChunksJob);
                 }
 
-                // @TODO NET_DOTS does not support JobHandle.CombineDependencies with 3 arguments.
-#if NET_DOTS
-                var archetypeChunkChangesJobDependencies = CombineDependencies(srcChunksJob, dstChunksJob, clearMissingReferencesJob);
-#else
                 var archetypeChunkChangesJobDependencies = JobHandle.CombineDependencies(srcChunksJob, dstChunksJob, clearMissingReferencesJob);
-#endif
 
                 // Broad phased chunk comparison.
                 using (var archetypeChunkChanges = GetArchetypeChunkChanges(
@@ -214,10 +209,10 @@ namespace Unity.Entities
                     using (var dstEntities = GetSortedEntitiesInChunk(
                         archetypeChunkChanges.DestroyedDstChunks, Allocator.TempJob,
                         jobHandle: out var dstEntitiesJob))
-                    using (var srcBlobAssets = GetReferencedBlobAssets(
-                        srcChunks, Allocator.TempJob,
-                        jobHandle: out var srcBlobAssetsJob))
-                    using (var dstBlobAssets = blobAssetCache.BlobAssetBatch->ToNativeList(Allocator.TempJob))
+                    using (var srcBlobAssetsWithDistinctHash = GetBlobAssetsWithDistinctHash(
+                        srcEntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore,
+                        srcChunks, Allocator.TempJob))
+                    using (var dstBlobAssetsWithDistinctHash = blobAssetCache.BlobAssetBatch->ToNativeList(Allocator.TempJob))
                     {
                         var duplicateEntityGuids = default(NativeList<DuplicateEntityGuid>);
                         var forwardEntityChanges = default(EntityInChunkChanges);
@@ -262,11 +257,10 @@ namespace Unity.Entities
                                     dependsOn: forwardEntityChangesJob);
 
                                 forwardBlobAssetChanges = GetBlobAssetChanges(
-                                    srcBlobAssets,
-                                    dstBlobAssets,
+                                    srcBlobAssetsWithDistinctHash.BlobAssets,
+                                    dstBlobAssetsWithDistinctHash,
                                     Allocator.TempJob,
-                                    jobHandle: out var forwardBlobAssetsChangesJob,
-                                    dependsOn: srcBlobAssetsJob);
+                                    jobHandle: out var forwardBlobAssetsChangesJob);
 
                                 forwardChangesJob = JobHandle.CombineDependencies(forwardComponentChangesJob, forwardBlobAssetsChangesJob);
                             }
@@ -291,11 +285,10 @@ namespace Unity.Entities
                                     dependsOn: reverseEntityChangesJob);
 
                                 reverseBlobAssetChanges = GetBlobAssetChanges(
-                                    dstBlobAssets,
-                                    srcBlobAssets,
+                                    dstBlobAssetsWithDistinctHash,
+                                    srcBlobAssetsWithDistinctHash.BlobAssets,
                                     Allocator.TempJob,
-                                    jobHandle: out var reverseBlobAssetsChangesJob,
-                                    dependsOn: srcBlobAssetsJob);
+                                    jobHandle: out var reverseBlobAssetsChangesJob);
 
                                 reverseChangesJob = JobHandle.CombineDependencies(reverseComponentChangesJob, reverseBlobAssetsChangesJob);
                             }
@@ -317,7 +310,6 @@ namespace Unity.Entities
                                 {
                                     jobs.Add(srcEntitiesJob);
                                     jobs.Add(dstEntitiesJob);
-                                    jobs.Add(srcBlobAssetsJob);
                                 }
 
                                 jobHandle = JobHandle.CombineDependencies(jobs);
@@ -347,8 +339,8 @@ namespace Unity.Entities
                                     {
                                         CreatedBlobAssets = createdBlobAssets,
                                         DestroyedBlobAssets = destroyedBlobAssets,
-                                        AfterBlobAssets = srcBlobAssets,
-                                        BeforeBlobAssets = dstBlobAssets
+                                        AfterBlobAssets = srcBlobAssetsWithDistinctHash.BlobAssets,
+                                        BeforeBlobAssets = dstBlobAssetsWithDistinctHash
                                     }.Schedule().Complete();
 
                                     for (var i = 0; i < destroyedBlobAssets.Length; i++)
@@ -382,12 +374,12 @@ namespace Unity.Entities
                                         }
 
                                         var blobAssetPtr = batch->AllocateBlobAsset(createdBlobAssets[i].Data, createdBlobAssets[i].Length, createdBlobAssets[i].Header->Hash);
-                                        remap.TryAdd(new BlobAssetReferencePtr(createdBlobAssets[i].Data), blobAssetPtr);
+                                        remap.TryAdd(createdBlobAssets[i], blobAssetPtr);
                                     }
 
                                     if (destroyedBlobAssets.Length > 0 || createdBlobAssets.Length > 0)
                                     {
-                                        batch->Sort();
+                                        batch->SortByHash();
                                     }
                                 }
                             }

@@ -3,6 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using Unity.Entities.Serialization;
 using Unity.Entities.Tests.Conversion;
+using Unity.Scenes;
 
 namespace Unity.Entities.Tests
 {

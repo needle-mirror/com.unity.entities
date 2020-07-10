@@ -2,12 +2,6 @@ using System;
 using NUnit.Framework;
 using Unity.Jobs;
 using Unity.Collections;
-using UnityEngine;
-using Unity.Entities;
-#if !UNITY_DOTSPLAYER
-using System.Text.RegularExpressions;
-#endif
-using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
@@ -80,7 +74,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void CommitAfterNotRegisteredTransactionJobLogsError()
         {
-#if !UNITY_DOTSPLAYER
             var job = new CreateEntityJob();
             job.entities = m_Manager.BeginExclusiveEntityTransaction();
 
@@ -91,7 +84,6 @@ namespace Unity.Entities.Tests
             jobHandle.Complete();
 
             m_Manager.EndExclusiveEntityTransaction();
-#endif
         }
 
         [Test]
@@ -101,9 +93,7 @@ namespace Unity.Entities.Tests
             job.entities = m_Manager.BeginExclusiveEntityTransaction();
 
             Assert.Throws<InvalidOperationException>(() => { m_Manager.CreateEntity(typeof(EcsTestData)); });
-
-            //@TODO:
-            //Assert.Throws<InvalidOperationException>(() => { m_Manager.Exists(new Entity()); });
+            Assert.Throws<InvalidOperationException>(() => { m_Manager.Exists(new Entity()); });
         }
 
         [Test]
@@ -117,7 +107,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Needs NativeJobs schedule path
         public void MissingJobCreationDependency()
         {
             var job = new CreateEntityJob();
@@ -130,7 +119,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Needs NativeJobs + Safety Handles support
         public void CreationJobAndMainThreadNotAllowedInParallel()
         {
             var job = new CreateEntityJob();
@@ -250,7 +238,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme]
         public void TransactionSync1()
         {
             var top = new SyncIJobChunk {}.Schedule(m_Manager.UniversalQuery);
@@ -264,7 +251,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme]
         public void TransactionSync2()
         {
             var exclusive = m_Manager.BeginExclusiveEntityTransaction();
@@ -315,6 +301,80 @@ namespace Unity.Entities.Tests
                 new SyncIJobChunk {}.Schedule(q).Complete();
             });
             j.Complete();
+        }
+
+        [Test]
+        public void BufferFromEntity_AcquiredBeforeTransaction_Throws()
+        {
+            var c = m_Manager.CreateEntity();
+            var linkedEntityGroup = m_Manager.GetBufferFromEntity<LinkedEntityGroup>();
+            m_Manager.BeginExclusiveEntityTransaction();
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() => linkedEntityGroup.HasComponent(c));
+#else
+            Assert.Throws<InvalidOperationException>(() => linkedEntityGroup.HasComponent(c));
+#endif
+            m_Manager.EndExclusiveEntityTransaction();
+        }
+
+        [Test]
+        public void BufferFromEntity_AcquiredDuringTransaction_Throws()
+        {
+            var c = m_Manager.CreateEntity();
+            m_Manager.BeginExclusiveEntityTransaction();
+            Assert.Throws<InvalidOperationException>(() => m_Manager.GetBufferFromEntity<LinkedEntityGroup>());
+            m_Manager.EndExclusiveEntityTransaction();
+        }
+
+        [Test]
+        public void BufferFromEntity_AcquiredFromTransaction_Throws()
+        {
+            var c = m_Manager.CreateEntity();
+            var transaction = m_Manager.BeginExclusiveEntityTransaction();
+            var linkedEntityGroup = transaction.EntityManager.GetBufferFromEntity<LinkedEntityGroup>();
+            Assert.DoesNotThrow(() => linkedEntityGroup.HasComponent(c));
+            m_Manager.EndExclusiveEntityTransaction();
+        }
+
+        [Test]
+        public void CanAccessEntitiesAfterTransaction()
+        {
+            m_Manager.BeginExclusiveEntityTransaction();
+            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateEntity());
+            m_Manager.EndExclusiveEntityTransaction();
+
+            Assert.DoesNotThrow(() => m_Manager.CreateEntity());
+        }
+
+        [Test]
+        public void CanChainTransactions()
+        {
+            m_Manager.BeginExclusiveEntityTransaction();
+            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateEntity());
+            m_Manager.EndExclusiveEntityTransaction();
+
+            Assert.DoesNotThrow(() => m_Manager.CreateEntity());
+
+            m_Manager.BeginExclusiveEntityTransaction();
+            Assert.Throws<InvalidOperationException>(() => m_Manager.CreateEntity());
+            m_Manager.EndExclusiveEntityTransaction();
+
+            Assert.DoesNotThrow(() => m_Manager.CreateEntity());
+        }
+
+        [Test]
+        public void NestedTransactionThrows()
+        {
+            m_Manager.BeginExclusiveEntityTransaction();
+            Assert.Throws<InvalidOperationException>(() => m_Manager.BeginExclusiveEntityTransaction());
+        }
+
+        [Test]
+        public void Transaction_IsInvalid_AfterItHasEnded()
+        {
+            var transaction = m_Manager.BeginExclusiveEntityTransaction();
+            m_Manager.EndExclusiveEntityTransaction();
+            Assert.Throws<InvalidOperationException>(() => transaction.CreateEntity());
         }
     }
 }

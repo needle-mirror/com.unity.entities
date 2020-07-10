@@ -24,7 +24,7 @@ public struct TestMetadataWithBlobAsset : IComponentData
     public BlobAssetReference<int> BlobAsset;
 }
 #if UNITY_EDITOR
-[ConverterVersion("simonm", 5)]
+[ConverterVersion("simonm", 6)]
 public class SectionMetadataTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
 {
     public int Value;

@@ -38,7 +38,7 @@ namespace Unity.Entities
                 var countInArchetype = 0;
                 for (var j = 0; j < archetype->Chunks.Count; ++j)
                 {
-                    var chunk = archetype->Chunks.p[j];
+                    var chunk = archetype->Chunks[j];
                     Assert.IsTrue(chunk->Archetype == archetype);
                     Assert.IsTrue(chunk->Capacity >= chunk->Count);
                     Assert.AreEqual(chunk->Count, archetype->Chunks.GetChunkEntityCount(j));
@@ -201,6 +201,11 @@ namespace Unity.Entities
         {
             if (count < 1)
                 throw new ArgumentException($"Invalid component count");
+            
+            // NOTE: LookUpCache / ComponentDataFromEntity uses short for the IndexInArchetype cache
+            if (count >= short.MaxValue)
+                throw new ArgumentException($"Archetypes can have a maximum of {short.MaxValue} components.");
+
             if (types[0].TypeIndex == 0)
                 throw new ArgumentException($"Component type may not be null");
             if (types[0].TypeIndex != m_EntityType)
@@ -211,6 +216,10 @@ namespace Unity.Entities
                 if (types[i - 1].TypeIndex == types[i].TypeIndex)
                     throw new ArgumentException(
                         $"It is not allowed to have two components of the same type on the same entity. ({types[i - 1]} and {types[i]})");
+
+                var SizeInChunk = GetTypeInfo(types[i].TypeIndex).SizeInChunk;
+                if (SizeInChunk > ushort.MaxValue)
+                    throw new ArgumentException($"IComponentData {types[i]} is too large. SizeOf may not be larger than {ushort.MaxValue}");
             }
         }
 
@@ -324,7 +333,30 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanAddComponent(NativeList<EntityBatchInChunk> batches, ComponentType componentType)
+        {
+            Archetype* archetype = null;
+            for (int i = 0; i < batches.Length; i++)
+            {
+                var nextArchetype = batches[i].Chunk->Archetype;
+                if (nextArchetype != archetype)
+                {
+                    if (archetype != null)
+                        AssertCanAddComponent(nextArchetype, componentType);
+                    archetype = nextArchetype;
+                }
+            }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertCanRemoveComponent(Entity entity, ComponentType componentType)
+        {
+            if (componentType == m_EntityComponentType)
+                throw new ArgumentException("Cannot remove Entity as a component. Use DestroyEntity if you want to delete Entity and all associated components.");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanRemoveComponent(NativeArray<Entity> entity, ComponentType componentType)
         {
             if (componentType == m_EntityComponentType)
                 throw new ArgumentException("Cannot remove Entity as a component. Use DestroyEntity if you want to delete Entity and all associated components.");
@@ -339,7 +371,7 @@ namespace Unity.Entities
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertWillDestroyAllInLinkedEntityGroup(NativeArray<ArchetypeChunk> chunkArray,
-            ArchetypeChunkBufferType<LinkedEntityGroup> linkedGroupType,
+            BufferTypeHandle<LinkedEntityGroup> linkedGroupTypeHandle,
             ref Entity errorEntity,
             ref Entity errorReferencedEntity)
         {
@@ -359,11 +391,11 @@ namespace Unity.Entities
 
             for (int i = 0; i < chunkArray.Length; ++i)
             {
-                if (!chunks[i].Has(linkedGroupType))
+                if (!chunks[i].Has(linkedGroupTypeHandle))
                     continue;
 
                 var chunk = chunks[i];
-                var buffers = chunk.GetBufferAccessor(linkedGroupType);
+                var buffers = chunk.GetBufferAccessor(linkedGroupTypeHandle);
 
                 for (int b = 0; b != buffers.Length; b++)
                 {
@@ -395,6 +427,7 @@ namespace Unity.Entities
             }
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void ThrowDestroyEntityError(Entity errorEntity, Entity errorReferencedEntity)
         {
             ThrowDestroyEntityErrorFancy(errorEntity, errorReferencedEntity);
@@ -522,16 +555,16 @@ namespace Unity.Entities
             if (queryStore != store)
             {
                 if (queryStore ==  null)
-                    throw new System.ArgumentException("The EntityQuery has been disposed and can no longer be used.");
+                    throw new System.InvalidOperationException("The EntityQuery has been disposed and can no longer be used.");
                 else
-                    throw new System.ArgumentException("EntityQuery is associated with a different world");
+                    throw new System.InvalidOperationException("EntityQuery is associated with a different world");
             }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public static void AssertValidArchetype(EntityComponentStore* queryStore, EntityArchetype archetype)
         {
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (archetype._DebugComponentStore != queryStore)
             {
                 if (archetype.Archetype == null)
@@ -539,12 +572,27 @@ namespace Unity.Entities
                 else
                     throw new System.ArgumentException("The EntityArchetype was not created by this EntityManager");
             }
-
-            #endif
+#endif
         }
 
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal void AssertZeroSizedComponent(int typeIndex)
+        {
+            if (TypeManager.GetTypeInfo(typeIndex).IsZeroSized)
+                throw new System.ArgumentException(
+                    "Get component data can not be called with a zero sized component.");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal static void AssertComponentSizeMatches(int typeIndex, int size)
+        {
+            if (TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size)
+                throw new System.ArgumentException(
+                    "SetComponentData can not be called with a zero sized component and must have same size as sizeof(T).");
+        }
     }
 }

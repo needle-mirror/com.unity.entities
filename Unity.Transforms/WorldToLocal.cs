@@ -25,17 +25,17 @@ namespace Unity.Transforms
         [BurstCompile]
         struct ToWorldToLocal : IJobChunk
         {
-            [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> LocalToWorldType;
-            public ArchetypeChunkComponentType<WorldToLocal> WorldToLocalType;
+            [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandle;
+            public ComponentTypeHandle<WorldToLocal> WorldToLocalTypeHandle;
             public uint LastSystemVersion;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                if (!chunk.DidChange(LocalToWorldType, LastSystemVersion))
+                if (!chunk.DidChange(LocalToWorldTypeHandle, LastSystemVersion))
                     return;
 
-                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldType);
-                var chunkWorldToLocal = chunk.GetNativeArray(WorldToLocalType);
+                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
+                var chunkWorldToLocal = chunk.GetNativeArray(WorldToLocalTypeHandle);
 
                 for (int i = 0; i < chunk.Count; i++)
                 {
@@ -62,8 +62,8 @@ namespace Unity.Transforms
         {
             var toWorldToLocalJob = new ToWorldToLocal
             {
-                LocalToWorldType = GetArchetypeChunkComponentType<LocalToWorld>(true),
-                WorldToLocalType = GetArchetypeChunkComponentType<WorldToLocal>(),
+                LocalToWorldTypeHandle = GetComponentTypeHandle<LocalToWorld>(true),
+                WorldToLocalTypeHandle = GetComponentTypeHandle<WorldToLocal>(),
                 LastSystemVersion = LastSystemVersion
             };
             var toWorldToLocalJobHandle = toWorldToLocalJob.Schedule(m_Group, inputDeps);

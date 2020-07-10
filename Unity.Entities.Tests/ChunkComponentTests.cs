@@ -36,7 +36,7 @@ namespace Unity.Entities.Tests
         public unsafe void ArchetypeChunk_GetAndSetChunkComponent_ThrowWhenMetaChunkEntityMissing()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
-            var chunkComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var chunkComponentType = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
             var chunk = m_Manager.GetChunk(entity);
 
             Assert.AreEqual(chunk.m_Chunk->metaChunkEntity, Entity.Null);
@@ -48,7 +48,7 @@ namespace Unity.Entities.Tests
         public unsafe void ArchetypeChunk_GetAndSetChunkComponent_ThrowWhenComponentMissing()
         {
             var entity = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());
-            var chunkComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var chunkComponentType = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
             var chunk = m_Manager.GetChunk(entity);
 
             Assert.AreNotEqual(chunk.m_Chunk->metaChunkEntity, Entity.Null);
@@ -169,14 +169,14 @@ namespace Unity.Entities.Tests
             {
                 var curBounds = new ChunkBoundsComponent { boundsMin = new float3(1000, 1000, 1000), boundsMax = new float3(-1000, -1000, -1000)};
                 var boundsChunk = metaChunkHeaders[i].ArchetypeChunk;
-                var bounds = boundsChunk.GetNativeArray(m_Manager.GetArchetypeChunkComponentType<BoundsComponent>(true));
+                var bounds = boundsChunk.GetNativeArray(m_Manager.GetComponentTypeHandle<BoundsComponent>(true));
                 for (int j = 0; j < bounds.Length; ++j)
                 {
                     curBounds.boundsMin = math.min(curBounds.boundsMin, bounds[j].boundsMin);
                     curBounds.boundsMax = math.max(curBounds.boundsMax, bounds[j].boundsMax);
                 }
 
-                var chunkBoundsType = m_Manager.GetArchetypeChunkComponentType<ChunkBoundsComponent>(false);
+                var chunkBoundsType = m_Manager.GetComponentTypeHandle<ChunkBoundsComponent>(false);
 
                 boundsChunk.SetChunkComponentData(chunkBoundsType, curBounds);
                 Assert.AreEqual(curBounds, boundsChunk.GetChunkComponentData(chunkBoundsType));
@@ -188,20 +188,20 @@ namespace Unity.Entities.Tests
             metaChunkHeaders.Dispose();
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
         [UpdateInGroup(typeof(PresentationSystemGroup))]
         private class ChunkBoundsUpdateSystem : JobComponentSystem
         {
 #pragma warning disable 618
             struct UpdateChunkBoundsJob : IJobForEach<ChunkBoundsComponent, ChunkHeader>
             {
-                [ReadOnly] public ArchetypeChunkComponentType<BoundsComponent> chunkComponentType;
+                [ReadOnly] public ComponentTypeHandle<BoundsComponent> ChunkComponentTypeHandle;
 
                 public void Execute(ref ChunkBoundsComponent chunkBounds, [ReadOnly] ref ChunkHeader chunkHeader)
                 {
                     var curBounds = new ChunkBoundsComponent { boundsMin = new float3(1000, 1000, 1000), boundsMax = new float3(-1000, -1000, -1000)};
                     var boundsChunk = chunkHeader.ArchetypeChunk;
-                    var bounds = boundsChunk.GetNativeArray(chunkComponentType);
+                    var bounds = boundsChunk.GetNativeArray(ChunkComponentTypeHandle);
                     for (int j = 0; j < bounds.Length; ++j)
                     {
                         curBounds.boundsMin = math.min(curBounds.boundsMin, bounds[j].boundsMin);
@@ -213,7 +213,7 @@ namespace Unity.Entities.Tests
             }
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
-                var job = new UpdateChunkBoundsJob {chunkComponentType = EntityManager.GetArchetypeChunkComponentType<BoundsComponent>(true)};
+                var job = new UpdateChunkBoundsJob {ChunkComponentTypeHandle = EntityManager.GetComponentTypeHandle<BoundsComponent>(true)};
                 return job.Schedule(this, inputDeps);
             }
         }

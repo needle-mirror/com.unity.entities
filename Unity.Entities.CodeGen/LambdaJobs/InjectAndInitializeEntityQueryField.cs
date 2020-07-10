@@ -5,6 +5,7 @@ using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Collections.Generic;
+using Unity.CompilationPipeline.Common.Diagnostics;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
@@ -13,7 +14,8 @@ namespace Unity.Entities.CodeGen
 {
     static class InjectAndInitializeEntityQueryField
     {
-        public static FieldDefinition InjectAndInitialize(MethodDefinition methodToAnalyze, LambdaJobDescriptionConstruction descriptionConstruction, Collection<ParameterDefinition> closureParameters)
+        public static FieldDefinition InjectAndInitialize(List<DiagnosticMessage> diagnosticMessages, MethodDefinition methodToAnalyze,
+            LambdaJobDescriptionConstruction descriptionConstruction, Collection<ParameterDefinition> closureParameters)
         {
             /* We're going to generate this code:
              *
@@ -39,7 +41,8 @@ namespace Unity.Entities.CodeGen
             var userSystemType = methodToAnalyze.DeclaringType;
             userSystemType.Fields.Add(entityQueryField);
 
-            var getEntityQueryFromMethod = AddGetEntityQueryFromMethod(descriptionConstruction, closureParameters.ToArray(), methodToAnalyze.DeclaringType);
+            var getEntityQueryFromMethod = AddGetEntityQueryFromMethod(diagnosticMessages, descriptionConstruction, closureParameters.ToArray(),
+                methodToAnalyze.DeclaringType);
 
             List<Instruction> instructionsToInsert = new List<Instruction>();
             instructionsToInsert.Add(
@@ -98,8 +101,14 @@ namespace Unity.Entities.CodeGen
             methodBody.GetILProcessor().InsertBefore(methodBody.Instructions.Last(), instructions);
         }
 
-        static MethodDefinition AddGetEntityQueryFromMethod(LambdaJobDescriptionConstruction descriptionConstruction, ParameterDefinition[] closureParameters,
-            TypeDefinition typeToInjectIn)
+        static bool DoTypeGroupsContainMatch(List<TypeReference> typeGroup1, List<TypeReference> typeGroup2, out TypeReference matchingType)
+        {
+            matchingType = typeGroup1.FirstOrDefault(x => typeGroup2.Any(y => y.TypeReferenceEquals(x)));
+            return (matchingType != null);
+        }
+
+        static MethodDefinition AddGetEntityQueryFromMethod(List<DiagnosticMessage> diagnosticMessages, LambdaJobDescriptionConstruction descriptionConstruction,
+            ParameterDefinition[] closureParameters, TypeDefinition typeToInjectIn)
         {
             var moduleDefinition = typeToInjectIn.Module;
             var typeDefinition = typeToInjectIn;
@@ -147,31 +156,68 @@ namespace Unity.Entities.CodeGen
 
             foreach (var closureParameter in closureParameters)
             {
+                void ThrowGenericTypeError(TypeReference genericType) =>
+                    UserError.DC0050(genericType, descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
                 var parameterElementType = closureParameter.ParameterType.GetElementType();
                 if (parameterElementType.IsGenericInstance || parameterElementType.IsGenericParameter ||
                     (parameterElementType.HasGenericParameters && !parameterElementType.IsDynamicBufferOfT()))
+                    ThrowGenericTypeError(closureParameter.ParameterType);
+                else if (parameterElementType.IsDynamicBufferOfT() && parameterElementType.HasGenericParameters && closureParameter.ParameterType is ByReferenceType byReferenceType &&
+                         byReferenceType.ElementType is GenericInstanceType genericInstanceType && genericInstanceType.HasGenericArguments)
                 {
-                    UserError.DC0025($"Type {closureParameter.ParameterType.Name} cannot be used as an Entities.ForEach parameter as generic types and generic parameters are not supported in Entities.ForEach",
-                        descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
+                    var firstGenericArgument = genericInstanceType.GenericArguments.OfType<GenericInstanceType>().FirstOrDefault(argument => argument.HasGenericArguments);
+                    if (firstGenericArgument != null)
+                        ThrowGenericTypeError(firstGenericArgument);
                 }
+            }
+
+            var parameterComponentTypeInfos = closureParameters.Select(ComponentTypeInfoForLambdaParameter).Where(t => t.typeReference != null);
+
+            // Check that we aren't accessing any parameter component types by value
+            if (parameterComponentTypeInfos.Any(cta => cta.accessType == ComponentAccessType.ByValue && cta.dataType == ComponentDataType.ComponentDataStruct))
+            {
+                diagnosticMessages.Add(UserError.DC0055(parameterComponentTypeInfos.First(cta => cta.accessType == ComponentAccessType.ByValue).typeReference,
+                    descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod));
+            }
+
+            // Check WithNone
+            if (DoTypeGroupsContainMatch(withNoneTypes, withAllTypes, out var matchingType1))
+            {
+                UserError.DC0056(nameof(LambdaJobQueryConstructionMethods.WithNone), nameof(LambdaJobQueryConstructionMethods.WithAll), matchingType1,
+                    descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
+            }
+            if (DoTypeGroupsContainMatch(withNoneTypes, withAnyTypes, out var matchingType2))
+            {
+                UserError.DC0056(nameof(LambdaJobQueryConstructionMethods.WithNone), nameof(LambdaJobQueryConstructionMethods.WithAny), matchingType2,
+                    descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
+            }
+            if (DoTypeGroupsContainMatch(withNoneTypes, parameterComponentTypeInfos.Select(t => t.typeReference).ToList(), out var matchingType3))
+            {
+                UserError.DC0056(nameof(LambdaJobQueryConstructionMethods.WithNone), "lambda parameter", matchingType3, descriptionConstruction.ContainingMethod,
+                    descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
+            }
+
+            // Check WithAny
+            if (DoTypeGroupsContainMatch(withAnyTypes, withAllTypes, out var matchingType4))
+            {
+                UserError.DC0056(nameof(LambdaJobQueryConstructionMethods.WithAny), nameof(LambdaJobQueryConstructionMethods.WithAll), matchingType4,
+                    descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
+            }
+            if (DoTypeGroupsContainMatch(withAnyTypes, parameterComponentTypeInfos.Select(t => t.typeReference).ToList(), out var matchingType6))
+            {
+                UserError.DC0056(nameof(LambdaJobQueryConstructionMethods.WithAny), "lambda parameter", matchingType6, descriptionConstruction.ContainingMethod,
+                    descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
             }
 
             body.Variables.Add(arrayOfSingleEQDVariable);
             body.Variables.Add(localVarOfEQD);
             body.Variables.Add(localVarOfResult);
 
-            var combinedWithAllTypes = withAllAndSharedComponentFilterTypes.Select(typeReference => (typeReference, true))
-                .Concat(closureParameters.Select(WithAllTypeArgumentForLambdaParameter).Where(t => t.typeReference != null))
-                .ToArray();
-
-            foreach (var noneType in withNoneTypes)
-            {
-                if (combinedWithAllTypes.Select(c => c.typeReference).Any(allType => allType.TypeReferenceEquals(noneType)))
-                    UserError.DC0015(noneType.Name, descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
-
-                if (withAnyTypes.Any(anyType => anyType.TypeReferenceEquals(noneType)))
-                    UserError.DC0016(noneType.Name, descriptionConstruction.ContainingMethod, descriptionConstruction.InvokedConstructionMethods.First().InstructionInvokingMethod).Throw();
-            }
+            // Combine WithAll types with parameter types and change filter types (and then resolve duplicates)
+            var combinedAllTypes = withAllAndSharedComponentFilterTypes.Select(typeReference => (typeReference, true))
+                .Concat(parameterComponentTypeInfos.Select(typeInfo => (typeInfo.typeReference, typeInfo.isReadOnly)))
+                .Concat(withChangeFilterTypes.Select((t => (t, true))));
+            var resolvedAllTypes = ResolveTypeDuplicatesAndReadOnlyAccess(combinedAllTypes.ToArray());
 
             var instructions = new List<Instruction>()
             {
@@ -190,7 +236,7 @@ namespace Unity.Entities.CodeGen
                 Instruction.Create(OpCodes.Ldloc, localVarOfEQD),
                 Instruction.Create(OpCodes.Stelem_Any, moduleDefinition.ImportReference(typeof(EntityQueryDesc))),
 
-                InstructionsToSetEntityQueryDescriptionField(nameof(EntityQueryDesc.All), combinedWithAllTypes, componentTypeReference,
+                InstructionsToSetEntityQueryDescriptionField(nameof(EntityQueryDesc.All), resolvedAllTypes, componentTypeReference,
                     localVarOfEQD, entityQueryDescConstructor),
                 InstructionsToSetEntityQueryDescriptionField(nameof(EntityQueryDesc.None), withNoneTypes.Select(t => (t, false)).ToArray(), componentTypeReference,
                     localVarOfEQD, entityQueryDescConstructor),
@@ -215,6 +261,23 @@ namespace Unity.Entities.CodeGen
             ilProcessor.Append(instructions);
 
             return getEntityQueryFromMethod;
+        }
+
+        // Remove duplicates and favor non-read access only when there is a match
+        static (TypeReference typeReference, bool readOnly)[] ResolveTypeDuplicatesAndReadOnlyAccess((TypeReference typeReference, bool readOnly)[] typeInfos)
+        {
+            List<(TypeReference typeReference, bool readOnly)> typeAndReadOnlyStatus = new List<(TypeReference typeReference, bool readOnly)>();
+
+            foreach (var typeInfo in typeInfos)
+            {
+                int index = typeAndReadOnlyStatus.FindIndex(t => t.typeReference.TypeReferenceEquals(typeInfo.typeReference));
+                if(index != -1)
+                    typeAndReadOnlyStatus[index] = (typeInfo.typeReference, typeAndReadOnlyStatus[index].readOnly && typeInfo.readOnly);
+                else
+                    typeAndReadOnlyStatus.Add((typeInfo.typeReference, typeInfo.readOnly));
+            }
+
+            return typeAndReadOnlyStatus.ToArray();
         }
 
         static IEnumerable<Instruction> InstructionsToCreateComponentTypeFor(TypeReference typeReference, bool isReadOnly, int arrayIndex,
@@ -263,10 +326,10 @@ namespace Unity.Entities.CodeGen
                 foreach (var argumentType in m.TypeArguments)
                 {
                     if (argumentType.IsGenericParameter || argumentType.IsGenericInstance)
-                        UserError.DC0025($"Type {argumentType.Name} cannot be used with {m.MethodName} as generic types and parameters are not allowed", descriptionConstruction.ContainingMethod, m.InstructionInvokingMethod).Throw();
+                        UserError.DC0051(argumentType, m.MethodName, descriptionConstruction.ContainingMethod, m.InstructionInvokingMethod).Throw();
                     var argumentTypeDefinition = argumentType.Resolve();
                     if (!LambdaParamaterValueProviderInformation.IsTypeValidForEntityQuery(argumentTypeDefinition))
-                        UserError.DC0025($"Type {argumentType.Name} cannot be used with {m.MethodName} as it is not a supported component type", descriptionConstruction.ContainingMethod, m.InstructionInvokingMethod).Throw();
+                        UserError.DC0052(argumentType, m.MethodName, descriptionConstruction.ContainingMethod, m.InstructionInvokingMethod).Throw();
 
                     result.Add(moduleDefinition.ImportReference(argumentType));
                 }
@@ -325,25 +388,52 @@ namespace Unity.Entities.CodeGen
             yield return Instruction.Create(OpCodes.Stfld, fieldReference);
         }
 
-        static (TypeReference typeReference, bool readOnly) WithAllTypeArgumentForLambdaParameter(ParameterDefinition p)
+        enum ComponentAccessType
         {
-            var isMarkedReadOnly = p.HasCompilerServicesIsReadOnlyAttribute();
-            var isMarkedAsRef = p.ParameterType.IsByReference && !isMarkedReadOnly;
+            ByRef,
+            ByIn,
+            ByValue
+        }
+
+        enum ComponentDataType
+        {
+            ComponentDataStruct,
+            ComponentDataClass,
+            SharedComponent,
+            UnityEngineObject,
+            DynamicBuffer
+        }
+
+        static (TypeReference typeReference, ComponentAccessType accessType, ComponentDataType dataType, bool isReadOnly)
+            ComponentTypeInfoForLambdaParameter(ParameterDefinition p)
+        {
+            ComponentAccessType accessType;
+            if (!p.ParameterType.IsByReference)
+                accessType = ComponentAccessType.ByValue;
+            else if (p.HasCompilerServicesIsReadOnlyAttribute())
+                accessType = ComponentAccessType.ByIn;
+            else
+                accessType = ComponentAccessType.ByRef;
 
             var type = p.ParameterType.Resolve();
-            if (type.IsIComponentDataStruct() || type.IsISharedComponentData())
-                return (p.ParameterType.GetElementType(), !isMarkedAsRef);
 
-            if (type.IsIComponentDataClass() || type.IsUnityEngineObject())
-                return (p.ParameterType.GetElementType(), isMarkedReadOnly);
+            if (type.IsIComponentDataStruct())
+                return (p.ParameterType.GetElementType(), accessType, ComponentDataType.ComponentDataStruct, accessType != ComponentAccessType.ByRef);
+            if (type.IsISharedComponentData())
+                return (p.ParameterType.GetElementType(), accessType, ComponentDataType.SharedComponent, accessType != ComponentAccessType.ByRef);
+
+            if (type.IsIComponentDataClass())
+                return (p.ParameterType.GetElementType(), accessType, ComponentDataType.ComponentDataClass, accessType == ComponentAccessType.ByIn);
+            if (type.IsUnityEngineObject())
+                return (p.ParameterType.GetElementType(), accessType, ComponentDataType.UnityEngineObject, accessType == ComponentAccessType.ByIn);
 
             if (type.IsDynamicBufferOfT())
             {
                 var typeReference = ((GenericInstanceType)p.ParameterType.StripRef()).GenericArguments.Single();
-                return (typeReference, isMarkedReadOnly);
+                return (typeReference, accessType, ComponentDataType.DynamicBuffer, accessType == ComponentAccessType.ByIn);
             }
 
-            return (null, true);
+            return (null, default, default, default);
         }
     }
 }

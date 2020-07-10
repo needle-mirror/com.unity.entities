@@ -54,7 +54,7 @@ namespace Unity.Entities.Serialization
 
                         for (var ci = 0; ci < archetype->Chunks.Count; ++ci)
                         {
-                            var chunk = archetype->Chunks.p[ci];
+                            var chunk = archetype->Chunks[ci];
                             WriteChunkData(yaml, entityManager, chunk, archetype, dumpChunkRawData);
                         }
                     }

@@ -1,7 +1,7 @@
 {
     "name": "Unity.Entities.Hybrid.EndToEnd.Tests",
     "references": [
-        "Unity.Scenes.Hybrid",
+        "Unity.Scenes",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
         "Unity.Transforms",

@@ -7,7 +7,7 @@ using Unity.Properties.Internal;
 
 namespace Unity.Entities
 {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
     /// <summary>
     /// Unity.Properties visitor used to deep compare two object instances. This is an internal class.
     /// </summary>
@@ -62,7 +62,7 @@ namespace Unity.Entities
 
             var type = lhs.GetType();
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
             if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 return lhs.Equals(rhs);
 #endif
@@ -256,7 +256,7 @@ namespace Unity.Entities
 
                 var type = lhs.GetType();
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
                 // UnityEngine references can be copied as-is.
                 if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 {

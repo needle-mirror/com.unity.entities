@@ -379,7 +379,7 @@ namespace Unity.Entities.Tests
         }
     }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 // https://unity3d.atlassian.net/browse/DOTSR-1432
 
     public class EcsTestManagedDataEntityCollection : IComponentData

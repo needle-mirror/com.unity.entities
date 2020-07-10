@@ -1,0 +1,24 @@
+{
+    "name": "Unity.Scenes",
+    "references": [
+        "Unity.Burst",
+        "Unity.Entities",
+        "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
+        "Unity.Collections",
+        "Unity.Properties",
+        "Unity.Properties.Reflection",
+        "Unity.Transforms"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [
+        ""
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}

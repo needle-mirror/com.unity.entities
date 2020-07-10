@@ -5,7 +5,7 @@ namespace Unity.Entities
 {
     public partial class World
     {
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
         [Obsolete("To construct systems with constructor parameters please use World.AddSystem(new MySystem(myParams)); instead. (RemovedAfter 2020-06-17)")]
         public T CreateSystem<T>(params object[] constructorArguments) where T : ComponentSystemBase
         {

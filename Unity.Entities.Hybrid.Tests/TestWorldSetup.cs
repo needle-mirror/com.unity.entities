@@ -30,7 +30,7 @@ namespace Unity.Entities.Tests
 
         public static World CreateEntityWorld(string name, bool isEditor)
         {
-            var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.Default, true);;
+            var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.Default, true);
             var world = new World(name, isEditor ? WorldFlags.Editor : WorldFlags.Game);
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, FilterSystemsToPackages(systems, EntitiesPackage));
             return world;

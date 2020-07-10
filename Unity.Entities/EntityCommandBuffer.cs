@@ -2,16 +2,13 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
-#if !NET_DOTS
-using AOT;
-#endif
 using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
-using UnityEngine.Profiling;
+using Unity.Profiling;
 
 namespace Unity.Entities
 {
@@ -20,7 +17,7 @@ namespace Unity.Entities
     {
         public int CommandType;
         public int TotalSize;
-        public int SortIndex;  /// Used to order command execution during playback
+        public int SortKey;  /// Used to order command execution during playback
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -46,8 +43,14 @@ namespace Unity.Entities
     {
         public EntityCommand Header;
         public int ComponentTypeIndex;
-
         public int ComponentSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct EntityMultipleComponentsCommand
+    {
+        public EntityCommand Header;
+        public ComponentTypes Types;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -55,7 +58,6 @@ namespace Unity.Entities
     {
         public EntityCommand Header;
         public int ComponentTypeIndex;
-
         public int ComponentSize;
         public BufferHeaderNode BufferNode;
     }
@@ -79,6 +81,13 @@ namespace Unity.Entities
 
         public int ComponentSize;
         // Data follows if command has an associated component payload
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct EntityQueryMultipleComponentsCommand
+    {
+        public EntityQueryCommand Header;
+        public ComponentTypes Types;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -166,7 +175,7 @@ namespace Unity.Entities
         public CreateCommand*                m_PrevCreateCommand;
         public EntityCommand*                m_PrevEntityCommand;
         public EntityCommandBufferChain* m_NextChain;
-        public int m_LastSortIndex;
+        public int m_LastSortKey;
         public bool m_CanBurstPlayback;
     }
 
@@ -186,13 +195,13 @@ namespace Unity.Entities
     {
         public ECBChunk* Chunk;
         public int Offset;
-        public int NextSortIndex;
+        public int NextSortKey;
         public bool CanBurstPlayback;
     }
 
     internal unsafe struct ECBChainHeapElement
     {
-        public int SortIndex;
+        public int SortKey;
         public int ChainIndex;
     }
     internal unsafe struct ECBChainPriorityQueue : IDisposable
@@ -208,12 +217,12 @@ namespace Unity.Entities
             m_Heap = (ECBChainHeapElement*)UnsafeUtility.Malloc((m_Size + BaseIndex) * sizeof(ECBChainHeapElement), 64, m_Allocator);
             for (int i = m_Size - 1; i >= m_Size / 2; --i)
             {
-                m_Heap[BaseIndex + i].SortIndex = chainStates[i].NextSortIndex;
+                m_Heap[BaseIndex + i].SortKey = chainStates[i].NextSortKey;
                 m_Heap[BaseIndex + i].ChainIndex = i;
             }
             for (int i = m_Size / 2 - 1; i >= 0; --i)
             {
-                m_Heap[BaseIndex + i].SortIndex = chainStates[i].NextSortIndex;
+                m_Heap[BaseIndex + i].SortKey = chainStates[i].NextSortKey;
                 m_Heap[BaseIndex + i].ChainIndex = i;
                 Heapify(BaseIndex + i);
             }
@@ -230,7 +239,7 @@ namespace Unity.Entities
             //Assert.IsTrue(!Empty, "Can't Peek() an empty heap");
             if (Empty)
             {
-                return new ECBChainHeapElement { ChainIndex = -1, SortIndex = -1};
+                return new ECBChainHeapElement { ChainIndex = -1, SortKey = -1};
             }
             return m_Heap[BaseIndex];
         }
@@ -240,7 +249,7 @@ namespace Unity.Entities
             //Assert.IsTrue(!Empty, "Can't Pop() an empty heap");
             if (Empty)
             {
-                return new ECBChainHeapElement { ChainIndex = -1, SortIndex = -1};
+                return new ECBChainHeapElement { ChainIndex = -1, SortKey = -1};
             }
             ECBChainHeapElement top = Peek();
             m_Heap[BaseIndex] = m_Heap[m_Size--];
@@ -273,11 +282,11 @@ namespace Unity.Entities
             while (i <= m_Size / 2)
             {
                 int child = 2 * i;
-                if (child < m_Size && (m_Heap[child + 1].SortIndex < m_Heap[child].SortIndex))
+                if (child < m_Size && (m_Heap[child + 1].SortKey < m_Heap[child].SortKey))
                 {
                     child++;
                 }
-                if (val.SortIndex < m_Heap[child].SortIndex)
+                if (val.SortKey < m_Heap[child].SortKey)
                 {
                     break;
                 }
@@ -296,8 +305,10 @@ namespace Unity.Entities
         DestroyEntity,
 
         AddComponent,
+        AddMultipleComponents,
         AddComponentWithEntityFixUp,
         RemoveComponent,
+        RemoveMultipleComponents,
         SetComponent,
         SetComponentWithEntityFixUp,
 
@@ -315,7 +326,9 @@ namespace Unity.Entities
         SetSharedComponentData,
 
         AddComponentEntityQuery,
+        AddMultipleComponentsEntityQuery,
         RemoveComponentEntityQuery,
+        RemoveMultipleComponentsEntityQuery,
         DestroyEntitiesInEntityQuery,
         AddSharedComponentEntityQuery
     }
@@ -340,7 +353,7 @@ namespace Unity.Entities
             return off;
         }
 
-        internal int BaseSortIndex
+        internal int BaseSortKey
         {
             get
             {
@@ -352,7 +365,7 @@ namespace Unity.Entities
                     }
                     var buf = (byte*)pThis + sizeof(ECBChunk);
                     var header = (BasicCommand*)(buf);
-                    return header->SortIndex;
+                    return header->SortKey;
                 }
             }
         }
@@ -423,7 +436,7 @@ namespace Unity.Entities
             ResetEntityCommandBatching(chain);
         }
 
-        internal void AddCreateCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, int index, EntityArchetype archetype, bool batchable)
+        internal void AddCreateCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, int index, EntityArchetype archetype, bool batchable)
         {
             if (batchable &&
                 chain->m_PrevCreateCommand != null &&
@@ -434,11 +447,11 @@ namespace Unity.Entities
             else
             {
                 ResetEntityCommandBatching(chain);
-                var cmd = (CreateCommand*)Reserve(chain, jobIndex, sizeof(CreateCommand));
+                var cmd = (CreateCommand*)Reserve(chain, sortKey, sizeof(CreateCommand));
 
                 cmd->Header.CommandType = (int)op;
                 cmd->Header.TotalSize = sizeof(CreateCommand);
-                cmd->Header.SortIndex = chain->m_LastSortIndex;
+                cmd->Header.SortKey = chain->m_LastSortKey;
                 cmd->Archetype = archetype;
                 cmd->IdentityIndex = index;
                 cmd->BatchCount = 1;
@@ -447,7 +460,7 @@ namespace Unity.Entities
             }
         }
 
-        internal void AddEntityCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, int index, Entity e, bool batchable)
+        internal void AddEntityCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, int index, Entity e, bool batchable)
         {
             if (batchable &&
                 chain->m_PrevEntityCommand != null &&
@@ -458,11 +471,11 @@ namespace Unity.Entities
             else
             {
                 ResetCreateCommandBatching(chain);
-                var cmd = (EntityCommand*)Reserve(chain, jobIndex, sizeof(EntityCommand));
+                var cmd = (EntityCommand*)Reserve(chain, sortKey, sizeof(EntityCommand));
 
                 cmd->Header.CommandType = (int)op;
                 cmd->Header.TotalSize = sizeof(EntityCommand);
-                cmd->Header.SortIndex = chain->m_LastSortIndex;
+                cmd->Header.SortKey = chain->m_LastSortKey;
                 cmd->Entity = e;
                 cmd->IdentityIndex = index;
                 cmd->BatchCount = 1;
@@ -489,12 +502,12 @@ namespace Unity.Entities
             return false;
         }
 
-        internal void AddEntityComponentCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, Entity e, T component) where T : struct, IComponentData
+        internal void AddEntityComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, T component) where T : struct, IComponentData
         {
             var ctype = ComponentType.ReadWrite<T>();
             if (ctype.IsZeroSized)
             {
-                AddEntityComponentTypeCommand(chain, jobIndex, op, e, ctype);
+                AddEntityComponentTypeCommand(chain, sortKey, op, e, ctype);
                 return;
             }
 
@@ -504,11 +517,11 @@ namespace Unity.Entities
             var sizeNeeded = Align(sizeof(EntityComponentCommand) + typeSize, 8);
 
             ResetCommandBatching(chain);
-            var cmd = (EntityComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var cmd = (EntityComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
 
             cmd->Header.Header.CommandType = (int)op;
             cmd->Header.Header.TotalSize = sizeNeeded;
-            cmd->Header.Header.SortIndex = chain->m_LastSortIndex;
+            cmd->Header.Header.SortKey = chain->m_LastSortKey;
             cmd->Header.Entity = e;
             cmd->ComponentTypeIndex = ctype.TypeIndex;
             cmd->ComponentSize = typeSize;
@@ -525,7 +538,7 @@ namespace Unity.Entities
             }
         }
 
-        internal BufferHeader* AddEntityBufferCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op,
+        internal BufferHeader* AddEntityBufferCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op,
             Entity e, out int internalCapacity) where T : struct, IBufferElementData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -533,11 +546,11 @@ namespace Unity.Entities
             var sizeNeeded = Align(sizeof(EntityBufferCommand) + type.SizeInChunk, 8);
 
             ResetCommandBatching(chain);
-            var cmd = (EntityBufferCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var cmd = (EntityBufferCommand*)Reserve(chain, sortKey, sizeNeeded);
 
             cmd->Header.Header.CommandType = (int)op;
             cmd->Header.Header.TotalSize = sizeNeeded;
-            cmd->Header.Header.SortIndex = chain->m_LastSortIndex;
+            cmd->Header.Header.SortKey = chain->m_LastSortKey;
             cmd->Header.Entity = e;
             cmd->ComponentTypeIndex = typeIndex;
             cmd->ComponentSize = type.SizeInChunk;
@@ -572,36 +585,60 @@ namespace Unity.Entities
             return (size + alignmentPowerOfTwo - 1) & ~(alignmentPowerOfTwo - 1);
         }
 
-        internal void AddEntityComponentTypeCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, Entity e, ComponentType t)
+        internal void AddEntityComponentTypeCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, ComponentType t)
         {
             var sizeNeeded = Align(sizeof(EntityComponentCommand), 8);
 
             ResetCommandBatching(chain);
-            var data = (EntityComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var data = (EntityComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
 
             data->Header.Header.CommandType = (int)op;
             data->Header.Header.TotalSize = sizeNeeded;
-            data->Header.Header.SortIndex = chain->m_LastSortIndex;
+            data->Header.Header.SortKey = chain->m_LastSortKey;
             data->Header.Entity = e;
             data->ComponentTypeIndex = t.TypeIndex;
             data->ComponentSize = 0;
         }
 
-        internal void AddEntityQueryComponentCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, EntityQuery entityQuery, ComponentType t)
+        internal void AddEntityComponentTypesCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, ComponentTypes t)
+        {
+            var sizeNeeded = Align(sizeof(EntityMultipleComponentsCommand), 8);
+
+            ResetCommandBatching(chain);
+            var data = (EntityMultipleComponentsCommand*)Reserve(chain, sortKey, sizeNeeded);
+
+            data->Header.Header.CommandType = (int)op;
+            data->Header.Header.TotalSize = sizeNeeded;
+            data->Header.Header.SortKey = chain->m_LastSortKey;
+            data->Header.Entity = e;
+            data->Types = t;
+        }
+
+        internal void AddEntityQueryComponentCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, EntityQuery entityQuery, ComponentType t)
         {
             var sizeNeeded = Align(sizeof(EntityQueryComponentCommand), 8);
 
             ResetCommandBatching(chain);
-            // TODO: Can't be bursted while EntityQueries are managed
-            chain->m_CanBurstPlayback = false;
 
-            var data = (EntityQueryComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var data = (EntityQueryComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
             InitQueryHeader(&data->Header, op, chain, sizeNeeded, entityQuery);
 
             data->ComponentTypeIndex = t.TypeIndex;
         }
 
-        internal void AddEntitySharedComponentCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, Entity e, int hashCode, object boxedObject)
+        internal void AddEntityQueryMultipleComponentsCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, EntityQuery entityQuery, ComponentTypes t)
+        {
+            var sizeNeeded = Align(sizeof(EntityQueryMultipleComponentsCommand), 8);
+
+            ResetCommandBatching(chain);
+
+            var data = (EntityQueryMultipleComponentsCommand*)Reserve(chain, sortKey, sizeNeeded);
+            InitQueryHeader(&data->Header, op, chain, sizeNeeded, entityQuery);
+
+            data->Types = t;
+        }
+
+        internal void AddEntitySharedComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, int hashCode, object boxedObject)
             where T : struct
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -614,11 +651,11 @@ namespace Unity.Entities
 
             ResetCommandBatching(chain);
             chain->m_CanBurstPlayback = false;
-            var data = (EntitySharedComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var data = (EntitySharedComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
 
             data->Header.Header.CommandType = (int)op;
             data->Header.Header.TotalSize = sizeNeeded;
-            data->Header.Header.SortIndex = chain->m_LastSortIndex;
+            data->Header.Header.SortKey = chain->m_LastSortKey;
             data->Header.Entity = e;
             data->ComponentTypeIndex = typeIndex;
             data->HashCode = hashCode;
@@ -636,14 +673,12 @@ namespace Unity.Entities
             }
         }
 
-        internal void AddEntityQueryComponentCommand(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, EntityQuery entityQuery)
+        internal void AddEntityQueryComponentCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, EntityQuery entityQuery)
         {
             var sizeNeeded = Align(sizeof(EntityQueryComponentCommand), 8);
 
             ResetCommandBatching(chain);
-            // TODO: Can't be bursted while EntityQueries are managed
-            chain->m_CanBurstPlayback = false;
-            var data = (EntityQueryCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var data = (EntityQueryCommand*)Reserve(chain, sortKey, sizeNeeded);
 
             InitQueryHeader(data, op, chain, sizeNeeded, entityQuery);
         }
@@ -652,7 +687,7 @@ namespace Unity.Entities
         {
             data->Header.CommandType = (int)op;
             data->Header.TotalSize = size;
-            data->Header.SortIndex = chain->m_LastSortIndex;
+            data->Header.SortKey = chain->m_LastSortKey;
             var impl = entityQuery._GetImpl();
             data->QueryData = impl->_QueryData;
             data->EntityQueryFilter = impl->_Filter;
@@ -661,7 +696,7 @@ namespace Unity.Entities
 #endif
         }
 
-        internal void AddEntitySharedComponentCommand<T>(EntityCommandBufferChain* chain, int jobIndex, ECBCommand op, EntityQuery entityQuery, int hashCode, object boxedObject)
+        internal void AddEntitySharedComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, EntityQuery entityQuery, int hashCode, object boxedObject)
             where T : struct
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -674,7 +709,7 @@ namespace Unity.Entities
 
             ResetCommandBatching(chain);
             chain->m_CanBurstPlayback = false;
-            var data = (EntityQuerySharedComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var data = (EntityQuerySharedComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
             InitQueryHeader(&data->Header, op, chain, sizeNeeded, entityQuery);
             data->ComponentTypeIndex = typeIndex;
             data->HashCode = hashCode;
@@ -692,17 +727,17 @@ namespace Unity.Entities
             }
         }
 
-        internal byte* Reserve(EntityCommandBufferChain* chain, int jobIndex, int size)
+        internal byte* Reserve(EntityCommandBufferChain* chain, int sortKey, int size)
         {
-            int newSortIndex = jobIndex;
-            if (newSortIndex < chain->m_LastSortIndex)
+            int newSortKey = sortKey;
+            if (newSortKey < chain->m_LastSortKey)
             {
                 EntityCommandBufferChain* archivedChain = (EntityCommandBufferChain*)UnsafeUtility.Malloc(sizeof(EntityCommandBufferChain), 8, m_Allocator);
                 *archivedChain = *chain;
                 UnsafeUtility.MemClear(chain, sizeof(EntityCommandBufferChain));
                 chain->m_NextChain = archivedChain;
             }
-            chain->m_LastSortIndex = newSortIndex;
+            chain->m_LastSortKey = newSortKey;
 
             if (chain->m_Tail == null || chain->m_Tail->Capacity < size)
             {
@@ -734,13 +769,13 @@ namespace Unity.Entities
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int jobIndex, Entity e, AtomicSafetyHandle bufferSafety, AtomicSafetyHandle arrayInvalidationSafety) where T : struct, IBufferElementData
+        public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int sortKey, Entity e, AtomicSafetyHandle bufferSafety, AtomicSafetyHandle arrayInvalidationSafety) where T : struct, IBufferElementData
 #else
-        public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int jobIndex, Entity e) where T : struct, IBufferElementData
+        public DynamicBuffer<T> CreateBufferCommand<T>(ECBCommand commandType, EntityCommandBufferChain* chain, int sortKey, Entity e) where T : struct, IBufferElementData
 #endif
         {
             int internalCapacity;
-            BufferHeader* header = AddEntityBufferCommand<T>(chain, jobIndex, commandType, e, out internalCapacity);
+            BufferHeader* header = AddEntityBufferCommand<T>(chain, sortKey, commandType, e, out internalCapacity);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var safety = bufferSafety;
@@ -752,7 +787,7 @@ namespace Unity.Entities
 #endif
         }
 
-        public void AppendToBufferCommand<T>(EntityCommandBufferChain* chain, int jobIndex, Entity e, T element) where T : struct, IBufferElementData
+        public void AppendToBufferCommand<T>(EntityCommandBufferChain* chain, int sortKey, Entity e, T element) where T : struct, IBufferElementData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             // NOTE: This has to be sizeof not TypeManager.SizeInChunk since we use UnsafeUtility.CopyStructureToPtr
@@ -761,11 +796,11 @@ namespace Unity.Entities
             var sizeNeeded = Align(sizeof(EntityComponentCommand) + typeSize, 8);
 
             ResetCommandBatching(chain);
-            var cmd = (EntityComponentCommand*)Reserve(chain, jobIndex, sizeNeeded);
+            var cmd = (EntityComponentCommand*)Reserve(chain, sortKey, sizeNeeded);
 
             cmd->Header.Header.CommandType = (int)ECBCommand.AppendToBuffer;
             cmd->Header.Header.TotalSize = sizeNeeded;
-            cmd->Header.Header.SortIndex = chain->m_LastSortIndex;
+            cmd->Header.Header.SortKey = chain->m_LastSortKey;
             cmd->Header.Entity = e;
             cmd->ComponentTypeIndex = typeIndex;
             cmd->ComponentSize = typeSize;
@@ -802,7 +837,8 @@ namespace Unity.Entities
     [StructLayout(LayoutKind.Sequential)]
     [NativeContainer]
     [BurstCompile]
-    public unsafe struct EntityCommandBuffer : IDisposable
+    [GenerateBurstMonoInterop("EntityCommandBuffer")]
+    public unsafe partial struct EntityCommandBuffer : IDisposable
     {
         /// <summary>
         ///     The minimum chunk size to allocate from the job allocator.
@@ -841,21 +877,7 @@ namespace Unity.Entities
 
 #endif
 #endif
-
-        internal static void Initialize()
-        {
-            if (PlaybackUnmanagedCommand != null)
-                return;
-
-            #if NET_DOTS
-            PlaybackUnmanagedCommand = PlaybackUnmanagedCommandExecute;
-            PlaybackChainChunk = PlaybackChainChunkExecute;
-            #else
-            PlaybackUnmanagedCommand = BurstCompiler
-                .CompileFunctionPointer<PlaybackUnmanagedCommandDelegate>(PlaybackUnmanagedCommandExecute).Invoke;
-            PlaybackChainChunk = BurstCompiler.CompileFunctionPointer<PlaybackChainChunkDelegate>(PlaybackChainChunkWrapper).Invoke;
-#endif
-        }
+        static readonly ProfilerMarker k_ProfileEcbPlayback = new ProfilerMarker("EntityCommandBuffer.Playback");
 
         /// <summary>
         ///     Allows controlling the size of chunks allocated from the temp job allocator to back the command buffer.
@@ -949,7 +971,7 @@ namespace Unity.Entities
             m_Data->m_MainThreadChain.m_Head = null;
             m_Data->m_MainThreadChain.m_PrevCreateCommand = null;
             m_Data->m_MainThreadChain.m_PrevEntityCommand = null;
-            m_Data->m_MainThreadChain.m_LastSortIndex = -1;
+            m_Data->m_MainThreadChain.m_LastSortKey = -1;
             m_Data->m_MainThreadChain.m_NextChain = null;
             m_Data->m_MainThreadChain.m_CanBurstPlayback = true;
 
@@ -1064,7 +1086,7 @@ namespace Unity.Entities
             }
         }
 
-        internal int MainThreadJobIndex => Int32.MaxValue;
+        internal int MainThreadSortKey => Int32.MaxValue;
         private const bool kBatchableCommand = true;
 
         public Entity CreateEntity(EntityArchetype archetype = new EntityArchetype())
@@ -1072,21 +1094,17 @@ namespace Unity.Entities
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             int index = --m_Data->m_Entity.Index;
-            m_Data->AddCreateCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.CreateEntity, index, archetype, kBatchableCommand);
+            m_Data->AddCreateCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.CreateEntity, index, archetype, kBatchableCommand);
             return m_Data->m_Entity;
         }
 
         public Entity Instantiate(Entity e)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (e == Entity.Null)
-                throw new ArgumentNullException(nameof(e));
-#endif
-
+            CheckEntityNotNull(e);
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             int index = --m_Data->m_Entity.Index;
-            m_Data->AddEntityCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.InstantiateEntity,
+            m_Data->AddEntityCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.InstantiateEntity,
                 index, e, kBatchableCommand);
             return m_Data->m_Entity;
         }
@@ -1095,7 +1113,7 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.DestroyEntity, 0, e, false);
+            m_Data->AddEntityCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.DestroyEntity, 0, e, false);
         }
 
         public DynamicBuffer<T> AddBuffer<T>(Entity e) where T : struct, IBufferElementData
@@ -1103,9 +1121,9 @@ namespace Unity.Entities
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return m_Data->CreateBufferCommand<T>(ECBCommand.AddBuffer, &m_Data->m_MainThreadChain, MainThreadJobIndex, e, m_BufferSafety, m_ArrayInvalidationSafety);
+            return m_Data->CreateBufferCommand<T>(ECBCommand.AddBuffer, &m_Data->m_MainThreadChain, MainThreadSortKey, e, m_BufferSafety, m_ArrayInvalidationSafety);
 #else
-            return m_Data->CreateBufferCommand<T>(ECBCommand.AddBuffer, &m_Data->m_MainThreadChain, MainThreadJobIndex, e);
+            return m_Data->CreateBufferCommand<T>(ECBCommand.AddBuffer, &m_Data->m_MainThreadChain, MainThreadSortKey, e);
 #endif
         }
 
@@ -1114,9 +1132,9 @@ namespace Unity.Entities
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return m_Data->CreateBufferCommand<T>(ECBCommand.SetBuffer, &m_Data->m_MainThreadChain, MainThreadJobIndex, e, m_BufferSafety, m_ArrayInvalidationSafety);
+            return m_Data->CreateBufferCommand<T>(ECBCommand.SetBuffer, &m_Data->m_MainThreadChain, MainThreadSortKey, e, m_BufferSafety, m_ArrayInvalidationSafety);
 #else
-            return m_Data->CreateBufferCommand<T>(ECBCommand.SetBuffer, &m_Data->m_MainThreadChain, MainThreadJobIndex, e);
+            return m_Data->CreateBufferCommand<T>(ECBCommand.SetBuffer, &m_Data->m_MainThreadChain, MainThreadSortKey, e);
 #endif
         }
 
@@ -1135,35 +1153,48 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AppendToBufferCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, e, element);
+            m_Data->AppendToBufferCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, e, element);
         }
 
         public void AddComponent<T>(Entity e, T component) where T : struct, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddComponent, e, component);
+            m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, component);
         }
 
         public void AddComponent<T>(Entity e) where T : struct, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddComponent, e, ComponentType.ReadWrite<T>());
+            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, ComponentType.ReadWrite<T>());
         }
 
         public void AddComponent(Entity e, ComponentType componentType)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddComponent, e, componentType);
+            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddComponent, e, componentType);
+        }
+
+
+        /// <summary> Records a command to add one or more components to an entity. </summary>
+        /// <remarks>
+        /// </remarks>
+        /// <param name="e"> The entity to get additional components. </param>
+        /// <param name="types"> The types of components to add. </param>
+        public void AddComponent(Entity e, ComponentTypes types)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->AddEntityComponentTypesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddMultipleComponents, e, types);
         }
 
         public void SetComponent<T>(Entity e, T component) where T : struct, IComponentData
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.SetComponent, e, component);
+            m_Data->AddEntityComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetComponent, e, component);
         }
 
         public void RemoveComponent<T>(Entity e)
@@ -1175,15 +1206,53 @@ namespace Unity.Entities
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex,
+            m_Data->AddEntityComponentTypeCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.RemoveComponent, e, componentType);
+        }
+
+        /// <summary> Records a command to remove one or more components from an entity. </summary>
+        /// <remarks>
+        /// </remarks>
+        /// <param name="e"> The entity to have components removed. </param>
+        /// <param name="types"> The types of components to remove. </param>
+        public void RemoveComponent(Entity e, ComponentTypes componentTypes)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->AddEntityComponentTypesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                ECBCommand.RemoveMultipleComponents, e, componentTypes);
+        }
+
+        /// <summary> Records a command to remove one or more components from all entities matching a query. </summary>
+        /// <remarks>
+        /// </remarks>
+        /// <param name="entityQuery"> The query specifying which entities to remove the components from. </param>
+        /// <param name="types"> The types of components to remove. </param>
+        public void RemoveComponent(EntityQuery q, ComponentTypes componentTypes)
+        {
+            EnforceSingleThreadOwnership();
+            AssertDidNotPlayback();
+            m_Data->AddEntityQueryMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                ECBCommand.RemoveMultipleComponentsEntityQuery, q, componentTypes);
         }
 
         public void AddComponent(EntityQuery entityQuery, ComponentType componentType)
         {
             AssertDidNotPlayback();
-            m_Data->AddEntityQueryComponentCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex,
+            m_Data->AddEntityQueryComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.AddComponentEntityQuery, entityQuery, componentType);
+        }
+
+        /// <summary> Records a command to add one or more components to all entities matching a query. </summary>
+        /// <remarks>
+        /// </remarks>
+        /// <param name="entityQuery"> The query specifying which entities get the added components. </param>
+        /// <param name="types"> The types of components to add. </param>
+        public void AddComponent(EntityQuery entityQuery, ComponentTypes types)
+        {
+            AssertDidNotPlayback();
+            m_Data->AddEntityQueryMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
+                ECBCommand.AddMultipleComponentsEntityQuery, entityQuery, types);
         }
 
         public void AddComponent<T>(EntityQuery entityQuery)
@@ -1194,7 +1263,7 @@ namespace Unity.Entities
         public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType)
         {
             AssertDidNotPlayback();
-            m_Data->AddEntityQueryComponentCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex,
+            m_Data->AddEntityQueryComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.RemoveComponentEntityQuery, entityQuery, componentType);
         }
 
@@ -1206,7 +1275,7 @@ namespace Unity.Entities
         public void DestroyEntity(EntityQuery entityQuery)
         {
             AssertDidNotPlayback();
-            m_Data->AddEntityQueryComponentCommand(&m_Data->m_MainThreadChain, MainThreadJobIndex,
+            m_Data->AddEntityQueryComponentCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                 ECBCommand.DestroyEntitiesInEntityQuery, entityQuery);
         }
 
@@ -1224,9 +1293,9 @@ namespace Unity.Entities
             AssertDidNotPlayback();
             int hashCode;
             if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddSharedComponentData, e, hashCode, null);
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentData, e, hashCode, null);
             else
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddSharedComponentData, e, hashCode, component);
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentData, e, hashCode, component);
         }
 
         public void AddSharedComponent<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
@@ -1235,9 +1304,9 @@ namespace Unity.Entities
             AssertDidNotPlayback();
             int hashCode;
             if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddSharedComponentEntityQuery, entityQuery, hashCode, null);
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentEntityQuery, entityQuery, hashCode, null);
             else
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.AddSharedComponentEntityQuery, entityQuery, hashCode, component);
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentEntityQuery, entityQuery, hashCode, component);
         }
 
         public void SetSharedComponent<T>(Entity e, T component) where T : struct, ISharedComponentData
@@ -1246,9 +1315,9 @@ namespace Unity.Entities
             AssertDidNotPlayback();
             int hashCode;
             if (IsDefaultObject(ref component, out hashCode))
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.SetSharedComponentData, e, hashCode, null);
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetSharedComponentData, e, hashCode, null);
             else
-                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadJobIndex, ECBCommand.SetSharedComponentData, e, hashCode, component);
+                m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.SetSharedComponentData, e, hashCode, component);
         }
 
         /// <summary>
@@ -1288,8 +1357,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_ArrayInvalidationSafety);
 #endif
 
-            Profiler.BeginSample("EntityCommandBuffer.Playback");
-
+            k_ProfileEcbPlayback.Begin();
 
             // Walk all chains (Main + Threaded) and build a NativeArray of PlaybackState objects.
             // Only chains with non-null Head pointers will be included.
@@ -1315,7 +1383,7 @@ namespace Unity.Entities
                             {
                                 Chunk = chain->m_Head,
                                 Offset = 0,
-                                NextSortIndex = chain->m_Head->BaseSortIndex,
+                                NextSortKey = chain->m_Head->BaseSortKey,
                                 CanBurstPlayback = chain->m_CanBurstPlayback
                             };
 #pragma warning restore 728
@@ -1334,7 +1402,7 @@ namespace Unity.Entities
                                     {
                                         Chunk = chain->m_Head,
                                         Offset = 0,
-                                        NextSortIndex = chain->m_Head->BaseSortIndex,
+                                        NextSortKey = chain->m_Head->BaseSortKey,
                                         CanBurstPlayback = chain->m_CanBurstPlayback
                                     };
 #pragma warning restore 728
@@ -1347,7 +1415,7 @@ namespace Unity.Entities
                         Assert.IsTrue(false, "RecordedChainCount (" + m_Data->m_RecordedChainCount + ") != initialChainCount (" + initialChainCount + ")");
 #endif
 
-                    // Play back the recorded commands in increasing sortIndex order
+                    // Play back the recorded commands in increasing sortKey order
                     const int kMaxStatesOnStack = 100000;
                     int entityCount = -m_Data->m_Entity.Index;
                     int bufferCount = *m_Data->m_BufferWithFixups.Counter;
@@ -1401,7 +1469,7 @@ namespace Unity.Entities
                             }
                             else
                             {
-                                currentElem.SortIndex = chainStates[currentElem.ChainIndex].NextSortIndex;
+                                currentElem.SortKey = chainStates[currentElem.ChainIndex].NextSortKey;
                                 chainQueue.ReplaceTop(currentElem);
                             }
                             currentElem = nextElem;
@@ -1433,28 +1501,40 @@ namespace Unity.Entities
 
 
             m_Data->m_DidPlayback = true;
-            Profiler.EndSample();
+            k_ProfileEcbPlayback.End();
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void CheckEntityNotNull(Entity entity)
+        {
+            if (entity == Entity.Null)
+                throw new InvalidOperationException("Invalid Entity.Null passed.");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void CheckEntityBatchNotNull(Entity* entity)
+        {
+            if (entity == null)
+                throw new InvalidOperationException(
+                    "playbackState.CreateEntityBatch passed to SelectEntity is null.");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void CheckEntityVersionValid(Entity entity)
+        {
+            if (entity.Version <= 0)
+                throw new InvalidOperationException("Invalid Entity version");
         }
 
         private static unsafe Entity SelectEntity(Entity cmdEntity, ECBSharedPlaybackState playbackState)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (cmdEntity == Entity.Null)
-                throw new InvalidOperationException("Entity.Null passed to SelectEntity().");
-#endif
+            CheckEntityNotNull(cmdEntity);
             if (cmdEntity.Index < 0)
             {
                 int index = -cmdEntity.Index - 1;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (playbackState.CreateEntityBatch == null)
-                    throw new InvalidOperationException(
-                        "playbackState.CreateEntityBatch passed to SelectEntity is null.");
-#endif
+                CheckEntityBatchNotNull(playbackState.CreateEntityBatch);
                 Entity e = *(playbackState.CreateEntityBatch + index);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (e.Version <= 0)
-                    throw new InvalidOperationException("Invalid Entity version");
-#endif
+                CheckEntityVersionValid(e);
                 return e;
             }
             return cmdEntity;
@@ -1540,8 +1620,6 @@ namespace Unity.Entities
             bool isFirstPlayback,
             PlaybackPolicy playbackPolicy)
         {
-            int nextChainSortIndex = (nextChain != -1) ? chainStates[nextChain].NextSortIndex : -1;
-
             var chunk = chainStates[currentChain].Chunk;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (chunk == null)
@@ -1553,7 +1631,7 @@ namespace Unity.Entities
                 Assert.IsTrue(false, "chainStates[" + currentChain + "].Offset is invalid: " + off + ". Should be between 0 and " + chunk->Used);
 #endif
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (chainStates[currentChain].CanBurstPlayback)
             {
                 // Bursting PlaybackChain
@@ -1564,26 +1642,13 @@ namespace Unity.Entities
 #endif
             {
                 // Non-Bursted PlaybackChain
-                PlaybackChainChunkExecute(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges, ref playbackState,
+                _PlaybackChainChunk(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges, ref playbackState,
                     chainStates, currentChain, nextChain, isFirstPlayback, playbackPolicy);
             }
         }
 
-        internal delegate void PlaybackChainChunkDelegate(EntityDataAccess* mgr,
-            UnsafeList* managedReferenceIndexRemovalCount,
-            ref EntityComponentStore.ArchetypeChanges archetypeChanges,
-            ref ECBSharedPlaybackState playbackState,
-            ECBChainPlaybackState* chainStates,
-            int currentChain,
-            int nextChain,
-            bool isFirstPlayback,
-            PlaybackPolicy playbackPolicy);
-
-        internal static PlaybackChainChunkDelegate PlaybackChainChunk;
-
-        [BurstCompile]
-        [MonoPInvokeCallbackAttribute(typeof(PlaybackChainChunkDelegate))]
-        internal static void PlaybackChainChunkWrapper(EntityDataAccess* mgr,
+        [BurstMonoInteropMethod]
+        static void _PlaybackChainChunk(EntityDataAccess* mgr,
             UnsafeList* managedReferenceIndexRemovalCount,
             ref EntityComponentStore.ArchetypeChanges archetypeChanges,
             ref ECBSharedPlaybackState playbackState,
@@ -1593,21 +1658,7 @@ namespace Unity.Entities
             bool isFirstPlayback,
             PlaybackPolicy playbackPolicy)
         {
-            PlaybackChainChunkExecute(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges, ref playbackState,
-                chainStates, currentChain, nextChain, isFirstPlayback, playbackPolicy);
-        }
-
-        internal static void PlaybackChainChunkExecute(EntityDataAccess* mgr,
-            UnsafeList* managedReferenceIndexRemovalCount,
-            ref EntityComponentStore.ArchetypeChanges archetypeChanges,
-            ref ECBSharedPlaybackState playbackState,
-            ECBChainPlaybackState* chainStates,
-            int currentChain,
-            int nextChain,
-            bool isFirstPlayback,
-            PlaybackPolicy playbackPolicy)
-        {
-            int nextChainSortIndex = (nextChain != -1) ? chainStates[nextChain].NextSortIndex : -1;
+            int nextChainSortKey = (nextChain != -1) ? chainStates[nextChain].NextSortKey : -1;
             var chunk = chainStates[currentChain].Chunk;
             var off = chainStates[currentChain].Offset;
 
@@ -1617,33 +1668,32 @@ namespace Unity.Entities
                 while (off < chunk->Used)
                 {
                     var header = (BasicCommand*)(buf + off);
-                    if (nextChain != -1 && header->SortIndex > nextChainSortIndex)
+                    if (nextChain != -1 && header->SortKey > nextChainSortKey)
                     {
                         // early out because a different chain needs to playback
                         var state = chainStates[currentChain];
                         state.Chunk = chunk;
                         state.Offset = off;
-                        state.NextSortIndex = header->SortIndex;
+                        state.NextSortKey = header->SortKey;
                         chainStates[currentChain] = state;
                         return;
                     }
 
                     AssertSinglePlayback((ECBCommand)header->CommandType, isFirstPlayback);
 
-                    var foundCommand = false;
 
-                    // Won't get called if we are already inside of Burst
-                    PlaybackUnmanagedCommandWrapper(mgr->EntityComponentStore, header, ref playbackState,
-                        playbackPolicy, ref foundCommand);
+                    var foundCommand = PlaybackUnmanagedCommandInternal(mgr, header, ref playbackState, playbackPolicy,
+                        managedReferenceIndexRemovalCount, ref archetypeChanges);
 
                     // foundCommand will be false if either:
                     // 1) We are inside of Burst and therefore need to call the non-Burst function pointer
                     // 2) It's a managed command and we are not inside of Burst
                     if (!foundCommand)
                     {
-                        PlaybackUnmanagedCommandInternal(mgr->EntityComponentStore, header, ref playbackState, playbackPolicy);
-
-                        PlaybackManagedCommand(mgr, header, ref playbackState, playbackPolicy, managedReferenceIndexRemovalCount, ref archetypeChanges);
+                        var didExecuteManagedPlayack = false;
+                        PlaybackManagedCommand(mgr, header, ref playbackState, playbackPolicy, managedReferenceIndexRemovalCount, ref archetypeChanges, ref didExecuteManagedPlayack);
+                        if (!didExecuteManagedPlayack)
+                            throw new System.InvalidOperationException("PlaybackManagedCommand can't be used from a bursted command buffer playback");
                     }
 
                     off += header->TotalSize;
@@ -1659,20 +1709,19 @@ namespace Unity.Entities
                 var state = chainStates[currentChain];
                 state.Chunk = null;
                 state.Offset = 0;
-                state.NextSortIndex = Int32.MinValue;
+                state.NextSortKey = Int32.MinValue;
                 chainStates[currentChain] = state;
             }
         }
 
-        [BurstDiscard]
-        internal static void PlaybackUnmanagedCommandWrapper(EntityComponentStore* mgr, BasicCommand* header,
-            ref ECBSharedPlaybackState playbackState, PlaybackPolicy playbackPolicy, ref bool foundCommand)
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void CheckBufferExistsOnEntity(EntityComponentStore* mgr, Entity entity, EntityComponentCommand* cmd)
         {
-            foundCommand = PlaybackUnmanagedCommand(mgr, header, ref playbackState, playbackPolicy);
+            if (!mgr->HasComponent(entity, cmd->ComponentTypeIndex))
+                throw new System.InvalidOperationException("Buffer does not exist on entity, cannot append element.");
         }
 
-        internal static bool PlaybackUnmanagedCommandInternal(EntityComponentStore* mgr, BasicCommand* header,
-            ref ECBSharedPlaybackState playbackState, PlaybackPolicy playbackPolicy)
+        internal static bool PlaybackUnmanagedCommandInternal(EntityDataAccess* mgr, BasicCommand* header, ref ECBSharedPlaybackState playbackState, PlaybackPolicy playbackPolicy, UnsafeList* managedReferenceIndexRemovalCount, ref EntityComponentStore.ArchetypeChanges archetypeChanges)
         {
             switch ((ECBCommand)header->CommandType)
             {
@@ -1680,7 +1729,7 @@ namespace Unity.Entities
                 {
                     var cmd = (EntityCommand*)header;
                     Entity entity = SelectEntity(cmd->Entity, playbackState);
-                    mgr->DestroyEntityWithValidation(entity);
+                    mgr->EntityComponentStore->DestroyEntityWithValidation(entity);
                 }
                     return true;
 
@@ -1688,9 +1737,17 @@ namespace Unity.Entities
                 {
                     var cmd = (EntityComponentCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    mgr->RemoveComponentWithValidation(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
+                    mgr->EntityComponentStore->RemoveComponentWithValidation(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
                 }
                     return true;
+
+                case ECBCommand.RemoveMultipleComponents:
+                {
+                    var cmd = (EntityMultipleComponentsCommand*)header;
+                    var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                    mgr->EntityComponentStore->RemoveMultipleComponentsWithValidation(entity, cmd->Types);
+                }
+                return true;
 
                 case ECBCommand.CreateEntity:
                 {
@@ -1706,14 +1763,14 @@ namespace Unity.Entities
                         // Lookup existing archetype (cheap)
                         EntityArchetype entityArchetype;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                        entityArchetype._DebugComponentStore = mgr;
+                        entityArchetype._DebugComponentStore = mgr->EntityComponentStore;
 #endif
 
-                        entityArchetype.Archetype = mgr->GetExistingArchetype(typesInArchetype, cachedComponentCount);
+                        entityArchetype.Archetype = mgr->EntityComponentStore->GetExistingArchetype(typesInArchetype, cachedComponentCount);
                         if (entityArchetype.Archetype == null)
                         {
                             entityArchetype.Archetype =
-                                mgr->GetOrCreateArchetype(typesInArchetype, cachedComponentCount);
+                                mgr->EntityComponentStore->GetOrCreateArchetype(typesInArchetype, cachedComponentCount);
                         }
 
                         at = entityArchetype;
@@ -1721,7 +1778,7 @@ namespace Unity.Entities
 
                     int index = -cmd->IdentityIndex - 1;
 
-                    mgr->CreateEntityWithValidation(at, playbackState.CreateEntityBatch + index, cmd->BatchCount);
+                    mgr->EntityComponentStore->CreateEntityWithValidation(at, playbackState.CreateEntityBatch + index, cmd->BatchCount);
                 }
                     return true;
 
@@ -1731,7 +1788,7 @@ namespace Unity.Entities
 
                     var index = -cmd->IdentityIndex - 1;
                     Entity srcEntity = SelectEntity(cmd->Entity, playbackState);
-                    mgr->InstantiateWithValidation(srcEntity, playbackState.CreateEntityBatch + index,
+                    mgr->EntityComponentStore->InstantiateWithValidation(srcEntity, playbackState.CreateEntityBatch + index,
                         cmd->BatchCount);
                 }
                     return true;
@@ -1741,10 +1798,18 @@ namespace Unity.Entities
                     var cmd = (EntityComponentCommand*)header;
                     var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    mgr->AddComponentWithValidation(entity, componentType);
+                    mgr->EntityComponentStore->AddComponentWithValidation(entity, componentType);
                     if (cmd->ComponentSize != 0)
-                        mgr->SetComponentDataRawEntityHasComponent(entity, cmd->ComponentTypeIndex, cmd + 1,
+                        mgr->EntityComponentStore->SetComponentDataRawEntityHasComponent(entity, cmd->ComponentTypeIndex, cmd + 1,
                             cmd->ComponentSize);
+                }
+                    return true;
+
+                case ECBCommand.AddMultipleComponents:
+                {
+                    var cmd = (EntityMultipleComponentsCommand*)header;
+                    var entity = SelectEntity(cmd->Header.Entity, playbackState);
+                    mgr->EntityComponentStore->AddMultipleComponentsWithValidation(entity, cmd->Types);
                 }
                     return true;
 
@@ -1753,8 +1818,8 @@ namespace Unity.Entities
                     var cmd = (EntityComponentCommand*)header;
                     var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    mgr->AddComponentWithValidation(entity, componentType);
-                    SetCommandDataWithFixup(mgr, cmd, entity, playbackState);
+                    mgr->EntityComponentStore->AddComponentWithValidation(entity, componentType);
+                    SetCommandDataWithFixup(mgr->EntityComponentStore, cmd, entity, playbackState);
                 }
                     return true;
 
@@ -1762,7 +1827,7 @@ namespace Unity.Entities
                 {
                     var cmd = (EntityComponentCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    mgr->SetComponentDataRawEntityHasComponent(entity, cmd->ComponentTypeIndex, cmd + 1,
+                    mgr->EntityComponentStore->SetComponentDataRawEntityHasComponent(entity, cmd->ComponentTypeIndex, cmd + 1,
                         cmd->ComponentSize);
                 }
                     return true;
@@ -1771,7 +1836,7 @@ namespace Unity.Entities
                 {
                     var cmd = (EntityComponentCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    SetCommandDataWithFixup(mgr, cmd, entity, playbackState);
+                    SetCommandDataWithFixup(mgr->EntityComponentStore, cmd, entity, playbackState);
                 }
                     return true;
 
@@ -1779,10 +1844,10 @@ namespace Unity.Entities
                 {
                     var cmd = (EntityBufferCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    mgr->AddComponentWithValidation(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
+                    mgr->EntityComponentStore->AddComponentWithValidation(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
 
                     if (playbackPolicy == PlaybackPolicy.SinglePlayback)
-                        mgr->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex,
+                        mgr->EntityComponentStore->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex,
                             &cmd->BufferNode.TempBuffer,
                             cmd->ComponentSize);
                     else
@@ -1790,7 +1855,7 @@ namespace Unity.Entities
                         // copy the buffer to ensure that no two entities point to the same buffer from the ECB
                         // either in the same world or in different worlds
                         var buffer = CloneBuffer(&cmd->BufferNode.TempBuffer, cmd->ComponentTypeIndex);
-                        mgr->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &buffer,
+                        mgr->EntityComponentStore->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &buffer,
                             cmd->ComponentSize);
                     }
                 }
@@ -1799,8 +1864,8 @@ namespace Unity.Entities
                 {
                     var cmd = (EntityBufferCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    mgr->AddComponentWithValidation(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
-                    mgr->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize);
+                    mgr->EntityComponentStore->AddComponentWithValidation(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex));
+                    mgr->EntityComponentStore->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize);
                     AddToPostPlaybackFixup(cmd, ref playbackState);
                 }
                     return true;
@@ -1810,14 +1875,14 @@ namespace Unity.Entities
                     var cmd = (EntityBufferCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
                     if (playbackPolicy == PlaybackPolicy.SinglePlayback)
-                        mgr->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer,
+                        mgr->EntityComponentStore->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer,
                             cmd->ComponentSize);
                     else
                     {
                         // copy the buffer to ensure that no two entities point to the same buffer from the ECB
                         // either in the same world or in different worlds
                         var buffer = CloneBuffer(&cmd->BufferNode.TempBuffer, cmd->ComponentTypeIndex);
-                        mgr->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &buffer, cmd->ComponentSize);
+                        mgr->EntityComponentStore->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &buffer, cmd->ComponentSize);
                     }
                 }
                     return true;
@@ -1826,34 +1891,41 @@ namespace Unity.Entities
                 {
                     var cmd = (EntityBufferCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
-                    mgr->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize);
+                    mgr->EntityComponentStore->SetBufferRawWithValidation(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize);
                     AddToPostPlaybackFixup(cmd, ref playbackState);
                 }
                     return true;
+
+                case ECBCommand.RemoveMultipleComponentsEntityQuery:
+                {
+                    ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+                    StartTrackingChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+
+                    var cmd = (EntityQueryMultipleComponentsCommand*)header;
+                    AssertValidEntityQuery(&cmd->Header, mgr->EntityComponentStore);
+                    mgr->RemoveMultipleComponentsDuringStructuralChange(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter,
+                        cmd->Types);
+                }
+                return true;
 
                 case ECBCommand.AppendToBuffer:
                 {
                     var cmd = (EntityComponentCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
 
-                    if (mgr->HasComponent(entity, cmd->ComponentTypeIndex))
-                    {
-                        BufferHeader* bufferHeader = (BufferHeader*)mgr->GetComponentDataWithTypeRW(entity, cmd->ComponentTypeIndex, mgr->GlobalSystemVersion);
+                    CheckBufferExistsOnEntity(mgr->EntityComponentStore, entity, cmd);
 
-                        var typeInfo = TypeManager.GetTypeInfo(cmd->ComponentTypeIndex);
-                        var alignment = typeInfo.AlignmentInBytes;
-                        var elementSize = typeInfo.ElementSize;
+                    BufferHeader* bufferHeader = (BufferHeader*)mgr->EntityComponentStore->GetComponentDataWithTypeRW(entity, cmd->ComponentTypeIndex, mgr->EntityComponentStore->GlobalSystemVersion);
 
-                        BufferHeader.EnsureCapacity(bufferHeader, bufferHeader->Length + 1, elementSize, alignment, BufferHeader.TrashMode.RetainOldData, false, 0);
+                    var typeInfo = TypeManager.GetTypeInfo(cmd->ComponentTypeIndex);
+                    var alignment = typeInfo.AlignmentInBytes;
+                    var elementSize = typeInfo.ElementSize;
 
-                        var offset = bufferHeader->Length * elementSize;
-                        UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(bufferHeader) + offset, cmd + 1, (long)elementSize);
-                        bufferHeader->Length += 1;
-                    }
-                    else
-                    {
-                        throw new System.InvalidOperationException("Buffer does not exist on entity, cannot append element.");
-                    }
+                    BufferHeader.EnsureCapacity(bufferHeader, bufferHeader->Length + 1, elementSize, alignment, BufferHeader.TrashMode.RetainOldData, false, 0);
+
+                    var offset = bufferHeader->Length * elementSize;
+                    UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(bufferHeader) + offset, cmd + 1, (long)elementSize);
+                    bufferHeader->Length += 1;
                 }
                     return true;
                 case ECBCommand.AppendToBufferWithEntityFixUp:
@@ -1861,25 +1933,69 @@ namespace Unity.Entities
                     var cmd = (EntityComponentCommand*)header;
                     var entity = SelectEntity(cmd->Header.Entity, playbackState);
 
-                    if (mgr->HasComponent(entity, cmd->ComponentTypeIndex))
-                    {
-                        BufferHeader* bufferHeader = (BufferHeader*)mgr->GetComponentDataWithTypeRW(entity, cmd->ComponentTypeIndex, mgr->GlobalSystemVersion);
+                    CheckBufferExistsOnEntity(mgr->EntityComponentStore, entity, cmd);
 
-                        var typeInfo = TypeManager.GetTypeInfo(cmd->ComponentTypeIndex);
-                        var alignment = typeInfo.AlignmentInBytes;
-                        var elementSize = typeInfo.ElementSize;
+                    BufferHeader* bufferHeader = (BufferHeader*)mgr->EntityComponentStore->GetComponentDataWithTypeRW(entity, cmd->ComponentTypeIndex, mgr->EntityComponentStore->GlobalSystemVersion);
 
-                        BufferHeader.EnsureCapacity(bufferHeader, bufferHeader->Length + 1, elementSize, alignment, BufferHeader.TrashMode.RetainOldData, false, 0);
+                    var typeInfo = TypeManager.GetTypeInfo(cmd->ComponentTypeIndex);
+                    var alignment = typeInfo.AlignmentInBytes;
+                    var elementSize = typeInfo.ElementSize;
 
-                        var offset = bufferHeader->Length * elementSize;
-                        UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(bufferHeader) + offset, cmd + 1, (long)elementSize);
-                        bufferHeader->Length += 1;
-                        FixupComponentData(BufferHeader.GetElementPointer(bufferHeader) + offset, typeInfo.TypeIndex, playbackState);
-                    }
-                    else
-                    {
-                        throw new System.InvalidOperationException("Buffer does not exist on entity, cannot append element.");
-                    }
+                    BufferHeader.EnsureCapacity(bufferHeader, bufferHeader->Length + 1, elementSize, alignment, BufferHeader.TrashMode.RetainOldData, false, 0);
+
+                    var offset = bufferHeader->Length * elementSize;
+                    UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(bufferHeader) + offset, cmd + 1, (long)elementSize);
+                    bufferHeader->Length += 1;
+                    FixupComponentData(BufferHeader.GetElementPointer(bufferHeader) + offset, typeInfo.TypeIndex, playbackState);
+                }
+                    return true;
+                case ECBCommand.AddComponentEntityQuery:
+                {
+                    ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+                    StartTrackingChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+
+                    var cmd = (EntityQueryComponentCommand*)header;
+                    AssertValidEntityQuery(&cmd->Header, mgr->EntityComponentStore);
+                    var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
+                    mgr->AddComponentDuringStructuralChange(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter,
+                        componentType);
+                }
+                return true;
+
+                case ECBCommand.AddMultipleComponentsEntityQuery:
+                {
+                    ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+                    StartTrackingChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+
+                    var cmd = (EntityQueryMultipleComponentsCommand*)header;
+                    AssertValidEntityQuery(&cmd->Header, mgr->EntityComponentStore);
+                    mgr->AddComponentsDuringStructuralChange(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter,
+                        cmd->Types);
+                }
+                return true;
+
+                case ECBCommand.RemoveComponentEntityQuery:
+                {
+                    ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+                    StartTrackingChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+
+                    var cmd = (EntityQueryComponentCommand*)header;
+                    AssertValidEntityQuery(&cmd->Header, mgr->EntityComponentStore);
+                    var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
+                    mgr->RemoveComponentDuringStructuralChange(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter,
+                        componentType);
+                }
+                    return true;
+
+                case ECBCommand.DestroyEntitiesInEntityQuery:
+                {
+
+                    ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+                    StartTrackingChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
+
+                    var cmd = (EntityQueryCommand*)header;
+                    AssertValidEntityQuery(cmd, mgr->EntityComponentStore);
+                    mgr->DestroyEntityDuringStructuralChange(cmd->QueryData->MatchingArchetypes, cmd->EntityQueryFilter);
                 }
                     return true;
             }
@@ -1887,20 +2003,10 @@ namespace Unity.Entities
             return false;
         }
 
-        internal delegate bool PlaybackUnmanagedCommandDelegate(EntityComponentStore* mgr, BasicCommand* header, ref ECBSharedPlaybackState playbackState, PlaybackPolicy playbackPolicy);
-
-        internal static PlaybackUnmanagedCommandDelegate PlaybackUnmanagedCommand;
-
-        [BurstCompile]
-        [MonoPInvokeCallback(typeof(PlaybackUnmanagedCommandDelegate))]
-        static bool PlaybackUnmanagedCommandExecute(EntityComponentStore* mgr, BasicCommand* header, ref ECBSharedPlaybackState playbackState, PlaybackPolicy playbackPolicy)
-        {
-            return PlaybackUnmanagedCommandInternal(mgr, header, ref playbackState, playbackPolicy);
-        }
-
         [BurstDiscard]
-        static void PlaybackManagedCommand(EntityDataAccess* mgr, BasicCommand* header, ref ECBSharedPlaybackState playbackState, PlaybackPolicy playbackPolicy, UnsafeList* managedReferenceIndexRemovalCount, ref EntityComponentStore.ArchetypeChanges archetypeChanges)
+        static void PlaybackManagedCommand(EntityDataAccess* mgr, BasicCommand* header, ref ECBSharedPlaybackState playbackState, PlaybackPolicy playbackPolicy, UnsafeList* managedReferenceIndexRemovalCount, ref EntityComponentStore.ArchetypeChanges archetypeChanges, ref bool didExecuteMethod)
         {
+            didExecuteMethod = true;
             switch ((ECBCommand)header->CommandType)
             {
                 case ECBCommand.AddManagedComponentData:
@@ -1954,43 +2060,6 @@ namespace Unity.Entities
                 }
                 break;
 
-                case ECBCommand.AddComponentEntityQuery:
-                {
-                    ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
-                    StartTrackingChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
-                    var cmd = (EntityQueryComponentCommand*)header;
-                    var componentType = (ComponentType)TypeManager.GetType(cmd->ComponentTypeIndex);
-                    AssertValidEntityQuery(&cmd->Header, mgr->EntityComponentStore);
-                    mgr->AddComponentDuringStructuralChange(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter,
-                        componentType);
-                }
-                break;
-
-                case ECBCommand.RemoveComponentEntityQuery:
-                {
-                    ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
-                    StartTrackingChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
-
-                    var cmd = (EntityQueryComponentCommand*)header;
-                    var componentType = (ComponentType)TypeManager.GetType(cmd->ComponentTypeIndex);
-                    AssertValidEntityQuery(&cmd->Header, mgr->EntityComponentStore);
-                    mgr->RemoveComponentDuringStructuralChange(cmd->Header.QueryData->MatchingArchetypes, cmd->Header.EntityQueryFilter,
-                        componentType);
-                }
-                break;
-
-                case ECBCommand.DestroyEntitiesInEntityQuery:
-                {
-                    ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
-                    StartTrackingChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
-
-
-                    var cmd = (EntityQueryCommand*)header;
-                    AssertValidEntityQuery(cmd, mgr->EntityComponentStore);
-                    mgr->DestroyEntityDuringStructuralChange(cmd->QueryData->MatchingArchetypes, cmd->EntityQueryFilter);
-                }
-                break;
-
                 case ECBCommand.AddSharedComponentEntityQuery:
                 {
                     ProcessTrackedChanges(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges);
@@ -2014,7 +2083,7 @@ namespace Unity.Entities
 
         static void StartTrackingChanges(EntityDataAccess* mgr, UnsafeList* managedReferenceIndexRemovalCount, ref EntityComponentStore.ArchetypeChanges archetypeChanges)
         {
-            if (mgr->IsMainThread)
+            if (!mgr->IsInExclusiveTransaction)
                 mgr->BeforeStructuralChange();
 
             archetypeChanges = mgr->EntityComponentStore->BeginArchetypeChangeTracking();
@@ -2022,17 +2091,9 @@ namespace Unity.Entities
 
         static void ProcessTrackedChanges(EntityDataAccess* mgr, UnsafeList* managedReferenceIndexRemovalCount, ref EntityComponentStore.ArchetypeChanges archetypeChanges)
         {
-            if (!mgr->EntityComponentStore->ManagedChangesTracker.Empty)
-            {
-                mgr->ManagedComponentStore.Playback(ref mgr->EntityComponentStore->ManagedChangesTracker);
-                var count = managedReferenceIndexRemovalCount->Length;
-                for (var keyValueIndex = 0;
-                     keyValueIndex < count;
-                     keyValueIndex++)
-                {
-                    mgr->ManagedComponentStore.RemoveReference(((int*)managedReferenceIndexRemovalCount->Ptr)[keyValueIndex]);
-                }
-            }
+            mgr->PlaybackManagedChanges();
+            var count = managedReferenceIndexRemovalCount->Length;
+            ECBInterop.RemoveManagedReferences(mgr, (int*)managedReferenceIndexRemovalCount->Ptr, count );
 
             mgr->EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, mgr->EntityQueryManager);
 
@@ -2077,33 +2138,49 @@ namespace Unity.Entities
             return clone;
         }
 
-        public Concurrent ToConcurrent()
+
+        [Obsolete(
+            "ToConcurrent() been renamed to AsParallelWriter() (RemovedAfter 2020-09-01). (UnityUpgradable) -> AsParallelWriter()",
+            false)]
+        public ParallelWriter ToConcurrent()
         {
-            EntityCommandBuffer.Concurrent concurrent;
+            return AsParallelWriter();
+        }
+
+        public ParallelWriter AsParallelWriter()
+        {
+            EntityCommandBuffer.ParallelWriter parallelWriter;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
-            concurrent.m_Safety0 = m_Safety0;
-            AtomicSafetyHandle.UseSecondaryVersion(ref concurrent.m_Safety0);
-            concurrent.m_BufferSafety = m_BufferSafety;
-            concurrent.m_ArrayInvalidationSafety = m_ArrayInvalidationSafety;
-            concurrent.m_SafetyReadOnlyCount = 0;
-            concurrent.m_SafetyReadWriteCount = 3;
+            parallelWriter.m_Safety0 = m_Safety0;
+            AtomicSafetyHandle.UseSecondaryVersion(ref parallelWriter.m_Safety0);
+            parallelWriter.m_BufferSafety = m_BufferSafety;
+            parallelWriter.m_ArrayInvalidationSafety = m_ArrayInvalidationSafety;
+            parallelWriter.m_SafetyReadOnlyCount = 0;
+            parallelWriter.m_SafetyReadWriteCount = 3;
 
             if (m_Data->m_Allocator == Allocator.Temp)
             {
                 throw new InvalidOperationException("EntityCommandBuffer.Concurrent can not use Allocator.Temp; use Allocator.TempJob instead");
             }
 #endif
-            concurrent.m_Data = m_Data;
-            concurrent.m_ThreadIndex = -1;
+            parallelWriter.m_Data = m_Data;
+            parallelWriter.m_ThreadIndex = -1;
 
-            if (concurrent.m_Data != null)
+            if (parallelWriter.m_Data != null)
             {
-                concurrent.m_Data->InitConcurrentAccess();
+                parallelWriter.m_Data->InitConcurrentAccess();
             }
 
-            return concurrent;
+            return parallelWriter;
+        }
+
+        [Obsolete(
+            "EntityCommandBuffer.Concurrent has been renamed to EntityCommandBuffer.ParallelWriter (RemovedAfter 2020-09-01). (UnityUpgradable) -> EntityCommandBuffer/ParallelWriter",
+            true)]
+        public struct Concurrent
+        {
         }
 
         /// <summary>
@@ -2112,7 +2189,7 @@ namespace Unity.Entities
         [NativeContainer]
         [NativeContainerIsAtomicWriteOnly]
         [StructLayout(LayoutKind.Sequential)]
-        unsafe public struct Concurrent
+        unsafe public struct ParallelWriter
         {
             [NativeDisableUnsafePtrRestriction] internal EntityCommandBufferData* m_Data;
 
@@ -2134,100 +2211,118 @@ namespace Unity.Entities
             [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
             private void CheckWriteAccess()
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (m_Data == null)
                     throw new NullReferenceException("The EntityCommandBuffer has not been initialized!");
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
 #endif
+            }
+
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private void CheckUsedInJob()
+            {
+                if (m_ThreadIndex == -1)
+                    throw new InvalidOperationException("EntityCommandBuffer.Concurrent must only be used in a Job");
             }
 
             private EntityCommandBufferChain* ThreadChain
             {
                 get
                 {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    if (m_ThreadIndex == -1)
-                    {
-                        throw new InvalidOperationException("EntityCommandBuffer.Concurrent must only be used in a Job");
-                    }
-#endif
+                    CheckUsedInJob();
                     return &m_Data->m_ThreadedChains[m_ThreadIndex];
                 }
             }
 
-            public Entity CreateEntity(int jobIndex, EntityArchetype archetype = new EntityArchetype())
+            public Entity CreateEntity(int sortKey, EntityArchetype archetype = new EntityArchetype())
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 // NOTE: Contention could be a performance problem especially on ARM
                 // architecture. Maybe reserve a few indices for each job would be a better
-                // approach or hijack the Version field of an Entity and store jobIndex
+                // approach or hijack the Version field of an Entity and store sortKey
                 int index = Interlocked.Decrement(ref m_Data->m_Entity.Index);
-                m_Data->AddCreateCommand(chain, jobIndex, ECBCommand.CreateEntity,  index, archetype, kBatchableCommand);
+                m_Data->AddCreateCommand(chain, sortKey, ECBCommand.CreateEntity,  index, archetype, kBatchableCommand);
                 return new Entity {Index = index};
             }
 
-            public Entity Instantiate(int jobIndex, Entity e)
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private static void CheckNotNull(Entity e)
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (e == Entity.Null)
                     throw new ArgumentNullException(nameof(e));
-#endif
+            }
+
+            public Entity Instantiate(int sortKey, Entity e)
+            {
+                CheckNotNull(e);
 
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 int index = Interlocked.Decrement(ref m_Data->m_Entity.Index);
-                m_Data->AddEntityCommand(chain, jobIndex, ECBCommand.InstantiateEntity, index, e, kBatchableCommand);
+                m_Data->AddEntityCommand(chain, sortKey, ECBCommand.InstantiateEntity, index, e, kBatchableCommand);
                 return new Entity {Index = index};
             }
 
-            public void DestroyEntity(int jobIndex, Entity e)
+            public void DestroyEntity(int sortKey, Entity e)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityCommand(chain, jobIndex, ECBCommand.DestroyEntity, 0, e, false);
+                m_Data->AddEntityCommand(chain, sortKey, ECBCommand.DestroyEntity, 0, e, false);
             }
 
-            public void AddComponent<T>(int jobIndex, Entity e, T component) where T : struct, IComponentData
+            public void AddComponent<T>(int sortKey, Entity e, T component) where T : struct, IComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentCommand(chain, jobIndex, ECBCommand.AddComponent, e, component);
+                m_Data->AddEntityComponentCommand(chain, sortKey, ECBCommand.AddComponent, e, component);
             }
 
-            public void AddComponent<T>(int jobIndex, Entity e) where T : struct, IComponentData
+            public void AddComponent<T>(int sortKey, Entity e) where T : struct, IComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentTypeCommand(chain, jobIndex, ECBCommand.AddComponent, e, ComponentType.ReadWrite<T>());
+                m_Data->AddEntityComponentTypeCommand(chain, sortKey, ECBCommand.AddComponent, e, ComponentType.ReadWrite<T>());
             }
 
-            public void AddComponent(int jobIndex, Entity e, ComponentType componentType)
+            public void AddComponent(int sortKey, Entity e, ComponentType componentType)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentTypeCommand(chain, jobIndex, ECBCommand.AddComponent, e, componentType);
+                m_Data->AddEntityComponentTypeCommand(chain, sortKey, ECBCommand.AddComponent, e, componentType);
             }
 
-            public DynamicBuffer<T> AddBuffer<T>(int jobIndex, Entity e) where T : struct, IBufferElementData
+            /// <summary> Records a command to add one or more components to an entity. </summary>
+            /// <remarks>
+            /// </remarks>
+            /// <param name="e"> The entity to get additional components. </param>
+            /// <param name="types"> The types of components to add. </param>
+            public void AddComponent(int sortKey, Entity e, ComponentTypes types)
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+                m_Data->AddEntityComponentTypesCommand(chain, sortKey,ECBCommand.AddMultipleComponents, e, types);
+            }
+
+            public DynamicBuffer<T> AddBuffer<T>(int sortKey, Entity e) where T : struct, IBufferElementData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return m_Data->CreateBufferCommand<T>(ECBCommand.AddBuffer, chain, jobIndex, e, m_BufferSafety, m_ArrayInvalidationSafety);
+                return m_Data->CreateBufferCommand<T>(ECBCommand.AddBuffer, chain, sortKey, e, m_BufferSafety, m_ArrayInvalidationSafety);
 #else
-                return m_Data->CreateBufferCommand<T>(ECBCommand.AddBuffer, chain, jobIndex, e);
+                return m_Data->CreateBufferCommand<T>(ECBCommand.AddBuffer, chain, sortKey, e);
 #endif
             }
 
-            public DynamicBuffer<T> SetBuffer<T>(int jobIndex, Entity e) where T : struct, IBufferElementData
+            public DynamicBuffer<T> SetBuffer<T>(int sortKey, Entity e) where T : struct, IBufferElementData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return m_Data->CreateBufferCommand<T>(ECBCommand.SetBuffer, chain, jobIndex, e, m_BufferSafety, m_ArrayInvalidationSafety);
+                return m_Data->CreateBufferCommand<T>(ECBCommand.SetBuffer, chain, sortKey, e, m_BufferSafety, m_ArrayInvalidationSafety);
 #else
-                return m_Data->CreateBufferCommand<T>(ECBCommand.SetBuffer, chain, jobIndex, e);
+                return m_Data->CreateBufferCommand<T>(ECBCommand.SetBuffer, chain, sortKey, e);
 #endif
             }
 
@@ -2237,7 +2332,7 @@ namespace Unity.Entities
             /// At <see cref="Playback(EntityManager)"/>, this command throws an InvalidOperationException if the entity doesn't
             /// have a <see cref="DynamicBuffer{T}"/> component storing elements of type T.
             /// </remarks>
-            /// <param name="jobIndex">A unique index for each set of commands added to the concurrent command buffer
+            /// <param name="sortKey">A unique index for each set of commands added to the concurrent command buffer
             /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
             /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. You can calculate a
             /// similar index in an <see cref="IJobChunk"/> by adding the current entity index within a chunk to the
@@ -2247,54 +2342,66 @@ namespace Unity.Entities
             /// <typeparam name="T">The <see cref="IBufferElementData"/> type stored by the <see cref="DynamicBuffer{T}"/>.</typeparam>
             /// <exception cref="InvalidOperationException">Thrown if the entity does not have a <see cref="DynamicBuffer{T}"/>
             /// component storing elements of type T at the time the entity command buffer executes this append-to-buffer command.</exception>
-            public void AppendToBuffer<T>(int jobIndex, Entity e, T element) where T : struct, IBufferElementData
+            public void AppendToBuffer<T>(int sortKey, Entity e, T element) where T : struct, IBufferElementData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AppendToBufferCommand<T>(chain, jobIndex, e, element);
+                m_Data->AppendToBufferCommand<T>(chain, sortKey, e, element);
             }
 
-            public void SetComponent<T>(int jobIndex, Entity e, T component) where T : struct, IComponentData
+            public void SetComponent<T>(int sortKey, Entity e, T component) where T : struct, IComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentCommand(chain, jobIndex, ECBCommand.SetComponent, e, component);
+                m_Data->AddEntityComponentCommand(chain, sortKey, ECBCommand.SetComponent, e, component);
             }
 
-            public void RemoveComponent<T>(int jobIndex, Entity e)
+            public void RemoveComponent<T>(int sortKey, Entity e)
             {
-                RemoveComponent(jobIndex, e, ComponentType.ReadWrite<T>());
+                RemoveComponent(sortKey, e, ComponentType.ReadWrite<T>());
             }
 
-            public void RemoveComponent(int jobIndex, Entity e, ComponentType componentType)
+            public void RemoveComponent(int sortKey, Entity e, ComponentType componentType)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
-                m_Data->AddEntityComponentTypeCommand(chain, jobIndex, ECBCommand.RemoveComponent, e, componentType);
+                m_Data->AddEntityComponentTypeCommand(chain, sortKey, ECBCommand.RemoveComponent, e, componentType);
             }
 
-            public void AddSharedComponent<T>(int jobIndex, Entity e, T component) where T : struct, ISharedComponentData
+            /// <summary> Records a command to remove one or more components from an entity. </summary>
+            /// <remarks>
+            /// </remarks>
+            /// <param name="e"> The entity to have the components removed. </param>
+            /// <param name="types"> The types of components to remove. </param>
+            public void RemoveComponent(int sortKey, Entity e, ComponentTypes types)
+            {
+                CheckWriteAccess();
+                var chain = ThreadChain;
+                m_Data->AddEntityComponentTypesCommand(chain, sortKey,ECBCommand.RemoveMultipleComponents, e, types);
+            }
+
+            public void AddSharedComponent<T>(int sortKey, Entity e, T component) where T : struct, ISharedComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 chain->m_CanBurstPlayback = false;
                 int hashCode;
                 if (IsDefaultObject(ref component, out hashCode))
-                    m_Data->AddEntitySharedComponentCommand<T>(chain, jobIndex, ECBCommand.AddSharedComponentData, e, hashCode, null);
+                    m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.AddSharedComponentData, e, hashCode, null);
                 else
-                    m_Data->AddEntitySharedComponentCommand<T>(chain, jobIndex, ECBCommand.AddSharedComponentData, e, hashCode, component);
+                    m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.AddSharedComponentData, e, hashCode, component);
             }
 
-            public void SetSharedComponent<T>(int jobIndex, Entity e, T component) where T : struct, ISharedComponentData
+            public void SetSharedComponent<T>(int sortKey, Entity e, T component) where T : struct, ISharedComponentData
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;
                 chain->m_CanBurstPlayback = false;
                 int hashCode;
                 if (IsDefaultObject(ref component, out hashCode))
-                    m_Data->AddEntitySharedComponentCommand<T>(chain, jobIndex, ECBCommand.SetSharedComponentData, e, hashCode, null);
+                    m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.SetSharedComponentData, e, hashCode, null);
                 else
-                    m_Data->AddEntitySharedComponentCommand<T>(chain, jobIndex, ECBCommand.SetSharedComponentData, e, hashCode, component);
+                    m_Data->AddEntitySharedComponentCommand<T>(chain, sortKey, ECBCommand.SetSharedComponentData, e, hashCode, component);
             }
         }
     }
@@ -2307,7 +2414,7 @@ namespace Unity.Entities
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
             ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
-            AddEntityComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadJobIndex, ECBCommand.AddManagedComponentData, e, component);
+            AddEntityComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, component);
         }
 
         public static void AddComponent<T>(this EntityCommandBuffer ecb, Entity e) where T : class, IComponentData
@@ -2315,7 +2422,7 @@ namespace Unity.Entities
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
             ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
-            ecb.m_Data->AddEntityComponentTypeCommand(&ecb.m_Data->m_MainThreadChain, ecb.MainThreadJobIndex, ECBCommand.AddManagedComponentData, e, ComponentType.ReadWrite<T>());
+            ecb.m_Data->AddEntityComponentTypeCommand(&ecb.m_Data->m_MainThreadChain, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, ComponentType.ReadWrite<T>());
         }
 
         public static void SetComponent<T>(this EntityCommandBuffer ecb, Entity e, T component) where T : class, IComponentData
@@ -2323,10 +2430,10 @@ namespace Unity.Entities
             ecb.EnforceSingleThreadOwnership();
             ecb.AssertDidNotPlayback();
             ecb.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
-            AddEntityComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadJobIndex, ECBCommand.SetManagedComponentData, e, component);
+            AddEntityComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.SetManagedComponentData, e, component);
         }
 
-        internal static void AddEntityComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int jobIndex, ECBCommand op, Entity e, T component) where T : class, IComponentData
+        internal static void AddEntityComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int sortKey, ECBCommand op, Entity e, T component) where T : class, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityManagedComponentCommand), 8);
@@ -2338,11 +2445,11 @@ namespace Unity.Entities
 
             var chain = &ecbd->m_MainThreadChain;
             ecbd->ResetCommandBatching(chain);
-            var data = (EntityManagedComponentCommand*)ecbd->Reserve(chain, jobIndex, sizeNeeded);
+            var data = (EntityManagedComponentCommand*)ecbd->Reserve(chain, sortKey, sizeNeeded);
 
             data->Header.Header.CommandType = (int)op;
             data->Header.Header.TotalSize = sizeNeeded;
-            data->Header.Header.SortIndex = chain->m_LastSortIndex;
+            data->Header.Header.SortKey = chain->m_LastSortKey;
             data->Header.Entity = e;
             data->ComponentTypeIndex = typeIndex;
 

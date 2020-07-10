@@ -1,4 +1,4 @@
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -18,6 +18,29 @@ namespace Unity.Entities.CodeGen
         {
             var inGroup = systems.Select(s => s.Resolve().IsChildTypeOf(AssemblyDefinition.MainModule.ImportReference(typeof(ComponentSystemGroup)).Resolve())).ToList();
             return inGroup;
+        }
+
+        int GetFilterFlag(TypeDefinition typeDef)
+        {
+            // If no flags are given we assume the default world
+            int flags = (int) WorldSystemFilterFlags.Default;
+            if (typeDef.HasCustomAttributes)
+            {
+                var filterFlagsAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(WorldSystemFilterAttribute) && ca.ConstructorArguments.Count == 1);
+                if(filterFlagsAttribute != null)
+                {
+                    // override the default value if flags are provided
+                    flags = (int)((WorldSystemFilterFlags) filterFlagsAttribute.ConstructorArguments[0].Value);
+                }
+            }
+
+            return flags;
+        }
+
+        public List<int> GetSystemFilterFlagList(List<TypeReference> systems)
+        {
+            var flags = systems.Select(s => GetFilterFlag(s.Resolve())).ToList();
+            return flags;
         }
 
         public static List<string> GetSystemNames(List<TypeReference> systems)
@@ -89,25 +112,38 @@ namespace Unity.Entities.CodeGen
                     // The stelem.ref will gobble up the array ref we need to return, so dupe it.
                     bc.Add(Instruction.Create(OpCodes.Dup));
                     bc.Add(Instruction.Create(OpCodes.Ldc_I4, i));       // the index we will write
-                    // Stack: array[] array[] array-index
+                                                                         // Stack: array[] array[] array-index
 
-                    // If it has a parameter, then load the Type that is the only param to the constructor.
-                    if (attr.HasConstructorArguments)
+                    // CustomAttributes are usually injected into the ctor of the type being decorated, however for our purposes we want to construct
+                    // an Attribute[] with all the custom initialization the decorated type would have. As such we do two passes: construct the attribute using
+                    // the constructor call writer (including constant arguments), and then after construction, initialize fields using field CustomAttributeNamedArguments.
+                    // Since both calls require generating IL based on the actual types used, we take a narrow approach of only supporting the subset of types we know we
+                    // need to handle (Type, and bool) currently.
+                    foreach (var ca in attr.ConstructorArguments)
                     {
-                        if (attr.ConstructorArguments.Count > 1)
-                            throw new InvalidProgramException("Attribute with more than one argument.");
-
-                        var arg = attr.ConstructorArguments[0].Value as TypeReference;
-                        bc.Add(Instruction.Create(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference(arg)));
-                        bc.Add(Instruction.Create(OpCodes.Call, m_GetTypeFromHandleFnRef));
+                        if(!InjectLoadFromCustomArgument(bc, ca))
+                            throw new ArgumentException($"Currently only 'Type', 'int' and 'bool' attribute constructor arguments are supported for ComponentSystems. '{sysDef.FullName}' has attribute '{attr.AttributeType.FullName}' using unsupported constructor '{attr.Constructor.FullName}'");
                     }
 
-                    // Stack: array[] array[] array-index type-param OR
-                    //        array[] array[] array-index
-
                     // Construct the attribute; push it on the list.
-                    var cctor = AssemblyDefinition.MainModule.ImportReference(attr.Constructor);
-                    bc.Add(Instruction.Create(OpCodes.Newobj, cctor));
+                    var ctor = AssemblyDefinition.MainModule.ImportReference(attr.Constructor);
+                    bc.Add(Instruction.Create(OpCodes.Newobj, ctor));
+
+                    foreach (var field in attr.Fields)
+                    {
+                        // custom attributes can set fields in the constructor so scan the fields for arguments
+                        if (field.Argument.Value != null)
+                        {
+                            // Copy the element on the stack (the attribute) so we can store into it's fields
+                            bc.Add(Instruction.Create(OpCodes.Dup));
+                            if (!InjectLoadFromCustomArgument(bc, field.Argument))
+                                throw new ArgumentException($"Currently initializing attribute fields supports 'Type', 'int' and 'bool' for ComponentSystems. '{sysDef.FullName}' has attribute '{attr.AttributeType.FullName}' initializing field '{field.Name}' of type '{field.Argument.Type.FullName}'");
+
+                            var attributeTypeDef = attr.AttributeType.Resolve();
+                            var attributeField = attributeTypeDef.Fields.Single(f => f.Name == field.Name);
+                            bc.Add(Instruction.Create(OpCodes.Stfld, AssemblyDefinition.MainModule.ImportReference(attributeField)));
+                        }
+                    }
 
                     // Stack: array[] array[] array-index value(object)
                     bc.Add(Instruction.Create(OpCodes.Stelem_Ref));
@@ -133,6 +169,25 @@ namespace Unity.Entities.CodeGen
             createSystemsFunction.Body.OptimizeMacros();
 
             return createSystemsFunction;
+        }
+
+        bool InjectLoadFromCustomArgument(Mono.Collections.Generic.Collection<Instruction> instructions, CustomAttributeArgument customArgument)
+        {
+            var arg = customArgument.Value;
+
+            if (arg is TypeReference)
+            {
+                instructions.Add(Instruction.Create(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference((TypeReference)arg)));
+                instructions.Add(Instruction.Create(OpCodes.Call, m_GetTypeFromHandleFnRef));
+            }
+            else if (arg is bool)
+            {
+                instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (bool)arg ? 1 : 0));
+            }
+            else
+                return false;
+
+            return true;
         }
 
         public MethodDefinition InjectCreateSystem(List<TypeReference> systems)

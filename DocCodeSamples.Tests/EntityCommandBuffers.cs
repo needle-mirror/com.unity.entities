@@ -27,7 +27,7 @@ namespace Doc.CodeSamples.Tests
         {
             // Acquire an ECB and convert it to a concurrent one to be able
             // to use it from a parallel job.
-            var ecb = m_EndSimulationEcbSystem.CreateCommandBuffer().ToConcurrent();
+            var ecb = m_EndSimulationEcbSystem.CreateCommandBuffer().AsParallelWriter();
             Entities
                 .ForEach((Entity entity, int entityInQueryIndex, ref Lifetime lifetime) =>
             {

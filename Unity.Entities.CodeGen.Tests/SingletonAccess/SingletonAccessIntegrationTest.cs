@@ -9,7 +9,6 @@ using Unity.CompilationPipeline.Common.Diagnostics;
 
 namespace Unity.Entities.CodeGen.Tests.SingletonAccess.Infrastructure
 {
-    [TestFixture]
     public abstract class SingletonAccessIntegrationTest : IntegrationTest
     {
         protected override string ExpectedPath

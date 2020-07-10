@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 #if !UNITY_PORTABLE_TEST_RUNNER
@@ -209,6 +211,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
 #if !UNITY_PORTABLE_TEST_RUNNER
 // https://unity3d.atlassian.net/browse/DOTSR-1432
+// OrderBy isn't supported in DOTS-Runtime
         [Test]
         public void IterateSharedComponentDataTest()
         {
@@ -287,9 +290,22 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
+        [Test]
+        public void MultipleEntitiesForEachInNestedDisplayClassesTest()
+        {
+            TestSystem.MultipleEntitiesForEachInNestedDisplayClasses();
+            Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
+        public void MultipleCapturingEntitiesForEachInNestedUsingStatementsTest()
+        {
+            TestSystem.MultipleCapturingEntitiesForEachInNestedUsingStatements();
+            Assert.AreEqual(10, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        [DotsRuntimeFixme] // UnsafeUtility.CopyObjectAddressToPtr not implemented
         public void ManyManagedComponents()
         {
             var entity = m_Manager.CreateEntity();
@@ -302,7 +318,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
 #endif
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
         [Test]
         public void UseUnityEngineComponent()
         {
@@ -317,7 +333,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
 #endif
 
         [Test]
-        [DotsRuntimeFixme]
         public void JobDebuggerSafetyThrowsInRun()
         {
             var jobHandle = TestSystem.ScheduleEcsTestData();
@@ -326,7 +341,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        [DotsRuntimeFixme]
         public void JobDebuggerSafetyThrowsInSchedule()
         {
             var jobHandle = TestSystem.ScheduleEcsTestData();
@@ -340,10 +354,41 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.RunForEachWithCustomDelegateTypeWithMoreThan8Parameters();
         }
 
+        [Test]
+        public void ResolveDuplicateFieldsInEntityQuery()
+        {
+            var entityQueryArray = new EntityQueryDesc[1]
+            {
+                new EntityQueryDesc()
+                {
+                    All = new ComponentType[1] {ComponentType.ReadWrite<EcsTestData>()}
+                }
+            };
+            Assert.IsTrue(TestSystem.m_ResolvedQuery.CompareQuery(entityQueryArray));
+        }
+
+        [Test]
+        public void RunWithFilterButNotQueryDoesNotThrow()
+        {
+            Assert.DoesNotThrow(TestSystem.RunWithFilterButNotQuery);
+        }
+
+        [Test]
+        public void RunWithNativeArrayForEachCreatingTryFinallyBlockDoesNotThrow()
+        {
+            Assert.DoesNotThrow(TestSystem.RunWithNativeArrayForEachCreatingTryFinallyBlock);
+        }
+
+        [Test]
+        public void RunWithUsingCreatingTryFinallyBlockDoesNotThrow()
+        {
+            Assert.DoesNotThrow(TestSystem.RunWithUsingCreatingTryFinallyBlock);
+        }
 
         class MyTestSystem : TestJobComponentSystem
         {
             public EntityQuery m_StoredQuery;
+            public EntityQuery m_ResolvedQuery;
 
             public JobHandle SimplestCase()
             {
@@ -700,6 +745,47 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }
             }
 
+            public void MultipleEntitiesForEachInNestedDisplayClasses()
+            {
+                var cap1 = 1;
+                {
+                    var cap2 = 2;
+                    Entities.ForEach((ref EcsTestData testData) => {
+                        testData.value = cap1 + cap2;
+                    }).Run();
+
+                    Entities.ForEach((ref EcsTestData testData) =>
+                    {
+                        testData.value += cap1;
+                    }).Run();
+                }
+            }
+
+            public void MultipleCapturingEntitiesForEachInNestedUsingStatements()
+            {
+                JobHandle jobHandle = default;
+                var time = 5;
+
+                using (var refStartPos = new NativeArray<int>(10, Allocator.TempJob))
+                {
+                    using (var refEndPos = new NativeArray<int>(10, Allocator.TempJob))
+                    {
+                        jobHandle = Entities
+                            .ForEach((ref EcsTestData testData) =>
+                                testData.value = refEndPos[0] + refStartPos[0] + time)
+                            .Schedule(jobHandle);
+
+                        jobHandle = Entities
+                            .ForEach((ref EcsTestData testData) =>
+                                testData.value += time)
+                            .Schedule(jobHandle);
+                        jobHandle.Complete();
+                    }
+                }
+            }
+
+
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             public void Many_ManagedComponents()
             {
@@ -719,7 +805,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
 #endif
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
             public (Camera, Entity) IterateEntitiesWithCameraComponent()
             {
                 (Camera camera, Entity entity)result = default;
@@ -741,9 +827,52 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }).Run();
                 Assert.AreEqual(3,  grabbedData);
             }
+
+            public void ResolveDuplicateFieldsInEntityQuery()
+            {
+                Entities
+                    .WithAll<EcsTestData>()
+                    .WithStoreEntityQueryInField(ref m_ResolvedQuery)
+                    .ForEach((ref EcsTestData e1) => { })
+                    .Run();
+            }
+
+            public void RunWithFilterButNotQuery()
+            {
+                Entities.WithChangeFilter<Translation>().ForEach((Entity entity) => { }).Run();
+            }
+
+            public void RunWithNativeArrayForEachCreatingTryFinallyBlock()
+            {
+                var array = new NativeArray<bool>(10, Allocator.Temp);
+                int counter = 0;
+
+                Entities.WithoutBurst().ForEach((ref EcsTestData data) =>
+                {
+                    foreach (bool item in array)
+                        if (!item) counter++;
+                }).Run();
+                array.Dispose();
+
+                Assert.AreEqual(10, counter);
+            }
+
+            public void RunWithUsingCreatingTryFinallyBlock()
+            {
+                int counter = 0;
+
+                Entities.WithoutBurst().ForEach((ref EcsTestData data) =>
+                {
+                    using (var array = new NativeArray<bool>(10, Allocator.Temp))
+                    {
+                        foreach (bool item in array)
+                            if (!item) counter++;
+                    }
+                }).Run();
+
+                Assert.AreEqual(10, counter);
+            }
         }
-
-
 
         void AssertNothingChanged() => Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
     }

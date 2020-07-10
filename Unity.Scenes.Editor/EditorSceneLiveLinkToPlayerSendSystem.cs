@@ -46,7 +46,8 @@ namespace Unity.Scenes.Editor
 
         void RequestSessionHandshake(MessageEventArgs args)
         {
-            m_Connection.Send(LiveLinkMsg.EditorResponseHandshakeLiveLink, LiveLinkUtility.GetEditorLiveLinkId(), args.playerId);
+            var handshake = new LiveLinkHandshake(LiveLinkUtility.GetEditorLiveLinkId(), LiveLinkUtility.LiveLinkCacheGUID);
+            m_Connection.Send(LiveLinkMsg.EditorResponseHandshakeLiveLink, handshake, args.playerId);
         }
 
         void ConnectLiveLink(MessageEventArgs args)

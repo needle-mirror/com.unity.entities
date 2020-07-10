@@ -6,4 +6,6 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Entities.Editor.Tests")]
 [assembly: InternalsVisibleTo("Unity.DOTS.Editor.Tests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Editor.Tests")]
+[assembly: InternalsVisibleTo("Unity.Scenes.Editor.PlayerTests")]
 [assembly: InternalsVisibleTo("Unity.Samples.Tests")]
+[assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build")]

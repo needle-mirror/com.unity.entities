@@ -1,4 +1,4 @@
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -7,7 +7,7 @@ using Unity.Properties;
 using Unity.Serialization.Binary;
 using Unity.Serialization.Binary.Adapters;
 
-[assembly: InternalsVisibleTo("Unity.Scenes.Hybrid")]
+[assembly: InternalsVisibleTo("Unity.Scenes")]
 
 [assembly: GeneratePropertyBagsForTypesQualifiedWith(typeof(Unity.Entities.ISharedComponentData))]
 [assembly: GeneratePropertyBagsForTypesQualifiedWith(typeof(Unity.Entities.IComponentData), TypeOptions.ReferenceType)]
@@ -155,13 +155,13 @@ namespace Unity.Entities.Serialization
 
         object Unity.Serialization.Binary.Adapters.Contravariant.IBinaryAdapter<UnityEngine.Object>.Deserialize(UnsafeAppendBuffer.Reader* reader)
         {
-            if (m_UnityObjects == null)
-                throw new ArgumentException("We are reading a UnityEngine.Object however no ObjectTable was provided to the ManagedObjectBinaryReader.");
-
             var index = reader->ReadNext<int>();
 
             if (index == -1)
                 return null;
+
+            if (m_UnityObjects == null)
+                throw new ArgumentException("We are reading a UnityEngine.Object however no ObjectTable was provided to the ManagedObjectBinaryReader.");
 
             if ((uint)index >= m_UnityObjects.Length)
                 throw new ArgumentException("We are reading a UnityEngine.Object but the deserialized index is out of range for the given object table.");

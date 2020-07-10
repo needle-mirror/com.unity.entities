@@ -291,7 +291,7 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsIntStateElement));
 
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
-            var buffers = chunks[0].GetBufferAccessor(m_Manager.GetArchetypeChunkBufferType<EcsIntStateElement>(false));
+            var buffers = chunks[0].GetBufferAccessor(m_Manager.GetBufferTypeHandle<EcsIntStateElement>(false));
 
             Assert.AreEqual(2, buffers.Length);
             Assert.AreEqual(0, buffers[0].Length);
@@ -318,8 +318,8 @@ namespace Unity.Entities.Tests
             m_Manager.GetBuffer<EcsIntStateElement>(entityInt).CopyFrom(new EcsIntStateElement[] { 1, 2, 3 });
 
             var intLookup = EmptySystem.GetBufferFromEntity<EcsIntStateElement>();
-            Assert.IsTrue(intLookup.Exists(entityInt));
-            Assert.IsFalse(intLookup.Exists(new Entity()));
+            Assert.IsTrue(intLookup.HasComponent(entityInt));
+            Assert.IsFalse(intLookup.HasComponent(new Entity()));
 
             Assert.AreEqual(2, intLookup[entityInt][1].Value);
         }
@@ -332,7 +332,11 @@ namespace Unity.Entities.Tests
             intArray.Add(12);
             m_Manager.DestroyEntity(entityInt);
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 intArray.Add(123);
             });
@@ -345,7 +349,11 @@ namespace Unity.Entities.Tests
             var intArray = m_Manager.GetBuffer<EcsIntStateElement>(entityInt);
             m_Manager.DestroyEntity(entityInt);
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 intArray.Add(123);
             });
@@ -359,7 +367,11 @@ namespace Unity.Entities.Tests
             var array = buffer[entityInt];
             m_Manager.DestroyEntity(entityInt);
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 array.Add(123);
             });
@@ -372,7 +384,11 @@ namespace Unity.Entities.Tests
             var buffer = m_Manager.GetBuffer<EcsIntStateElement>(entityInt);
             buffer.CopyFrom(new EcsIntStateElement[] { 1, 2, 3 });
             m_Manager.AddComponentData(entityInt, new EcsTestData() { value = 20 });
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() => {
+#else
             Assert.Throws<InvalidOperationException>(() => {
+#endif
                 buffer.Add(4);
             });
         }
@@ -489,11 +505,19 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, array[0].Value);
             Assert.AreEqual(1, array.Length);
             buffer.Add(2);
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 int value = array[0].Value;
             });
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 array[0] = 5;
             });
@@ -516,12 +540,20 @@ namespace Unity.Entities.Tests
 
             b0.Add(1);
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 int value = a0[0].Value;
             });
 
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
             Assert.Throws<InvalidOperationException>(() =>
+#endif
             {
                 int value = a1[0].Value;
             });
@@ -550,7 +582,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // After NativeJobs and CheckDidSyncFence in Runtime
         public void BufferInvalidationNotPossibleWhenArraysAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -564,7 +595,7 @@ namespace Unity.Entities.Tests
 
         struct WriteJob : IJobChunk
         {
-            public ArchetypeChunkBufferType<EcsIntStateElement> Int;
+            public BufferTypeHandle<EcsIntStateElement> Int;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
@@ -585,8 +616,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        [IgnoreInPortableTests("There are Assert.Throws in the WriteJob, which the runner doesn't find or support.")]
         public void ReadWriteDynamicBuffer()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -597,7 +626,7 @@ namespace Unity.Entities.Tests
             var job = new WriteJob
             {
                 //@TODO: Throw exception when read only flag is not accurately passed to job for buffers...
-                Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntStateElement>()
+                Int = EmptySystem.GetBufferTypeHandle<EcsIntStateElement>()
             };
 
             job.Schedule(group).Complete();
@@ -606,7 +635,7 @@ namespace Unity.Entities.Tests
         struct ReadOnlyJob : IJobChunk
         {
             [ReadOnly]
-            public ArchetypeChunkBufferType<EcsIntStateElement> Int;
+            public BufferTypeHandle<EcsIntStateElement> Int;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
             {
@@ -636,21 +665,19 @@ namespace Unity.Entities.Tests
             var group = EmptySystem.GetEntityQuery(new EntityQueryDesc {All = new ComponentType[] {typeof(EcsIntStateElement)}});
             var job = new ReadOnlyJob
             {
-                Int = EmptySystem.GetArchetypeChunkBufferType<EcsIntStateElement>(readOnlyType)
+                Int = EmptySystem.GetBufferTypeHandle<EcsIntStateElement>(readOnlyType)
             };
 
             job.Schedule(group).Complete();
         }
 
         [Test]
-        [DotsRuntimeFixme] // After NativeJobs
         public void ReadOnlyDynamicBufferReadOnly()
         {
             ReadOnlyDynamicBufferImpl(true);
         }
 
         [Test]
-        [DotsRuntimeFixme] // After NativeJobs
         public void ReadOnlyDynamicBufferWritable()
         {
             ReadOnlyDynamicBufferImpl(false);
@@ -666,7 +693,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // After NativeJobs
         public void BufferInvalidationNotPossibleWhenBuffersAreGivenToJobs()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));
@@ -698,7 +724,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // After NativeJobs
         public void NativeArrayInJobReadOnly()
         {
             var original = m_Manager.CreateEntity(typeof(EcsIntStateElement));

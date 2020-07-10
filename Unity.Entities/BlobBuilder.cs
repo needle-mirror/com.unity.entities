@@ -29,6 +29,13 @@ namespace Unity.Entities
             m_length = length;
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void CheckIndexOutOfRange(int index)
+        {
+            if (0 > index || index >= m_length)
+                throw new IndexOutOfRangeException(string.Format("Index {0} is out of range of '{1}' Length.", (object)index, (object)this.m_length));
+        }
+
         /// <summary>
         /// Array index accessor for the elements in the array.
         /// </summary>
@@ -38,11 +45,8 @@ namespace Unity.Entities
         {
             get
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (0 > index || index >= m_length)
-                    throw new IndexOutOfRangeException(string.Format("Index {0} is out of range of '{1}' Length.", (object)index, (object)this.m_length));
-#endif
-                return ref UnsafeUtilityEx.ArrayElementAsRef<T>(m_data, index);
+                CheckIndexOutOfRange(index);
+                return ref UnsafeUtility.ArrayElementAsRef<T>(m_data, index);
             }
         }
 
@@ -57,7 +61,9 @@ namespace Unity.Entities
         /// <summary>
         /// Provides a pointer to the data stored in the array.
         /// </summary>
-        /// <remarks>You can only call this function in an <see cref="Unsafe"/> context.</remarks>
+        /// <remarks>You can only call this function in an [unsafe context].
+        /// [unsafe context]: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/unsafe-code
+        /// </remarks>
         /// <returns>A pointer to the first element in the array.</returns>
         public void* GetUnsafePtr()
         {
@@ -128,7 +134,7 @@ namespace Unity.Entities
         /// Constructs a BlobBuilder object.
         /// </summary>
         /// <param name="allocator">The type of allocator to use for the BlobBuilder's internal, temporary data. Use
-        /// <see cref="Allocator.Temp"/> unless the BlobBuilder exists across more than four Unity frames.</param>
+        /// <see cref="Unity.Collections.Allocator.Temp"/> unless the BlobBuilder exists across more than four Unity frames.</param>
         /// <param name="chunkSize">(Optional) The minimum amount of memory to allocate while building an asset.
         /// The default value should suit most use cases. A smaller chunkSize results in more allocations; a larger
         /// chunkSize could increase the BlobBuilder's total memory allocation (which is freed when you dispose of
@@ -154,7 +160,7 @@ namespace Unity.Entities
         public ref T ConstructRoot<T>() where T : struct
         {
             var allocation = Allocate(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>());
-            return ref UnsafeUtilityEx.AsRef<T>(AllocationToPointer(allocation));
+            return ref UnsafeUtility.AsRef<T>(AllocationToPointer(allocation));
         }
 
         /// <summary>
@@ -223,8 +229,41 @@ namespace Unity.Entities
             };
 
             m_patches.Add(patch);
-            return ref UnsafeUtilityEx.AsRef<T>(AllocationToPointer(allocation));
+            return ref UnsafeUtility.AsRef<T>(AllocationToPointer(allocation));
         }
+
+        /// <summary>
+        /// Sets a BlobPtr to point to the given object inside the blob.
+        /// </summary>
+        /// <param name="ptr">A reference to a blob pointer field in a blob asset.</param>
+        /// <param name="obj">The struct that exists in the blob that you want to point to.</param>
+        /// <returns>A reference to obj.</returns>
+        public ref T SetPointer<T>(ref BlobPtr<T> ptr, ref T obj) where T : struct
+        {
+            var offsetPtr = (int*)UnsafeUtility.AddressOf(ref ptr.m_OffsetPtr);
+            var objTargetPtr = UnsafeUtility.AddressOf(ref obj);
+
+            ValidateAllocation(offsetPtr);
+
+            if (GetPatchTarget(objTargetPtr, out var target))
+            {
+                var patch = new OffsetPtrPatch
+                {
+                    offsetPtr = offsetPtr,
+                    target = target,
+                    length = 0
+                };
+
+                m_patches.Add(patch);
+            }
+            else
+            {
+                throw new System.ArgumentException("Reference object is not a part of the blob; can only create BlobPtr to objects inside a blob");
+            }
+
+            return ref obj;
+        }
+
 
         struct SortedIndex : IComparable<SortedIndex>
         {
@@ -378,17 +417,40 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        void ValidateAllocation(void* p)
+        void ValidateAllocation(void* address)
         {
             // ValidateAllocation is most often called with data in recently allocated allocations
             // so this searches backwards
             for (int i = m_allocations.Length - 1; i >= 0; --i)
             {
-                if (m_allocations[i].p <= p && p < m_allocations[i].p + m_allocations[i].size)
+                var allocation = m_allocations[i];
+                if (address >= allocation.p && address < (allocation.p + allocation.size))
                     return;
             }
 
             throw new InvalidOperationException("The BlobArray passed to Allocate was not allocated by this BlobBuilder or the struct that embeds it was copied by value instead of by ref.");
+        }
+
+        private bool GetPatchTarget(void* address, out BlobDataRef blobDataRef)
+        {
+            // Search backwards; most likely to be referring to objects that were most recently added..
+            for (int i = m_allocations.Length-1; i >= 0; i--)
+            {
+                var allocation = m_allocations[i];
+                if (address >= allocation.p && address < (allocation.p + allocation.size))
+                {
+                    blobDataRef = new BlobDataRef
+                    {
+                        allocIndex = i,
+                        offset = (int)((byte*)address - allocation.p),
+                    };
+
+                    return true;
+                }
+            }
+
+            blobDataRef = default;
+            return false;
         }
 
         /// <summary>

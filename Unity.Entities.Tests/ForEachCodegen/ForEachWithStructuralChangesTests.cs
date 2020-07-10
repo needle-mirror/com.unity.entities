@@ -63,7 +63,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                         for (int i = 0; i < chunks.Length; ++i)
                         {
                             var chunk = chunks[i];
-                            var shared = chunk.GetSharedComponentData(m_mgr.GetArchetypeChunkSharedComponentType<T>(), m_mgr);
+                            var shared = chunk.GetSharedComponentData(m_mgr.GetSharedComponentTypeHandle<T>(), m_mgr);
                             Values[count++] = shared;
                         }
 
@@ -180,28 +180,40 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         }
 
         [Test]
-        public void AddToDynamicBuffer_WithStructuralChanges()
+        public void AddToDynamicBuffer()
         {
-            TestSystem.AddToDynamicBuffer_WithStructuralChanges();
+            TestSystem.AddToDynamicBuffer();
         }
 
         [Test]
-        public void UseEntityIndex_WithStructuralChanges()
+        public void UseEntityIndex()
         {
-            TestSystem.UseEntityIndex_WithStructuralChanges();
+            TestSystem.UseEntityIndex();
         }
 
         [Test]
-        public void TagComponent_WithStructuralChanges()
+        public void TagComponent()
         {
-            TestSystem.TagComponent_WithStructuralChanges();
+            TestSystem.TagComponent();
+        }
+
+        [Test]
+        public void RemoveComponentOnOtherEntities()
+        {
+            TestSystem.RemoveOtherEntityFromProcessing(true);
+        }
+
+        [Test]
+        public void DestroyEntityOnOtherEntities()
+        {
+            TestSystem.RemoveOtherEntityFromProcessing(false);
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        public void Many_ManagedComponents_WithStructuralChanges()
+        public void Many_ManagedComponents()
         {
-            TestSystem.Many_ManagedComponents_WithStructuralChanges();
+            TestSystem.Many_ManagedComponents();
         }
 
 #endif
@@ -642,7 +654,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                 }
             }
 
-            public void AddToDynamicBuffer_WithStructuralChanges()
+            public void AddToDynamicBuffer()
             {
                 var archA = EntityManager.CreateArchetype(typeof(EcsTestData), typeof(ForEachCodegenTests.TestBufferElement));
                 var newEntity = EntityManager.CreateEntity(archA);
@@ -661,7 +673,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                 Assert.AreEqual(10, buffer[buffer.Length - 1].Value);
             }
 
-            public void UseEntityIndex_WithStructuralChanges()
+            public void UseEntityIndex()
             {
                 var archA = EntityManager.CreateArchetype(typeof(EcsTestData));
                 var newEntity = EntityManager.CreateEntity(archA);
@@ -678,7 +690,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                 Assert.AreEqual(1234, EntityManager.GetComponentData<EcsTestData>(newEntity).value);
             }
 
-            public void TagComponent_WithStructuralChanges()
+            public void TagComponent()
             {
                 var archA = EntityManager.CreateArchetype(typeof(EcsTestTag));
                 var newEntity = EntityManager.CreateEntity(archA);
@@ -693,8 +705,32 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                 Assert.AreEqual(1234, EntityManager.GetComponentData<EcsTestData>(newEntity).value);
             }
 
+            public void RemoveOtherEntityFromProcessing(bool removeComponent)
+            {
+                var archA = EntityManager.CreateArchetype(typeof(EcsTestTag));
+                EntityManager.CreateEntity(archA);
+                var removedEntity = EntityManager.CreateEntity(archA);
+                EntityManager.CreateEntity(archA);
+
+                int count = 0;
+                Entities
+                    .WithStructuralChanges()
+                    .ForEach((Entity inputEntity, in EcsTestTag tag) =>
+                    {
+                        Assert.AreNotEqual(inputEntity, removedEntity);
+                        if (removeComponent)
+                            EntityManager.RemoveComponent(removedEntity, typeof(EcsTestTag));
+                        else
+                            EntityManager.DestroyEntity(removedEntity);
+
+                        count++;
+                    }).Run();
+
+                Assert.AreEqual(2, count);
+            }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-            public void Many_ManagedComponents_WithStructuralChanges()
+            public void Many_ManagedComponents()
             {
                 var entity = EntityManager.CreateEntity();
                 EntityManager.AddComponentData(entity, new EcsTestManagedComponent() { value = "SomeString" });

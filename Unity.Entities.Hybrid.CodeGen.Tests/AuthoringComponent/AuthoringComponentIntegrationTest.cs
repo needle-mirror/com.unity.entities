@@ -5,7 +5,6 @@ using Unity.Entities.CodeGen.Tests;
 
 namespace Unity.Entities.Hybrid.CodeGen.Tests
 {
-    [TestFixture]
     public abstract class AuthoringComponentIntegrationTest : IntegrationTest
     {
         protected override string ExpectedPath =>

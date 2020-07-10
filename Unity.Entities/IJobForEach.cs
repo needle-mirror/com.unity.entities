@@ -66,7 +66,7 @@ namespace Unity.Entities
             throw new Exception("Should be replaced by code-gen.");
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
         static ComponentType[] GetComponentTypes(Type jobType)
         {
             var interfaceType = GetIJobForEachInterface(jobType);
@@ -145,8 +145,12 @@ namespace Unity.Entities
             jobTypeAndGenericArgs.AddRange(genericArgs);
             var resolvedWrapperJobType = wrapperJobType.MakeGenericType(jobTypeAndGenericArgs.ToArray());
 
+#if UNITY_2020_2_OR_NEWER
+            var reflectionDataRes = resolvedWrapperJobType.GetMethod("Initialize").Invoke(null, null);
+#else
             object[] parameters = {isIJobParallelFor ? JobType.ParallelFor : JobType.Single};
             var reflectionDataRes = resolvedWrapperJobType.GetMethod("Initialize").Invoke(null, parameters);
+#endif
             return (IntPtr)reflectionDataRes;
         }
 
@@ -174,7 +178,7 @@ namespace Unity.Entities
         static unsafe void Initialize<T>(ComponentSystemBase system, EntityQuery entityQuery, Type jobType, Type wrapperJobType,
             bool isParallelFor, ref JobForEachCache cache, out ProcessIterationData iterator, ref T jobData)
             where T : struct
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
         , IBaseJobForEach
 #endif
         {
@@ -182,7 +186,7 @@ namespace Unity.Entities
             if (isParallelFor && cache.JobReflectionDataParallelFor == IntPtr.Zero ||
                 !isParallelFor && cache.JobReflectionData == IntPtr.Zero)
             {
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
                 if (cache.Types == null)
                 {
                     cache.Types = jobData.GetComponentTypes(out cache.ProcessTypesCount, out cache.FilterChanged);
@@ -363,7 +367,7 @@ namespace Unity.Entities
 #endif
         }
 
-#if !UNITY_DOTSPLAYER
+#if !UNITY_DOTSRUNTIME
         public static EntityQuery GetEntityQueryForIJobForEach(this ComponentSystemBase system,
             Type jobType)
         {

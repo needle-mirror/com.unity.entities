@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Serialization;
 using Unity.Profiling;
 using Unity.Transforms;
@@ -37,50 +38,50 @@ namespace Unity.Entities.Conversion
         const int k_SceneSectionMask = 8;
         const int k_AllMask = 15;
 
-        static List<UnityComponent>          s_ComponentsCache = new List<UnityComponent>();
+        static List<UnityComponent>             s_ComponentsCache = new List<UnityComponent>();
 
-        GameObjectConversionSettings         m_Settings;
-        readonly EntityManager               m_DstManager;
-        readonly JournalingUnityLogger       m_JournalingUnityLogger;
+        internal GameObjectConversionSettings   Settings { get; private set; }
+        readonly EntityManager                  m_DstManager;
+        readonly JournalingUnityLogger          m_JournalingUnityLogger;
 
-        ConversionState                      m_ConversionState;
-        int                                  m_BeginConvertingRefCount;
+        ConversionState                         m_ConversionState;
+        int                                     m_BeginConvertingRefCount;
 
-        ConversionJournalData                m_JournalData;
+        ConversionJournalData                   m_JournalData;
 
-        ConversionDependencies               m_Dependencies;
-        internal ConversionDependencies      Dependencies => m_Dependencies;
+        ConversionDependencies                  m_Dependencies;
+        internal ConversionDependencies         Dependencies => m_Dependencies;
 
-        EntityArchetype[]                    m_Archetypes;
+        EntityArchetype[]                       m_Archetypes;
 
         // prefabs and everything they contain will be stored in this set, to be tagged with the Prefab component in dst world
-        HashSet<GameObject>                  m_DstPrefabs = new HashSet<GameObject>();
+        HashSet<GameObject>                     m_DstPrefabs = new HashSet<GameObject>();
         // each will be marked as a linked entity group containing all of its converted descendants in the dst world
-        HashSet<GameObject>                  m_DstLinkedEntityGroups = new HashSet<GameObject>();
+        HashSet<GameObject>                     m_DstLinkedEntityGroups = new HashSet<GameObject>();
         // assets that were declared via DeclareReferencedAssets
-        HashSet<UnityObject>                 m_DstAssets = new HashSet<UnityObject>();
+        HashSet<UnityObject>                    m_DstAssets = new HashSet<UnityObject>();
 
-        internal ref ConversionJournalData   JournalData => ref m_JournalData;
+        internal ref ConversionJournalData      JournalData => ref m_JournalData;
 
         #if UNITY_EDITOR
         // Used for both systems and component types
-        Dictionary<Type, bool>               m_ConversionTypeLookupCache = new Dictionary<Type, bool>();
+        Dictionary<Type, bool>                  m_ConversionTypeLookupCache = new Dictionary<Type, bool>();
         #endif
 
-        private EntityQuery m_SceneSectionEntityQuery;
+        private EntityQuery                     m_SceneSectionEntityQuery;
 
-        public bool  AddEntityGUID           => (m_Settings.ConversionFlags & ConversionFlags.AddEntityGUID) != 0;
-        public bool  ForceStaticOptimization => (m_Settings.ConversionFlags & ConversionFlags.ForceStaticOptimization) != 0;
-        public bool  AssignName              => (m_Settings.ConversionFlags & ConversionFlags.AssignName) != 0;
-        public bool  IsLiveLink              => (m_Settings.ConversionFlags & (ConversionFlags.SceneViewLiveLink | ConversionFlags.GameViewLiveLink)) != 0;
+        public bool  AddEntityGUID              => (Settings.ConversionFlags & ConversionFlags.AddEntityGUID) != 0;
+        public bool  ForceStaticOptimization    => (Settings.ConversionFlags & ConversionFlags.ForceStaticOptimization) != 0;
+        public bool  AssignName                 => (Settings.ConversionFlags & ConversionFlags.AssignName) != 0;
+        public bool  IsLiveLink                 => (Settings.ConversionFlags & (ConversionFlags.SceneViewLiveLink | ConversionFlags.GameViewLiveLink)) != 0;
 
-        public EntityManager   DstEntityManager => m_Settings.DestinationWorld.EntityManager;
+        public EntityManager   DstEntityManager => Settings.DestinationWorld.EntityManager;
         public ConversionState ConversionState  => m_ConversionState;
 
         public GameObjectConversionMappingSystem(GameObjectConversionSettings settings)
         {
-            m_Settings = settings;
-            m_DstManager = m_Settings.DestinationWorld.EntityManager;
+            Settings = settings;
+            m_DstManager = Settings.DestinationWorld.EntityManager;
             m_JournalingUnityLogger = new JournalingUnityLogger(this);
             m_Dependencies = new ConversionDependencies(IsLiveLink);
             m_JournalData.Init();
@@ -89,7 +90,7 @@ namespace Unity.Entities.Conversion
         }
 
         public GameObjectConversionSettings ForkSettings(byte entityGuidNamespaceID)
-            => m_Settings.Fork(entityGuidNamespaceID);
+            => Settings.Fork(entityGuidNamespaceID);
 
         protected override void OnUpdate() {}
 
@@ -99,6 +100,8 @@ namespace Unity.Entities.Conversion
                 CleanupConversion();
             if (EntityManager.IsQueryValid(m_SceneSectionEntityQuery))
                 m_SceneSectionEntityQuery.Dispose();
+            if (m_EntityIdsChached.IsCreated)
+                m_EntityIdsChached.Dispose();
             m_JournalData.Dispose();
             m_Dependencies.Dispose();
         }
@@ -180,6 +183,22 @@ namespace Unity.Entities.Conversion
 
         Entity CreateDstEntity(UnityObject uobject, int serial)
         {
+            Entity returnValue;
+            unsafe
+            {
+                var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Entity>(&returnValue, 1, Allocator.Invalid);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref arr, AtomicSafetyHandle.GetTempMemoryHandle());
+#endif
+                CreateDstEntity(uobject, arr, serial);
+            }
+            return returnValue;
+        }
+
+        void CreateDstEntity(UnityObject uobject, NativeArray<Entity> outEntities, int serial)
+        {
+            if (outEntities.Length == 0)
+                return;
             #if DETAIL_MARKERS
             using (m_CreateEntity.Auto())
             #endif
@@ -199,12 +218,14 @@ namespace Unity.Entities.Conversion
                 else if (uobject is UnityComponent)
                     throw new ArgumentException("Object must be a GameObject, Prefab, or Asset", nameof(uobject));
 
-                var entity = m_DstManager.CreateEntity(m_Archetypes[flags]);
-
+                m_DstManager.CreateEntity(m_Archetypes[flags], outEntities);
                 if ((flags & k_EntityGUIDMask) != 0)
-                    m_DstManager.SetComponentData(entity, uobject.ComputeEntityGuid(m_Settings.NamespaceID, serial));
+                {
+                    for (int i = 0; i < outEntities.Length; i++)
+                        m_DstManager.SetComponentData(outEntities[i], uobject.ComputeEntityGuid(Settings.NamespaceID, serial + i));
+                }
 
-                if (m_Settings.SceneGUID != default)
+                if (Settings.SceneGUID != default)
                 {
                     int sectionIndex = 0;
                     if (go != null)
@@ -218,16 +239,19 @@ namespace Unity.Entities.Conversion
 
                     //@TODO: add an `else` that figures out what referenced this thing, because this is a dependency.
                     // probably easiest to determine after everything has been converted by simply analyzing entity references. -joe
-
-                    m_DstManager.AddSharedComponentData(entity, new SceneSection { SceneGUID = m_Settings.SceneGUID, Section = sectionIndex });
+                    for (int i = 0; i < outEntities.Length; i++)
+                    {
+                        m_DstManager.AddSharedComponentData(outEntities[i], new SceneSection { SceneGUID = Settings.SceneGUID, Section = sectionIndex });
+                    }
                 }
 
-                #if UNITY_EDITOR
+#if UNITY_EDITOR
                 if (AssignName)
-                    m_DstManager.SetName(entity, uobject.name);
-                #endif
-
-                return entity;
+                {
+                    for (int i = 0; i < outEntities.Length; i++)
+                        m_DstManager.SetName(outEntities[i], uobject.name);
+                }
+#endif
             }
         }
 
@@ -289,21 +313,21 @@ namespace Unity.Entities.Conversion
 #if UNITY_EDITOR
         public T GetBuildConfigurationComponent<T>() where T : Build.IBuildComponent
         {
-            if (m_Settings.BuildConfiguration == null)
+            if (Settings.BuildConfiguration == null)
             {
                 return default;
             }
-            return m_Settings.BuildConfiguration.GetComponent<T>();
+            return Settings.BuildConfiguration.GetComponent<T>();
         }
 
         public bool TryGetBuildConfigurationComponent<T>(out T component) where T : Build.IBuildComponent
         {
-            if (m_Settings.BuildConfiguration == null)
+            if (Settings.BuildConfiguration == null)
             {
                 component = default;
                 return false;
             }
-            return m_Settings.BuildConfiguration.TryGetComponent(out component);
+            return Settings.BuildConfiguration.TryGetComponent(out component);
         }
 
         /// <summary>
@@ -425,9 +449,34 @@ namespace Unity.Entities.Conversion
             }
         }
 
+        private UnsafeList<int> m_EntityIdsChached;
+        public unsafe void CreateAdditionalEntities(UnityObject uobject, NativeArray<Entity> outEntities)
+        {
+            #if DETAIL_MARKERS
+            using (m_CreateAdditional.Auto())
+            #endif
+            {
+                if (uobject == null)
+                    throw new ArgumentNullException(nameof(uobject), $"{nameof(CreateAdditionalEntity)} must be called with a valid UnityEngine.Object");
+                if (!m_EntityIdsChached.IsCreated)
+                    m_EntityIdsChached = new UnsafeList<int>(outEntities.Length, Allocator.Persistent);
+                else
+                    m_EntityIdsChached.Resize(outEntities.Length);
+
+                int* ids = m_EntityIdsChached.Ptr;
+                int serial = m_JournalData.ReserveAdditionalEntities(uobject.GetInstanceID(), ids, outEntities.Length);
+                if (serial == 0)
+                    throw new ArgumentException(MakeUnknownObjectMessage(uobject), nameof(uobject));
+
+                CreateDstEntity(uobject, outEntities, serial);
+                for (int i = 0; i < outEntities.Length; i++)
+                    m_JournalData.RecordAdditionalEntityAt(ids[i], outEntities[i]);
+            }
+        }
+
         public void PrepareIncrementalConversion(IEnumerable<GameObject> gameObjects, ConversionFlags flags)
         {
-            if (m_Settings.ConversionFlags != flags)
+            if (Settings.ConversionFlags != flags)
                 throw new ArgumentException("Conversion flags don't match");
 
             if (!IsLiveLink)
@@ -546,8 +595,8 @@ namespace Unity.Entities.Conversion
             #if UNITY_EDITOR
             //@TODO: Dont apply to prefabs (runtime instances should just be pickable by the scene ... Custom one should probably have a special culling mask though?)
 
-            bool liveLinkScene = (m_Settings.ConversionFlags & ConversionFlags.SceneViewLiveLink) != 0;
-            //bool liveLinkGameView = (m_Settings.ConversionFlags & ConversionFlags.GameViewLiveLink) != 0;
+            bool liveLinkScene = (Settings.ConversionFlags & ConversionFlags.SceneViewLiveLink) != 0;
+            //bool liveLinkGameView = (Settings.ConversionFlags & ConversionFlags.GameViewLiveLink) != 0;
 
             // NOTE: When no live link is present all entities will simply be batched together for the whole scene
 
@@ -638,11 +687,11 @@ namespace Unity.Entities.Conversion
             if (!asset.IsAsset())
                 throw new ArgumentException("Object is not an Asset", nameof(asset));
 
-            return m_Settings.GetGuidForAssetExport(asset);
+            return Settings.GetGuidForAssetExport(asset);
         }
 
         public Stream TryCreateAssetExportWriter(UnityObject asset)
-            => m_Settings.TryCreateAssetExportWriter(asset);
+            => Settings.TryCreateAssetExportWriter(asset);
 
         public void GenerateLinkedEntityGroups()
         {
@@ -766,7 +815,7 @@ namespace Unity.Entities.Conversion
 
         public void AddHybridComponent(UnityComponent component)
         {
-            //@TODO exception if converting SubScene or doing incremental conversion (requires a conversion flag for SubScene conversion on m_Settings.ConversionFlags)
+            //@TODO exception if converting SubScene or doing incremental conversion (requires a conversion flag for SubScene conversion on Settings.ConversionFlags)
             var type = component.GetType();
 
             if (component.GetComponents(type).Length > 1)
@@ -802,6 +851,8 @@ namespace Unity.Entities.Conversion
 
                     foreach (var component in gameObject.GetComponents<UnityComponent>())
                     {
+                        if (component == null)
+                            continue;
                         var type = component.GetType();
                         if (!components.Contains(type))
                         {
@@ -840,7 +891,7 @@ namespace Unity.Entities.Conversion
 
         #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
-        public BlobAssetStore GetBlobAssetStore() => m_Settings.BlobAssetStore;
+        public BlobAssetStore GetBlobAssetStore() => Settings.BlobAssetStore;
     }
 }
 

@@ -67,7 +67,7 @@ namespace Unity.Entities.Tests
 #if !UNITY_PORTABLE_TEST_RUNNER
         // https://unity3d.atlassian.net/browse/DOTSR-1432
         // TODO: IL2CPP_TEST_RUNNER doesn't support the Assert.That / Has behavior
-
+        //        LINQ code is unsupported as well.
         [Test]
         public void DuplicatingEntity_WhenPrototypeHasDynamicBuffer_DoesNotWriteOutOfBounds()
         {

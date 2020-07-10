@@ -31,13 +31,13 @@ namespace Doc.CodeSamples.Tests
         [BurstCompile]
         struct ChunkComponentCheckerJob : IJobChunk
         {
-            public ArchetypeChunkComponentType<ChunkComponentA> ChunkComponentATypeInfo;
+            public ComponentTypeHandle<ChunkComponentA> ChunkComponentATypeHandle;
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                var compValue = chunk.GetChunkComponentData(ChunkComponentATypeInfo);
+                var compValue = chunk.GetChunkComponentData(ChunkComponentATypeHandle);
                 //...
                 var squared = compValue.Value * compValue.Value;
-                chunk.SetChunkComponentData(ChunkComponentATypeInfo,
+                chunk.SetChunkComponentData(ChunkComponentATypeHandle,
                     new ChunkComponentA() { Value = squared });
             }
         }
@@ -46,7 +46,7 @@ namespace Doc.CodeSamples.Tests
         {
             var job = new ChunkComponentCheckerJob()
             {
-                ChunkComponentATypeInfo = GetArchetypeChunkComponentType<ChunkComponentA>()
+                ChunkComponentATypeHandle = GetComponentTypeHandle<ChunkComponentA>()
             };
             this.Dependency = job.Schedule(ChunksWithChunkComponentA, this.Dependency);
         }
@@ -96,24 +96,24 @@ namespace Doc.CodeSamples.Tests
         [BurstCompile]
         struct AABBJob : IJobChunk
         {
-            [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> LocalToWorldTypeInfo;
-            public ArchetypeChunkComponentType<ChunkAABB> ChunkAABBTypeInfo;
+            [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandleInfo;
+            public ComponentTypeHandle<ChunkAABB> ChunkAabbTypeHandleInfo;
             public uint L2WChangeVersion;
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                bool chunkHasChanges = chunk.DidChange(LocalToWorldTypeInfo, L2WChangeVersion);
+                bool chunkHasChanges = chunk.DidChange(LocalToWorldTypeHandleInfo, L2WChangeVersion);
 
                 if (!chunkHasChanges)
                     return; // early out if the chunk transforms haven't changed
 
-                NativeArray<LocalToWorld> transforms = chunk.GetNativeArray<LocalToWorld>(LocalToWorldTypeInfo);
+                NativeArray<LocalToWorld> transforms = chunk.GetNativeArray<LocalToWorld>(LocalToWorldTypeHandleInfo);
                 UnityEngine.Bounds bounds = new UnityEngine.Bounds();
                 bounds.center = transforms[0].Position;
                 for (int i = 1; i < transforms.Length; i++)
                 {
                     bounds.Encapsulate(transforms[i].Position);
                 }
-                chunk.SetChunkComponentData(ChunkAABBTypeInfo, new ChunkAABB() { Value = bounds.ToAABB() });
+                chunk.SetChunkComponentData(ChunkAabbTypeHandleInfo, new ChunkAABB() { Value = bounds.ToAABB() });
             }
         }
 
@@ -121,8 +121,8 @@ namespace Doc.CodeSamples.Tests
         {
             var job = new AABBJob()
             {
-                LocalToWorldTypeInfo = GetArchetypeChunkComponentType<LocalToWorld>(true),
-                ChunkAABBTypeInfo = GetArchetypeChunkComponentType<ChunkAABB>(false),
+                LocalToWorldTypeHandleInfo = GetComponentTypeHandle<LocalToWorld>(true),
+                ChunkAabbTypeHandleInfo = GetComponentTypeHandle<ChunkAABB>(false),
                 L2WChangeVersion = this.LastSystemVersion
             };
             this.Dependency = job.Schedule(queryWithChunkComponent, this.Dependency);

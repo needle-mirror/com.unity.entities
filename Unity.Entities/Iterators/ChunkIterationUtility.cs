@@ -12,18 +12,9 @@ namespace Unity.Entities
     ///     Enables iteration over chunks belonging to a set of archetypes.
     /// </summary>
     [BurstCompile]
-    internal unsafe struct ChunkIterationUtility
+    [GenerateBurstMonoInterop("ChunkIterationUtility")]
+    internal unsafe partial struct ChunkIterationUtility
     {
-        public delegate int ChunkIterationCalculation(in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter);
-
-#if NET_DOTS
-        public readonly static ChunkIterationCalculation CalculateEntityCount = CalculateEntityCountExecute;
-        public readonly static ChunkIterationCalculation CalculateChunkCount = CalculateChunkCountExecute;
-#else
-        public readonly static ChunkIterationCalculation CalculateEntityCount = BurstCompiler.CompileFunctionPointer<ChunkIterationCalculation>(CalculateEntityCountExecute).Invoke;
-        public readonly static ChunkIterationCalculation CalculateChunkCount = BurstCompiler.CompileFunctionPointer<ChunkIterationCalculation>(CalculateChunkCountExecute).Invoke;
-#endif
-
         /// <summary>
         /// Creates a NativeArray with all the chunks in a given archetype filtered by the provided EntityQueryFilter.
         /// This function will not sync the needed types in the EntityQueryFilter so they have to be synced manually before calling this function.
@@ -132,7 +123,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
         /// <param name="allocator">Allocator to use for the array.</param>
-        /// <param name="type">An atomic safety handle required by GatherEntitiesJob so it can call GetNativeArray() on chunks.</param>
+        /// <param name="typeHandle">An atomic safety handle required by GatherEntitiesJob so it can call GetNativeArray() on chunks.</param>
         /// <param name="entityQuery">EntityQuery to gather entities from.</param>
         /// <param name="filter">EntityQueryFilter for calculating the length of the output array.</param>
         /// <param name="jobHandle">Handle to the GatherEntitiesJob job used to fill the output array.</param>
@@ -140,17 +131,17 @@ namespace Unity.Entities
         /// <returns>NativeArray of the entities in a given EntityQuery.</returns>
         public static NativeArray<Entity> CreateEntityArray(UnsafeMatchingArchetypePtrList matchingArchetypes,
             Allocator allocator,
-            ArchetypeChunkEntityType type,
+            EntityTypeHandle typeHandle,
             EntityQuery entityQuery,
             ref EntityQueryFilter filter,
             out JobHandle jobHandle,
             JobHandle dependsOn)
         {
-            var entityCount = CalculateEntityCount(in matchingArchetypes, ref filter);
+            var entityCount = CalculateEntityCount(ref matchingArchetypes, ref filter);
 
             var job = new GatherEntitiesJob
             {
-                EntityType = type,
+                EntityTypeHandle = typeHandle,
                 Entities = new NativeArray<Entity>(entityCount, allocator)
             };
             jobHandle = job.Schedule(entityQuery, dependsOn);
@@ -160,20 +151,20 @@ namespace Unity.Entities
 
         public static NativeArray<T> CreateComponentDataArray<T>(UnsafeMatchingArchetypePtrList matchingArchetypes,
             Allocator allocator,
-            ArchetypeChunkComponentType<T> type,
+            ComponentTypeHandle<T> typeHandle,
             EntityQuery entityQuery,
             ref EntityQueryFilter filter,
             out JobHandle jobHandle,
             JobHandle dependsOn)
             where T : struct, IComponentData
         {
-            var entityCount = CalculateEntityCount(in matchingArchetypes, ref filter);
+            var entityCount = CalculateEntityCount(ref matchingArchetypes, ref filter);
             var componentData = new NativeArray<T>(entityCount, allocator);
 
             var job = new GatherComponentDataJob
             {
                 ComponentData = (byte*)componentData.GetUnsafePtr(),
-                TypeIndex = type.m_TypeIndex
+                TypeIndex = typeHandle.m_TypeIndex
             };
             jobHandle = job.Schedule(entityQuery, dependsOn);
 
@@ -208,7 +199,7 @@ namespace Unity.Entities
                 }
 
                 var chunkCount = archetype->Chunks.Count;
-                var chunks = archetype->Chunks.p;
+                var chunks = archetype->Chunks;
                 var counts = archetype->Chunks.GetChunkEntityCountArray();
 
                 for (int i = 0; i < chunkCount; ++i)
@@ -257,7 +248,7 @@ namespace Unity.Entities
 
         public static void CopyFromComponentDataArray<T>(UnsafeMatchingArchetypePtrList matchingArchetypes,
             NativeArray<T> componentDataArray,
-            ArchetypeChunkComponentType<T> type,
+            ComponentTypeHandle<T> typeHandle,
             EntityQuery entityQuery,
             ref EntityQueryFilter filter,
             out JobHandle jobHandle,
@@ -267,7 +258,7 @@ namespace Unity.Entities
             var job = new CopyComponentArrayToChunks
             {
                 ComponentData = (byte*)componentDataArray.GetUnsafePtr(),
-                TypeIndex = type.m_TypeIndex
+                TypeIndex = typeHandle.m_TypeIndex
             };
             jobHandle = job.Schedule(entityQuery, dependsOn);
         }
@@ -278,9 +269,8 @@ namespace Unity.Entities
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
         /// <param name="filter">EntityQueryFilter to use when calculating total number of entities.</param>
         /// <returns>Number of entities</returns>
-        [BurstCompile]
-        [MonoPInvokeCallback(typeof(ChunkIterationCalculation))]
-        private static int CalculateEntityCountExecute(in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
+        [BurstMonoInteropMethod(MakePublic = true)]
+        private static int _CalculateEntityCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
             var length = 0;
             if (!filter.RequiresMatchesFilter)
@@ -317,14 +307,14 @@ namespace Unity.Entities
             return length;
         }
 
+
         /// <summary>
         ///     Total number of chunks in a given MatchingArchetype list.
         /// </summary>
         /// <param name="matchingArchetypes">List of matching archetypes.</param>
         /// <returns>Number of chunks in a list of archetypes.</returns>
-        [BurstCompile]
-        [MonoPInvokeCallback(typeof(ChunkIterationCalculation))]
-        private static int CalculateChunkCountExecute(in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
+        [BurstMonoInteropMethod(MakePublic = true)]
+        static int _CalculateChunkCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
             var totalChunkCount = 0;
 
@@ -369,7 +359,7 @@ namespace Unity.Entities
 
             byte* ptr = (!isWriting)
                 ? ChunkDataUtility.GetComponentDataRO(chunk, 0, typeIndexInArchetype)
-                : ChunkDataUtility.GetComponentDataRW(chunk, 0, typeIndexInArchetype);
+                : ChunkDataUtility.GetComponentDataRW(chunk, 0, typeIndexInArchetype, systemVersion);
 
             var length = chunk->Count;
             int stride = archetype->SizeOfs[typeIndexInArchetype];
@@ -382,10 +372,9 @@ namespace Unity.Entities
 
         internal static void* GetChunkComponentDataPtr(Chunk* chunk, bool isWriting, int indexInArchetype, uint systemVersion)
         {
-            var archetype = chunk->Archetype;
             byte* ptr = (!isWriting)
                 ? ChunkDataUtility.GetComponentDataRO(chunk, 0, indexInArchetype)
-                : ChunkDataUtility.GetComponentDataRW(chunk, 0, indexInArchetype);
+                : ChunkDataUtility.GetComponentDataRW(chunk, 0, indexInArchetype, systemVersion);
             return ptr;
         }
 
@@ -395,7 +384,7 @@ namespace Unity.Entities
             return chunk->Buffer + archetype->Offsets[indexInArchetype];
         }
 
-        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, UnsafeMatchingArchetypePtrList archetypes, EntityQueryFilter filter, JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData)
+        internal static JobHandle PreparePrefilteredChunkLists(int unfilteredChunkCount, UnsafeMatchingArchetypePtrList archetypes, EntityQueryFilter filter, JobHandle dependsOn, ScheduleMode mode, out NativeArray<byte> prefilterDataArray, out void* deferredCountData, out bool useFiltering)
         {
             // Allocate one buffer for all prefilter data and distribute it
             // We keep the full buffer as a "dummy array" so we can deallocate it later with [DeallocateOnJobCompletion]
@@ -421,10 +410,11 @@ namespace Unity.Entities
                     PrefilterData = prefilterData,
                     UnfilteredChunkCount = unfilteredChunkCount
                 };
-                if (mode == ScheduleMode.Batched)
+                if (mode != ScheduleMode.Run)
                     prefilterHandle = prefilteringJob.Schedule(dependsOn);
                 else
                     prefilteringJob.Run();
+                useFiltering = true;
             }
             else
             {
@@ -435,10 +425,11 @@ namespace Unity.Entities
                     UnfilteredChunkCount = unfilteredChunkCount,
                     entityComponentStore = archetypes.entityComponentStore
                 };
-                if (mode == ScheduleMode.Batched)
+                if (mode != ScheduleMode.Run)
                     prefilterHandle = gatherJob.Schedule(dependsOn);
                 else
                     gatherJob.Run();
+                useFiltering = false;
             }
 
             // ScheduleParallelForDeferArraySize expects a ptr to a structure with a void* and a count.
@@ -451,7 +442,7 @@ namespace Unity.Entities
 
         internal static void UnpackPrefilterData(NativeArray<byte> prefilterData, out ArchetypeChunk* chunks, out int* entityOffsets, out int filteredChunkCount)
         {
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
             // TODO should be GetUnsafePtr(). Working around a bug in the (DOTS-Runtime) safety checks.
             // https://unity3d.atlassian.net/browse/DOTSR-927
             chunks = (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(prefilterData);
@@ -459,7 +450,7 @@ namespace Unity.Entities
             chunks = (ArchetypeChunk*)prefilterData.GetUnsafePtr();
 #endif
 
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
             // TODO should be GetUnsafePtr(). Working around a bug in the (DOTS-Runtime) safety checks.
             // https://unity3d.atlassian.net/browse/DOTSR-927
             filteredChunkCount = *(int*)((byte*)NativeArrayUnsafeUtility.GetUnsafeBufferPointerWithoutChecks(prefilterData) + prefilterData.Length - sizeof(int));

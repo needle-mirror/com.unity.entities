@@ -1,20 +1,24 @@
 using System;
-using System.Threading;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
 
 namespace Unity.Entities
 {
+    struct BlobAssetPtrHashComparer : IComparer<BlobAssetPtr>
+    {
+        public int Compare(BlobAssetPtr x, BlobAssetPtr y) => x.Hash.CompareTo(y.Hash);
+    }
+
     unsafe struct BlobAssetCache : IDisposable
     {
-        public NativeHashMap<BlobAssetReferencePtr, BlobAssetPtr> BlobAssetRemap;
+        public NativeHashMap<BlobAssetPtr, BlobAssetPtr> BlobAssetRemap;
         public DynamicBlobAssetBatch* BlobAssetBatch;
 
         public BlobAssetCache(Allocator allocator)
         {
             BlobAssetBatch = DynamicBlobAssetBatch.Allocate(allocator);
-            BlobAssetRemap = new NativeHashMap<BlobAssetReferencePtr, BlobAssetPtr>(1, allocator);
+            BlobAssetRemap = new NativeHashMap<BlobAssetPtr, BlobAssetPtr>(1, allocator);
         }
 
         public void Dispose()
@@ -22,43 +26,6 @@ namespace Unity.Entities
             DynamicBlobAssetBatch.Free(BlobAssetBatch);
             BlobAssetRemap.Dispose();
             BlobAssetBatch = null;
-        }
-    }
-
-    readonly unsafe struct BlobAssetReferencePtr : IEquatable<BlobAssetReferencePtr>
-    {
-        public readonly void* Data;
-        public BlobAssetReferencePtr(void* data) => Data = data;
-        public bool Equals(BlobAssetReferencePtr other) => Data == other.Data;
-        public override bool Equals(object obj) => obj is BlobAssetPtr other && Equals(other);
-        public static bool operator==(BlobAssetReferencePtr left, BlobAssetReferencePtr right) => left.Equals(right);
-        public static bool operator!=(BlobAssetReferencePtr left, BlobAssetReferencePtr right) => !left.Equals(right);
-
-        public override int GetHashCode()
-        {
-            var onStack = Data;
-            return (int)math.hash(&onStack, sizeof(BlobAssetReferencePtr*));
-        }
-    }
-
-    readonly unsafe struct BlobAssetPtr : IEquatable<BlobAssetPtr>, IComparable<BlobAssetPtr>
-    {
-        public readonly BlobAssetHeader* Header;
-        public void* Data => Header + 1;
-        public int Length => Header->Length;
-        public ulong Hash => Header->Hash;
-
-        public BlobAssetPtr(BlobAssetHeader* header) => Header = header;
-        public bool Equals(BlobAssetPtr other) => Hash == other.Hash;
-        public override bool Equals(object obj) => obj is BlobAssetPtr other && Equals(other);
-        public static bool operator==(BlobAssetPtr left, BlobAssetPtr right) => left.Equals(right);
-        public static bool operator!=(BlobAssetPtr left, BlobAssetPtr right) => !left.Equals(right);
-        public int CompareTo(BlobAssetPtr other) => Header->Hash.CompareTo(other.Header->Hash);
-
-        public override int GetHashCode()
-        {
-            var onStack = Header;
-            return (int)math.hash(&onStack, sizeof(BlobAssetHeader*));
         }
     }
 
@@ -117,7 +84,7 @@ namespace Unity.Entities
             return new BlobAssetPtr(blobAssetHeader);
         }
 
-        public void Sort() => NativeSortExtension.Sort((BlobAssetPtr*)m_BlobAssets->Ptr, m_BlobAssets->Length);
+        public void SortByHash() => NativeSortExtension.Sort((BlobAssetPtr*)m_BlobAssets->Ptr, m_BlobAssets->Length, new BlobAssetPtrHashComparer());
 
         public bool TryGetBlobAsset(ulong hash, out BlobAssetPtr blobAssetPtr)
         {

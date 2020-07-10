@@ -1,32 +1,135 @@
-# Change log
+## [0.13.0] - 2020-07-10
 
-## [0.11.1] - 2020-06-09
-
-### Fixed
-
-* Prevented remapping of hybrid components during deserialization which caused IL2CPP builds to fail on a missing property bags.
-* Fixed exceptions being thrown when inspecting an entity with a GameObject added through `EntityManager.AddComponentObject`
-* Fixed load order of JobReflection static methods which were causing `InvalidOperationException: Reflection data was not set up by code generation` exceptions in player builds.
+### Added
+* Added new `EntityCommandBuffer` methods: `AddComponent(Entity, ComponentTypes)` and `AddComponent(EntityQuery, ComponentTypes)`. These add multiple components in one call. **Note:** `EntityManager` has an equivalent of the first and will get an equivalent of the second in a later release.
+* Added new `EntityCommandBuffer` methods: `RemoveComponent(Entity, ComponentTypes)` and `RemoveComponent(EntityQuery, ComponentTypes)`. These remove multiple components in one call. **Note:** `EntityManager` will get equivalents in a future release.
+* Added new `IJobEntityBatchWithIndex` job interface. This is a variant of `IJobEntityBatch` and provides an additional `indexOfFirstEntityInQuery` parameter, which provides a per-batch index that is the aggregate of all previous batch counts.
+* Added `MaximumDeltaTime` property to `FixedStepSimulationSystemGroup`, used similarly to `UnityEngine.Time.maximumDeltaTime` to control how gradually the application should recover from large transient frame time spikes.
+* Added new player loop management functions to the `ScriptBehaviourUpdateOrder` class:
+  * `AppendSystemToPlayerLoopList()`: adds a single ECS system to a specific point in the Unity player loop.
+  * `AddWorldToPlayerLoop()`: adds the three standard top-level system groups to their standard player loop locations.
+  * `IsWorldInPlayerLoop(World, PlayerLoopSystem)`: searches the provided player loop for any systems owned by the provided World.
+  * `RemoveWorldFromPlayerLoop()`: removes all systems owned by a World from the provided player loop.
+  * `AddWorldToCurrentPlayerLoop()`, `IsWorldInCurrentPlayerLoop()`, and `RemoveWorldFromCurrentPlayerLoop()`: wrappers around the above functions that operate directly on the currently active player loop.
 
 ### Changed
 
-* An exception is now thrown during serialization if a shared component containing entity references is encountered.
+* Updated minimum Unity Editor version to 2020.1.0b15 (40d9420e7de8)
+* Changed the Profiler markers for `EntityCommandBuffer.Playback` from `EntityCommandBufferSystem`s to include the name of the system that recorded the `EntityCommandBuffer`.
+* Bumped burst to 1.3.2 version.
+* Changed the EntityQuery commands for `AddComponent`, `RemoveComponent`, and `DestroyEntity` in the EntityCommandBuffer to use Burst during Playback.
+* Optimized `IJobChunk` and `Entities.ForEach` `ScheduleParallel` when there is no EntityQuery filtering necessary (shared component or change filtering).
+* Changed `TypeManager.GetSystems()` to return an `IReadOnlyList<Type>` rather than a `List<Type>`
+* Updated package `com.unity.platforms` to version `0.6.0-preview.1`.
+* Changed `EntityContainer` to write data back to the entity.
+* Updated package `com.unity.properties` and `com.unity.serialization` to version `1.3.1-preview`.
+
+### Fixed
+
+* Fixed an issue where a warning was treated as an error when `Entities.ForEach` passed a component type as value.
+* Fixed paths displayed in IL post-processing error messages to be more consistent with Unity error messages.
+* Fixed an issue where an exceptions was thrown when inspecting an entity with a GameObject added through `EntityManager.AddComponentObject`.
+* Fixed a `DCICE002` error that was thrown during IL post-processing when `Entities.ForEach` contained multiple Entities.ForEach in the same scope capturing multiple variables.
+* Fixed an issue where `EntityManager`'s `AddComponent()`, `RemoveComponent()`, and `CopyEntitiesFrom()` methods threw an error if their input was a `NativeArray<Entity>` allocated with `Allocator.Temp` whose length is more than 10 elements.
+* An error is thrown when Entities.ForEach has an argument that is a generic DynamicBuffer.
+* Fixed an issue where re-adding a system to a `ComponentSystemGroup` immediately after removing it from the group did not work correctly.
+* `ComponentSystemGroup.Remove()` is now ignored if the target system is already queued for removal, or if it isn't in the group's update list in the first place.
+* Fixed an issue where IL post-processing warnings were emitted with "error" title.
+* Fixed "Invalid IL" error when try/finally block happened in the `Entities.ForEach` lambda body or cloned method. This usually happened with `using` or `foreach` and `WithoutBurst`.
+* Fixed an `Unexpected error` when `Job.WithCode` was used with `WithStructuralChanges`. This now throws an error.
+* Fixed a bug where `Unity.Scenes.EntityScenesPaths.GetTempCachePath()` returned invalid strings.
+
+### Deprecated
+* `ScriptBehaviourUpdateOrder.UpdatePlayerLoop()` is being deprecated in favor of `ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop()`. Due to slightly different semantics, a direct automated API update is not possible: the new function always takes a `PlayerLoopSystem` object to modify, does not call `UnityEngine.LowLevel.PlayerLoop.SetPlayerLoop()`, and does not create the top-level system groups if they don't exist.
+* `ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(World)` is being deprecated in favor of `ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(World)`.
+
 
 ### Removed
-
-* Removed expired API `World.AllWorlds`.
-* Removed expired API `EntityComponentStore.CreateChunks(Archetype*, ArchetypeChunk*, int, int)`.
-* Removed expired API `EntityManager.CreateChunk(EntityArchetype, NativeArray<ArchetypeChunk>, int)`.
-* Removed expired API `EntityManager.LockChunk(ArchetypeChunk)`.
-* Removed expired API `EntityManager.LockChunk(NativeArray<ArchetypeChunk>)`.
-* Removed expired API `EntityManager.UnlockChunk(ArchetypeChunk)`.
-* Removed expired API `ArchetypeChunk.Locked()`.
-* Removed expired API `struct NativeArraySharedValues<S>`.
+* Removed obsolete `ScriptBehaviourUpdateOrder.CurrentPlayerLoop`. Use `UnityEngine.LowLevel.PlayerLoop.GetCurrentPlayerLoop()` instead.
+* Removed obsolete `ScriptBehaviourUpdateOrder.SetPlayerLoop()`. Use `UnityEngine.LowLevel.PlayerLoop.SetPlayerLoop()` instead.
 
 
-## [0.11.0] - 2020-05-25
+### Known Issues
 
-**This version requires Unity 2019.3.12f1+**
+* This version is not compatible with 2020.2.0a17. Please update to the forthcoming alpha.
+
+## [0.12.0] - 2020-05-27
+
+### Added
+* Added `BufferFromEntity.DidChange()`, with the same semantics as the existing `ComponentDataFromEntity.DidChange()`.
+* Added `BufferFromEntity.HasComponent()`, with the same meaning as the existing `.Exists()` call (which is now deprecated).
+* Added `WorldSystemFilterFlags.All` flag to include allow calls to `TypeManager.GetSystems()` to return all systems available to the runtime including systems decorated with [DisableAutoCreation].
+* Added `DynamicBuffer.RemoveAtSwapBack()` and `DynamicBuffer.RemoveRangeSwapBack()`
+* Added `Entities.WithDisposeOnCompletion` to correctly Dispose of types after running an `Entities.ForEach`.
+* Added `SystemBase.GetBuffer/GetBufferFromEntity` that are patched so that they can be used inside of `Entities.ForEach`.
+* Added BlobAllocator.SetPointer to allow having a blob pointer to an object which already exists in the blob. This can be used for example to reference a parent node in a tree.
+* Added `GameObjectConversionSystem.CreateAdditionalEntity` overload that allows to create multiple new entities at once.
+* Added a new `FixedStepSimulationSystemGroup`. Systems in this group update with a fixed timestep (60Hz by default), potentially running zero or several times per frame to "catch up" to the actual elapsed time. See the `FixedTimestepSystemUpdate` sample scene for an example of how to use this system group.
+
+### Changed
+* Updated minimum Unity Editor version to 2020.1.0b9 (9c0aec301c8d)
+* `World.Dispose()` now destroys all the world's systems before removing the `World` from the "all worlds" list.
+* Extended `TypeManager.GetSystems()` to support getting systems filtered by any and/or all `WorldSystemFilterFlags`.
+* Updated package `com.unity.platforms` to version `0.4.0-preview.5`.
+* Updated package `com.unity.burst` to version `1.3.0-preview.12`.
+* `Unity.Entities.DefaultWorldInitialization` has been moved from the `Unity.Entities.Hybrid` assembly into the `Unity.Entities` assembly.
+* `Unity.Entities.DefaultWorldInitialization.Initialize()` now returns the initialized `World.DefaultGameObjectInjectionWorld` object.
+* `ArchetypeChunkComponentType` has been renamed to `ComponentTypeHandle`
+* `ArchetypeChunkComponentTypeDynamic` has been renamed to `DynamicComponentTypeHandle`
+* `ArchetypeChunkBufferType` has been renamed to `BufferTypeHandle`
+* `ArchetypeChunkSharedComponentType` has been renamed to `SharedComponentTypeHandle`
+* `ArchetypeChunkEntityType` has been renamed to `EntityTypeHandle`
+* `ArchetypeChunkComponentObjects` has been renamed to `ManagedComponentAccessor`
+* `Unity.Entities.EditorRenderData` has been moved from the `Unity.Entities.Hybrid` assembly to the `Unity.Entities` assembly.
+* `Unity.Scenes.Hybrid` has been renamed to `Unity.Scenes`. Any asmdefs referring to the old assembly name must be updated. The ScriptUpgrader will take care of updating `using` namespace imports.
+* `Unity.Entities.SceneBoundingVolume` has moved from the `Unity.Entities.Hybrid` assembly to the `Unity.Scenes` assembly and `Unity.Scenes` namespace. Any asmdefs referring to the old assembly name must be updated. The ScriptUpgrader will take care of updating `using` namespace imports.
+* `EntityCommandBuffer.Concurrent` has been renamed to `EntityCommandBuffer.ParallelWriter`.
+* `EntityCommandBuffer.ToConcurrent()` has been renamed to `EntityCommandBuffer.AsParallelWriter()` and now returns `EntityCommandBuffer.ParallelWriter` (renamed from `Concurrent`).
+* Duplicate query parameters (from `WithAll` and lambda parameters) are now allowed in `Entities.ForEach` (they are now sanitized for the user).
+* If a change filter is used in `Entities.ForEach` with `WithChangeFilter`, the component type will automatically get added to the query.
+* Add additional warnings around conflicting use of `WithNone`, `WithAll`, `WithAny` and lambda parameters in `Entities.ForEach`.
+* Warn if a user passes a struct component parameter by value to their lambda in `Entities.ForEach` (since changes won't be reflected back to the underlying component).
+* An exception is now thrown during serialization if a shared component containing entity references is encountered.
+* EntityScene generation (Happening in a background process) is now integrated with the async progress bar to indicate when entity data is being generated. The code that tracks dependencies for entity scenes, determines when to regenerated them in the editor is significantly cheaper now.
+* When safety checks are enabled `EntityManager.AddComponent(NativeArray<Entity>, ComponentType)` now throws `ArgumentException` instead of `InvalidOperationException` when any of the entities are invalid
+* `FixedRateUtils` timesteps outside the range 0.0001 to 10.0f are now clamped, for consistency with `UnityEngine.Time.fixedDeltaTime`.
+* Added `[NoAlias]` attributes to the `DynamicBuffer` native container to explain its aliasing to Burst.
+* Updated package `com.unity.properties` to version `1.3.0-preview`.
+* Updated package `com.unity.serialization` to version `1.3.0-preview`.
+
+### Deprecated
+
+* Deprecated `WithDeallocateOnJobCompletion` for `Entities.ForEach`; Use `WithDisposeOnCompletion` instead.
+* Deprecated `ComponentDataFromEntity.Exists()`; Use `.HasComponent()` instead.
+* Deprecated `BufferFromEntity.Exists()`; Use `.HasComponent()` instead.
+
+### Fixed
+* Fixed data corruption bug in Entities.WithStructuralChange().ForEach() when components on entities that are about to be processed get removed before we process the entity.
+* `EntityManager.SetName` now causes less GC memory allocations
+* `Entities.WithDeallocateOnJobCompletion()` now correctly deallocates data at the end instead of after the first chunk when used with `Run()` (Note that Entities.WithDeallocateOnJobCompletion() has been deprecated in favor of Entities.WithDisposeOnCompletion().)
+* `Entities.WithDeallocateOnJobCompletion()` now deallocates data when used with `WithStructuralChanges()` (Note that Entities.WithDeallocateOnJobCompletion() has been deprecated in favor of Entities.WithDisposeOnCompletion().)
+* Creating section section meta data during conversion will no longer trigger an invalid warning about missing SceneSection components
+* Fixed a crash that could happen when calling `EntityDataAccess.PlaybackManagedChanges` from bursted code after a domain reload
+* Fixed compilation issue when compiling multiple `Entities.ForEach` in the same method that use captured variables from different scopes.
+* Fix to unexpected error when using capturing Entities.ForEach inside a method with a generic argument (error now correctly indicates that it is not currently supported).
+* UnloadAllAssets will no longer unload assets referenced by shared or managed components.
+* Fixed load order of JobReflection static methods which were causing `InvalidOperationException: Reflection data was not set up by code generation` exceptions in player builds.
+* Beginning an exclusive entity transaction while another one is in progress now doesn't fail silently anymore but throws an exception
+* Fixed race condition in the Chunks component version
+* Shared component version is now always based off a global version. Thus Destroying all usage of a specific shared component and recreating it will now result in a changed version number.
+* The `Loading Entity Scene failed` message now contains more information for why the scene failed to load
+* `GameObjectEntityEditor` no longer throws exceptions when selecting a prefab
+* Components on GameObjects with invalid MonoBehaviours no longer cause exceptions when used as hybrid components
+* Deleting a GameObject with `ConvertToEntity` before converting it no longer throws an exception
+* Errors happening during scene streaming now contain the callstack
+* The `jobIndex` parameter passed to EntityCommandBuffer.ParallelWriter methods has been renamed to `sortKey` to better express its purpose. Its functionality is unchanged.
+* Invalid uses of the new `OrderFirst` and `OrderLast` fields in the `[UpdateInGroup]` attribute are now detected and reported. Some previous spurious warnings regarding these fields are now suppressed.
+* Greatly reduced the garbage generated by redrawing the chunk utilization histograms in the entity debugger
+* Improved performance of `EntityManager.AddComponent(NativeArray<Entity>, ComponentType)` when safety checks are enabled
+* `EntityManager.RemoveComponent(NativeArray<Entity>, ComponentType)` now always checks that the component can be removed, not just for the case of few entities
+* Fixed issues where `FixedRateUtils.FixedRateCatchUpManager` was occasionally not running its first update at elapsedTime = 0.0.
+
+## [0.11.0] - 2020-05-04
 
 ### Added
 
@@ -34,14 +137,14 @@
 
 ### Changed
 
-* Updated package `com.unity.burst` to version `1.3.0-preview.12`.
-* Improved `ComponentType.ToString` names in DOTS Runtime to provide the full type name when available, and if not, default to the StableTypeHash.
+* Updated package `com.unity.burst` to version `1.3.0-preview.11`
+* Improves `ComponentType.ToString` names in Dots Runtime to provide the full type name when available, and if not, defaults to the StableTypeHash.
 * `EntityManager.Version` and `EntityManager.GlobalSystemVersion` will throw if the manager is not valid instead of returning 0.
 
 ### Deprecated
 
-* Deprecated `EntityManager.IsCreated` which cannot be efficiently implemented with EntityManager as a struct. For the (hopefully rare) cases where you need to determine if an entity manager is still valid, use `World.IsCreated` instead as the world and entity manager are always created and destroyed in tandem.
-* Deprecated system sorting via virtual functions and direct modification of system list. There are now two new properties on the `UpdateInGroup` attribute: `OrderFirst` and `OrderLast`. Setting either of these properties to true groups the system together with others tagged in the same way. These systems sort in a subgroup by themselves. This change was made to enable Burst compatible systems in the future.
+* Deprecate system sorting via virtual functions and direct modification of system list. There are now two new properties on the `UpdateInGroup` attribute: `OrderFirst` and `OrderLast`. Setting either of these properties to true will group the system together with others tagged in the same way, and those systems will sort in a subgroup by themselves. This change was needed to enable Burst compatible systems in the future.
+* Deprecate `EntityManager.IsCreated` which cannot be efficiently implemented with EntityManager as a struct. For the (hopefully rare) cases where you need to determine if an entity manager is still valid, use `World.IsCreated` instead as the world and entity manager are always created and destroyed in tandem.
 
 ### Removed
 
@@ -49,27 +152,21 @@
 * Removed expired API `EntityQuery.ToEntityArray(Allocator, out JobHandle)`.
 * Removed expired API `EntityQuery.ToComponentDataArray<T>(Allocator, out JobHandle)`.
 * Removed expired API `EntityQuery.CopyFromComponentDataArray<T>(NativeArray<T>, out JobHandle)`.
-* Removed expired API `ArchetypeChunkArray.GetComponentVersion<T>(ArchetypeChunkSharedComponentType<T>)`.
-* Removed expired API `ArchetypeChunkArray.GetComponentVersion<T>(ArchetypeChunkBufferType<T>)`.
-* Removed expired API `ArchetypeChunkArray.GetComponentVersion<T>(ArchetypeChunkComponentType<T>)`.
-* Removed expired API `ScriptBehaviourUpdateOrder.CurrentPlayerLoop`.
-* Removed expired API `ScriptBehaviourUpdateOrder.SetPlayerLoop(PlayerLoopSystem)`.
-* Removed expired API `TypeInfoGeneration.CalculateMemoryOrderingAndStableHash(TypeDefinition, out ulong, out ulong)`.
 
 ### Fixed
 
-* Improved JobsDebugger errors involving the `EntityManager`.
-* Fixed a potential infinite loop in `FixedRateUtils.FixedRateCatchUpManager` if these callbacks were enabled on the first frame of execution.
+* Improved JobsDebugger errors invvolving the `EntityManager`. requires Unity 2020.1.0b5 or later
+* Fixed potential infinite loop in `FixedRateUtils.FixedRateCatchUpManager` if these callbacks were enabled on the first frame of execution.
 * When `FixedRateUtils.FixedRateCatchUpManager` or `FixedRateUtils.FixedRateSimpleManager` are enabled, the first update is now guaranteed to take place at elapsedTime = 0.0.
-* Asset dependencies registered via `GameObjectConversionSystem.DeclareAssetDependency` are now checked for validity, and  inbuilt assets are ignored
+* Asset dependencies registered via `GameObjectConversionSystem.DeclareAssetDependency` are now checked for validity, inbuilt assets are ignored
 * Improved performance of the `EntityPatcher` when applying changes to large amounts of entities
 * The script template for ECS systems now uses `SystemBase` instead of `JobComponentSystem`
-* Fixed an issue with instantiation of entities with multiple hybrid components which caused corruption of the managed store
-* Removed remapping of entity fields in hybrid components during instantiation
-* Fixed a crash that happened when trying to remap entity references within recursive types
-* Serialization now supports blob asset references in shared and managed components.
-* Fixed a bug with `EntityQuery.CopyFromComponentDataArray`, which caused it to behave like `ToComponentDataArray`
-* UnloadAllAssets will no longer unload assets referenced by shared or managed components.
+* Fixed instantiation of entities with multiple hybrid components causing corruption of the managed store.
+* Removed remapping of entity fields in hybrid components during instantiation (this wasn't supposed to happen).
+* Fix crash when trying to remap entity references within recursive types.
+* Serialization and LiveLink now supports blob asset references in shared components.
+* Serialization and LiveLink now supports blob asset references in managed components.
+* Fix bug with `EntityQuery.CopyFromComponentDataArray` causing it to behave like `ToComponentDataArray`
 
 ## [0.10.0] - 2020-04-28
 
@@ -85,6 +182,7 @@
 * Added missing profiler markers when running an `Entities.ForEach` directly with `.Run`.
 * Added support for storing metadata components in the header of converted subscenes. Components can be added to the section entities requested with `GameObjectConversionSystem.GetSceneSectionEntity`. The added components are serialized into the entities header and will be added to the section entities at runtime when the scene is resolved.
 * ResolvedSectionEntity buffer component is now public and can be used to access metadata components on a resolved scene entity.
+* Added 'Clear Entities Cache' window under the DOTS->Clear Entities Cache menu. By default, all caches are enabled for clearing. Clearing Live Link Player cache wipes the local player cache of a livelink build next time it connects to the editor. Clearing Entity Scene cache invalidates all Entity Scenes (SubScenes) causing them to reimport on next access. Clearing Live Link Assets cache, causing the next Live Link connection to reimport all on-demand live link assets.
 
 ### Changed
 
@@ -150,7 +248,6 @@
 * Fixed Entities.ForEach lambdas that call static methods as well as component access methods (`GetComponent/SetComponent/HasComponent`).
 * Remapping no longer incorrectly visits UnityEngine.Object types (i.e. assets).
 * Improved performance for managed object operations (Equality, Cloning and Remapping).
-
 
 ## [0.9.1] - 2020-04-15
 
@@ -304,6 +401,7 @@
 ### Security
 
 * Throw correct error message if accessing `ToComponentDataArrayAsync` `CopyFromComponentDataArray` or `CopyFromComponentDataArrayAsync` from an unrelated query.
+
 
 
 ## [0.6.0] - 2020-02-17
@@ -562,7 +660,7 @@ Removed the following deprecated API as announced in/before `0.1.1-preview`:
 * Moved `NativeString` code from Unity.Entities to Unity.Collections.
 * Updated dependencies for this package.
 * Significantly improved `Entity` instantiation performance when running in-Editor.
-* Added support for managed `IComponentData` types such as `class MyComponent : IComponentData {}` which allows managed types such as GameObjects or List<>s to be stored in components. Users should use managed components sparingly in production code when possible as these components cannot be used by the Job System or archetype chunk storage and thus will be significantly slower to work with. Refer to the documentation for [component data](Documentation~/component_data.md) for more details on managed component use, implications and prevention.
+* Added support for managed `IComponentData` types such as `class MyComponent : IComponentData {}` which allows managed types such as GameObjects or List<>s to be stored in components. Users should use managed components sparingly in production code when possible as these components cannot be used by the Job System or archetype chunk storage and thus will be significantly slower to work with. Refer to the documentation for [component data](../manual/component_data.html) for more details on managed component use, implications and prevention.
 * 'SubSceneStreamingSystem' has been renamed to `SceneSectionStreamingSystem` and is now internal
 * Deprecated `_SceneEntities` in `SubScene.cs`. Please use `SceneSystem.LoadAsync` / `Unload` with the respective SceneGUID instead.
 * Updated `com.unity.serialization` to `0.6.3-preview`.

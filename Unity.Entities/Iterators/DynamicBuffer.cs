@@ -3,9 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace Unity.Entities
 {
@@ -20,9 +23,10 @@ namespace Unity.Entities
     [NativeContainer]
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(DynamicBufferDebugView<>))]
-    public unsafe struct DynamicBuffer<T> : IEnumerable<T> where T : struct
+    public unsafe struct DynamicBuffer<T> : IEnumerable<T>, INativeList<T> where T : struct
     {
         [NativeDisableUnsafePtrRestriction]
+        [NoAlias]
         BufferHeader* m_Buffer;
 
         // Stores original internal capacity of the buffer header, so heap excess can be removed entirely when trimming.
@@ -73,6 +77,10 @@ namespace Unity.Entities
             {
                 CheckReadAccess();
                 return m_Buffer->Length;
+            }
+            set
+            {
+                ResizeUninitialized(value);
             }
         }
 
@@ -176,6 +184,18 @@ namespace Unity.Entities
                 CheckBounds(index);
                 UnsafeUtility.WriteArrayElement<T>(BufferHeader.GetElementPointer(m_Buffer), index, value);
             }
+        }
+
+        /// <summary>
+        /// Return a reference to the element at index.
+        /// </summary>
+        /// <param name="index">The zero-based index.</param>
+        /// <returns></returns>
+        public ref T ElementAt(int index)
+        {
+            CheckWriteAccess();
+            CheckBounds(index);
+            return ref UnsafeUtility.ArrayElementAsRef<T>(BufferHeader.GetElementPointer(m_Buffer), index);
         }
 
         /// <summary>
@@ -350,6 +370,9 @@ namespace Unity.Entities
         public void RemoveRange(int index, int count)
         {
             CheckWriteAccess();
+            CheckBounds(index);
+            if (count == 0)
+                return;
             CheckBounds(index + count - 1);
 
             int elemSize = UnsafeUtility.SizeOf<T>();
@@ -358,6 +381,32 @@ namespace Unity.Entities
             UnsafeUtility.MemMove(basePtr + index * elemSize, basePtr + (index + count) * elemSize, (long)elemSize * (Length - count - index));
 
             m_Buffer->Length -= count;
+        }
+
+        /// <summary>
+        /// Removes the specified number of elements, starting with the element at the specified index. It replaces the
+        /// elements that were removed with a range of elements from the back of the buffer. This is more efficient
+        /// than moving all elements following the removed elements, but does change the order of elements in the buffer.
+        /// </summary>
+        /// <remarks>The buffer capacity remains unchanged.</remarks>
+        /// <param name="index">The first element to remove.</param>
+        /// <param name="count">How many elements tot remove.</param>
+        public void RemoveRangeSwapBack(int index, int count)
+        {
+            CheckWriteAccess();
+            CheckBounds(index);
+            if (count == 0)
+                return;
+            CheckBounds(index + count - 1);
+
+            ref var l = ref m_Buffer->Length;
+            byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
+            int elemSize = UnsafeUtility.SizeOf<T>();
+            int copyFrom = math.max(l - count, index + count);
+            void* dst = basePtr + index * elemSize;
+            void* src = basePtr + copyFrom * elemSize;
+            UnsafeUtility.MemMove(dst, src, (l - copyFrom) * elemSize);
+            l -= count;
         }
 
         /// <summary>
@@ -373,10 +422,32 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Removes the element at the specified index and swaps the last element into its place. This is more efficient
+        /// than moving all elements following the removed element, but does change the order of elements in the buffer.
+        /// </summary>
+        /// <param name="index">The index of the element to remove.</param>
+        public void RemoveAtSwapBack(int index)
+        {
+            CheckWriteAccess();
+            CheckBounds(index);
+
+            ref var l = ref m_Buffer->Length;
+            l -= 1;
+            int newLength = l;
+            if (index != newLength)
+            {
+                int elemSize = UnsafeUtility.SizeOf<T>();
+                byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
+                *(basePtr + index * elemSize) = *(basePtr + newLength * elemSize);
+            }
+        }
+
+        /// <summary>
         /// Gets an <see langword="unsafe"/> read/write pointer to the contents of the buffer.
         /// </summary>
         /// <remarks>This function can only be called in unsafe code contexts.</remarks>
         /// <returns>A typed, unsafe pointer to the first element in the buffer.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void* GetUnsafePtr()
         {
             CheckWriteAccess();
@@ -388,10 +459,18 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>This function can only be called in unsafe code contexts.</remarks>
         /// <returns>A typed, unsafe pointer to the first element in the buffer.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void* GetUnsafeReadOnlyPtr()
         {
             CheckReadAccess();
             return BufferHeader.GetElementPointer(m_Buffer);
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void AssertReinterpretSizesMatch<U>() where U : struct
+        {
+            if (UnsafeUtility.SizeOf<U>() != UnsafeUtility.SizeOf<T>())
+                throw new InvalidOperationException($"Types {typeof(U)} and {typeof(T)} are of different sizes; cannot reinterpret");
         }
 
         /// <summary>
@@ -408,10 +487,7 @@ namespace Unity.Entities
         /// size than the original.</exception>
         public DynamicBuffer<U> Reinterpret<U>() where U : struct
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (UnsafeUtility.SizeOf<U>() != UnsafeUtility.SizeOf<T>())
-                throw new InvalidOperationException($"Types {typeof(U)} and {typeof(T)} are of different sizes; cannot reinterpret");
-#endif
+            AssertReinterpretSizesMatch<U>();
             // NOTE: We're forwarding the internal capacity along to this aliased, type-punned buffer.
             // That's OK, because if mutating operations happen they are all still the same size.
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -547,8 +623,7 @@ namespace Unity.Entities
             GCHandle gcHandle = GCHandle.Alloc((object)v, GCHandleType.Pinned);
             IntPtr num = gcHandle.AddrOfPinnedObject();
 
-            UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(m_Buffer),
-                (void*)num, Length * UnsafeUtility.SizeOf<T>());
+            UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(m_Buffer), (void*)num, Length * UnsafeUtility.SizeOf<T>());
             gcHandle.Free();
 #endif
         }

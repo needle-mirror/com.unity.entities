@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -107,20 +108,21 @@ namespace Unity.Entities
             m_Marker = new ProfilerMarker("CompleteAllJobs");
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void AssertCompleteSyncPoint()
+        {
+            if (JobsUtility.IsExecutingJob)
+            {
+                throw new InvalidOperationException(
+                    "Jobs accessing the entity manager must issue a complete sync point");
+            }
+        }
+
         public void CompleteAllJobsAndInvalidateArrays()
         {
             if (m_DependencyHandlesCount != 0)
             {
-#if NET_DOTS
-                if (JobsUtility.IsExecutingJob())
-#else
-                if (JobsUtility.IsExecutingJob)
-#endif
-                {
-                    throw new InvalidOperationException(
-                        "Jobs accessing the entity manager must issue a complete sync point");
-                }
-
+                AssertCompleteSyncPoint();
                 m_Marker.Begin();
                 for (int t = 0; t < m_DependencyHandlesCount; ++t)
                 {
@@ -477,7 +479,7 @@ namespace Unity.Entities
     // Shared code of the above two different implementation
     partial struct ComponentDependencyManager
     {
-        public bool IsInTransaction => _IsInTransaction;
+        internal bool IsInTransaction => _IsInTransaction;
 
         public JobHandle ExclusiveTransactionDependency
         {
@@ -485,13 +487,13 @@ namespace Unity.Entities
             set
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (!IsInTransaction)
+                if (!_IsInTransaction)
                     throw new InvalidOperationException(
-                        "EntityManager.TransactionDependency can only after EntityManager.BeginExclusiveEntityTransaction has been called.");
+                        "EntityManager.ExclusiveEntityTransactionDependency can only be used after EntityManager.BeginExclusiveEntityTransaction has been called.");
 
                 if (!JobHandle.CheckFenceIsDependencyOrDidSyncFence(m_ExclusiveTransactionDependency, value))
                     throw new InvalidOperationException(
-                        "EntityManager.TransactionDependency must depend on the Entity Transaction job.");
+                        "EntityManager.ExclusiveEntityTransactionDependency must depend on the Entity Transaction job.");
 #endif
                 m_ExclusiveTransactionDependency = value;
             }

@@ -4,10 +4,6 @@ using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
-#if !UNITY_DOTSPLAYER_IL2CPP
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-// Throws an unsupported exception. Haven't debugged root cause.
-
     class ECBChainPriorityQueueTests
     {
         unsafe public void PQHeapSort(int[] unsorted, int[] sorted)
@@ -19,7 +15,7 @@ namespace Unity.Entities.Tests
                 {
                     Chunk = null,
                     Offset = 0,
-                    NextSortIndex = unsorted[i],
+                    NextSortKey = unsorted[i],
                 };
             }
             ECBChainPriorityQueue pq = new ECBChainPriorityQueue(chainStates, Allocator.Temp);
@@ -28,9 +24,9 @@ namespace Unity.Entities.Tests
             for (Int64 i = 0; i < unsorted.Length; ++i)
             {
                 Assert.False(pq.Empty, "queue shouldn't be empty with i=" + i);
-                Int64 peeked = pq.Peek().SortIndex;
+                Int64 peeked = pq.Peek().SortKey;
                 Assert.AreEqual(peeked, sorted[i], "Peek() with i=" + i + " returned " + peeked);
-                Int64 popped = pq.Pop().SortIndex;
+                Int64 popped = pq.Pop().SortKey;
                 Assert.AreEqual(popped, sorted[i], "Pop() with i=" + i + " returned " + popped);
             }
             Assert.True(pq.Empty, "queue should be empty at end of loop");
@@ -61,5 +57,4 @@ namespace Unity.Entities.Tests
             PQHeapSort(unsorted, sorted);
         }
     }
-#endif
 }

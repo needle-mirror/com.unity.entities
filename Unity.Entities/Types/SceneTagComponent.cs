@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Unity.Mathematics;
+using Codec = Unity.Core.Compression.Codec;
 
 namespace Unity.Entities
 {
@@ -12,6 +13,8 @@ namespace Unity.Entities
         public int              FileSize;
         public int              ObjectReferenceCount;
         public MinMaxAABB       BoundingVolume;
+        internal Codec          Codec;
+        internal int            DecompressedFileSize;
     }
 
     // This component identifies the entity which holds the metadata components belonging to the section with the specified SceneSectionIndex
@@ -96,6 +99,10 @@ namespace Unity.Entities
         /// Set whether to load additive or not. This only applies to GameObject based scenes, not subscenes.
         /// </summary>
         LoadAdditive = 8,
+        /// <summary>
+        /// Loads a new instance of the subscene
+        /// </summary>
+        NewInstance = 16,
         /// <summary>
         /// Temporary flag to indicate that the scene is a GameObject based scene.  Once addressables are in place, this information will be stored there.
         /// </summary>

@@ -98,8 +98,8 @@ namespace Unity.Entities.Editor
 
             public void UpdateHistogram()
             {
-                var vertices = new Vector3[counts.Length * 4];
-                var triangles = new int[counts.Length * 6];
+                var vertices = new NativeArray<Vector3>(counts.Length * 4, Allocator.Temp);
+                var triangles = new NativeArray<int>(counts.Length * 6, Allocator.Temp);
                 var xIncrement = 1f / (counts.Length + 1);
                 var yIncrement = 1f / maxCount;
                 var minHeight = Mathf.Max(yIncrement, 0.03f);
@@ -123,9 +123,10 @@ namespace Unity.Entities.Editor
                     triangles[firstTriangleIndex + 4] = firstVertexIndex + 0;
                     triangles[firstTriangleIndex + 5] = firstVertexIndex + 3;
                 }
-                histogramMesh = new Mesh();
-                histogramMesh.vertices = vertices;
-                histogramMesh.triangles = triangles;
+                if (histogramMesh == null)
+                    histogramMesh = new Mesh();
+                histogramMesh.SetVertices(vertices);
+                histogramMesh.SetIndices(triangles, MeshTopology.Triangles, 0);
                 histogramMesh.hideFlags = HideFlags.HideAndDontSave;
 
                 maxCountString = maxCount.ToString();

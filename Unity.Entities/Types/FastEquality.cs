@@ -13,7 +13,10 @@ namespace Unity.Entities
 {
     public static class FastEquality
     {
-#if !NET_DOTS
+
+// While UNITY_DOTSRUNTIME not using Tiny BCL can compile most of this code, UnsafeUtility doesn't currently provide a
+// FieldOffset method so we disable for UNITY_DOTSRUNTIME rather than NET_DOTS
+#if !UNITY_DOTSRUNTIME
         internal static TypeInfo CreateTypeInfo<T>() where T : struct
         {
             if (TypeUsesDelegates(typeof(T)))
@@ -47,7 +50,7 @@ namespace Unity.Entities
         {
             public static unsafe bool CompareFunc(void* lhs, void* rhs)
             {
-                return UnsafeUtilityEx.AsRef<T>(lhs).Equals(UnsafeUtilityEx.AsRef<T>(rhs));
+                return UnsafeUtility.AsRef<T>(lhs).Equals(UnsafeUtility.AsRef<T>(rhs));
             }
         }
 
@@ -55,7 +58,7 @@ namespace Unity.Entities
         {
             public static unsafe int GetHashCodeFunc(void* lhs)
             {
-                return UnsafeUtilityEx.AsRef<T>(lhs).GetHashCode();
+                return UnsafeUtility.AsRef<T>(lhs).GetHashCode();
             }
         }
 
@@ -169,7 +172,7 @@ namespace Unity.Entities
 
         public struct TypeInfo
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             public unsafe delegate bool CompareEqualDelegate(void* lhs, void* rhs);
             public unsafe delegate int GetHashCodeDelegate(void* obj);
             public unsafe delegate bool ManagedCompareEqualDelegate(object lhs, object rhs);
@@ -178,7 +181,7 @@ namespace Unity.Entities
 
             public Layout[] Layouts;
             public int Hash;
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             public Delegate EqualFn;
             public Delegate GetHashFn;
 #endif
@@ -186,7 +189,7 @@ namespace Unity.Entities
             public static TypeInfo Null => new TypeInfo();
         }
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
         private unsafe struct PointerSize
         {
             private void* pter;
@@ -283,7 +286,7 @@ namespace Unity.Entities
 
         //@TODO: Encode type in hashcode...
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
         public static unsafe int ManagedGetHashCode(object lhs, TypeInfo typeInfo)
         {
             var fn = (TypeInfo.ManagedGetHashCodeDelegate)typeInfo.GetHashFn;
@@ -333,7 +336,7 @@ namespace Unity.Entities
 
         public static unsafe int GetHashCode(void* dataPtr, TypeInfo typeInfo)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (typeInfo.GetHashFn != null)
             {
                 TypeInfo.GetHashCodeDelegate fn = (TypeInfo.GetHashCodeDelegate)typeInfo.GetHashFn;
@@ -370,7 +373,7 @@ namespace Unity.Entities
             return (int)hash;
         }
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
         public static unsafe bool ManagedEquals(object lhs, object rhs, TypeInfo typeInfo)
         {
             var fn = (TypeInfo.ManagedCompareEqualDelegate)typeInfo.EqualFn;
@@ -395,7 +398,7 @@ namespace Unity.Entities
 
         public static unsafe bool Equals(void* lhsPtr, void* rhsPtr, TypeInfo typeInfo)
         {
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
             if (typeInfo.EqualFn != null)
             {
                 var fn = (TypeInfo.CompareEqualDelegate)typeInfo.EqualFn;
@@ -432,7 +435,7 @@ namespace Unity.Entities
             return same;
         }
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
         private static bool TypeUsesDelegates(Type t)
         {
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

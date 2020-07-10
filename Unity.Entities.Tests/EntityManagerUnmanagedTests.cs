@@ -51,55 +51,53 @@ namespace Unity.Entities.Tests
         [DotsRuntimeFixme] // Need to initialize SystemBaseRegistry on startup
         public void UnmanagedSystemLifetime()
         {
-            SystemRef<MyUnmanagedSystem2> sysRef = default;
-            Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysRef));
+            SystemHandle<MyUnmanagedSystem2> sysHandle = default;
+            Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysHandle));
 
             using (var world = new World("Temp"))
             {
-                Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysRef));
-                sysRef = world.AddSystem<MyUnmanagedSystem2>();
-                Assert.IsTrue(world.IsSystemValid(sysRef));
-                Assert.IsFalse(World.IsSystemValid(sysRef));
-                ref var sys = ref world.ResolveSystem(sysRef);
+                Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysHandle));
+                var sys = world.AddSystem<MyUnmanagedSystem2>();
+                sysHandle = sys.Handle;
+                Assert.IsTrue(world.IsSystemValid(sysHandle));
+                Assert.IsFalse(World.IsSystemValid(sysHandle));
+                ref var sys2 = ref world.ResolveSystem(sysHandle);
             }
 
-            Assert.IsFalse(World.IsSystemValid(sysRef));
-            Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysRef));
+            Assert.IsFalse(World.IsSystemValid(sysHandle));
+            Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysHandle));
         }
 
         [Test]
         [DotsRuntimeFixme] // Need to initialize SystemBaseRegistry on startup
         public void UnmanagedSystemLookup()
         {
-            var sys1 = World.AddSystem<MyUnmanagedSystem2>();
-            var sys2 = World.AddSystem<MyUnmanagedSystem2>();
+            var s1 = World.AddSystem<MyUnmanagedSystem2>();
+            var s2 = World.AddSystem<MyUnmanagedSystem2>();
 
-            ref var ref1 = ref World.ResolveSystem(sys1);
-            ref var ref2 = ref World.ResolveSystem(sys2);
-
-            ref1.Dummy = 19;
-            ref2.Dummy = -19;
+            s1.Struct.Dummy = 19;
+            s2.Struct.Dummy = -19;
 
             // We don't know which one we'll get currently, but the point is there will be two.
-            Assert.AreEqual(19, Math.Abs(World.GetExistingSystem<MyUnmanagedSystem2>().Dummy));
+            Assert.AreEqual(19, Math.Abs(World.GetExistingSystem<MyUnmanagedSystem2>().Struct.Dummy));
 
-            World.DestroySystem(sys1);
+            World.DestroySystem(s1.Handle);
 
-            Assert.AreEqual(19, Math.Abs(World.GetExistingSystem<MyUnmanagedSystem2>().Dummy));
+            Assert.AreEqual(19, Math.Abs(World.GetExistingSystem<MyUnmanagedSystem2>().Struct.Dummy));
 
-            World.DestroySystem(sys2);
+            World.DestroySystem(s2.Handle);
 
-            Assert.Throws<InvalidOperationException>(() => World.GetExistingUnmanagedSystem<MyUnmanagedSystem2>());
+            Assert.Throws<InvalidOperationException>(() => World.GetExistingSystem<MyUnmanagedSystem2>());
         }
 
         [Test]
         [DotsRuntimeFixme] // Need to initialize SystemBaseRegistry on startup
         public unsafe void RegistryCallManagedToManaged()
         {
-            var sysId = World.AddSystem<MyUnmanagedSystem2>();
-            var statePtr = World.ResolveSystemState(sysId);
+            var sysRef = World.AddSystem<MyUnmanagedSystem2>();
+            var statePtr = World.ResolveSystemState(sysRef.Handle);
             SystemBaseRegistry.CallOnUpdate(statePtr);
-            ref var sys = ref World.ResolveSystem(sysId);
+            ref var sys = ref World.ResolveSystem(sysRef.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
 
@@ -108,9 +106,9 @@ namespace Unity.Entities.Tests
         public unsafe void RegistryCallManagedToBurst()
         {
             var sysId = World.AddSystem<MyUnmanagedSystem2WithBurst>();
-            var statePtr = World.ResolveSystemState(sysId);
+            var statePtr = World.ResolveSystemState(sysId.Handle);
             SystemBaseRegistry.CallOnUpdate(statePtr);
-            ref var sys = ref World.ResolveSystem(sysId);
+            ref var sys = ref World.ResolveSystem(sysId.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
 
@@ -122,24 +120,24 @@ namespace Unity.Entities.Tests
             SystemBase.UnmanagedUpdate(state, out _);
         }
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME
         [Test]
         public unsafe void RegistryCallBurstToManaged()
         {
-            var sysId = World.AddSystem<MyUnmanagedSystem2>();
-            var statePtr = World.ResolveSystemState(sysId);
+            var sysRef = World.AddSystem<MyUnmanagedSystem2>();
+            var statePtr = World.ResolveSystemState(sysRef.Handle);
             BurstCompiler.CompileFunctionPointer<DispatchDelegate>(DispatchUpdate).Invoke(statePtr);
-            ref var sys = ref World.ResolveSystem(sysId);
+            ref var sys = ref World.ResolveSystem(sysRef.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
 
         [Test]
         public unsafe void RegistryCallBurstToBurst()
         {
-            var sysId = World.AddSystem<MyUnmanagedSystem2WithBurst>();
-            var statePtr = World.ResolveSystemState(sysId);
+            var sysRef = World.AddSystem<MyUnmanagedSystem2WithBurst>();
+            var statePtr = World.ResolveSystemState(sysRef.Handle);
             BurstCompiler.CompileFunctionPointer<DispatchDelegate>(DispatchUpdate).Invoke(statePtr);
-            ref var sys = ref World.ResolveSystem(sysId);
+            ref var sys = ref World.ResolveSystem(sysRef.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
 
@@ -182,7 +180,7 @@ namespace Unity.Entities.Tests
 
                 var sysRef = world.AddSystem<SnoopSystemBase>();
 
-                @group.AddSystemToUpdateList(sysRef);
+                @group.AddSystemToUpdateList(sysRef.Handle);
 
                 Assert.AreEqual(1, SnoopSystemBase.Flags, "OnCreate was not called");
 

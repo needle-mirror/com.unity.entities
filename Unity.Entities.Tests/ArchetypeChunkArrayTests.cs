@@ -59,8 +59,8 @@ namespace Unity.Entities.Tests
         struct ChangeMixedValues : IJobParallelFor
         {
             [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
-            public ArchetypeChunkComponentType<EcsTestData> ecsTestData;
-            public ArchetypeChunkComponentType<EcsTestData2> ecsTestData2;
+            public ComponentTypeHandle<EcsTestData> ecsTestData;
+            public ComponentTypeHandle<EcsTestData2> ecsTestData2;
 
             public void Execute(int chunkIndex)
             {
@@ -103,8 +103,8 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(14, chunks.Length);
 
-            var ecsTestData = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false);
-            var ecsTestData2 = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var ecsTestData = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            var ecsTestData2 = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
             var changeValuesJobs = new ChangeMixedValues
             {
                 chunks = chunks,
@@ -150,9 +150,9 @@ namespace Unity.Entities.Tests
         struct ChangeMixedValuesSharedFilter : IJobParallelFor
         {
             [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
-            public ArchetypeChunkComponentType<EcsTestData> ecsTestData;
-            public ArchetypeChunkComponentType<EcsTestData2> ecsTestData2;
-            [ReadOnly] public ArchetypeChunkSharedComponentType<EcsTestSharedComp> ecsTestSharedData;
+            public ComponentTypeHandle<EcsTestData> ecsTestData;
+            public ComponentTypeHandle<EcsTestData2> ecsTestData2;
+            [ReadOnly] public SharedComponentTypeHandle<EcsTestSharedComp> ecsTestSharedData;
             public int sharedFilterIndex;
 
             public void Execute(int chunkIndex)
@@ -215,9 +215,9 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(14, chunks.Length);
 
-            var ecsTestData = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false);
-            var ecsTestData2 = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
-            var ecsTestSharedData = m_Manager.GetArchetypeChunkSharedComponentType<EcsTestSharedComp>();
+            var ecsTestData = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            var ecsTestData2 = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
+            var ecsTestSharedData = m_Manager.GetSharedComponentTypeHandle<EcsTestSharedComp>();
             var changeValuesJobs = new ChangeMixedValuesSharedFilter
             {
                 chunks = chunks,
@@ -295,7 +295,7 @@ namespace Unity.Entities.Tests
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
-            var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
+            var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
 
             for (int i = 0; i < chunks.Length; ++i)
             {
@@ -322,7 +322,7 @@ namespace Unity.Entities.Tests
             struct UpdateChunks : IJobParallelFor
             {
                 public NativeArray<ArchetypeChunk> Chunks;
-                public ArchetypeChunkBufferType<EcsIntElement> EcsIntElements;
+                public BufferTypeHandle<EcsIntElement> EcsIntElements;
 
                 public void Execute(int chunkIndex)
                 {
@@ -349,7 +349,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 var chunks = m_Group.CreateArchetypeChunkArray(Allocator.TempJob);
-                var ecsIntElements = GetArchetypeChunkBufferType<EcsIntElement>();
+                var ecsIntElements = GetBufferTypeHandle<EcsIntElement>();
                 var updateChunksJob = new UpdateChunks
                 {
                     Chunks = chunks,
@@ -371,8 +371,8 @@ namespace Unity.Entities.Tests
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
-            var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
-            var missingElements = m_Manager.GetArchetypeChunkBufferType<EcsComplexEntityRefElement>(false);
+            var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
+            var missingElements = m_Manager.GetBufferTypeHandle<EcsComplexEntityRefElement>(false);
 
             for (int i = 0; i < chunks.Length; ++i)
             {
@@ -398,8 +398,8 @@ namespace Unity.Entities.Tests
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
-            var strComponents = m_Manager.GetArchetypeChunkComponentType<EcsTestManagedComponent>(false);
-            var missingComponents = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false);
+            var strComponents = m_Manager.GetComponentTypeHandle<EcsTestManagedComponent>(false);
+            var missingComponents = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
 
             for (int i = 0; i < chunks.Length; ++i)
             {
@@ -426,7 +426,7 @@ namespace Unity.Entities.Tests
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
-            var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
+            var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
             uint[] chunkBufferVersions = new uint[chunks.Length];
 
             for (int i = 0; i < chunks.Length; ++i)
@@ -467,7 +467,7 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
-            var intElements = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(true);
+            var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(true);
 
             var chunk = chunks[0];
             var accessor = chunk.GetBufferAccessor(intElements);
@@ -543,8 +543,8 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(14, chunks.Length);
 
-            var ecsTestData = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false);
-            var ecsTestData2 = m_Manager.GetArchetypeChunkComponentType<EcsTestData2>(false);
+            var ecsTestData = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            var ecsTestData2 = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
             var changeValuesJobs = new ChangeMixedValues
             {
                 chunks = chunks,
@@ -555,8 +555,8 @@ namespace Unity.Entities.Tests
             var collectValuesJobHandle = changeValuesJobs.Schedule(chunks.Length, 64);
             collectValuesJobHandle.Complete();
 
-            var ecsTestDataDynamic = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData)));
-            var ecsTestDataDynamic2 = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData2)));
+            var ecsTestDataDynamic = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
+            var ecsTestDataDynamic2 = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData2)));
 
             ulong foundValues = 0;
             for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
@@ -600,14 +600,14 @@ namespace Unity.Entities.Tests
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
-            var ecsTestData = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData)));
-            var missingElements = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData3)));
+            var ecsTestData = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
+            var missingElements = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData3)));
 
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i];
 
-                // Test Has(ArchetypeChunkComponentTypeDynamic)
+                // Test Has(DynamicComponentTypeHandle)
                 bool hasEcsTestData = chunk.Has(ecsTestData);
                 Assert.IsTrue(hasEcsTestData, "Has(EcsTestData) should be true");
                 bool hasMissingElements = chunk.Has(missingElements);
@@ -626,7 +626,7 @@ namespace Unity.Entities.Tests
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
-            var ecsTestData = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData2)));
+            var ecsTestData = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData2)));
 
             for (int i = 0; i < chunks.Length; ++i)
             {
@@ -648,214 +648,266 @@ namespace Unity.Entities.Tests
             chunks.Dispose();
         }
 
-#if UNITY_2020_1_OR_NEWER
-        struct UseArchetypeChunkComponentType : IJob
+        // These tests require:
+        // - JobsDebugger support for static safety IDs (added in 2020.1)
+        // - Asserting throws
+#if UNITY_2020_1_OR_NEWER && !UNITY_DOTSRUNTIME
+        struct UseComponentTypeHandle : IJob
         {
-            public ArchetypeChunkComponentType<EcsTestData> ecsTestData;
+            public Unity.Entities.ComponentTypeHandle<EcsTestData> ecsTestData;
             public void Execute()
             {
             }
         }
 
-        [Test]
-        public void ArchetypeChunkComponentType_UseAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void ComponentTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var chunkComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(true);
+            var chunkComponentType = m_Manager.GetComponentTypeHandle<EcsTestData>(true);
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkComponentType
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentTypeHandle
 
             var chunk = m_Manager.GetChunk(entity);
             Assert.That(() => { chunk.GetChunkComponentData(chunkComponentType); },
-                Throws.InvalidOperationException.With.Message.Contains(
-                    "ArchetypeChunkComponentType<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "ComponentTypeHandle<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change."));
         }
 
-        [Test]
-        public void ArchetypeChunkComponentType_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void ComponentTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var chunkComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestData>(false);
+            var chunkComponentType = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
 
-            var changeValuesJobs = new UseArchetypeChunkComponentType
+            var changeValuesJobs = new UseComponentTypeHandle
             {
                 ecsTestData = chunkComponentType,
             };
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkComponentType
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-                Throws.InvalidOperationException.With.Message.Contains(
-                    "ArchetypeChunkComponentType<Unity.Entities.Tests.EcsTestData> UseArchetypeChunkComponentType.ecsTestData which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<InvalidOperationException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "ComponentTypeHandle<Unity.Entities.Tests.EcsTestData> UseComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
 
-        struct UseArchetypeChunkComponentTypeDynamic : IJob
+        struct UseDynamicComponentTypeHandle : IJob
         {
-            public ArchetypeChunkComponentTypeDynamic ecsTestData;
+            public DynamicComponentTypeHandle ecsTestData;
             public void Execute()
             {
             }
         }
 
-        [Test]
-        public void ArchetypeChunkComponentTypeDynamic_UseAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void DynamicComponentTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var chunkComponentType = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData)));
+            var chunkComponentType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkComponentTypeDynamic
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates DynamicComponentTypeHandle
 
             var chunk = m_Manager.GetChunk(entity);
             Assert.That(() => { chunk.GetDynamicComponentDataArrayReinterpret<int>(chunkComponentType, UnsafeUtility.SizeOf<int>()); },
-                Throws.InvalidOperationException.With.Message.Contains("Unity.Entities.ArchetypeChunkComponentTypeDynamic which has been invalidated by a structural change"));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains("Unity.Entities.DynamicComponentTypeHandle which has been invalidated by a structural change"));
         }
 
-        [Test]
-        public void ArchetypeChunkComponentTypeDynamic_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void DynamicComponentTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var chunkComponentType = m_Manager.GetArchetypeChunkComponentTypeDynamic(ComponentType.ReadOnly(typeof(EcsTestData)));
+            var chunkComponentType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
 
-            var changeValuesJobs = new UseArchetypeChunkComponentTypeDynamic
+            var changeValuesJobs = new UseDynamicComponentTypeHandle
             {
                 ecsTestData = chunkComponentType,
             };
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkComponentTypeDynamic
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates DynamicComponentTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-                Throws.InvalidOperationException.With.Message.Contains("Unity.Entities.ArchetypeChunkComponentTypeDynamic UseArchetypeChunkComponentTypeDynamic.ecsTestData which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<InvalidOperationException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains("Unity.Entities.DynamicComponentTypeHandle UseDynamicComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
 
-        struct UseArchetypeChunkBufferType : IJob
+        struct UseBufferTypeHandle : IJob
         {
-            public ArchetypeChunkBufferType<EcsIntElement> ecsTestData;
+            public Unity.Entities.BufferTypeHandle<EcsIntElement> ecsTestData;
             public void Execute()
             {
             }
         }
 
-        [Test]
-        public void ArchetypeChunkBufferType_UseAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void BufferTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var ecsTestData = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
+            var ecsTestData = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkBufferType
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferTypeHandle
 
             var chunk = m_Manager.GetChunk(entity);
             Assert.That(() => { chunk.GetBufferAccessor(ecsTestData); },
-                Throws.InvalidOperationException.With.Message.Contains(
-                    "ArchetypeChunkBufferType<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "BufferTypeHandle<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
         }
 
-        [Test]
-        public void ArchetypeChunkBufferType_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void BufferTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var ecsTestData = m_Manager.GetArchetypeChunkBufferType<EcsIntElement>(false);
+            var ecsTestData = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
 
-            var changeValuesJobs = new UseArchetypeChunkBufferType
+            var changeValuesJobs = new UseBufferTypeHandle
             {
                 ecsTestData = ecsTestData,
             };
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkBufferType
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-                Throws.InvalidOperationException.With.Message.Contains(
-                    "ArchetypeChunkBufferType<Unity.Entities.Tests.EcsIntElement> UseArchetypeChunkBufferType.ecsTestData which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<InvalidOperationException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "BufferTypeHandle<Unity.Entities.Tests.EcsIntElement> UseBufferTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
 
-        struct UseArchetypeChunkSharedComponentType : IJob
+        struct UseSharedComponentTypeHandle : IJob
         {
-            public ArchetypeChunkSharedComponentType<EcsTestSharedComp> ecsTestData;
+            public Unity.Entities.SharedComponentTypeHandle<EcsTestSharedComp> ecsTestData;
             public void Execute()
             {
             }
         }
 
-        [Test]
-        public void ArchetypeChunkSharedComponentType_UseAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void SharedComponentTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp(17));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var ecsTestData = m_Manager.GetArchetypeChunkSharedComponentType<EcsTestSharedComp>();
+            var ecsTestData = m_Manager.GetSharedComponentTypeHandle<EcsTestSharedComp>();
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkSharedComponentType
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates SharedComponentTypeHandle
 
-            var chunk = m_Manager.GetChunk(entity);
-            // No main-thread code currently references ArchetypeChunkSharedComponentType.m_Safety, so we have to manually verify that it's been invalidated
+            // No main-thread code currently references SharedComponentTypeHandle.m_Safety, so we have to manually verify that it's been invalidated
             Assert.That(() => { AtomicSafetyHandle.CheckReadAndThrow(ecsTestData.m_Safety); },
-                Throws.InvalidOperationException.With.Message.Contains(
-                    "ArchetypeChunkSharedComponentType<Unity.Entities.Tests.EcsTestSharedComp> which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "SharedComponentTypeHandle<Unity.Entities.Tests.EcsTestSharedComp> which has been invalidated by a structural change."));
         }
 
-        [Test]
-        public void ArchetypeChunkSharedComponentType_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void SharedComponentTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.AddSharedComponentData(entity, new EcsTestSharedComp(17));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var ecsTestData = m_Manager.GetArchetypeChunkSharedComponentType<EcsTestSharedComp>();
+            var ecsTestData = m_Manager.GetSharedComponentTypeHandle<EcsTestSharedComp>();
 
-            var changeValuesJobs = new UseArchetypeChunkSharedComponentType
+            var changeValuesJobs = new UseSharedComponentTypeHandle
             {
                 ecsTestData = ecsTestData,
             };
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkSharedComponentType
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates SharedComponentTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-                Throws.InvalidOperationException.With.Message.Contains(
-                    "ArchetypeChunkSharedComponentType<Unity.Entities.Tests.EcsTestSharedComp> UseArchetypeChunkSharedComponentType.ecsTestData which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<InvalidOperationException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "SharedComponentTypeHandle<Unity.Entities.Tests.EcsTestSharedComp> UseSharedComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
 
-        struct UseArchetypeChunkEntityType : IJob
+        struct UseEntityTypeHandle : IJob
         {
-            public ArchetypeChunkEntityType ecsTestData;
+            public EntityTypeHandle ecsTestData;
             public void Execute()
             {
             }
         }
 
-        [Test]
-        public void ArchetypeChunkEntityType_UseAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void EntityTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var chunkEntityType = m_Manager.GetArchetypeChunkEntityType();
+            var chunkEntityType = m_Manager.GetEntityTypeHandle();
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkEntityType
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates EntityTypeHandle
 
             var chunk = m_Manager.GetChunk(entity);
             Assert.That(() => { chunk.GetNativeArray(chunkEntityType); },
-                Throws.InvalidOperationException.With.Message.Contains(
-                    "Unity.Entities.ArchetypeChunkEntityType which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "Unity.Entities.EntityTypeHandle which has been invalidated by a structural change."));
         }
 
-        [Test]
-        public void ArchetypeChunkEntityType_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
+        [Test,DotsRuntimeFixme]
+        public void EntityTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var chunkEntityType = m_Manager.GetArchetypeChunkEntityType();
+            var chunkEntityType = m_Manager.GetEntityTypeHandle();
 
-            var changeValuesJobs = new UseArchetypeChunkEntityType
+            var changeValuesJobs = new UseEntityTypeHandle
             {
                 ecsTestData = chunkEntityType,
             };
 
-            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ArchetypeChunkEntityType
+            m_Manager.AddComponent<EcsTestData2>(entity); // invalidates EntityTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-                Throws.InvalidOperationException.With.Message.Contains(
-                    "Unity.Entities.ArchetypeChunkEntityType UseArchetypeChunkEntityType.ecsTestData which has been invalidated by a structural change."));
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<InvalidOperationException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains(
+                        "Unity.Entities.EntityTypeHandle UseEntityTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
 
 #endif

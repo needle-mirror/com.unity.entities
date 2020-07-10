@@ -157,9 +157,9 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
         // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // In IL2CPP this segfaults at runtime. I haven't debugged, but the return type of List<> is suspicious.
+        // In IL2CPP this segfaults at runtime. There is a crash in GetAssignableComponentTypes()
 
         [Test]
         public void FoundComponentInterface()
@@ -281,8 +281,8 @@ namespace Unity.Entities.Tests
             var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestComponentWithBool>());
             using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
             {
-                var boolsType = m_Manager.GetArchetypeChunkComponentType<EcsTestComponentWithBool>(false);
-                var entsType = m_Manager.GetArchetypeChunkEntityType();
+                var boolsType = m_Manager.GetComponentTypeHandle<EcsTestComponentWithBool>(false);
+                var entsType = m_Manager.GetEntityTypeHandle();
 
                 foreach (var chunk in chunks)
                 {
@@ -542,7 +542,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("TODO")]
         public void BatchRemoveComponentsValuesDuplicates()
         {
             var count = 1024;
@@ -651,15 +650,23 @@ namespace Unity.Entities.Tests
             endGroup.Dispose();
         }
 
-#if UNITY_2020_1_OR_NEWER
-        [Test]
-        [DotsRuntimeFixme]
+        // These tests require:
+        // - JobsDebugger support for static safety IDs (added in 2020.1)
+        // - Asserting throws
+#if UNITY_2020_1_OR_NEWER && !UNITY_DOTSRUNTIME
+        [Test,DotsRuntimeFixme]
         public void EntityManager_DoubleDispose_UsesCustomOwnerTypeName()
         {
             World tempWorld = new World("TestWorld");
             var entityManager = tempWorld.EntityManager;
             tempWorld.Dispose();
-            Assert.That(() => entityManager.DestroyInstance(), Throws.InvalidOperationException.With.Message.Contains("EntityManager"));
+            Assert.That(() => entityManager.DestroyInstance(),
+#if UNITY_2020_2_OR_NEWER
+                Throws.Exception.TypeOf<ObjectDisposedException>()
+#else
+                Throws.InvalidOperationException
+#endif
+                    .With.Message.Contains("EntityManager"));
         }
 
 #endif
@@ -698,7 +705,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme]
+        [DotsRuntimeFixme]  // Would need UnsafeUtility.PinSystemObjectAndGetAddress
         public void GetComponentBoxedSupportsInterface_ManagedComponent()
         {
             var entity = m_Manager.CreateEntity();
@@ -711,7 +718,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // UnsafeUtility.CopyObjectAddressToPtr not implemented
         public unsafe void ManagedComponents()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestManagedComponent));
@@ -719,17 +725,17 @@ namespace Unity.Entities.Tests
             var array = new NativeArray<Entity>(count, Allocator.Temp);
             m_Manager.CreateEntity(archetype, array);
 
-            var hash = new NativeHashMap<Entity, NativeString64>(count, Allocator.Temp);
+            var hash = new NativeHashMap<Entity, FixedString64>(count, Allocator.Temp);
 
             var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestManagedComponent>());
             using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
             {
-                var ManagedComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestManagedComponent>(false);
-                var entsType = m_Manager.GetArchetypeChunkEntityType();
+                var ManagedComponentType = m_Manager.GetComponentTypeHandle<EcsTestManagedComponent>(false);
+                var entsType = m_Manager.GetEntityTypeHandle();
 
                 foreach (var chunk in chunks)
                 {
-                    var components = chunk.GetComponentObjects(ManagedComponentType, m_Manager);
+                    var components = chunk.GetManagedComponentAccessor(ManagedComponentType, m_Manager);
                     var entities = chunk.GetNativeArray(entsType);
 
                     Assert.AreEqual(chunk.Count, components.Length);
@@ -737,7 +743,7 @@ namespace Unity.Entities.Tests
                     for (var i = 0; i < chunk.Count; ++i)
                     {
                         components[i] = new EcsTestManagedComponent { value = entities[i].Index.ToString() };
-                        Assert.IsTrue(hash.TryAdd(entities[i], new NativeString64(components[i].value)));
+                        Assert.IsTrue(hash.TryAdd(entities[i], new FixedString64(components[i].value)));
                     }
                 }
             }
@@ -753,7 +759,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetComponentObjects_ReturnsEmptyArray_IfTypeIsMissing()
+        public void GetManagedComponentAccessor_ReturnsEmptyArray_IfTypeIsMissing()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData4), typeof(EcsTestData5));
             var count = 128;
@@ -764,11 +770,11 @@ namespace Unity.Entities.Tests
                 var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData4>());
                 using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
                 {
-                    var managedComponentType = m_Manager.GetArchetypeChunkComponentType<EcsTestManagedComponent>(false);
+                    var managedComponentType = m_Manager.GetComponentTypeHandle<EcsTestManagedComponent>(false);
 
                     foreach (var chunk in chunks)
                     {
-                        var components = chunk.GetComponentObjects(managedComponentType, m_Manager);
+                        var components = chunk.GetManagedComponentAccessor(managedComponentType, m_Manager);
                         Assert.AreEqual(0, components.Length);
                     }
                 }
@@ -871,7 +877,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Requires Unity.Properties support
         public void Instantiate_DeepClone_ManagedComponentWithNullArray()
         {
             var originalEntity = m_Manager.CreateEntity();
@@ -903,7 +908,6 @@ namespace Unity.Entities.Tests
         // https://unity3d.atlassian.net/browse/DOTSR-1432
         // TODO: IL2CPP_TEST_RUNNER doesn't broadly support the That / Constraint Model. Note this is also flagged DotsRuntimeFixme.
         [Test]
-        [DotsRuntimeFixme] // Requires Unity.Properties support
         public void Instantiate_DeepClone_ManagedComponentWithNullReferenceType()
         {
             var originalEntity = m_Manager.CreateEntity();
@@ -957,13 +961,129 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddMismatchedManagdComponentThrows()
+        public void AddMismatchedManagedComponentThrows()
         {
             var entity = m_Manager.CreateEntity();
             Assert.Throws<ArgumentException>(() =>
             {
                 m_Manager.AddComponentData<EcsTestManagedComponent>(entity, new EcsTestManagedComponent2());
             });
+        }
+
+        [Test]
+        public void CreateEntity_InputUsesAllocatorTemp_Works([Values(1, 10, 100, 1000)] int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype();
+            var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            m_Manager.CreateEntity(archetype, entities);
+            foreach (var ent in entities)
+                Assert.IsTrue(m_Manager.Exists(ent));
+            entities.Dispose();
+        }
+
+        [Test]
+        public void Instantiate_InputUsesAllocatorTemp_Works([Values(1, 10, 100, 1000)] int entityCount)
+        {
+            var prefabEnt = m_Manager.CreateEntity(typeof(EcsTestData));
+            var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            m_Manager.Instantiate(prefabEnt, entities);
+            foreach (var ent in entities)
+            {
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(ent));
+            }
+            entities.Dispose();
+        }
+
+        [Test]
+        public void CopyEntities_InputUsesAllocatorTemp_Works([Values(1, 10, 100, 1000)] int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var srcEntities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            for (int i = 0; i < entityCount; ++i)
+            {
+                srcEntities[i] = m_Manager.CreateEntity(archetype);
+                m_Manager.SetComponentData(srcEntities[i], new EcsTestData(i));
+            }
+
+            var dstEntities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+
+            m_Manager.CopyEntities(srcEntities, dstEntities);
+
+            for (int i = 0; i < srcEntities.Length; ++i)
+            {
+                Assert.AreEqual(archetype, m_Manager.GetChunk(dstEntities[i]).Archetype);
+                Assert.AreEqual(m_Manager.GetComponentData<EcsTestData>(srcEntities[i]),
+                    m_Manager.GetComponentData<EcsTestData>(dstEntities[i]));
+            }
+
+            srcEntities.Dispose();
+            dstEntities.Dispose();
+        }
+
+        [Test]
+        public void CopyEntitiesFrom_InputUsesAllocatorTemp_Works([Values(1, 10, 100, 1000)] int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var srcEntities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            for (int i = 0; i < entityCount; ++i)
+            {
+                srcEntities[i] = m_Manager.CreateEntity(archetype);
+                m_Manager.SetComponentData(srcEntities[i], new EcsTestData(i));
+            }
+
+            var dstWorld = new World("Copy Destination World");
+            var dstEntities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+
+            dstWorld.EntityManager.CopyEntitiesFrom(m_Manager, srcEntities, dstEntities);
+
+            for (int i = 0; i < srcEntities.Length; ++i)
+            {
+                // Can't compare archetypes across Worlds?
+                // Assert.AreEqual(archetype, dstWorld.EntityManager.GetChunk(dstEntities[i]).Archetype);
+                Assert.AreEqual(m_Manager.GetComponentData<EcsTestData>(srcEntities[i]),
+                    dstWorld.EntityManager.GetComponentData<EcsTestData>(dstEntities[i]));
+            }
+
+            srcEntities.Dispose();
+            dstEntities.Dispose();
+            dstWorld.Dispose();
+        }
+
+        [Test]
+        public void DestroyEntity_InputUsesAllocatorTemp_Works([Values(1, 10, 100, 1000)] int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype();
+            var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            for (int i = 0; i < entityCount; ++i)
+                entities[i] = m_Manager.CreateEntity(archetype);
+            m_Manager.DestroyEntity(entities);
+            foreach (var ent in entities)
+                Assert.IsFalse(m_Manager.Exists(ent));
+            entities.Dispose();
+        }
+
+        [Test]
+        public void AddComponent_InputUsesAllocatorTemp_Works([Values(1, 10, 100, 1000)] int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype();
+            var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.Temp);
+            m_Manager.AddComponent<EcsTestData>(entities);
+            foreach (var ent in entities)
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(ent));
+            entities.Dispose();
+        }
+
+        [Test]
+        public void RemoveComponent_InputUsesAllocatorTemp_Works([Values(1, 10, 100, 1000)] int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype();
+            var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.Temp);
+            foreach (var ent in entities)
+                m_Manager.AddComponent<EcsTestData>(ent);
+            m_Manager.RemoveComponent<EcsTestData>(entities);
+            foreach (var ent in entities)
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(ent));
+            entities.Dispose();
         }
 
 #endif // UNITY_PORTABLE_TEST_RUNNER

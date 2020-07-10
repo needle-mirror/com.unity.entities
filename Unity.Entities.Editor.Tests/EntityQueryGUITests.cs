@@ -27,28 +27,8 @@ namespace Unity.Entities.Editor.Tests
         }
     }
 
-    class GenericClassTest<T>
-    {
-        public class InternalClass {}
-        public class InternalGenericClass<U, V> {}
-    }
-
     public class EntityQueryGUITests
     {
-        [Test]
-        public void EntityQueryGUI_SpecifiedTypeName_NestedTypeInGeneric()
-        {
-            var typeName = EntityQueryGUI.SpecifiedTypeName(typeof(GenericClassTest<object>.InternalClass));
-            Assert.AreEqual("GenericClassTest<Object>.InternalClass", typeName);
-        }
-
-        [Test]
-        public void EntityQueryGUI_SpecifiedTypeName_NestedGenericTypeInGeneric()
-        {
-            var typeName = EntityQueryGUI.SpecifiedTypeName(typeof(GenericClassTest<object>.InternalGenericClass<int, bool>));
-            Assert.AreEqual("GenericClassTest<Object>.InternalGenericClass<Int32, Boolean>", typeName);
-        }
-
         [Test]
         public void EntityQueryGUI_ExcludedTypesUnaffectedByLength()
         {

@@ -45,7 +45,7 @@ Unity ECS provides several types of systems. In general, the systems you write t
 [World]: xref:Unity.Entities.World
 [GameObject conversion systems]: gp_overview.md
 [GameObjectConversionSystem]: gp_overview.md
-[time]: xref:Unity.Entities.Core.TimeData
+[time]: xref:Unity.Core.TimeData
 [World]: xref:Unity.Entities.World
 [UpdateWorldTimeSystem]: xref:Unity.Entities.UpdateWorldTimeSystem
 [system events]: #system-events

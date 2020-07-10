@@ -112,8 +112,8 @@ namespace Unity.Entities.CodeGen
             var funcDef = new MethodDefinition(".cctor", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName, AssemblyDefinition.MainModule.ImportReference(typeof(void)));
             funcDef.Body.InitLocals = false;
 
-#if !UNITY_DOTSPLAYER // This will need a different solution
-            if (!Defines.Contains("UNITY_DOTSPLAYER"))
+#if !UNITY_DOTSRUNTIME // This will need a different solution
+            if (!Defines.Contains("UNITY_DOTSRUNTIME") && !Defines.Contains("UNITY_DOTSPLAYER"))
             {
                 // Needs to run automatically in the player.
                 var attributeCtor = AssemblyDefinition.MainModule.ImportReference(typeof(UnityEngine.RuntimeInitializeOnLoadMethodAttribute).GetConstructor(Type.EmptyTypes));

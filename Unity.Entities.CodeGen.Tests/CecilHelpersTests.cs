@@ -29,11 +29,11 @@ namespace Unity.Entities.CodeGen.Tests
             CollectionAssert.AreEquivalent(instructions, match);
         }
 
-        private static Func<Instruction, bool>[] Pattern1 =>
-            new Func<Instruction, bool>[]
+        private static Func<Instruction, CecilHelpers.DelegateProducingPatternInstructionMatchResult>[] Pattern1 =>
+            new Func<Instruction, CecilHelpers.DelegateProducingPatternInstructionMatchResult>[]
         {
-            i => i.OpCode == OpCodes.Add,
-            i => i.OpCode == OpCodes.Dup,
+            i => i.OpCode == OpCodes.Add ? CecilHelpers.DelegateProducingPatternInstructionMatchResult.MatchAndContinue : CecilHelpers.DelegateProducingPatternInstructionMatchResult.NoMatch,
+            i => i.OpCode == OpCodes.Dup ? CecilHelpers.DelegateProducingPatternInstructionMatchResult.MatchAndContinue : CecilHelpers.DelegateProducingPatternInstructionMatchResult.NoMatch
         };
 
         private static Instruction[] Pattern1Instructions => MakeInstructions(new[] {Instruction.Create(OpCodes.Add), Instruction.Create(OpCodes.Dup)});

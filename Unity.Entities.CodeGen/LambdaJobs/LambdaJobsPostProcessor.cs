@@ -189,10 +189,6 @@ namespace Unity.Entities.CodeGen
                         _diagnosticMessages.AddRange(rewriteDiagnosticMessages);
                     }
                 }
-                catch (PostProcessException ppe)
-                {
-                    AddDiagnostic(ppe.ToDiagnosticMessage(m));
-                }
                 catch (FoundErrorInUserCodeException)
                 {
                     throw;
@@ -345,7 +341,14 @@ namespace Unity.Entities.CodeGen
             {
                 bool allDelegatesAreGuaranteedNotToOutliveMethod = lambdaJobDescriptionConstruction.DisplayClass.IsValueType() || CecilHelpers.AllDelegatesAreGuaranteedNotToOutliveMethodFor(methodContainingLambdaJob);
 
-                displayClassVariable = body.Variables.Single(v => v.VariableType.TypeReferenceEquals(lambdaJobDescriptionConstruction.DisplayClass));
+                displayClassVariable = body.Variables.Single(v =>
+                    (v.VariableType.TypeReferenceEquals(lambdaJobDescriptionConstruction.DisplayClass) ||
+                     v.VariableType.GetElementType().TypeReferenceEquals(lambdaJobDescriptionConstruction.DisplayClass)));
+
+                // Also check for the case where the DisplayClass is a generic instance.
+                // This occurs when a capturing Entities.ForEach is created in a generic method, this is not currently supported.
+                if (displayClassVariable.VariableType.IsGenericInstance)
+                    UserError.DC0054(lambdaJobDescriptionConstruction.LambdaJobName, methodContainingLambdaJob, lambdaJobDescriptionConstruction.ScheduleOrRunInvocationInstruction).Throw();
 
                 //in this step we want to get rid of the heap allocation for the delegate. In order to make the rest of the code easier to reason about and write,
                 //we'll make sure that while we do this, we don't change the total stackbehaviour. Because this used to push a delegate onto the evaluation stack,
@@ -367,7 +370,10 @@ namespace Unity.Entities.CodeGen
 
             FieldDefinition entityQueryField = null;
             if (lambdaJobDescriptionConstruction.Kind != LambdaJobDescriptionKind.Job)
-                entityQueryField = InjectAndInitializeEntityQueryField.InjectAndInitialize(methodContainingLambdaJob, lambdaJobDescriptionConstruction, methodLambdaWasEmittedAs.Parameters);
+            {
+                entityQueryField = InjectAndInitializeEntityQueryField.InjectAndInitialize(diagnosticMessages, methodContainingLambdaJob,
+                    lambdaJobDescriptionConstruction, methodLambdaWasEmittedAs.Parameters);
+            }
 
             var generatedJobStruct = JobStructForLambdaJob.CreateNewJobStruct(lambdaJobDescriptionConstruction);
 
@@ -402,11 +408,8 @@ namespace Unity.Entities.CodeGen
                 var newJobStructVariable = new VariableDefinition(generatedJobStruct.TypeDefinition);
                 body.Variables.Add(newJobStructVariable);
 
-                bool storeJobHandleInVariable = (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Schedule ||
-                    lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.ScheduleParallel);
                 VariableDefinition tempStorageForJobHandle = null;
-
-                if (storeJobHandleInVariable)
+                if (lambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run)
                 {
                     tempStorageForJobHandle = new VariableDefinition(moduleDefinition.ImportReference(typeof(JobHandle)));
                     body.Variables.Add(tempStorageForJobHandle);
@@ -538,8 +541,8 @@ namespace Unity.Entities.CodeGen
                         break;
                 }
 
-                // Store returned JobHandle in temp variable or back in SystemBase.Dependency
-                if (storeJobHandleInVariable)
+                // Load JobHandle from temp variable or SystemBase.Dependency
+                if (tempStorageForJobHandle != null)
                     yield return Instruction.Create(OpCodes.Ldloc, tempStorageForJobHandle);
                 else if (lambdaJobDescriptionConstruction.UseImplicitSystemDependency)
                 {
@@ -591,25 +594,46 @@ namespace Unity.Entities.CodeGen
                         yield return instruction;
                 }
 #endif
-
-                if (lambdaJobDescriptionConstruction.UseImplicitSystemDependency)
-                {
+                // Store our JobHandle in local to use later
+                if (lambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run)
                     yield return Instruction.Create(OpCodes.Stloc, tempStorageForJobHandle);
-                    yield return Instruction.Create(OpCodes.Ldarg_0);
-                    yield return Instruction.Create(OpCodes.Ldloc, tempStorageForJobHandle);
-                    yield return Instruction.Create(OpCodes.Call,
-                        moduleDefinition.ImportReference(typeof(SystemBase).GetMethod("set_Dependency", BindingFlags.Instance | BindingFlags.NonPublic)));
+
+                // Call DisposeOnCompletion (and store returned JobHandle back into local)
+                if (generatedJobStruct.DisposeOnCompletionMethod != null)
+                {
+                    yield return Instruction.Create(OpCodes.Ldloca, newJobStructVariable);
+                    if (tempStorageForJobHandle != null)
+                        yield return Instruction.Create(OpCodes.Ldloc, tempStorageForJobHandle);
+                    yield return Instruction.Create(OpCodes.Call, generatedJobStruct.DisposeOnCompletionMethod);
+                    if (lambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run)
+                        yield return Instruction.Create(OpCodes.Stloc, tempStorageForJobHandle);
                 }
 
+                // Store our JobHandle back into SystemBase.Dependency if we are using implicit system dependencies,
+                // otherwise we need to leave it back on the stack to be consumed.
+                if (lambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run)
+                {
+                    if (lambdaJobDescriptionConstruction.UseImplicitSystemDependency)
+                    {
+                        yield return Instruction.Create(OpCodes.Ldarg_0);
+                        yield return Instruction.Create(OpCodes.Ldloc, tempStorageForJobHandle);
+                        yield return Instruction.Create(OpCodes.Call,
+                            moduleDefinition.ImportReference(typeof(SystemBase).GetMethod("set_Dependency", BindingFlags.Instance | BindingFlags.NonPublic)));
+                    }
+                }
+
+                // Write back to display class after running
                 if (lambdaJobDescriptionConstruction.ExecutionMode == ExecutionMode.Run &&
                     generatedJobStruct.WriteToDisplayClassMethod != null && lambdaJobDescriptionConstruction.DelegateProducingSequence.CapturesLocals)
                 {
                     yield return Instruction.Create(OpCodes.Ldloca, newJobStructVariable);
-
-                    var opcode = methodLambdaWasEmittedAs.DeclaringType.IsValueType() ? OpCodes.Ldloca : OpCodes.Ldloc;
-                    yield return Instruction.Create(opcode, displayClassVariable);
+                    yield return Instruction.Create(methodLambdaWasEmittedAs.DeclaringType.IsValueType() ? OpCodes.Ldloca : OpCodes.Ldloc, displayClassVariable);
                     yield return Instruction.Create(OpCodes.Call, generatedJobStruct.WriteToDisplayClassMethod);
                 }
+
+                // Finally, let's load our JobHandle back onto the stack if we are scheduling and not using implicit system dependencies
+                if (lambdaJobDescriptionConstruction.ExecutionMode != ExecutionMode.Run && !lambdaJobDescriptionConstruction.UseImplicitSystemDependency)
+                    yield return Instruction.Create(OpCodes.Ldloc, tempStorageForJobHandle);
             }
 
             foreach (var invokedMethod in lambdaJobDescriptionConstruction.InvokedConstructionMethods)

@@ -121,7 +121,7 @@ namespace Unity.Entities.Editor
                 foreach (var filter in selectedFilterTypes)
                 {
                     var style = filter.AccessModeType == ComponentType.AccessMode.Exclude ? EntityDebuggerStyles.ComponentExclude : EntityDebuggerStyles.ComponentRequired;
-                    GUILayout.Label(EntityQueryGUI.SpecifiedTypeName(filter.GetManagedType()), style);
+                    GUILayout.Label(Properties.Editor.TypeUtility.GetTypeDisplayName(filter.GetManagedType()), style);
                 }
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();

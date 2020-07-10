@@ -40,6 +40,7 @@ namespace Unity.Entities
 
         public unsafe Unsafe<#=typeName#>List(int initialCapacity, AllocatorManager.AllocatorHandle allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<<#=type#>>(), UnsafeUtility.AlignOf<<#=type#>>(), initialCapacity, allocator, options); }
         public unsafe Unsafe<#=typeName#>List(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafeList(UnsafeUtility.SizeOf<<#=type#>>(), UnsafeUtility.AlignOf<<#=type#>>(), initialCapacity, allocator, options); }
+        public bool IsEmpty => !IsCreated || Length == 0;
         public bool IsCreated => Ptr != null;
         public void Dispose() { this.ListData().Dispose(); }
         public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }
@@ -75,7 +76,7 @@ namespace Unity.Entities
         {
             public UnsafeList.ParallelWriter Writer;
 
-            public unsafe ParallelWriter(UnsafeList* listData) { Writer = listData->AsParallelWriter(); }
+            internal unsafe ParallelWriter(UnsafeList* listData) { Writer = listData->AsParallelWriter(); }
 
             public void AddNoResize(<#=type#> value) { Writer.AddNoResize(value); }
             public void AddRangeNoResize(void* ptr, int length) { Writer.AddRangeNoResize<<#=type#>>(ptr, length); }
@@ -85,7 +86,7 @@ namespace Unity.Entities
 
     internal static class Unsafe<#=typeName#>ListExtensions
     {
-        public static ref UnsafeList ListData(ref this Unsafe<#=typeName#>List from) => ref UnsafeUtilityEx.As<Unsafe<#=typeName#>List, UnsafeList>(ref from);
+        public static ref UnsafeList ListData(ref this Unsafe<#=typeName#>List from) => ref UnsafeUtility.As<Unsafe<#=typeName#>List, UnsafeList>(ref from);
     }
 
     sealed class Unsafe<#=typeName#>ListDebugView
@@ -117,10 +118,10 @@ namespace Unity.Entities
 <#}}#>
 <#
 {
-    foreach (var (type, typeName, typeDebugView) in new[] {
-        ( "Chunk",     "Chunk",     "ArchetypeChunk"  ),
-        ( "Archetype", "Archetype", "EntityArchetype" ),
-        ( "EntityQueryData", "EntityQueryData", "EntityQueryData*" ),
+    foreach (var (type, typeName) in new[] {
+        ( "Chunk",           "Chunk"           ),
+        ( "Archetype",       "Archetype"       ),
+        ( "EntityQueryData", "EntityQueryData" ),
     }) {
 #>
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
@@ -135,6 +136,7 @@ namespace Unity.Entities
 
         public unsafe Unsafe<#=typeName#>PtrList(<#=type#>** ptr, int length) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.Invalid; this.ListData() = new UnsafePtrList((void**)ptr, length); }
         public unsafe Unsafe<#=typeName#>PtrList(int initialCapacity, Allocator allocator, NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) { Ptr = null; Length = 0; Capacity = 0; Allocator = AllocatorManager.None; this.ListData() = new UnsafePtrList(initialCapacity, allocator, options); }
+        public bool IsEmpty => !IsCreated || Length == 0;
         public bool IsCreated => Ptr != null;
         public void Dispose() { this.ListData().Dispose(); }
         public JobHandle Dispose(JobHandle inputDeps) { return this.ListData().Dispose(inputDeps); }
@@ -167,7 +169,7 @@ namespace Unity.Entities
         {
             public UnsafePtrList.ParallelWriter Writer;
 
-            public unsafe ParallelWriter(UnsafePtrList* listData) { Writer = listData->AsParallelWriter(); }
+            internal unsafe ParallelWriter(UnsafePtrList* listData) { Writer = listData->AsParallelWriter(); }
 
             public void AddNoResize(<#=type#>* value) { Writer.AddNoResize(value); }
             public void AddRangeNoResize(void** ptr, int length) { Writer.AddRangeNoResize(ptr, length); }
@@ -177,7 +179,7 @@ namespace Unity.Entities
 
     internal static class Unsafe<#=typeName#>PtrListExtensions
     {
-        public static ref UnsafePtrList ListData(ref this Unsafe<#=typeName#>PtrList from) => ref UnsafeUtilityEx.As<Unsafe<#=typeName#>PtrList, UnsafePtrList>(ref from);
+        public static ref UnsafePtrList ListData(ref this Unsafe<#=typeName#>PtrList from) => ref UnsafeUtility.As<Unsafe<#=typeName#>PtrList, UnsafePtrList>(ref from);
     }
 
     sealed class Unsafe<#=typeName#>PtrListDebugView
@@ -189,16 +191,19 @@ namespace Unity.Entities
             m_ListData = listData;
         }
 
-        public unsafe <#=typeDebugView#>[] Items
+        public unsafe <#=type#>[] Items
         {
             get
             {
-                var result = new <#=typeDebugView#>[m_ListData.Length];
+                var result = new <#=type#>[m_ListData.Length];
                 var ptr    = m_ListData.Ptr;
 
                 for (int i = 0, num = result.Length; i < num; ++i)
                 {
-                    result[i] = *(<#=typeDebugView#>*)ptr[i];
+                    if (ptr[i] != null)
+                    {
+                        result[i] = *(<#=type#>*)ptr[i];
+                    }
                 }
 
                 return result;

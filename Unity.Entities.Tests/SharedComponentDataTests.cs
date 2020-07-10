@@ -517,7 +517,7 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-#if !NET_DOTS
+#if !UNITY_DOTSRUNTIME // Unsupported shared components in DOTS Runtime
         [Test]
         public void GetSharedComponentDataWithTypeIndex()
         {

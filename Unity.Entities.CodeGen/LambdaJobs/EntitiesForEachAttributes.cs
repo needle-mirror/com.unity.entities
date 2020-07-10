@@ -33,7 +33,10 @@ namespace Unity.Entities.CodeGen
         public static readonly List<AttributeData> Attributes = new List<AttributeData>
         {
             new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithReadOnly), typeof(ReadOnlyAttribute), CheckReadOnly),
-            new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion), typeof(DeallocateOnJobCompletionAttribute), CheckDeallocateOnJobCompletion),
+
+            // DeallocateOnJobCompletionAttribute is now applied in JobStructForLambdaJob.InsertMethodAndAttributesToDisposeContainerFields
+            //new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion), typeof(DeallocateOnJobCompletionAttribute), CheckDeallocateOnJobCompletion),
+
             new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableContainerSafetyRestriction), typeof(NativeDisableContainerSafetyRestrictionAttribute), CheckNativeDisableContainerSafetyRestriction),
             new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableUnsafePtrRestriction), typeof(NativeDisableUnsafePtrRestrictionAttribute)),
             new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableParallelForRestriction), typeof(NativeDisableParallelForRestrictionAttribute), CheckNativeDisableParallelForRestriction),
@@ -43,7 +46,7 @@ namespace Unity.Entities.CodeGen
         static bool HasAttribute(TypeDefinition typeDef, Type attributeType) => typeDef.HasCustomAttributes &&
         typeDef.CustomAttributes.Any(attr => IsType(attr.AttributeType, attributeType));
 
-        static bool HasAttributeOrFieldWithAttribute(this TypeReference type, Type checkAttribute)
+        internal static bool HasAttributeOrFieldWithAttribute(this TypeReference type, Type checkAttribute)
         {
             var typeDef = type.CheckedResolve();
             if (HasAttribute(typeDef, checkAttribute))
@@ -73,16 +76,6 @@ namespace Unity.Entities.CodeGen
             if (field.FieldType.HasAttributeOrFieldWithAttribute(typeof(NativeContainerAttribute)))
                 return null;
             return UserError.DC0034(method, field.Name, field.FieldType, constructionMethod.InstructionInvokingMethod);
-        }
-
-        static DiagnosticMessage CheckDeallocateOnJobCompletion(
-            MethodDefinition method,
-            LambdaJobDescriptionConstruction.InvokedConstructionMethod constructionMethod,
-            FieldDefinition field)
-        {
-            if (field.FieldType.HasAttributeOrFieldWithAttribute(typeof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)))
-                return null;
-            return UserError.DC0035(method, field.Name, field.FieldType, constructionMethod.InstructionInvokingMethod);
         }
 
         static DiagnosticMessage CheckNativeDisableContainerSafetyRestriction(

@@ -1,7 +1,5 @@
 <#/*THIS IS A T4 FILE - see t4_text_templating.md for what it is and how to run codegen*/#>
-<#@ assembly name="System.Collections" #>
 <#@ assembly name="System.Core" #>
-<#@ assembly name="System.Linq" #>
 <#@ import namespace="System.Collections.Generic" #>
 <#@ import namespace="System.Linq" #>
 <#@ import namespace="System.Text" #>
@@ -27,7 +25,7 @@ using System;
 
 namespace Unity.Entities
 {
-#if !UNITY_DOTSPLAYER        // DOTS-Runtime doesn't support IJobForEach
+#if !UNITY_DOTSRUNTIME        // DOTS-Runtime doesn't support IJobForEach
 <#
 var basicCombinations = GenCombinations();
 foreach(var combination in basicCombinations) {
@@ -60,7 +58,8 @@ foreach(var combination in combinations) {
 <#
 string[] funcNames = new string[]{"Schedule", "ScheduleSingle", "Run"};
 int [] forEachVals = new int[]{1, -1, -1};
-string[] scheduleMode = new string[]{"ScheduleMode.Batched", "ScheduleMode.Batched", "ScheduleMode.Run"};
+string[] scheduleMode_2020_2 = new string[]{"ScheduleMode.Parallel", "ScheduleMode.Single", "ScheduleMode.Run"};
+string[] scheduleMode_older = new string[]{"ScheduleMode.Batched", "ScheduleMode.Batched", "ScheduleMode.Run"};
 string[] groupFuncNames = new string[]{"Schedule", "ScheduleSingle", "Run"};
 #>
     public static partial class JobForEachExtensions
@@ -77,10 +76,18 @@ for(int i=0; i<funcNames.Length; ++i) {
         var comboStringD = GetComboString(false, combination);
         var comboStringE = GetComboString(true, combination);
 #>
+
+#if UNITY_2020_2_OR_NEWER
             if (typeof(IBaseJobForEach_<#=comboStringD#>).IsAssignableFrom(typeT))
-                return ScheduleInternal_<#=comboStringD#>(ref jobData, system, default, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode[i]#>);
+                return ScheduleInternal_<#=comboStringD#>(ref jobData, system, default, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode_2020_2[i]#>);
             if (typeof(IBaseJobForEach_<#=comboStringE#>).IsAssignableFrom(typeT))
-                return ScheduleInternal_<#=comboStringE#>(ref jobData, system, default, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode[i]#>);
+                return ScheduleInternal_<#=comboStringE#>(ref jobData, system, default, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode_2020_2[i]#>);
+#else
+            if (typeof(IBaseJobForEach_<#=comboStringD#>).IsAssignableFrom(typeT))
+                return ScheduleInternal_<#=comboStringD#>(ref jobData, system, default, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode_older[i]#>);
+            if (typeof(IBaseJobForEach_<#=comboStringE#>).IsAssignableFrom(typeT))
+                return ScheduleInternal_<#=comboStringE#>(ref jobData, system, default, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode_older[i]#>);
+#endif
 <#
     }
 #>
@@ -102,10 +109,17 @@ for(int i=0; i<funcNames.Length; ++i) {
         var comboStringD = GetComboString(false, combination);
         var comboStringE = GetComboString(true, combination);
 #>
+#if UNITY_2020_2_OR_NEWER
             if (typeof(IBaseJobForEach_<#=comboStringD#>).IsAssignableFrom(typeT))
-                return ScheduleInternal_<#=comboStringD#>(ref jobData, default, query, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode[i]#>);
+                return ScheduleInternal_<#=comboStringD#>(ref jobData, default, query, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode_2020_2[i]#>);
             if (typeof(IBaseJobForEach_<#=comboStringE#>).IsAssignableFrom(typeT))
-                return ScheduleInternal_<#=comboStringE#>(ref jobData, default, query, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode[i]#>);
+                return ScheduleInternal_<#=comboStringE#>(ref jobData, default, query, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode_2020_2[i]#>);
+#else
+            if (typeof(IBaseJobForEach_<#=comboStringD#>).IsAssignableFrom(typeT))
+                return ScheduleInternal_<#=comboStringD#>(ref jobData, default, query, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode_older[i]#>);
+            if (typeof(IBaseJobForEach_<#=comboStringE#>).IsAssignableFrom(typeT))
+                return ScheduleInternal_<#=comboStringE#>(ref jobData, default, query, <#=forEachVals[i]#>, dependsOn, <#=scheduleMode_older[i]#>);
+#endif
 <#
     }
 #>
@@ -134,7 +148,7 @@ foreach(var combination in combinations) {
         for (int i = 0; i != combination.Length; i++)
         {
 
-            typeLookupCache.AppendLine($@"              var typeLookupCache{i} = 0;");
+            typeLookupCache.AppendLine($@"              short typeLookupCache{i} = 0;");
 
             untypedGenericParams.Append(",");
 
@@ -155,8 +169,8 @@ foreach(var combination in combinations) {
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_<#=comboString#><T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData);
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, resolvedQuery.HasFilter(), ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, deferredCountData, prefilterHandle, mode);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
@@ -194,10 +208,17 @@ foreach(var combination in combinations) {
             public NativeArray<byte> PrefilterData;
 
             [Preserve]
+#if UNITY_2020_2_OR_NEWER
+            public static IntPtr Initialize()
+            {
+                return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_<#=comboString#><T, <#=genericParams#>>), typeof(T), (ExecuteJobFunction) Execute);
+            }
+#else
             public static IntPtr Initialize(JobType jobType)
             {
                 return JobsUtility.CreateJobReflectionData(typeof(JobStruct_Process_<#=comboString#><T, <#=genericParams#>>), typeof(T), jobType, (ExecuteJobFunction) Execute);
             }
+#endif
 
             delegate void ExecuteJobFunction(ref JobStruct_Process_<#=comboString#><T, <#=genericParams#>> data, IntPtr additionalPtr, IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
 
@@ -247,7 +268,7 @@ foreach(var combination in combinations) {
 }
 #>
     }
-#endif // !UNITY_DOTSPLAYER
+#endif // !UNITY_DOTSRUNTIME
 }
 #pragma warning restore 618
 
@@ -369,7 +390,7 @@ string ExecuteCallParams(bool withEntity, Category[] combination)
     for(int i=0; i<combination.Length; ++i)
     {
         if(combination[i] == Category.C)
-                callParams.Append($"ref UnsafeUtilityEx.ArrayElementAsRef<T{i}>(ptr{i}, i)");
+                callParams.Append($"ref UnsafeUtility.ArrayElementAsRef<T{i}>(ptr{i}, i)");
         else if(combination[i] == Category.B)
             callParams.Append($"buffer{i}[i]");
 
@@ -437,7 +458,7 @@ string Interface( Category[] combination, bool withEntity, string comboString )
 
     interfaceDec.Append(
 $@"
-    [Obsolete(""Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)"")]
+    [Obsolete(""Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-08-20)"")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
     public interface {name}<{GenericParams(combination)}> : JobForEachExtensions.IBaseJobForEach_{comboString}
 ");
@@ -461,7 +482,7 @@ string BasicInterface( Category[] combination, bool withEntity, string comboStri
 
     interfaceDec.AppendLine(
     $@"
-    [Obsolete(""Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-06-20)"")]
+    [Obsolete(""Please use Entities.ForEach or IJobChunk to schedule jobs that work on Entities. (RemovedAfter 2020-08-20)"")]
     [JobProducerType(typeof(JobForEachExtensions.JobStruct_Process_{comboString}<{GetUntypedGenericParams(combination)}>))]
     public interface {name}<{GenericParams(combination)}> : {name}_{comboString}<{GenericParams(combination)}>");
 

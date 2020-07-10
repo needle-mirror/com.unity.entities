@@ -26,14 +26,14 @@ All the system events run on the main thread. Ideally, your [OnUpdate()] functio
 
 The following example illustrates using [Entities.ForEach] to implement a system that updates one component based on the value of another:
  
-[!code-cs[basic-system](../package/DocCodeSamples.Tests/SystemBaseExamples.cs#basic-system)]
+[!code-cs[basic-system](../DocCodeSamples.Tests/SystemBaseExamples.cs#basic-system)]
 
 [ComponentSystemGroup]: xref:ecs-system-update-order
 [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
 [Job.WithCode]: xref:Unity.Entities.SystemBase.Job
 [EntityCommandBufferSystem]: xref:ecs-entity-command-buffer
 [EntityCommandBuffer]: xref:Unity.Entities.EntityCommandBuffer
-[IJobChunk]: xref:Unity.Entities.IJobChunk)
+[IJobChunk]: xref:Unity.Entities.IJobChunk
 [OnCreate()]: xref:Unity.Entities.ComponentSystemBase.OnCreate*
 [OnDestroy()]: xref:Unity.Entities.ComponentSystemBase.OnDestroy*
 [OnStartRunning()]: xref:Unity.Entities.ComponentSystemBase.OnStartRunning*

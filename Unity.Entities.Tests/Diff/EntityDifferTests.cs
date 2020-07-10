@@ -1095,7 +1095,140 @@ namespace Unity.Entities.Tests
         }
         */
 
+        class ManagedComponentWithBlobAssetRef : IComponentData
+        {
+            public BlobAssetReference<int> Value;
+        }
+
+        struct SharedComponentWithBlobAssetRef : ISharedComponentData
+        {
+            public BlobAssetReference<int> Value;
+        }
+
+        [Test]
+        [DotsRuntimeFixme] // Requires Unity.Properties support
+        public unsafe void EntityDiffer_GetChanges_BlobAssets_ManagedComponents()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var blobAssetReference0 = BlobAssetReference<int>.Create(10);
+
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(ManagedComponentWithBlobAssetRef));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetComponentData(entity, new ManagedComponentWithBlobAssetRef
+                {
+                    Value = blobAssetReference0
+                });
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+
+                    var forward = changes.ForwardChangeSet;
+                    Assert.That(forward.CreatedBlobAssets.Length, Is.EqualTo(1));
+                    Assert.That(forward.DestroyedBlobAssets.Length, Is.EqualTo(0));
+                    Assert.That(forward.BlobAssetReferenceChanges.Length, Is.EqualTo(1));
+                    Assert.That(forward.BlobAssetData.Length, Is.EqualTo(sizeof(int)));
+                    Assert.That(*(int*)forward.BlobAssetData.GetUnsafePtr(), Is.EqualTo(10));
+                }
+
+                blobAssetReference0.Dispose();
+
+                var blobAssetReference1 = BlobAssetReference<int>.Create(20);
+
+                SrcEntityManager.SetComponentData(entity, new ManagedComponentWithBlobAssetRef
+                {
+                    Value = blobAssetReference1
+                });
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+
+                    var forward = changes.ForwardChangeSet;
+                    Assert.That(forward.CreatedBlobAssets.Length, Is.EqualTo(1));
+                    Assert.That(forward.BlobAssetReferenceChanges.Length, Is.EqualTo(1));
+                    Assert.That(forward.BlobAssetData.Length, Is.EqualTo(sizeof(int)));
+                    Assert.That(*(int*)forward.BlobAssetData.GetUnsafePtr(), Is.EqualTo(20));
+
+                    Assert.IsTrue(changes.HasReverseChangeSet);
+
+                    var reverse = changes.ReverseChangeSet;
+                    Assert.That(reverse.CreatedBlobAssets.Length, Is.EqualTo(1));
+                    Assert.That(reverse.BlobAssetReferenceChanges.Length, Is.EqualTo(1));
+                    Assert.That(reverse.BlobAssetData.Length, Is.EqualTo(sizeof(int)));
+                    Assert.That(*(int*)reverse.BlobAssetData.GetUnsafePtr(), Is.EqualTo(10));
+                }
+
+                blobAssetReference1.Dispose();
+            }
+        }
+
+        [Test]
+        [DotsRuntimeFixme] // Requires Unity.Properties support
+        public unsafe void EntityDiffer_GetChanges_BlobAssets_SharedComponents()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var blobAssetReference0 = BlobAssetReference<int>.Create(10);
+
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(SharedComponentWithBlobAssetRef));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetSharedComponentData(entity, new SharedComponentWithBlobAssetRef
+                {
+                    Value = blobAssetReference0
+                });
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+
+                    var forward = changes.ForwardChangeSet;
+
+                    Assert.That(forward.CreatedBlobAssets.Length, Is.EqualTo(1));
+                    Assert.That(forward.DestroyedBlobAssets.Length, Is.EqualTo(0));
+                    Assert.That(forward.BlobAssetReferenceChanges.Length, Is.EqualTo(1));
+                    Assert.That(forward.BlobAssetData.Length, Is.EqualTo(sizeof(int)));
+                    Assert.That(*(int*)forward.BlobAssetData.GetUnsafePtr(), Is.EqualTo(10));
+                }
+
+                // IMPORTANT There is a known issue here.
+                // We need to allocate the new blob BEFORE de-allocating the old one. Otherwise the newly allocated blob will actually have the same memory address.
+                // If this happens setting the component data will not correctly bump the global system version since it detects no change.
+                var blobAssetReference1 = BlobAssetReference<int>.Create(20);
+                blobAssetReference0.Dispose();
+
+                SrcEntityManager.SetSharedComponentData(entity, new SharedComponentWithBlobAssetRef
+                {
+                    Value = blobAssetReference1
+                });
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+
+                    var forward = changes.ForwardChangeSet;
+                    Assert.That(forward.CreatedBlobAssets.Length, Is.EqualTo(1));
+                    Assert.That(forward.BlobAssetReferenceChanges.Length, Is.EqualTo(1));
+                    Assert.That(forward.BlobAssetData.Length, Is.EqualTo(sizeof(int)));
+                    Assert.That(*(int*)forward.BlobAssetData.GetUnsafePtr(), Is.EqualTo(20));
+
+                    Assert.IsTrue(changes.HasReverseChangeSet);
+
+                    var reverse = changes.ReverseChangeSet;
+                    Assert.That(reverse.CreatedBlobAssets.Length, Is.EqualTo(1));
+                    Assert.That(reverse.BlobAssetReferenceChanges.Length, Is.EqualTo(1));
+                    Assert.That(reverse.BlobAssetData.Length, Is.EqualTo(sizeof(int)));
+                    Assert.That(*(int*)reverse.BlobAssetData.GetUnsafePtr(), Is.EqualTo(10));
+                }
+
+                blobAssetReference1.Dispose();
+            }
+        }
+
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
-#endif // !UNITY_DOTSPLAYER_IL2CPP
+#endif // !UNITY_DOTSRUNTIME_IL2CPP
     }
 }

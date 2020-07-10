@@ -167,12 +167,8 @@ namespace Unity.Entities.Editor
                 recorder.enabled = true;
                 active = false;
             }
-            string typeName;
-            if (type.IsNested)
-                typeName = type.DeclaringType.Name + "." + type.Name;
-            else
-                typeName = type.Name;
 
+            var typeName = Properties.Editor.TypeUtility.GetTypeDisplayName(type);
             var name = getWorldSelection() == null ? $"{typeName} ({system.World?.Name ?? "none"})" : typeName;
             var item = new TreeViewItem { id = id, displayName = name };
 

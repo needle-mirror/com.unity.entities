@@ -1,4 +1,3 @@
-#if !UNITY_DOTSPLAYER
 using System;
 using NUnit.Framework;
 using Unity.Collections;
@@ -197,6 +196,7 @@ namespace Unity.Entities.Tests
                 deltaCheckSystem.UpdateExpectedResults(nothing);
         }
 
+#if !UNITY_DOTSRUNTIME
         public class DeltaProcessComponentSystem : JobComponentSystem
         {
 #pragma warning disable 618
@@ -779,6 +779,6 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData>(e).value);
         }
+#endif
     }
 }
-#endif

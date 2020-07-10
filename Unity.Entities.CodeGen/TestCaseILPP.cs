@@ -5,8 +5,9 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Unity.Assertions;
 
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
 namespace Unity.Entities.CodeGen
 {
     /// <summary> Generates code need to run unit tests in ILPP targets without reflection.</summary>
@@ -29,6 +30,12 @@ namespace Unity.Entities.CodeGen
         FieldDefinition m_TestsSkippedFld;
         FieldDefinition m_TestsUnsupportedFld;
         FieldDefinition m_TestsPartiallySupportedFld;
+        bool m_windows;
+
+        // Running across attributes and then up their hierarchy can get a little costly.
+        // Cache so we can return quickly. Ex: attrCache["CompilerTestCase", "TestCase"] = true
+        // since a CompilerTestCase is a child attribute of TestCase.
+        Dictionary<(string, string), bool> attributeParentCache = new Dictionary<(string, string), bool>();
 
         enum TestStatus
         {
@@ -44,6 +51,8 @@ namespace Unity.Entities.CodeGen
             m_TestRunner = FindCallerMethod();
             if (m_TestRunner == null)
                 return false;
+
+            m_windows = Defines.FirstOrDefault(define => define == "UNITY_WINDOWS") != null;
 
             m_WriteLine = AssemblyDefinition.MainModule.ImportReference(typeof(Console).GetMethod("WriteLine", new[] {typeof(string)}));
 
@@ -68,7 +77,9 @@ namespace Unity.Entities.CodeGen
             foreach (var t in AssemblyDefinition.MainModule.Types)
             {
                 if (t.IsClass)
+                {
                     ProcessClass(t);
+                }
             }
 
             ILProcessor il = m_TestRunner.Body.GetILProcessor();
@@ -88,35 +99,86 @@ namespace Unity.Entities.CodeGen
             return caller;
         }
 
-        static bool HasCustomAttribute(MethodDefinition m, string attributeName)
+        bool HasCustomAttribute(MethodDefinition m, string attributeName)
         {
+            if (!m.HasCustomAttributes)
+                return false;
+
             var fullAttrName = attributeName + "Attribute";
             var attributes = m.Resolve().CustomAttributes;
-            return attributes.FirstOrDefault(ca =>
-                ca.AttributeType.FullName == attributeName || ca.AttributeType.FullName == fullAttrName) != null;
+
+            // Actually need to search a hierarchy; the attribute we want may be a parent.
+            // But do the quick check first, since it usually works.
+            if (attributes.FirstOrDefault(ca =>
+                ca.AttributeType.FullName == attributeName || ca.AttributeType.FullName == fullAttrName) != null)
+            {
+                return true;
+            }
+
+            foreach (var attr in attributes)
+            {
+                if (attributeParentCache.TryGetValue((attr.AttributeType.FullName, attributeName), out bool v))
+                {
+                    return v;
+                }
+
+                // already checked the base; can start one up the chain.
+                var parent = attr.AttributeType.Resolve().BaseType;
+                while (parent != null)
+                {
+                    if (parent.FullName == attributeName || parent.FullName == fullAttrName)
+                    {
+                        attributeParentCache[(attr.AttributeType.FullName, attributeName)] = true;
+                        return true;
+                    }
+
+                    parent = parent.Resolve().BaseType;
+                }
+
+                attributeParentCache[(attr.AttributeType.FullName, attributeName)] = false;
+            }
+
+            return false;
         }
 
-        void ProcessClass(TypeDefinition clss)
+        int ProcessClass(TypeDefinition clss)
         {
             List<MethodDefinition> tests = new List<MethodDefinition>();
 
-            foreach (var m in clss.Methods)
+            // This outer loop is because a class should be instantiated and called
+            // for its *inherited* tests. (Which I think is weird. -Lee) If Class B is
+            // a subclass of Class A, and A has a [Test] method Test(), then Test() should
+            // be called for:
+            // a = new A(); a.Test();
+            // b = new B(); b.Test();
+
+            TypeDefinition c = clss;
+            while (c != null)
             {
-                if (HasCustomAttribute(m, "NUnit.Framework.Test"))
+                foreach (var m in c.Methods)
                 {
-                    if (m.ReturnType.MetadataType != MetadataType.Void)
-                        throw new Exception($"Test case '{m.FullName}' has non-void return type.");
-                    tests.Add(m);
+                    if (HasCustomAttribute(m, "NUnit.Framework.Test"))
+                    {
+                        if (m.ReturnType.MetadataType != MetadataType.Void)
+                            throw new Exception($"Test case '{m.FullName}' has non-void return type.");
+                        tests.Add(m);
+                    }
                 }
+
+                c = c.BaseType?.Resolve();
             }
 
             if (tests.Count > 0)
             {
-                var setups = FindSetupTeardown(true, clss);
-                var teardowns = FindSetupTeardown(false, clss);
+                var setups = FindSetupTeardown(true, false, clss);
+                var teardowns = FindSetupTeardown(false, false, clss);
+                var oneTimeSetups = FindSetupTeardown(true, true, clss);
+                var oneTimeTeardowns = FindSetupTeardown(false, true, clss);
 
-                EmitTestCalls(clss, tests, setups, teardowns);
+                EmitTestCalls(clss, tests, setups, teardowns, oneTimeSetups, oneTimeTeardowns);
             }
+
+            return tests.Count;
         }
 
         // Walks the code to look for [NotSupported]/[PartiallySupported] method calls.
@@ -208,10 +270,18 @@ namespace Unity.Entities.CodeGen
                     if (type.Name == "IgnoreAttribute")
                         return true;
 
-                    // TODO: may choose to support in the future.
-                    // But for now - since there is no command line interface yet - same as [Ignore]
-                    if (type.Name == "ExplicitAttribute")
+                    // TODO: May choose to support in the future.
+                    // Since there is no command line interface yet [Explicit] is the same as [Ignore]
+                    // [WindowsOnly] is tied to the dotnet build. Also effectively [Ignore]
+
+                    string[] ignoreList = new[] { "ExplicitAttribute"};
+                    if (m_windows)
+                        ignoreList = ignoreList.Concat(new [] {"WindowsOnlyAttribute"}).ToArray();
+
+                    if (ignoreList.Contains(type.Name))
+                    {
                         return true;
+                    }
 
                     type = type.Resolve().BaseType;
                 }
@@ -296,8 +366,14 @@ namespace Unity.Entities.CodeGen
                 return;
             }
 
-            foreach (var obj in paramList[depth])
+            foreach (var p in paramList[depth])
             {
+                object obj;
+                if (p is CustomAttributeArgument)
+                    obj = ((CustomAttributeArgument)p).Value;    // almost everything is wrapped in a CustomAttributeArgument
+                else
+                    obj = p;                                     // but Bool sometimes isn't; so fall back to this.
+
                 switch (obj)
                 {
                     case byte ui1:
@@ -363,7 +439,9 @@ namespace Unity.Entities.CodeGen
             return status == TestStatus.Okay || status == TestStatus.PartiallySupported;
         }
 
-        void EmitTestCalls(TypeDefinition clss, List<MethodDefinition> tests, List<MethodDefinition> setup, List<MethodDefinition> teardown)
+        void EmitTestCalls(TypeDefinition clss, List<MethodDefinition> tests,
+            List<MethodDefinition> setup, List<MethodDefinition> teardown,
+            List<MethodDefinition> oneTimeSetup, List<MethodDefinition> oneTimeTeardown)
         {
             var ctor = clss.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0);
             if (ctor == null)
@@ -377,7 +455,13 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Newobj, ctor);
             il.Emit(OpCodes.Stloc, classLocal);
 
-            foreach(var testMethod in tests)
+            foreach (var oneTimeSetupCall in oneTimeSetup)
+            {
+                il.Emit(OpCodes.Ldloc, classLocal);
+                il.Emit(oneTimeSetupCall.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(oneTimeSetupCall));
+            }
+
+            foreach (var testMethod in tests)
             {
                 string skipMsg = null;
                 string msg = "";
@@ -471,10 +555,11 @@ namespace Unity.Entities.CodeGen
                         foreach (var setupCall in setup)
                         {
                             il.Emit(OpCodes.Ldloc, classLocal);
-                            il.Emit(OpCodes.Call, setupCall);
+                            il.Emit(setupCall.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(setupCall));
                         }
 
-                        il.Emit(OpCodes.Ldloc, classLocal);
+                        if (!testMethod.IsStatic)
+                            il.Emit(OpCodes.Ldloc, classLocal);
 
                         il.Append(valueIL);
                         il.Emit(OpCodes.Call, testMethod);
@@ -482,18 +567,25 @@ namespace Unity.Entities.CodeGen
                         foreach (var teardownCall in teardown)
                         {
                             il.Emit(OpCodes.Ldloc, classLocal);
-                            il.Emit(OpCodes.Call, teardownCall);
+                            il.Emit(teardownCall.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(teardownCall));
                         }
 
                         EmitIncStaticFld(il, m_TestsRanFld);
                     }
                 }
             }
+
+            foreach (var oneTimeTeardownCall in oneTimeTeardown)
+            {
+                il.Emit(OpCodes.Ldloc, classLocal);
+                il.Emit(oneTimeTeardownCall.IsVirtual ? OpCodes.Callvirt : OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(oneTimeTeardownCall));
+            }
         }
 
 
         /// <summary>
         /// NUnit uses [SetUp] and [TearDown] attributes to denote methods that should run before and after methods with a [Test] attribute.
+        /// (It also specifies [OneTimeSetUp] and [OneTimeTearDown] which have the same semantics, except they run before and after only once for all tests in a fixture.)
         /// NUnit does a few things that we need to specifically handle:
         ///  1. NUnit treats [SetUp]/[TearDown] attributes as if they are inherited. This means a child class can override a parent method without explicitly adding either attribute.
         ///     Importantly since the user must override the method explicitly, we do not call SetUp/TearDown methods twice in this case
@@ -504,39 +596,39 @@ namespace Unity.Entities.CodeGen
         /// <param name="setup"></param>
         /// <param name="clss"></param>
         /// <returns></returns>
-        List<MethodDefinition> FindSetupTeardown(bool setup, TypeDefinition clss)
+        List<MethodDefinition> FindSetupTeardown(bool setup, bool oneTime, TypeDefinition clss)
         {
             var list = new List<MethodDefinition>();
-            var methodSet = new HashSet<MethodDefinition>();
-            var overriddenMethods = new Dictionary<string, MethodDefinition>();
+            var overrides = new HashSet<string>();
 
             while (clss != null)
             {
                 foreach (var method in clss.Methods)
                 {
+                    if (overrides.Contains(method.Name))
+                        continue;
+
                     // TearDown and SetupMethods must take no parameters
                     // Todo: We don't support static setup methods (NUnit 2.5 feature)
                     if (method.HasParameters || method.IsStatic)
                         continue;
 
-                    if (HasCustomAttribute(method, setup ? "NUnit.Framework.SetUp" : "NUnit.Framework.TearDown"))
+                    string attr = (oneTime ? "NUnit.Framework.OneTime" : "NUnit.Framework.") + (setup ? "SetUp" : "TearDown");
+                    if (HasCustomAttribute(method, attr))
                     {
-                        if (overriddenMethods.TryGetValue(method.Name, out var methodOverride))
-                            methodSet.Add(methodOverride);
-                        else
-                            methodSet.Add(method);
-                    }
+                        list.Add(method);
 
-                    if (method.IsVirtual && !method.IsNewSlot)
-                    {
-                        overriddenMethods.Add(method.Name, method);
+                        // If parent methods are also marked [SetUp] - which is probably incorrect but common -
+                        // we don't need to call those as well.
+                        if (method.IsVirtual)
+                        {
+                            overrides.Add(method.Name);
+                        }
                     }
                 }
 
                 clss = clss.BaseType?.Resolve();
             }
-
-            list = methodSet.ToList();
 
             if (setup)
             {
@@ -550,4 +642,4 @@ namespace Unity.Entities.CodeGen
     }
 }
 
-#endif // UNITY_DOTSPLAYER
+#endif // UNITY_DOTSRUNTIME

@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using Unity.Burst;
 using Unity.Collections;
@@ -45,7 +46,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         readonly bool                    m_IsZeroSized;          // cache of whether T is zero-sized
 #endif
-        int                              m_TypeLookupCache;
+        LookupCache                      m_Cache;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal ComponentDataFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore, AtomicSafetyHandle safety)
@@ -53,7 +54,7 @@ namespace Unity.Entities
             m_Safety = safety;
             m_TypeIndex = typeIndex;
             m_EntityComponentStore = entityComponentStoreComponentStore;
-            m_TypeLookupCache = 0;
+            m_Cache = default;
             m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
             m_IsZeroSized = ComponentType.FromTypeIndex(typeIndex).IsZeroSized;
         }
@@ -63,7 +64,7 @@ namespace Unity.Entities
         {
             m_TypeIndex = typeIndex;
             m_EntityComponentStore = entityComponentStoreComponentStore;
-            m_TypeLookupCache = 0;
+            m_Cache = default;
             m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
         }
 
@@ -80,6 +81,7 @@ namespace Unity.Entities
         /// <remarks>To report if the provided entity has a component of type T, this function confirms
         /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
         /// </remarks>
+        [Obsolete("Use HasComponent() instead. Exists() will be (RemovedAfter 2020-08-20). (UnityUpgradable) -> HasComponent(*)")]
         public bool Exists(Entity entity)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -131,13 +133,22 @@ namespace Unity.Entities
             return ChangeVersionUtility.DidChange(chunkVersion, version);
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void CheckComponentIsZeroSized()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (m_IsZeroSized)
+                throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not index the component because it is zero sized, you can use Exists instead.");
+#endif
+        }
+
         /// <summary>
         /// Gets the <see cref="IComponentData"/> instance of type T for the specified entity.
         /// </summary>
         /// <param name="entity">The entity.</param>
         /// <returns>An <see cref="IComponentData"/> type.</returns>
         /// <remarks>You cannot use ComponentDataFromEntity to get zero-sized <see cref="IComponentData"/>.
-        /// Use <see cref="Exists"/> to check whether an entity has the zero-sized component instead.
+        /// Use <see cref="HasComponent"/> to check whether an entity has the zero-sized component instead.
         ///
         /// Normally, you cannot write to components accessed using a ComponentDataFromEntity instance
         /// in a parallel Job. This restriction is in place because multiple threads could write to the same component,
@@ -157,14 +168,10 @@ namespace Unity.Entities
 #endif
                 m_EntityComponentStore->AssertEntityHasComponent(entity, m_TypeIndex);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (m_IsZeroSized)
-                    throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not get the component because it is zero sized, you can use Exists instead.");
-#endif
+                CheckComponentIsZeroSized();
 
-                T data;
-                void* ptr = m_EntityComponentStore->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_TypeLookupCache);
-                UnsafeUtility.CopyPtrToStructure(ptr, out data);
+                void* ptr = m_EntityComponentStore->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+                UnsafeUtility.CopyPtrToStructure(ptr, out T data);
 
                 return data;
             }
@@ -175,12 +182,9 @@ namespace Unity.Entities
 #endif
                 m_EntityComponentStore->AssertEntityHasComponent(entity, m_TypeIndex);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (m_IsZeroSized)
-                    throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not set the component because it is zero sized, you can use Exists instead.");
-#endif
+                CheckComponentIsZeroSized();
 
-                void* ptr = m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_TypeLookupCache);
+                void* ptr = m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
                 UnsafeUtility.CopyStructureToPtr(ref value, ptr);
             }
         }

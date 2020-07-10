@@ -1,7 +1,3 @@
----
-uid: ecs-entities-foreach
----
-
 # SystemBase lambda functions
 
 This documentation has been moved to the [SystemBase] class documentation. Also, see [Creating systems] for more information on programming systems.

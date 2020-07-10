@@ -7,6 +7,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Serialization;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Unity.Entities
 {
@@ -143,6 +144,26 @@ namespace Unity.Entities
         }
     }
     
+    readonly unsafe struct BlobAssetPtr : IEquatable<BlobAssetPtr>
+    {
+        public readonly BlobAssetHeader* Header;
+        public void* Data => Header + 1;
+        public int Length => Header->Length;
+        public ulong Hash => Header->Hash;
+
+        public BlobAssetPtr(BlobAssetHeader* header)
+            => Header = header;
+
+        public bool Equals(BlobAssetPtr other)
+            => Header == other.Header;
+
+        public override int GetHashCode()
+        {
+            BlobAssetHeader* onStack = Header;
+            return (int)math.hash(&onStack, sizeof(BlobAssetHeader*));
+        }
+    }
+
     // TODO: For now the size of BlobAssetHeader needs to be multiple of 16 to ensure alignment of blob assets
     // TODO: Add proper alignment support to blob assets
     // TODO: Reduce the size of the header at runtime or remove it completely
@@ -195,6 +216,26 @@ namespace Unity.Entities
         }
 
         
+
+#if !NET_DOTS
+        /// <summary>
+        /// This member is exposed to Unity.Properties to support EqualityComparison and Serialization within managed objects.
+        /// </summary>
+        /// <remarks>
+        /// This member is used to expose the value of the <see cref="m_Ptr"/> to properties (which does not handle pointers by default).
+        ///
+        /// It's used for two managed object cases.
+        ///
+        /// 1) EqualityComparison - The equality comparison visitor will encounter this member and compare the value (i.e. blob address).
+        ///
+        ///
+        /// 2) Serialization - Before serialization, the <see cref="m_Ptr"/> field is patched with a serialized hash. The visitor encounters this member
+        ///                    and writes/reads back the value. The value is then patched back to the new ptr.
+        /// </remarks>
+        // ReSharper disable once UnusedMember.Local
+        [Properties.CreateProperty] long SerializedHash => m_Align8Union;
+#endif
+
         [BurstDiscard]
         void ValidateNonBurst()
         {
@@ -212,6 +253,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException("The BlobAssetReference is not valid. Likely it has already been unloaded or released.");
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void ValidateBurst()
         {
             void* validationPtr = Header->ValidationPtr;
@@ -239,17 +281,19 @@ namespace Unity.Entities
             ValidateBurst();
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void ValidateNotDeserialized()
+        {
+            if (Header->Allocator == Allocator.None)
+                throw new InvalidOperationException("It's not possible to release a blob asset reference that was deserialized. It will be automatically released when the scene is unloaded ");
+            Header->Invalidate();
+        }
+
         public void Dispose()
         {
             ValidateNotNull();
-            var header = Header;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if(header->Allocator == Allocator.None)
-                throw new InvalidOperationException("It's not possible to release a blob asset reference that was deserialized. It will be automatically released when the scene is unloaded ");
-            Header->Invalidate();
-#endif
-
-            UnsafeUtility.Free(header, header->Allocator);
+            ValidateNotDeserialized();
+            UnsafeUtility.Free(Header, Header->Allocator);
             m_Ptr = null;
         }
     }
@@ -275,11 +319,13 @@ namespace Unity.Entities
         {
             get { return m_data.m_Ptr != null; }
         }
-        
+
         /// <summary>
         /// Provides an unsafe pointer to the blob asset data.
         /// </summary>
-        /// <remarks>You can only use unsafe pointers in <see cref="Unsafe"/> contexts.</remarks>
+        /// <remarks>You can only use unsafe pointers in [unsafe contexts].
+        /// [unsafe contexts]: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/unsafe-code
+        /// </remarks>
         /// <returns>An unsafe pointer. The pointer is null for invalid BlobAssetReference instances.</returns>
         public void* GetUnsafePtr()
         {
@@ -310,16 +356,18 @@ namespace Unity.Entities
             get
             {
                 m_data.ValidateNotNull();
-                return ref UnsafeUtilityEx.AsRef<T>(m_data.m_Ptr);
+                return ref UnsafeUtility.AsRef<T>(m_data.m_Ptr);
             }
         }
 
-        
+
         /// <summary>
         /// Creates a blob asset from a pointer to data and a specified size.
         /// </summary>
         /// <remarks>The blob asset is created in unmanaged memory. Call <see cref="Dispose"/> to free the asset memory
-        /// when it is no longer needed. This function can only be used in an <see cref="Unsafe"/> context.</remarks>
+        /// when it is no longer needed. This function can only be used in an [unsafe context].
+        /// [unsafe context]: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/unsafe-code
+        /// </remarks>
         /// <param name="ptr">A pointer to the buffer containing the data to store in the blob asset.</param>
         /// <param name="length">The length of the buffer in bytes.</param>
         /// <returns>A reference to newly created blob asset.</returns>
@@ -349,7 +397,9 @@ namespace Unity.Entities
         /// Creates a blob asset from a byte array.
         /// </summary>
         /// <remarks>The blob asset is created in unmanaged memory. Call <see cref="Dispose"/> to free the asset memory
-        /// when it is no longer needed. This function can only be used in an <see cref="Unsafe"/> context.</remarks>
+        /// when it is no longer needed. This function can only be used in an [unsafe context].
+        /// [unsafe context]: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/unsafe-code
+        /// </remarks>
         /// <param name="data">The byte array containing the data to store in the blob asset.</param>
         /// <returns>A reference to newly created blob asset.</returns>
         /// <seealso cref="BlobBuilder"/>
@@ -366,8 +416,8 @@ namespace Unity.Entities
         /// </summary>
         /// <remarks>The struct must only contain blittable fields (primitive types, fixed-length arrays, or other structs
         /// meeting these same criteria). The blob asset is created in unmanaged memory. Call <see cref="Dispose"/> to
-        /// free the asset memory when it is no longer needed. This function can only be used in an <see cref="Unsafe"/>
-        /// context.</remarks>
+        /// free the asset memory when it is no longer needed. This function can only be used in an [unsafe context].
+        /// [unsafe context]: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/unsafe-code</remarks>
         /// <param name="value">An instance of <typeparamref name="T"/>.</param>
         /// <returns>A reference to newly created blob asset.</returns>
         /// <seealso cref="BlobBuilder"/>
@@ -385,8 +435,8 @@ namespace Unity.Entities
         {
             return new BlobAssetReference<T> { m_data = blobData };
         }
-        
-#if !NET_DOTS
+
+#if !UNITY_DOTSRUNTIME
         /// <summary>
         /// Reads bytes from a fileName, validates the expected serialized version, and deserializes them into a new blob asset.
         /// </summary>
@@ -402,7 +452,7 @@ namespace Unity.Entities
                 return false;
             }
 
-            using (var binaryReader = new StreamBinaryReader(path))
+            using (var binaryReader = new StreamBinaryReader(path, UnsafeUtility.SizeOf<T>() + sizeof(int)))
             {
                 var storedVersion = binaryReader.ReadInt();
                 if (storedVersion != version)
@@ -415,7 +465,31 @@ namespace Unity.Entities
                 return true;
             }
         }
+#else
+        /// <summary>
+        /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
+        /// </summary>
+        /// <param name="data">A byte stream of the blob data to read.</param>
+        /// <param name="version">Expected version number of the blob data.</param>
+        /// <param name="result">The resulting BlobAssetReference if the data was read successful.</param>
+        /// <returns>A bool if the read was successful or not.</returns>
+        public static bool TryRead(byte* data, int version, out BlobAssetReference<T> result)
+        {
+            var binaryReader = new MemoryBinaryReader(data);
+            var storedVersion = binaryReader.ReadInt();
+            if (storedVersion != version)
+            {
+                result = default;
+                return false;
+            }
 
+            result = binaryReader.Read<T>();
+
+            return true;
+        }
+#endif
+
+#if !NET_DOTS
         /// <summary>
         /// Writes the blob data to a path with serialized version.
         /// </summary>
@@ -433,7 +507,6 @@ namespace Unity.Entities
                 }
             }
         }
-
 #endif
 
         /// <summary>
@@ -505,6 +578,18 @@ namespace Unity.Entities
         internal int m_OffsetPtr;
 
         /// <summary>
+        /// Returns 'true' if this is a valid pointer (not null)
+        /// </summary>
+        public bool IsValid => m_OffsetPtr != 0;
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void AssertIsValid()
+        {
+            if (!IsValid)
+                throw new System.InvalidOperationException("The accessed BlobPtr hasn't been allocated.");
+        }
+
+        /// <summary>
         /// The value, of type <typeparamref name="T"/> to which the pointer refers.
         /// </summary>
         /// <remarks>The property is a
@@ -516,13 +601,10 @@ namespace Unity.Entities
         {
             get
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if(m_OffsetPtr == 0)
-                    throw new System.InvalidOperationException("The accessed BlobPtr hasn't been allocated.");
-#endif
+                AssertIsValid();
                 fixed (int* thisPtr = &m_OffsetPtr)
                 {
-                    return ref UnsafeUtilityEx.AsRef<T>((byte*) thisPtr + m_OffsetPtr);
+                    return ref UnsafeUtility.AsRef<T>((byte*) thisPtr + m_OffsetPtr);
                 }
             }
         }
@@ -530,7 +612,9 @@ namespace Unity.Entities
         /// <summary>
         /// Provides an unsafe pointer to the referenced data.
         /// </summary>
-        /// <remarks>You can only use unsafe pointers in <see cref="Unsafe"/> contexts.</remarks>
+        /// <remarks>You can only use unsafe pointers in [unsafe contexts].
+        /// [unsafe contexts]: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/unsafe-code
+        /// </remarks>
         /// <returns>An unsafe pointer.</returns>
         public void* GetUnsafePtr()
         {
@@ -568,7 +652,9 @@ namespace Unity.Entities
         /// <summary>
         /// Provides an unsafe pointer to the array data.
         /// </summary>
-        /// <remarks>You can only use unsafe pointers in <see cref="Unsafe"/> contexts.</remarks>
+        /// <remarks>You can only use unsafe pointers in [unsafe contexts].
+        /// [unsafe contexts]: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/unsafe-code
+        /// </remarks>
         /// <returns>An unsafe pointer.</returns>
         public void* GetUnsafePtr()
         {
@@ -578,6 +664,14 @@ namespace Unity.Entities
             {
                 return (byte*) thisPtr + m_OffsetPtr;
             }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private void AssertIndexInRange(int index)
+        {
+            if ((uint)index >= (uint)m_Length)
+                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}",
+                    index, m_Length));
         }
 
         /// <summary>
@@ -592,23 +686,19 @@ namespace Unity.Entities
         {
             get
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if ((uint) index >= (uint) m_Length)
-                    throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}",
-                        index, m_Length));
-#endif
+                AssertIndexInRange(index);
 
                 fixed (int* thisPtr = &m_OffsetPtr)
                 {
-                    return ref UnsafeUtilityEx.ArrayElementAsRef<T>((byte*) thisPtr + m_OffsetPtr, index);
+                    return ref UnsafeUtility.ArrayElementAsRef<T>((byte*) thisPtr + m_OffsetPtr, index);
                 }
             }
         }
 
         /// <summary>
-        /// Copies the elements of the BlobArray<T> to a new managed array.
+        /// Copies the elements of this BlobArray to a new managed array.
         /// </summary>
-        /// <returns>An array containing copies of the elements of the BlobArray<T>.</returns>
+        /// <returns>An array containing copies of the elements of the BlobArray.</returns>
         public T[] ToArray()
         {
             var result = new T[m_Length];

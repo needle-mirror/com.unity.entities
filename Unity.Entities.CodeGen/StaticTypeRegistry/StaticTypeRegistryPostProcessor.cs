@@ -1,4 +1,4 @@
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -13,8 +13,10 @@ using static Unity.Entities.CodeGen.ILHelper;
 using static Unity.Entities.TypeManager;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
+using FieldAttributes = Mono.Cecil.FieldAttributes;
 using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
 using SystemList = System.Collections.Generic.List<Mono.Cecil.TypeReference>;
+using Unity.Assertions;
 
 namespace Unity.Entities.CodeGen
 {
@@ -59,12 +61,6 @@ namespace Unity.Entities.CodeGen
     /// </summary>
     internal partial class StaticTypeRegistryPostProcessor : EntitiesILPostProcessor
     {
-#if UNITY_DOTSPLAYER64
-        const int kArchBits = 64;
-#else
-        const int kArchBits = 32;
-#endif
-
         TypeReference m_SystemTypeRef;
         TypeReference m_TypeInfoRef;
         MethodReference m_TypeInfoConstructorRef;
@@ -77,6 +73,8 @@ namespace Unity.Entities.CodeGen
         TypeDefinition GeneratedRegistryDef;
         MethodDefinition GeneratedRegistryCCTORDef;
         bool IsReleaseConfig;
+        bool IsMono;
+        int ArchBits;
 
         /// <summary>
         ///
@@ -135,6 +133,8 @@ namespace Unity.Entities.CodeGen
             }));
 
             IsReleaseConfig = !EntitiesILPostProcessors.Defines.Contains("DEBUG");
+            IsMono = EntitiesILPostProcessors.Defines.Contains("UNITY_DOTSRUNTIME_DOTNET") && (EntitiesILPostProcessors.Defines.Contains("UNITY_MACOSX") || EntitiesILPostProcessors.Defines.Contains("UNITY_LINUX"));
+            ArchBits = EntitiesILPostProcessors.Defines.Contains("UNITY_DOTSRUNTIME64") ? 64 : 32;
         }
 
         TypeCategory FindTypeCategoryForType(TypeDefinition typeDef)
@@ -272,7 +272,7 @@ namespace Unity.Entities.CodeGen
             return (typeGenInfoList, systemList);
         }
 
-        FieldReference InjectAssemblyTypeRegistry(TypeGenInfoList typeGenInfoList, SystemList systemList)
+        unsafe FieldReference InjectAssemblyTypeRegistry(TypeGenInfoList typeGenInfoList, SystemList systemList)
         {
             var typeRegistryDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry));
 
@@ -307,29 +307,101 @@ namespace Unity.Entities.CodeGen
 
             // Store TypeRegistry.TypeInfos[]
             il.Emit(OpCodes.Ldloc_0);
-            var typeInfosFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeInfos", BindingFlags.Public | BindingFlags.Instance));
-            GenerateTypeInfoArray(il, typeGenInfoList, typeInfosFieldDef, false);
+            var typeInfoCount = typeGenInfoList.Count;
+            if (IsMono)
+            {
+                var typeInfosFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeInfos", BindingFlags.Public | BindingFlags.Instance));
+                GenerateTypeInfoArray(il, typeGenInfoList, typeInfosFieldDef, false);
+            }
+            else
+            {
+                var typeInfosFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeInfosPtr", BindingFlags.Public | BindingFlags.Instance));
+                var typeInfoBlob = GenerateTypeInfoBlobArray(typeGenInfoList);
+                if (typeInfoBlob.Length > 0)
+                {
+                    var constantTypeInfoFieldDef = GenerateConstantData(GeneratedRegistryDef, typeInfoBlob);
+                    il.Emit(OpCodes.Ldsflda, constantTypeInfoFieldDef);
+                    Assert.AreEqual(typeInfoCount, typeInfoBlob.Length / sizeof(TypeManager.TypeInfo));
+                }
+                else
+                    il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Stfld, typeInfosFieldDef);
+            }
+
+            // Store TypeRegistry.TypeInfosCount
+            il.Emit(OpCodes.Ldloc_0);
+            var typeInfosCountFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeInfosCount", BindingFlags.Public | BindingFlags.Instance));
+            il.Emit(OpCodes.Ldc_I4, typeInfoCount);
+            il.Emit(OpCodes.Stfld, typeInfosCountFieldDef);
 
             // Store TypeRegistry.Types[]
             il.Emit(OpCodes.Ldloc_0);
             var typesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("Types", BindingFlags.Public | BindingFlags.Instance));
             GenerateTypeArray(il, typeGenInfoList.Select(tgi => tgi.TypeReference).ToList(), typesFieldDef, false);
 
-            // Store TypeRegistry.TypeNamess[]
+            // Store TypeRegistry.TypeNames[]
             il.Emit(OpCodes.Ldloc_0);
             var typeNamesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeNames", BindingFlags.Public | BindingFlags.Instance));
             var typeNames = IsReleaseConfig ? new List<string>() : typeGenInfoList.Select(t => t.TypeReference.FullName).ToList();
             StoreStringArrayInField(il, typeNames, typeNamesFieldDef, false);
 
-            // Store TypeRegistry.EntityOffsets[]
+            // Store TypeRegistry.EntityOffsets
             il.Emit(OpCodes.Ldloc_0);
-            var entityOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("EntityOffsets", BindingFlags.Public | BindingFlags.Instance));
-            GenerateEntityOffsetInfoArray(il, typeGenInfoList, entityOffsetsFieldDef, false);
+            int entityOffsetCount = typeGenInfoList.Sum(ti => ti.EntityOffsets.Count);
+            if (IsMono)
+            {
+                var entityOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("EntityOffsets", BindingFlags.Public | BindingFlags.Instance));
+                GenerateEntityOffsetInfoArray(il, typeGenInfoList, entityOffsetsFieldDef, false);
+            }
+            else
+            {
+                var entityOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("EntityOffsetsPtr", BindingFlags.Public | BindingFlags.Instance));
+                var entityOffsetDataBlob = typeGenInfoList.SelectMany(tgi => tgi.EntityOffsets).SelectMany(offset => BitConverter.GetBytes(offset)).ToArray();
+                if (entityOffsetDataBlob.Length > 0)
+                {
+                    var constantEntityOffsetsFieldDef = GenerateConstantData(GeneratedRegistryDef, entityOffsetDataBlob);
+                    il.Emit(OpCodes.Ldsflda, constantEntityOffsetsFieldDef);
+                    Assert.AreEqual(entityOffsetCount, entityOffsetDataBlob.Length / sizeof(int));
+                }
+                else
+                    il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Stfld, entityOffsetsFieldDef);
+            }
 
-            // Store TypeRegistry.BlobAssetReferenceOffsets[]
+            // Store TypeRegistry.EntityOffsetsCount
             il.Emit(OpCodes.Ldloc_0);
-            var blobOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("BlobAssetReferenceOffsets", BindingFlags.Public | BindingFlags.Instance));
-            GenerateBlobAssetReferenceArray(il, typeGenInfoList, blobOffsetsFieldDef, false);
+            var entityOffsetsCountFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("EntityOffsetsCount", BindingFlags.Public | BindingFlags.Instance));
+            il.Emit(OpCodes.Ldc_I4, entityOffsetCount);
+            il.Emit(OpCodes.Stfld, entityOffsetsCountFieldDef);
+
+            // Store TypeRegistry.BlobAssetReferenceOffsets
+            il.Emit(OpCodes.Ldloc_0);
+            int blobAssetReferenceOffsetsCount = typeGenInfoList.Sum(ti => ti.BlobAssetRefOffsets.Count);
+            if (IsMono)
+            {
+                var blobOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("BlobAssetReferenceOffsets", BindingFlags.Public | BindingFlags.Instance));
+                GenerateBlobAssetReferenceArray(il, typeGenInfoList, blobOffsetsFieldDef, false);
+            }
+            else
+            {
+                var blobOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("BlobAssetReferenceOffsetsPtr", BindingFlags.Public | BindingFlags.Instance));
+                var blobOffsetsDataBlob = typeGenInfoList.SelectMany(tgi => tgi.BlobAssetRefOffsets).SelectMany(offset => BitConverter.GetBytes(offset)).ToArray();
+                if (blobOffsetsDataBlob.Length > 0)
+                {
+                    var constantblobOffsetsFieldDef = GenerateConstantData(GeneratedRegistryDef, blobOffsetsDataBlob);
+                    il.Emit(OpCodes.Ldsflda, constantblobOffsetsFieldDef);
+                    Assert.AreEqual(entityOffsetCount, blobOffsetsDataBlob.Length / sizeof(int));
+                }
+                else
+                    il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Stfld, blobOffsetsFieldDef);
+            }
+
+            // Store TypeRegistry.BlobAssetReferenceOffsetsCount
+            il.Emit(OpCodes.Ldloc_0);
+            var blobOffsetsCountFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("BlobAssetReferenceOffsetsCount", BindingFlags.Public | BindingFlags.Instance));
+            il.Emit(OpCodes.Ldc_I4, blobAssetReferenceOffsetsCount);
+            il.Emit(OpCodes.Stfld, blobOffsetsCountFieldDef);
 
             // Store TypeRegistry.WriteGroups[]
             il.Emit(OpCodes.Ldloc_0);
@@ -340,6 +412,12 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Ldloc_0);
             var systemTypesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemTypes", BindingFlags.Public | BindingFlags.Instance));
             GenerateTypeArray(il, systemList, systemTypesFieldDef, false);
+
+            // Store TypeRegistry.SystemFilterFlags[]
+            var systemFilterFlagList = GetSystemFilterFlagList(systemList);
+            il.Emit(OpCodes.Ldloc_0);
+            var isSystemFilterFlagFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemFilterFlags", BindingFlags.Public | BindingFlags.Instance));
+            StoreIntArrayInField(il, systemFilterFlagList, isSystemFilterFlagFieldDef, false);
 
             // Store TypeRegistry.SystemTypeNames[]
             il.Emit(OpCodes.Ldloc_0);

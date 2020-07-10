@@ -39,15 +39,15 @@ namespace Doc.CodeSamples.Tests
         struct RotationSpeedJob : IJobChunk
         {
             public float DeltaTime;
-            public ArchetypeChunkComponentType<Rotation> RotationType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationSpeed> RotationSpeedType;
+            public ComponentTypeHandle<Rotation> RotationTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationSpeed> RotationSpeedTypeHandle;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
                 #region chunkiteration
 
-                var chunkRotations = chunk.GetNativeArray(RotationType);
-                var chunkRotationSpeeds = chunk.GetNativeArray(RotationSpeedType);
+                var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+                var chunkRotationSpeeds = chunk.GetNativeArray(RotationSpeedTypeHandle);
                 for (var i = 0; i < chunk.Count; i++)
                 {
                     var rotation = chunkRotations[i];
@@ -71,8 +71,8 @@ namespace Doc.CodeSamples.Tests
         {
             var job = new RotationSpeedJob()
             {
-                RotationType = GetArchetypeChunkComponentType<Rotation>(false),
-                RotationSpeedType = GetArchetypeChunkComponentType<RotationSpeed>(true),
+                RotationTypeHandle = GetComponentTypeHandle<Rotation>(false),
+                RotationSpeedTypeHandle = GetComponentTypeHandle<RotationSpeed>(true),
                 DeltaTime = Time.DeltaTime
             };
             this.Dependency =  job.ScheduleParallel(m_Query, this.Dependency);
@@ -112,8 +112,8 @@ namespace Doc.CodeSamples.Tests
         struct RotationSpeedJob : IJobChunk
         {
             public float DeltaTime;
-            public ArchetypeChunkComponentType<Rotation> RotationType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationSpeed> RotationSpeedType;
+            public ComponentTypeHandle<Rotation> RotationTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationSpeed> RotationSpeedTypeHandle;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
@@ -127,8 +127,8 @@ namespace Doc.CodeSamples.Tests
         {
             var job = new RotationSpeedJob()
             {
-                RotationType = GetArchetypeChunkComponentType<Rotation>(false),
-                RotationSpeedType = GetArchetypeChunkComponentType<RotationSpeed>(true),
+                RotationTypeHandle = GetComponentTypeHandle<Rotation>(false),
+                RotationSpeedTypeHandle = GetComponentTypeHandle<RotationSpeed>(true),
                 DeltaTime = Time.DeltaTime
             };
 
@@ -163,8 +163,8 @@ namespace Doc.CodeSamples.Tests
         struct RotationSpeedJob : IJobChunk
         {
             public float DeltaTime;
-            public ArchetypeChunkComponentType<Rotation> RotationType;
-            [ReadOnly] public ArchetypeChunkComponentType<RotationSpeed> RotationSpeedType;
+            public ComponentTypeHandle<Rotation> RotationTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<RotationSpeed> RotationSpeedTypeHandle;
 
             #region execsignature
 
@@ -174,8 +174,8 @@ namespace Doc.CodeSamples.Tests
             {
                 #region getcomponents
 
-                var chunkRotations = chunk.GetNativeArray(RotationType);
-                var chunkRotationSpeeds = chunk.GetNativeArray(RotationSpeedType);
+                var chunkRotations = chunk.GetNativeArray(RotationTypeHandle);
+                var chunkRotationSpeeds = chunk.GetNativeArray(RotationSpeedTypeHandle);
 
                 #endregion
             }
@@ -185,8 +185,8 @@ namespace Doc.CodeSamples.Tests
         {
             var job = new RotationSpeedJob()
             {
-                RotationType = GetArchetypeChunkComponentType<Rotation>(false),
-                RotationSpeedType = GetArchetypeChunkComponentType<RotationSpeed>(true),
+                RotationTypeHandle = GetComponentTypeHandle<Rotation>(false),
+                RotationSpeedTypeHandle = GetComponentTypeHandle<RotationSpeed>(true),
                 DeltaTime = Time.DeltaTime
             };
 
@@ -236,23 +236,23 @@ namespace Doc.CodeSamples.Tests
         [BurstCompile]
         struct UpdateJob : IJobChunk
         {
-            public ArchetypeChunkComponentType<InputA> InputAType;
-            public ArchetypeChunkComponentType<InputB> InputBType;
-            [ReadOnly] public ArchetypeChunkComponentType<Output> OutputType;
+            public ComponentTypeHandle<InputA> InputATypeHandle;
+            public ComponentTypeHandle<InputB> InputBTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<Output> OutputTypeHandle;
             public uint LastSystemVersion;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                var inputAChanged = chunk.DidChange(InputAType, LastSystemVersion);
-                var inputBChanged = chunk.DidChange(InputBType, LastSystemVersion);
+                var inputAChanged = chunk.DidChange(InputATypeHandle, LastSystemVersion);
+                var inputBChanged = chunk.DidChange(InputBTypeHandle, LastSystemVersion);
 
                 // If neither component changed, skip the current chunk
                 if (!(inputAChanged || inputBChanged))
                     return;
 
-                var inputAs = chunk.GetNativeArray(InputAType);
-                var inputBs = chunk.GetNativeArray(InputBType);
-                var outputs = chunk.GetNativeArray(OutputType);
+                var inputAs = chunk.GetNativeArray(InputATypeHandle);
+                var inputBs = chunk.GetNativeArray(InputBTypeHandle);
+                var outputs = chunk.GetNativeArray(OutputTypeHandle);
 
                 for (var i = 0; i < outputs.Length; i++)
                 {
@@ -271,9 +271,9 @@ namespace Doc.CodeSamples.Tests
 
             job.LastSystemVersion = this.LastSystemVersion;
 
-            job.InputAType = GetArchetypeChunkComponentType<InputA>(true);
-            job.InputBType = GetArchetypeChunkComponentType<InputB>(true);
-            job.OutputType = GetArchetypeChunkComponentType<Output>(false);
+            job.InputATypeHandle = GetComponentTypeHandle<InputA>(true);
+            job.InputBTypeHandle = GetComponentTypeHandle<InputB>(true);
+            job.OutputTypeHandle = GetComponentTypeHandle<Output>(false);
 
             this.Dependency = job.ScheduleParallel(m_Query, this.Dependency);
         }
@@ -296,11 +296,11 @@ namespace Doc.CodeSamples.Tests
         private struct ChaserSystemJob : IJobChunk
         {
             // Read-write data in the current chunk
-            public ArchetypeChunkComponentType<Translation> PositionTypeAccessor;
+            public ComponentTypeHandle<Translation> PositionTypeHandle;
 
             // Read-only data in the current chunk
             [ReadOnly]
-            public ArchetypeChunkComponentType<Target> TargetTypeAccessor;
+            public ComponentTypeHandle<Target> TargetTypeHandle;
 
             // Read-only data stored (potentially) in other chunks
             [ReadOnly]
@@ -312,8 +312,8 @@ namespace Doc.CodeSamples.Tests
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                NativeArray<Translation> positions = chunk.GetNativeArray<Translation>(PositionTypeAccessor);
-                NativeArray<Target> targets = chunk.GetNativeArray<Target>(TargetTypeAccessor);
+                NativeArray<Translation> positions = chunk.GetNativeArray<Translation>(PositionTypeHandle);
+                NativeArray<Target> targets = chunk.GetNativeArray<Target>(TargetTypeHandle);
 
                 for (int i = 0; i < positions.Length; i++)
                 {
@@ -335,8 +335,8 @@ namespace Doc.CodeSamples.Tests
         protected override void OnUpdate()
         {
             var job = new ChaserSystemJob();
-            job.PositionTypeAccessor = this.GetArchetypeChunkComponentType<Translation>(false);
-            job.TargetTypeAccessor = this.GetArchetypeChunkComponentType<Target>(true);
+            job.PositionTypeHandle = this.GetComponentTypeHandle<Translation>(false);
+            job.TargetTypeHandle = this.GetComponentTypeHandle<Target>(true);
 
             job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
             job.deltaTime = this.Time.DeltaTime;
@@ -346,73 +346,4 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
 
-    #region basic-ijobentitybatch
-    [GenerateAuthoringComponent]
-    public struct ExpensiveTarget : IComponentData
-    {
-        public Entity entity;
-    }
-
-    public class BatchedChaserSystem : SystemBase
-    {
-        private EntityQuery query; // Initialized in Oncreate()
-
-        [BurstCompile]
-        private struct BatchedChaserSystemJob : IJobEntityBatch
-        {
-            // Read-write data in the current chunk
-            public ArchetypeChunkComponentType<Translation> PositionTypeAccessor;
-
-            // Read-only data in the current chunk
-            [ReadOnly]
-            public ArchetypeChunkComponentType<Target> TargetTypeAccessor;
-
-            // Read-only data stored (potentially) in other chunks
-            [ReadOnly]
-            //[NativeDisableParallelForRestriction]
-            public ComponentDataFromEntity<LocalToWorld> EntityPositions;
-
-            // Non-entity data
-            public float deltaTime;
-
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
-            {
-                // Within Execute(), the scope of the ArchetypeChunk is limited to the current batch.
-                // For example, these NativeArrays will have Length = batchInChunk.BatchEntityCount,
-                // where batchInChunk.BatchEntityCount is roughly batchInChunk.Capacity divided by the
-                // batchesInChunk parameter passed to ScheduleParallelBatched().
-                NativeArray<Translation> positions = batchInChunk.GetNativeArray<Translation>(PositionTypeAccessor);
-                NativeArray<Target> targets = batchInChunk.GetNativeArray<Target>(TargetTypeAccessor);
-
-                for (int i = 0; i < positions.Length; i++)
-                {
-                    Entity targetEntity = targets[i].entity;
-                    float3 targetPosition = EntityPositions[targetEntity].Position;
-                    float3 chaserPosition = positions[i].Value;
-
-                    float3 displacement = (targetPosition - chaserPosition);
-                    positions[i] = new Translation { Value = chaserPosition + displacement * deltaTime };
-                }
-            }
-        }
-
-        protected override void OnCreate()
-        {
-            query = this.GetEntityQuery(typeof(Translation), ComponentType.ReadOnly<Target>());
-        }
-
-        protected override void OnUpdate()
-        {
-            var job = new BatchedChaserSystemJob();
-            job.PositionTypeAccessor = this.GetArchetypeChunkComponentType<Translation>(false);
-            job.TargetTypeAccessor = this.GetArchetypeChunkComponentType<Target>(true);
-
-            job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
-            job.deltaTime = this.Time.DeltaTime;
-
-            int batchesPerChunk = 4; // Partition each chunk into this many batches. Each batch will be processed concurrently.
-            this.Dependency = job.ScheduleParallelBatched(query, batchesPerChunk, this.Dependency);
-        }
-    }
-    #endregion
 }

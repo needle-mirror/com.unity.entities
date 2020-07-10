@@ -137,6 +137,35 @@ namespace Unity.Entities
             DestroyEntities(entities, count);
         }
 
+        [Obsolete("CreateChunks is deprecated. (RemovedAfter 2020-06-05)", false)]
+        public void CreateChunks(Archetype* archetype, ArchetypeChunk* chunks, int chunksCount, int entityCount)
+        {
+            fixed(EntityComponentStore* entityComponentStore = &this)
+            {
+                int* sharedComponentValues = stackalloc int[archetype->NumSharedComponents];
+
+                int chunkIndex = 0;
+                while (entityCount != 0)
+                {
+                    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    if (chunkIndex >= chunksCount)
+                        throw new System.ArgumentException($"CreateChunks chunks array is not large enough to hold the array of chunks {chunksCount}.");
+                    #endif
+
+                    var chunk = GetCleanChunk(archetype, sharedComponentValues);
+                    var allocateCount = math.min(entityCount, chunk->UnusedCount);
+
+                    ChunkDataUtility.Allocate(chunk, allocateCount);
+
+                    chunks[chunkIndex] = new ArchetypeChunk(chunk, entityComponentStore);
+
+                    entityCount -= allocateCount;
+                    chunkIndex++;
+                }
+                IncrementComponentTypeOrderVersion(archetype);
+            }
+        }
+
         public Chunk* GetCleanChunkNoMetaChunk(Archetype* archetype, SharedComponentValues sharedComponentValues)
         {
             var newChunk = AllocateChunk();
@@ -490,7 +519,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct GetOrCreateDestroyedEntitiesJob : IJob
+        internal struct GetOrCreateDestroyedEntitiesJob : IJobBurstScheduable
         {
             public NativeList<int>    State;
             public NativeList<Entity> CreatedEntities;

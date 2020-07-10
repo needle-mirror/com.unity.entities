@@ -45,8 +45,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, group.CalculateEntityCount());
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
-// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void IterateChunkedEntityQuery()
         {
@@ -70,14 +68,14 @@ namespace Unity.Entities.Tests
 
             var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(entities.Length, arr.Length);
-            HashSet<int> values = new HashSet<int>();
+            Dictionary<int, bool> values = new Dictionary<int, bool>();    // Tiny doesn't support HashSet, does support Dictionary
             for (int i = 0; i < arr.Length; i++)
             {
                 int val = arr[i].value;
-                Assert.IsFalse(values.Contains(i));
+                Assert.IsFalse(values.ContainsKey(i));
                 Assert.IsTrue(val >= 0);
                 Assert.IsTrue(val < entities.Length);
-                values.Add(i);
+                values.Add(i, true);
             }
 
             arr.Dispose();
@@ -108,14 +106,14 @@ namespace Unity.Entities.Tests
 
             var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(entities.Length, arr.Length);
-            HashSet<int> values = new HashSet<int>();
+            Dictionary<int, bool> values = new Dictionary<int, bool>();    // Tiny doesn't support HashSet, does support Dictionary
             for (int i = 0; i < arr.Length; ++i)
             {
                 int val = arr[i].value;
-                Assert.IsFalse(values.Contains(i));
+                Assert.IsFalse(values.ContainsKey(i));
                 Assert.IsTrue(val >= 0);
                 Assert.IsTrue(val < entities.Length);
-                values.Add(i);
+                values.Add(i, true);
             }
 
             arr.Dispose();
@@ -153,15 +151,15 @@ namespace Unity.Entities.Tests
 
             var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(entities.Length / 2, arr.Length);
-            HashSet<int> values = new HashSet<int>();
+            Dictionary<int, bool> values = new Dictionary<int, bool>();    // Tiny doesn't support HashSet, does support Dictionary
             for (int i = 0; i < arr.Length; i++)
             {
                 int val = arr[i].value;
-                Assert.IsFalse(values.Contains(i));
+                Assert.IsFalse(values.ContainsKey(i));
                 Assert.IsTrue(val >= 0);
                 Assert.IsTrue(val % 2 == 0);
                 Assert.IsTrue(val < entities.Length);
-                values.Add(i);
+                values.Add(i, true);
             }
 
             for (int i = entities.Length / 2; i < entities.Length; i++)
@@ -172,15 +170,15 @@ namespace Unity.Entities.Tests
             arr.Dispose();
             arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
             Assert.AreEqual(entities.Length / 4, arr.Length);
-            values = new HashSet<int>();
+            values = new Dictionary<int, bool>();
             for (int i = 0; i < arr.Length; i++)
             {
                 int val = arr[i].value;
-                Assert.IsFalse(values.Contains(i));
+                Assert.IsFalse(values.ContainsKey(i));
                 Assert.IsTrue(val >= 0);
                 Assert.IsTrue(val % 2 == 0);
                 Assert.IsTrue(val < entities.Length / 2);
-                values.Add(i);
+                values.Add(i, true);
             }
 
             for (int i = 0; i < entities.Length; i++)
@@ -190,8 +188,6 @@ namespace Unity.Entities.Tests
             }
             arr.Dispose();
         }
-
-#endif // UNITY_DOTSPLAYER_IL2CPP
 
         [Test]
         public void GroupCopyFromNativeArray()
@@ -306,6 +302,7 @@ namespace Unity.Entities.Tests
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_PORTABLE_TEST_RUNNER            // Does not support managed components.
         [Test]
         public void CreateEntityQuery_ManagedComponents()
         {
@@ -330,8 +327,6 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP
-// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void IterateChunkedEntityQuery_ManagedComponents()
         {
@@ -519,8 +514,6 @@ namespace Unity.Entities.Tests
             arr.Dispose();
         }
 
-#endif // !UNITY_DOTSPLAYER_IL2CPP
-
         [Test]
         public void EntityQueryFilteredChunkCount_ManagedComponents()
         {
@@ -565,7 +558,7 @@ namespace Unity.Entities.Tests
 
             group.Dispose();
         }
-
+#endif
 #endif
     }
 }

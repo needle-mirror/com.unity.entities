@@ -267,7 +267,7 @@ namespace Unity.Entities
         /// <summary>
         /// Names for each entity in this change-set.
         /// </summary>
-        public readonly NativeArray<NativeString64> Names;
+        public readonly NativeArray<FixedString64> Names;
 
         /// <summary>
         /// A set of all component additions in this change-set.
@@ -345,7 +345,7 @@ namespace Unity.Entities
             int destroyedEntityCount,
             NativeArray<EntityGuid> entities,
             NativeArray<ComponentTypeHash> typeHashes,
-            NativeArray<NativeString64> names,
+            NativeArray<FixedString64> names,
             NativeArray<PackedComponent> addComponents,
             NativeArray<PackedComponent> removeComponents,
             NativeArray<PackedComponentDataChange> setComponents,

@@ -1,5 +1,5 @@
 using NUnit.Framework;
-#if !UNITY_DOTSPLAYER_IL2CPP
+#if !NET_DOTS
 using System.Linq;
 using Random = System.Random;
 #endif
@@ -37,7 +37,7 @@ namespace Unity.Entities.Tests.Types
                 Is.EqualTo("feebdaed0000000000000000d00fdaab")); // vegan hash
         }
 
-#if !UNITY_DOTSPLAYER_IL2CPP    // Uses Linq and System.Random
+#if !NET_DOTS    // Uses Linq and System.Random
 // https://unity3d.atlassian.net/browse/DOTSR-1432
 
         [Test]

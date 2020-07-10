@@ -111,9 +111,9 @@ namespace Unity.Entities.CodeGen.Tests
 
         protected abstract void AssertProducesInternal(Type systemType, DiagnosticType type, string[] shouldContains, bool useFailResolver = false);
 
-        protected void AssertProducesWarning(Type systemType, params string[] shouldContainErrors)
+        protected void AssertProducesWarning(Type systemType, params string[] shouldContainWarnings)
         {
-            AssertProducesInternal(systemType, DiagnosticType.Warning, shouldContainErrors);
+            AssertProducesInternal(systemType, DiagnosticType.Warning, shouldContainWarnings);
         }
 
         protected void AssertProducesError(Type systemType, params string[] shouldContainErrors)

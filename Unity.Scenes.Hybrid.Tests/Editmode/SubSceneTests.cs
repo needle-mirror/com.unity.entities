@@ -1,84 +1,21 @@
-using System;
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
 #if UNITY_EDITOR
-using Unity.Build;
-using Unity.Build.Common;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
-using System.Collections.Generic;
 #endif
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Tests;
-using UnityEditor.Experimental;
-using Hash128 = Unity.Entities.Hash128;
+
 
 namespace Unity.Scenes.Hybrid.Tests
 {
-    public class SubSceneTests
+    public class SubSceneTests : SubSceneTestFixture
     {
-        //string m_ScenePath = "Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene.unity";
-        #if UNITY_EDITOR
-        static string m_SubScenePath =
-            "Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/TestSubScene.unity";
-        static string m_TempPath = "Assets/Temp";
-        static string m_BuildConfigPath = $"{m_TempPath}/BuildConfig.buildconfiguration";
-        static GUID m_BuildConfigurationGUID;
-        static string m_SceneWithBuildSettingsPath;
-        #endif
-
-        static Hash128 m_SceneGUID;
-
-        [OneTimeSetUp]
-        public void SetUpOnce()
+        public SubSceneTests() : base("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/TestSubScene.unity")
         {
-            #if UNITY_EDITOR
-            try
-            {
-                BuildConfiguration.CreateAsset(m_BuildConfigPath, config =>
-                {
-                    config.SetComponent(new SceneList
-                    {
-                        SceneInfos = new List<SceneList.SceneInfo>
-                        {
-                            new SceneList.SceneInfo
-                            {
-                                Scene = GlobalObjectId.GetGlobalObjectIdSlow(AssetDatabase.LoadAssetAtPath<SceneAsset>(m_SubScenePath))
-                            }
-                        }
-                    });
-                });
-                m_BuildConfigurationGUID = new GUID(AssetDatabase.AssetPathToGUID(m_BuildConfigPath));
-                m_SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(m_SubScenePath));
-
-                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(m_SceneGUID, m_BuildConfigurationGUID);
-                m_SceneWithBuildSettingsPath = SceneWithBuildConfigurationGUIDs.GetSceneWithBuildSettingsPath(ref guid);
-                EntityScenesPaths.GetSubSceneArtifactHash(m_SceneGUID, m_BuildConfigurationGUID, ImportMode.Synchronous);
-            }
-            catch
-            {
-                AssetDatabase.DeleteAsset(m_TempPath);
-                AssetDatabase.DeleteAsset(m_SceneWithBuildSettingsPath);
-                throw;
-            }
-
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-            #else
-            //TODO: Playmode test not supported yet
-            var sceneGuid = new Unity.Entities.Hash128();
-            #endif
-        }
-
-        [OneTimeTearDown]
-        public void OneTimeTearDown()
-        {
-            #if UNITY_EDITOR
-            AssetDatabase.DeleteAsset(m_TempPath);
-            AssetDatabase.DeleteAsset(m_SceneWithBuildSettingsPath);
-            #endif
         }
 
         [UnityTest]
@@ -90,10 +27,10 @@ namespace Unity.Scenes.Hybrid.Tests
             {
                 var sceneSystemA = worldA.GetExistingSystem<SceneSystem>();
                 var sceneSystemB = worldB.GetExistingSystem<SceneSystem>();
-                Assert.IsTrue(m_SceneGUID.IsValid);
+                Assert.IsTrue(SceneGUID.IsValid);
 
-                var worldAScene = sceneSystemA.LoadSceneAsync(m_SceneGUID);
-                var worldBScene = sceneSystemB.LoadSceneAsync(m_SceneGUID);
+                var worldAScene = sceneSystemA.LoadSceneAsync(SceneGUID);
+                var worldBScene = sceneSystemB.LoadSceneAsync(SceneGUID);
 
                 Assert.IsFalse(sceneSystemA.IsSceneLoaded(worldAScene));
                 Assert.IsFalse(sceneSystemB.IsSceneLoaded(worldBScene));
@@ -170,10 +107,10 @@ namespace Unity.Scenes.Hybrid.Tests
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
                 };
 
-                Assert.IsTrue(m_SceneGUID.IsValid);
+                Assert.IsTrue(SceneGUID.IsValid);
 
-                var worldAScene = worldA.GetOrCreateSystem<SceneSystem>().LoadSceneAsync(m_SceneGUID, loadParams);
-                var worldBScene = worldB.GetOrCreateSystem<SceneSystem>().LoadSceneAsync(m_SceneGUID, loadParams);
+                var worldAScene = worldA.GetOrCreateSystem<SceneSystem>().LoadSceneAsync(SceneGUID, loadParams);
+                var worldBScene = worldB.GetOrCreateSystem<SceneSystem>().LoadSceneAsync(SceneGUID, loadParams);
                 Assert.IsFalse(worldA.GetExistingSystem<SceneSystem>().IsSceneLoaded(worldAScene));
                 Assert.IsFalse(worldB.GetExistingSystem<SceneSystem>().IsSceneLoaded(worldBScene));
 
@@ -236,25 +173,32 @@ namespace Unity.Scenes.Hybrid.Tests
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS // PostLoadCommandBuffer is a managed component
+        private static PostLoadCommandBuffer CreateTestProcessAfterLoadDataCommandBuffer(int value)
+        {
+            var postLoadCommandBuffer = new PostLoadCommandBuffer();
+            postLoadCommandBuffer.CommandBuffer = new EntityCommandBuffer(Allocator.Persistent, PlaybackPolicy.MultiPlayback);
+            var postLoadEntity = postLoadCommandBuffer.CommandBuffer.CreateEntity();
+            postLoadCommandBuffer.CommandBuffer.AddComponent(postLoadEntity, new TestProcessAfterLoadData {Value = value});
+            return postLoadCommandBuffer;
+        }
+
         // Only works in Editor for now until we can support SubScene building with new build settings in a test
         [UnityTest]
         [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
         public IEnumerator LoadSubscene_With_PostLoadCommandBuffer([Values] bool loadAsync, [Values] bool addCommandBufferToSection)
         {
-            var postLoadCommandBuffer = new PostLoadCommandBuffer();
-            postLoadCommandBuffer.CommandBuffer = new EntityCommandBuffer(Allocator.Persistent, PlaybackPolicy.MultiPlayback);
-            var postLoadEntity = postLoadCommandBuffer.CommandBuffer.CreateEntity();
-            postLoadCommandBuffer.CommandBuffer.AddComponent(postLoadEntity, new TestProcessAfterLoadData {Value = 42});
+            var postLoadCommandBuffer = CreateTestProcessAfterLoadDataCommandBuffer(42);
 
             using (var world = TestWorldSetup.CreateEntityWorld("World", false))
             {
+                var sceneSystem = world.GetExistingSystem<SceneSystem>();
                 if (addCommandBufferToSection)
                 {
                     var resolveParams = new SceneSystem.LoadParameters
                     {
                         Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.DisableAutoLoad
                     };
-                    world.GetOrCreateSystem<SceneSystem>().LoadSceneAsync(m_SceneGUID, resolveParams);
+                    sceneSystem.LoadSceneAsync(SceneGUID, resolveParams);
                     world.Update();
                     var section = world.EntityManager.CreateEntityQuery(typeof(SceneSectionData)).GetSingletonEntity();
                     world.EntityManager.AddComponentData(section, postLoadCommandBuffer);
@@ -265,15 +209,15 @@ namespace Unity.Scenes.Hybrid.Tests
                     Flags = loadAsync ? 0 : SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
                 };
 
-                Assert.IsTrue(m_SceneGUID.IsValid);
+                Assert.IsTrue(SceneGUID.IsValid);
 
-                var scene = world.GetOrCreateSystem<SceneSystem>().LoadSceneAsync(m_SceneGUID, loadParams);
+                var scene = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
                 if (!addCommandBufferToSection)
                     world.EntityManager.AddComponentData(scene, postLoadCommandBuffer);
 
                 if (loadAsync)
                 {
-                    while (!world.GetExistingSystem<SceneSystem>().IsSceneLoaded(scene))
+                    while (!sceneSystem.IsSceneLoaded(scene))
                     {
                         world.Update();
                         yield return null;
@@ -282,7 +226,7 @@ namespace Unity.Scenes.Hybrid.Tests
                 else
                 {
                     world.Update();
-                    Assert.IsTrue(world.GetExistingSystem<SceneSystem>().IsSceneLoaded(scene));
+                    Assert.IsTrue(sceneSystem.IsSceneLoaded(scene));
                 }
 
                 var ecsTestDataQuery = world.EntityManager.CreateEntityQuery(typeof(TestProcessAfterLoadData));
@@ -294,6 +238,93 @@ namespace Unity.Scenes.Hybrid.Tests
             Assert.IsFalse(postLoadCommandBuffer.CommandBuffer.IsCreated);
         }
 
+        [Test]
+        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
+        public void Load_MultipleInstancesOfSameSubScene_By_Instantiating_ResolvedScene()
+        {
+            var postLoadCommandBuffer1 = CreateTestProcessAfterLoadDataCommandBuffer(42);
+            var postLoadCommandBuffer2 = CreateTestProcessAfterLoadDataCommandBuffer(7);
+
+            using (var world = TestWorldSetup.CreateEntityWorld("World", false))
+            {
+                var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                var resolvedScene = sceneSystem.LoadSceneAsync(SceneGUID, new SceneSystem.LoadParameters {AutoLoad = false, Flags = SceneLoadFlags.BlockOnImport});
+                world.Update();
+
+                Assert.IsTrue(world.EntityManager.HasComponent<ResolvedSectionEntity>(resolvedScene));
+
+                var loadParams = new SceneSystem.LoadParameters
+                {
+                    Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
+                };
+
+                Assert.IsTrue(SceneGUID.IsValid);
+
+                var scene1 = world.EntityManager.Instantiate(resolvedScene);
+                world.EntityManager.AddComponentData(scene1, postLoadCommandBuffer1);
+                sceneSystem.LoadSceneAsync(scene1, loadParams);
+
+
+                var scene2 = world.EntityManager.Instantiate(resolvedScene);
+                world.EntityManager.AddComponentData(scene2, postLoadCommandBuffer2);
+                sceneSystem.LoadSceneAsync(scene2, loadParams);
+
+                world.Update();
+
+                var ecsTestDataQuery = world.EntityManager.CreateEntityQuery(typeof(TestProcessAfterLoadData));
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                {
+                    CollectionAssert.AreEquivalent(new[] {8, 43}, ecsTestDataArray.ToArray().Select(e => e.Value));
+                }
+
+                world.EntityManager.DestroyEntity(scene1);
+                world.Update();
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                {
+                    CollectionAssert.AreEquivalent(new[] {8}, ecsTestDataArray.ToArray().Select(e => e.Value));
+                }
+
+                world.EntityManager.DestroyEntity(scene2);
+                world.Update();
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                {
+                    Assert.AreEqual(0, ecsTestDataArray.Length);
+                }
+            }
+        }
+
+        [Test]
+        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
+        public void Load_MultipleInstancesOfSameSubScene_With_NewInstance_Flag()
+        {
+            var postLoadCommandBuffer1 = CreateTestProcessAfterLoadDataCommandBuffer(42);
+            var postLoadCommandBuffer2 = CreateTestProcessAfterLoadDataCommandBuffer(7);
+
+            using (var world = TestWorldSetup.CreateEntityWorld("World", false))
+            {
+                var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                var loadParams = new SceneSystem.LoadParameters
+                {
+                    Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn | SceneLoadFlags.NewInstance
+                };
+
+                Assert.IsTrue(SceneGUID.IsValid);
+
+                var scene1 = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                world.EntityManager.AddComponentData(scene1, postLoadCommandBuffer1);
+
+                var scene2 = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                world.EntityManager.AddComponentData(scene2, postLoadCommandBuffer2);
+
+                world.Update();
+
+                var ecsTestDataQuery = world.EntityManager.CreateEntityQuery(typeof(TestProcessAfterLoadData));
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                {
+                    CollectionAssert.AreEquivalent(new[] {8, 43}, ecsTestDataArray.ToArray().Select(e => e.Value));
+                }
+            }
+        }
 #endif
     }
 

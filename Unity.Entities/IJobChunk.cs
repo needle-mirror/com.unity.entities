@@ -21,8 +21,8 @@ namespace Unity.Entities
     /// To pass data to the Execute function beyond the parameters of the Execute() function, add public fields to the
     /// IJobChunk struct declaration and set those fields immediately before scheduling the Job. You must pass the
     /// component type information for any components that the Job reads or writes using a field of type,
-    /// <seealso cref="ArchetypeChunkComponentType{T}"/>. Get this type information by calling the appropriate
-    /// <seealso cref="ComponentSystemBase.GetArchetypeChunkComponentType{T}(bool)"/> function for the type of
+    /// <seealso cref="ComponentTypeHandle{T}"/>. Get this type information by calling the appropriate
+    /// <seealso cref="ComponentSystemBase.GetComponentTypeHandle{T}"/> function for the type of
     /// component.
     ///
     /// For more information see [Using IJobChunk](xref:ecs-ijobchunk).
@@ -91,7 +91,11 @@ namespace Unity.Entities
         public static unsafe JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IJobChunk
         {
+#if UNITY_2020_2_OR_NEWER
+            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
+#else
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched, true);
+#endif
         }
 
         /// <summary>
@@ -108,7 +112,11 @@ namespace Unity.Entities
         public static unsafe JobHandle ScheduleSingle<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IJobChunk
         {
+#if UNITY_2020_2_OR_NEWER
+            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, false);
+#else
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched, false);
+#endif
         }
 
         /// <summary>
@@ -125,7 +133,11 @@ namespace Unity.Entities
         public static unsafe JobHandle ScheduleParallel<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IJobChunk
         {
+#if UNITY_2020_2_OR_NEWER
+            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
+#else
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched, true);
+#endif
         }
 
         /// <summary>
@@ -170,7 +182,8 @@ namespace Unity.Entities
 
                 impl->_QueryData->MatchingArchetypes, impl->_Filter, dependsOn, mode,
                 out NativeArray<byte> prefilterData,
-                out void* deferredCountData);
+                out void* deferredCountData,
+                out var useFiltering);
 
             JobChunkWrapper<T> jobChunkWrapper = new JobChunkWrapper<T>
             {
@@ -201,10 +214,10 @@ namespace Unity.Entities
             }
             else
             {
-                if (mode == ScheduleMode.Batched)
+                if (useFiltering)
                     return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
                 else
-                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredChunkCount, unfilteredChunkCount);
+                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredChunkCount, 1);
             }
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         }
@@ -227,8 +240,13 @@ namespace Unity.Entities
             public static IntPtr InitializeSingle()
             {
                 if (s_JobReflectionDataSingle == IntPtr.Zero)
+#if UNITY_2020_2_OR_NEWER
+                    s_JobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
+                        typeof(T), (ExecuteJobFunction)Execute);
+#else
                     s_JobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
                         typeof(T), JobType.Single, (ExecuteJobFunction)Execute);
+#endif
 
                 return s_JobReflectionDataSingle;
             }
@@ -236,8 +254,13 @@ namespace Unity.Entities
             public static IntPtr InitializeParallel()
             {
                 if (s_JobReflectionDataParallel == IntPtr.Zero)
+#if UNITY_2020_2_OR_NEWER
+                    s_JobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
+                        typeof(T), (ExecuteJobFunction)Execute);
+#else
                     s_JobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
                         typeof(T), JobType.ParallelFor, (ExecuteJobFunction)Execute);
+#endif
 
                 return s_JobReflectionDataParallel;
             }

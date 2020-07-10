@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-#if UNITY_DOTSPLAYER
+#if UNITY_DOTSRUNTIME
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -51,7 +51,7 @@ namespace Unity.Entities.CodeGen
             {
                 PushNewArrayElement(il, i);
                 EmitLoadConstant(il, values[i]);
-                il.Emit(OpCodes.Stelem_I1);
+                il.Emit(OpCodes.Stelem_I4);
             }
             StoreTopOfStackToField(il, fieldRef, isStaticField);
         }

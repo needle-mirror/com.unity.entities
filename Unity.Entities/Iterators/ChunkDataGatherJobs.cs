@@ -4,15 +4,10 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
-#if !UNITY_DOTSPLAYER
-using IJob = Unity.Jobs.IJobBurstScheduable;
-using IJobParallelFor = Unity.Jobs.IJobParallelForBurstScheduable;
-#endif
-
 namespace Unity.Entities
 {
     [BurstCompile]
-    unsafe struct GatherChunks : IJobParallelFor
+    unsafe struct GatherChunks : IJobParallelForBurstScheduable
     {
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
@@ -27,7 +22,7 @@ namespace Unity.Entities
             var offset = Offsets[index];
             for (int i = 0; i < chunkCount; i++)
             {
-                var srcChunk = archetype->Chunks.p[i];
+                var srcChunk = archetype->Chunks[i];
                 Chunks[offset + i] = new ArchetypeChunk(srcChunk, entityComponentStore);
 
             }
@@ -35,7 +30,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    internal unsafe struct GatherChunksAndOffsetsJob : IJob
+    internal unsafe struct GatherChunksAndOffsetsJob : IJobBurstScheduable
     {
         public UnsafeMatchingArchetypePtrList Archetypes;
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
@@ -64,7 +59,7 @@ namespace Unity.Entities
 
                 for (int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex)
                 {
-                    chunks[chunkCounter] = new ArchetypeChunk(archetype->Chunks.p[chunkIndex], entityComponentStore);
+                    chunks[chunkCounter] = new ArchetypeChunk(archetype->Chunks[chunkIndex], entityComponentStore);
                     entityIndices[chunkCounter++] = entityOffsetPrefixSum;
                     entityOffsetPrefixSum += chunkEntityCountArray[chunkIndex];
                 }
@@ -76,7 +71,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    unsafe struct GatherChunksWithFiltering : IJobParallelFor
+    internal unsafe struct GatherChunksWithFiltering : IJobParallelForBurstScheduable
     {
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
@@ -94,7 +89,7 @@ namespace Unity.Entities
             var archetype = match->Archetype;
             int chunkCount = archetype->Chunks.Count;
             var writeIndex = Offsets[index];
-            var archetypeChunks = archetype->Chunks.p;
+            var archetypeChunks = archetype->Chunks;
 
             for (var i = 0; i < chunkCount; ++i)
             {
@@ -108,7 +103,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    internal unsafe struct GatherChunksAndOffsetsWithFilteringJob : IJob
+    internal unsafe struct GatherChunksAndOffsetsWithFilteringJob : IJobBurstScheduable
     {
         public UnsafeMatchingArchetypePtrList Archetypes;
         public EntityQueryFilter Filter;
@@ -140,7 +135,7 @@ namespace Unity.Entities
                     if (match->ChunkMatchesFilter(i, ref Filter))
                     {
                         chunks[filteredChunkCount] =
-                            new ArchetypeChunk(archetype->Chunks.p[i], Archetypes.entityComponentStore);
+                            new ArchetypeChunk(archetype->Chunks[i], Archetypes.entityComponentStore);
                         entityIndices[filteredChunkCount++] = filteredEntityOffset;
                         filteredEntityOffset += chunkEntityCountArray[i];
                     }
@@ -154,7 +149,7 @@ namespace Unity.Entities
         }
     }
 
-    struct JoinChunksJob : IJobParallelFor
+    struct JoinChunksJob : IJobParallelForBurstScheduable
     {
         [DeallocateOnJobCompletion][ReadOnly] public NativeArray<int> DestinationOffsets;
         [DeallocateOnJobCompletion][ReadOnly] public NativeArray<ArchetypeChunk> SparseChunks;
@@ -174,12 +169,12 @@ namespace Unity.Entities
     unsafe struct GatherEntitiesJob : IJobChunk
     {
         public NativeArray<Entity> Entities;
-        [ReadOnly] public ArchetypeChunkEntityType EntityType;
+        [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
         public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
         {
             var destinationPtr = (Entity*)Entities.GetUnsafePtr() + entityOffset;
-            var sourcePtr = chunk.GetNativeArray(EntityType).GetUnsafeReadOnlyPtr();
+            var sourcePtr = chunk.GetNativeArray(EntityTypeHandle).GetUnsafeReadOnlyPtr();
             var copySizeInBytes = sizeof(Entity) * chunk.Count;
 
             UnsafeUtility.MemCpy(destinationPtr, sourcePtr, copySizeInBytes);

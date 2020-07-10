@@ -27,4 +27,4 @@
 * [Creating gameplay](gp_overview.md)
   * [Transforms](transform_system.md)
   * [Rendering](gp_rendering.md)
-  * [Common patterns](gp_common_patterns)
+  * [Common patterns](gp_common_patterns.md)
