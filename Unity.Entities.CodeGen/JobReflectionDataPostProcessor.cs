@@ -56,7 +56,7 @@ namespace Unity.Entities.CodeGen
 
             bool anythingChanged = false;
 
-            var declaredGenerics = new HashSet<TypeReference>();
+            var declaredGenerics = new HashSet<string>();
             var genericJobs = new List<TypeReference>();
 
             foreach (var attr in assemblyDefinition.CustomAttributes)
@@ -64,20 +64,29 @@ namespace Unity.Entities.CodeGen
                 if (attr.AttributeType.FullName != RegisterGenericJobTypeAttributeName)
                     continue;
 
-                var reference = (TypeReference) attr.ConstructorArguments[0].Value;
+                var openTypeRef = (TypeReference)attr.ConstructorArguments[0].Value;
+                var openType = assemblyDefinition.MainModule.ImportReference(openTypeRef).Resolve();
 
-                if (!reference.IsGenericInstance)
+                if (!openTypeRef.IsGenericInstance || !openType.IsValueType)
                 {
-                    UserError.DC3001(reference);
+                    AddDiagnostic(UserError.DC3001(openType));
                     continue;
                 }
 
-                genericJobs.Add(reference);
+                TypeReference result = new GenericInstanceType(assemblyDefinition.MainModule.ImportReference(new TypeReference(openType.Namespace, openType.Name, assemblyDefinition.MainModule, openTypeRef.Scope, true)));
 
-                var def = reference.CheckedResolve();
-                if (!declaredGenerics.Contains(def))
+                foreach (var ga in ((GenericInstanceType)openTypeRef).GenericArguments)
                 {
-                    declaredGenerics.Add(def);
+                    ((GenericInstanceType)result).GenericArguments.Add(assemblyDefinition.MainModule.ImportReference(ga));
+                }
+
+                genericJobs.Add(result);
+
+
+                var fn = openType.FullName;
+                if (!declaredGenerics.Contains(fn))
+                {
+                    declaredGenerics.Add(fn);
                 }
             }
 
@@ -141,7 +150,7 @@ namespace Unity.Entities.CodeGen
             return anythingChanged;
         }
 
-        private bool VisitJobStructs(TypeReference t, ILProcessor processor, MethodBody body, HashSet<TypeReference> declaredGenerics)
+        private bool VisitJobStructs(TypeReference t, ILProcessor processor, MethodBody body, HashSet<string> declaredGenerics)
         {
             var rt = t.CheckedResolve();
 
@@ -161,7 +170,7 @@ namespace Unity.Entities.CodeGen
                         if (attr.AttributeType.FullName != ProducerAttributeName)
                             continue;
 
-                        var producerRef = (TypeReference) attr.ConstructorArguments[0].Value;
+                        var producerRef = (TypeReference)attr.ConstructorArguments[0].Value;
                         didAnything |= GenerateCalls(producerRef, t, body, processor, declaredGenerics);
                     }
                 }
@@ -169,13 +178,13 @@ namespace Unity.Entities.CodeGen
 
             foreach (var nestedType in rt.NestedTypes)
             {
-                didAnything |= VisitJobStructs(nestedType, processor, body,declaredGenerics);
+                didAnything |= VisitJobStructs(nestedType, processor, body, declaredGenerics);
             }
 
             return didAnything;
         }
 
-        private bool GenerateCalls(TypeReference producerRef, TypeReference jobStructType, MethodBody body, ILProcessor processor, HashSet<TypeReference> declaredGenerics)
+        private bool GenerateCalls(TypeReference producerRef, TypeReference jobStructType, MethodBody body, ILProcessor processor, HashSet<string> declaredGenerics)
         {
             try
             {
@@ -198,7 +207,7 @@ namespace Unity.Entities.CodeGen
                 // We need a separate solution for generic jobs
                 if (jobStructType.HasGenericParameters)
                 {
-                    if (!declaredGenerics.Contains(jobStructType))
+                    if (!declaredGenerics.Contains(jobStructType.FullName))
                         AddDiagnostic(UserError.DC3002(jobStructType));
                     return false;
                 }

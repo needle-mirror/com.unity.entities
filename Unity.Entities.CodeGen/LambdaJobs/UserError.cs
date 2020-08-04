@@ -392,7 +392,7 @@ namespace Unity.Entities.CodeGen
 
         public static DiagnosticMessage DC3001(TypeReference type)
         {
-            return MakeError(nameof(DC3001), $"{type.FullName}: [RegisterGenericJobType] requires an instance of a generic type", method: null, instruction: null);
+            return MakeError(nameof(DC3001), $"{type.FullName}: [RegisterGenericJobType] requires an instance of a generic value type", method: null, instruction: null);
         }
 
         public static DiagnosticMessage DC3002(TypeReference jobStructType)
