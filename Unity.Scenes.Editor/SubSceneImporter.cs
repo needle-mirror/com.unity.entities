@@ -5,6 +5,8 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 using Unity.Build;
+using Unity.Build.DotsRuntime;
+using Unity.Core.Compression;
 using UnityEditor;
 using UnityEditor.Build.Content;
 using UnityEditor.SceneManagement;
@@ -16,7 +18,7 @@ using UnityEditor.Experimental.AssetImporters;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(83, "extDontMatter")]
+    [ScriptedImporter(84, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {
@@ -92,6 +94,7 @@ namespace Unity.Scenes.Editor
             try
             {
                 ctx.DependsOnCustomDependency("EntityBinaryFileFormatVersion");
+                ctx.DependsOnCustomDependency("SceneMetaDataFileFormatVersion");
                 ctx.DependsOnSourceAsset(EntitiesCacheUtility.globalEntitySceneDependencyPath);
 
                 var sceneWithBuildConfiguration = SceneWithBuildConfigurationGUIDs.ReadFromFile(ctx.assetPath);
@@ -129,8 +132,28 @@ namespace Unity.Scenes.Editor
                     settings.AssetImportContext = ctx;
                     settings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
 
+                    WriteEntitySceneSettings writeEntitySettings = new WriteEntitySceneSettings();
+                    if (config != null && config.TryGetComponent<DotsRuntimeBuildProfile>(out var profile))
+                    {
+                        if (profile.UseNewPipeline)
+                        {
+                            if (config.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
+                            {
+                                EditorSceneManager.SetActiveScene(scene);
+                                writeEntitySettings.Codec = Codec.LZ4;
+                                writeEntitySettings.IsDotsRuntime = true;
+                                writeEntitySettings.BuildAssemblyCache = new BuildAssemblyCache()
+                                {
+                                    BaseAssemblies = rootAssembly.RootAssembly.asset,
+                                    PlatformName = profile.Target.UnityPlatformName
+                                };
+                                settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
+                            }
+                        }
+                    }
+
                     var sectionRefObjs = new List<ReferencedUnityObjects>();
-                    var sectionData = EditorEntityScenes.ConvertAndWriteEntityScene(scene, settings, sectionRefObjs);
+                    var sectionData = EditorEntityScenes.ConvertAndWriteEntitySceneInternal(scene, settings, sectionRefObjs, writeEntitySettings);
 
                     WriteAssetDependencyGUIDs(sectionRefObjs, sectionData, ctx);
                 }

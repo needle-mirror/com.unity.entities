@@ -819,6 +819,14 @@ namespace Unity.Entities.CodeGen
                 blobAssetRefOffsets = TypeUtils.GetFieldOffsetsOf("Unity.Entities.BlobAssetReference`1", typeRef, ArchBits);
                 alignAndSize = TypeUtils.AlignAndSizeOfType(typeRef, ArchBits);
             }
+            else if (isManaged && IsNetDots
+                // Todo: ISharedComponents are currently commonly managed as this was the only mechanism for storing managed
+                // data in ECS. Until unmanaged sharedcomponents are available we allow managed shared components in NET_DOTS
+                // https://unity3d.atlassian.net/browse/DOTSR-1865
+                && typeCategory != TypeCategory.ISharedComponentData) 
+            {
+                throw new ArgumentException($"Found a managed component '{typeRef.FullName}'. Managed components are not supported when building for the Tiny configuration. Change the type to be a struct or build with the NetStandard 2.0 configuration.");
+            }
 
             int typeIndex = m_TotalTypeCount++;
             bool isSystemStateBufferElement = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ISystemStateBufferElementData));
@@ -895,6 +903,9 @@ namespace Unity.Entities.CodeGen
 
             if (typeCategory == TypeCategory.BufferData)
             {
+                if (elementSize == 0)
+                    throw new ArgumentException($"Component '{typeRef.FullName}' is used as a buffer data, but has size == 0.");
+
                 // If we haven't overridden the bufferSize via an attribute
                 if (bufferCapacity == -1)
                 {

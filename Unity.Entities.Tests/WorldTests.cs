@@ -8,9 +8,6 @@ using Unity.Core;
 using Unity.Jobs;
 using Unity.Mathematics;
 using System.Diagnostics;
-#if !UNITY_DOTSRUNTIME
-using UnityEngine.LowLevel;
-#endif
 #if !UNITY_PORTABLE_TEST_RUNNER
 using System.Reflection;
 using System.Linq;
@@ -351,95 +348,6 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(2, uc.updateCount);
             }
         }
-
-#if !UNITY_DOTSRUNTIME
-        // Player loop manipulation tests
-        [Test]
-        public void IsInPlayerLoop_WorldNotInPlayerLoop_ReturnsFalse()
-        {
-            using (var world = new World("Test World"))
-            {
-                world.CreateSystem<InitializationSystemGroup>();
-                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
-                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
-            }
-        }
-
-        [Test]
-        public void IsInPlayerLoop_WorldInPlayerLoop_ReturnsTrue()
-        {
-            using (var world = new World("Test World"))
-            {
-                world.CreateSystem<InitializationSystemGroup>();
-                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
-                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(world, ref playerLoop);
-                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
-            }
-        }
-
-        [Test]
-        public void RemoveFromPlayerLoop_WorldNotInPlayerLoop_DoesntThrow()
-        {
-            using (var world = new World("Test World"))
-            {
-                world.CreateSystem<InitializationSystemGroup>();
-                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
-                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(world, ref playerLoop);
-                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
-            }
-        }
-
-        [Test]
-        public void RemoveFromPlayerLoop_WorldInPlayerLoop_Works()
-        {
-            using (var world = new World("Test World"))
-            {
-                world.CreateSystem<InitializationSystemGroup>();
-                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
-                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(world, ref playerLoop);
-                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
-                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(world, ref playerLoop);
-                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
-            }
-        }
-
-        [Test]
-        public void AddToPlayerLoop_AddTwoWorlds_BothAreAdded()
-        {
-            using (var worldA = new World("Test World A"))
-            using (var worldB = new World("Test World B"))
-            {
-                worldA.CreateSystem<InitializationSystemGroup>();
-                worldB.CreateSystem<InitializationSystemGroup>();
-                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
-                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldA, ref playerLoop);
-                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
-                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldB, ref playerLoop);
-                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
-                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
-            }
-        }
-
-        [Test]
-        public void RemoveFromPlayerLoop_OtherWorldsInPlayerLoop_NotAffected()
-        {
-            using (var worldA = new World("Test World A"))
-            using (var worldB = new World("Test World B"))
-            {
-                worldA.CreateSystem<InitializationSystemGroup>();
-                worldB.CreateSystem<InitializationSystemGroup>();
-                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
-                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldA, ref playerLoop);
-                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldB, ref playerLoop);
-                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
-                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
-
-                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(worldA, ref playerLoop);
-                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
-                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
-            }
-        }
-#endif
 
 #if !UNITY_PORTABLE_TEST_RUNNER
 // https://unity3d.atlassian.net/browse/DOTSR-1432

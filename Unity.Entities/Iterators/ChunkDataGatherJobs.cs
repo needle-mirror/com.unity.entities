@@ -7,7 +7,7 @@ using Unity.Jobs;
 namespace Unity.Entities
 {
     [BurstCompile]
-    unsafe struct GatherChunks : IJobParallelForBurstScheduable
+    unsafe struct GatherChunks : IJobParallelForBurstSchedulable
     {
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
@@ -30,7 +30,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    internal unsafe struct GatherChunksAndOffsetsJob : IJobBurstScheduable
+    internal unsafe struct GatherChunksAndOffsetsJob : IJobBurstSchedulable
     {
         public UnsafeMatchingArchetypePtrList Archetypes;
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
@@ -71,7 +71,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    internal unsafe struct GatherChunksWithFiltering : IJobParallelForBurstScheduable
+    internal unsafe struct GatherChunksWithFiltering : IJobParallelForBurstSchedulable
     {
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
@@ -103,7 +103,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    internal unsafe struct GatherChunksAndOffsetsWithFilteringJob : IJobBurstScheduable
+    internal unsafe struct GatherChunksAndOffsetsWithFilteringJob : IJobBurstSchedulable
     {
         public UnsafeMatchingArchetypePtrList Archetypes;
         public EntityQueryFilter Filter;
@@ -149,7 +149,7 @@ namespace Unity.Entities
         }
     }
 
-    struct JoinChunksJob : IJobParallelForBurstScheduable
+    struct JoinChunksJob : IJobParallelForBurstSchedulable
     {
         [DeallocateOnJobCompletion][ReadOnly] public NativeArray<int> DestinationOffsets;
         [DeallocateOnJobCompletion][ReadOnly] public NativeArray<ArchetypeChunk> SparseChunks;

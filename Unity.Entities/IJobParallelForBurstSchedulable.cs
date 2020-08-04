@@ -7,24 +7,23 @@ using Unity.Jobs;
 
 namespace Unity.Entities
 {
-#if !UNITY_DOTSRUNTIME
-    [JobProducerType(typeof(IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<>))]
-    internal interface IJobParallelForBurstScheduable
+    [JobProducerType(typeof(IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<>))]
+    internal interface IJobParallelForBurstSchedulable
     {
         void Execute(int index);
     }
 
-    internal static class IJobParallelForExtensionsBurstScheduable
+    internal static class IJobParallelForExtensionsBurstSchedulable
     {
-        internal struct ParallelForJobStructBurstScheduable<T> where T : struct, IJobParallelForBurstScheduable
+        internal struct ParallelForJobStructBurstSchedulable<T> where T : struct, IJobParallelForBurstSchedulable
         {
-            internal static readonly SharedStatic<IntPtr> jobReflectionData = SharedStatic<IntPtr>.GetOrCreate<ParallelForJobStructBurstScheduable<T>>();
+            internal static readonly SharedStatic<IntPtr> jobReflectionData = SharedStatic<IntPtr>.GetOrCreate<ParallelForJobStructBurstSchedulable<T>>();
 
             internal static void Initialize()
             {
                 if (jobReflectionData.Data == IntPtr.Zero)
                 {
-#if UNITY_2020_2_OR_NEWER
+#if UNITY_2020_2_OR_NEWER || UNITY_DOTSRUNTIME
                     jobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(T), (ExecuteJobFunction)Execute);
 #else
                     jobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(T), JobType.ParallelFor, (ExecuteJobFunction)Execute);
@@ -61,11 +60,11 @@ namespace Unity.Entities
                 throw new InvalidOperationException("Reflection data was not set up by a call to Initialize()");
         }
 
-        unsafe internal static JobHandle Schedule<T>(this T jobData, int arrayLength, int innerloopBatchCount, JobHandle dependsOn = new JobHandle()) where T : struct, IJobParallelForBurstScheduable
+        unsafe internal static JobHandle Schedule<T>(this T jobData, int arrayLength, int innerloopBatchCount, JobHandle dependsOn = new JobHandle()) where T : struct, IJobParallelForBurstSchedulable
         {
-            var reflectionData = ParallelForJobStructBurstScheduable<T>.jobReflectionData.Data;
+            var reflectionData = ParallelForJobStructBurstSchedulable<T>.jobReflectionData.Data;
             CheckReflectionDataCorrect(reflectionData);
-#if UNITY_2020_2_OR_NEWER
+#if UNITY_2020_2_OR_NEWER || UNITY_DOTSRUNTIME
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref jobData), reflectionData, dependsOn, ScheduleMode.Parallel);
 #else
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref jobData), reflectionData, dependsOn, ScheduleMode.Batched);
@@ -73,15 +72,12 @@ namespace Unity.Entities
             return JobsUtility.ScheduleParallelFor(ref scheduleParams, arrayLength, innerloopBatchCount);
         }
 
-        unsafe internal static void Run<T>(this T jobData, int arrayLength) where T : struct, IJobParallelForBurstScheduable
+        unsafe internal static void Run<T>(this T jobData, int arrayLength) where T : struct, IJobParallelForBurstSchedulable
         {
-            var reflectionData = ParallelForJobStructBurstScheduable<T>.jobReflectionData.Data;
+            var reflectionData = ParallelForJobStructBurstSchedulable<T>.jobReflectionData.Data;
             CheckReflectionDataCorrect(reflectionData);
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref jobData), reflectionData, new JobHandle(), ScheduleMode.Run);
             JobsUtility.ScheduleParallelFor(ref scheduleParams, arrayLength, arrayLength);
         }
     }
-#else
-    internal interface IJobParallelForBurstScheduable : IJobParallelFor {}
-#endif
 }

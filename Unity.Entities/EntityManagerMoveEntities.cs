@@ -277,6 +277,8 @@ namespace Unity.Entities
                 MoveChunksFromFiltered(chunks, entityRemapping, srcAccess->EntityComponentStore, srcAccess->ManagedComponentStore);
 
                 selfAccess->EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, selfAccess->EntityQueryManager);
+                selfAccess->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
+                srcAccess->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
             }
         }
 
@@ -305,6 +307,8 @@ namespace Unity.Entities
             MoveChunksFromAll(entityRemapping, srcAccess->EntityComponentStore, srcAccess->ManagedComponentStore);
 
             selfAccess->EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, selfAccess->EntityQueryManager);
+            selfAccess->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
+            srcAccess->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
         }
 
         [NotBurstCompatible]
@@ -503,6 +507,9 @@ namespace Unity.Entities
                     remapArchetypes[archetypeIndex] = new RemapArchetype
                     {srcArchetype = srcArchetype, dstArchetype = dstArchetype};
 
+                    srcEntityComponentStore->m_ChunkListChangesTracker.TrackArchetype(srcArchetype);
+                    ecs->m_ChunkListChangesTracker.TrackArchetype(srcArchetype);
+
                     for (var j = 0; j < srcArchetype->Chunks.Count; ++j)
                     {
                         var srcChunk = srcArchetype->Chunks[j];
@@ -580,7 +587,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        internal struct ChunkPatchEntities : IJobBurstScheduable
+        internal struct ChunkPatchEntities : IJobBurstSchedulable
         {
             public NativeArray<RemapChunk> RemapChunks;
             public NativeArray<EntityRemapUtility.EntityRemapInfo> EntityRemapping;
@@ -600,7 +607,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        internal struct MoveChunksJob : IJobBurstScheduable
+        internal struct MoveChunksJob : IJobBurstSchedulable
         {
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* srcEntityComponentStore;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* dstEntityComponentStore;
@@ -620,7 +627,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        internal struct GatherAllManagedComponentIndicesJob : IJobBurstScheduable
+        internal struct GatherAllManagedComponentIndicesJob : IJobBurstSchedulable
         {
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* SrcEntityComponentStore;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* DstEntityComponentStore;
@@ -661,7 +668,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct GatherManagedComponentIndicesInChunkJob : IJobBurstScheduable
+        struct GatherManagedComponentIndicesInChunkJob : IJobBurstSchedulable
         {
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* SrcEntityComponentStore;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* DstEntityComponentStore;
@@ -707,7 +714,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct RemapChunksFilteredJob : IJobParallelForBurstScheduable
+        struct RemapChunksFilteredJob : IJobParallelForBurstSchedulable
         {
             [ReadOnly] public NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping;
             [ReadOnly] public NativeArray<RemapChunk> remapChunks;
@@ -745,7 +752,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct MoveFilteredChunksBetweenArchetypexJob : IJobBurstScheduable
+        struct MoveFilteredChunksBetweenArchetypexJob : IJobBurstSchedulable
         {
             [ReadOnly] public NativeArray<RemapChunk> RemapChunks;
             [ReadOnly] public NativeArray<int> RemapShared;
@@ -775,7 +782,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct RemapAllChunksJob : IJobParallelForBurstScheduable
+        struct RemapAllChunksJob : IJobParallelForBurstSchedulable
         {
             [ReadOnly] public NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping;
             [ReadOnly] public NativeArray<RemapChunk> remapChunks;
@@ -799,7 +806,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct RemapAllArchetypesJob : IJobParallelForBurstScheduable
+        struct RemapAllArchetypesJob : IJobParallelForBurstSchedulable
         {
             [DeallocateOnJobCompletion][ReadOnly] public NativeArray<RemapArchetype> remapArchetypes;
 
@@ -898,7 +905,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct MoveAllChunksJob : IJobBurstScheduable
+        struct MoveAllChunksJob : IJobBurstSchedulable
         {
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* srcEntityComponentStore;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* dstEntityComponentStore;

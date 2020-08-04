@@ -178,14 +178,6 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
-        public void RecordAdditionalEntity_WithNoPrimaryEntity_Throws()
-        {
-            Assert.Throws<IndexOutOfRangeException>(() => m_JournalData.RecordAdditionalEntityAt(1, new Entity { Index = 1, Version = 2 }));
-            m_JournalData.RecordPrimaryEntity(1, new Entity { Index = 1, Version = 2 });
-            Assert.DoesNotThrow(() => m_JournalData.RecordAdditionalEntityAt(1, new Entity { Index = 3, Version = 4 }));
-        }
-
-        [Test]
         public void Entities_StoredInSerialOrder()
         {
             var go = CreateGameObject();
@@ -257,6 +249,87 @@ namespace Unity.Entities.Tests.Conversion
                 (instanceId, new LogEventData { Message = "extra 1" }),
                 (instanceId, new LogEventData { Message = "extra 2" })
             }));
+        }
+
+        [Test]
+        public void RemovePrimaryEntity_RemovesExistingPrimaryEntity()
+        {
+            var e = new Entity {Index = 1, Version = 1};
+            m_JournalData.RecordPrimaryEntity(1, e);
+            Assert.AreEqual(e, m_JournalData.RemovePrimaryEntity(1));
+            Assert.IsFalse(m_JournalData.TryGetPrimaryEntity(1, out _));
+        }
+
+        [Test]
+        public void RemovePrimaryEntity_WithInvalidEntity_ReturnsNull()
+        {
+            Assert.AreEqual(Entity.Null, m_JournalData.RemovePrimaryEntity(1));
+        }
+
+        [Test]
+        public void RemovePrimaryEntity_RemovesAdditionalEntities()
+        {
+            var go = CreateGameObject();
+            var instanceId = go.GetInstanceID();
+            var e0 = new Entity {Index = 1, Version = 1};
+            var e1 = new Entity {Index = 3, Version = 17};
+            m_JournalData.RecordPrimaryEntity(instanceId, e0);
+            var s0 = m_JournalData.ReserveAdditionalEntity(instanceId);
+            m_JournalData.RecordAdditionalEntityAt(s0.id, e1);
+            Assert.That(m_JournalData.SelectEntities(go), Is.EqualTo(new[] { e0, e1 }));
+
+            m_JournalData.RemovePrimaryEntity(instanceId);
+            m_JournalData.RecordPrimaryEntity(instanceId, e0);
+            Assert.That(m_JournalData.SelectEntities(go), Is.EqualTo(new[] { e0 }));
+        }
+
+        [Test]
+        public void RecordPrimaryEntity_AddsNewEntry()
+        {
+            var e = new Entity {Index = 1, Version = 1};
+            m_JournalData.RecordPrimaryEntity(1, e);
+            Assert.IsTrue(m_JournalData.TryGetPrimaryEntity(1, out var testEntity));
+            Assert.AreEqual(e, testEntity);
+        }
+
+        [Test]
+        public void RecordPrimaryEntity_AfterRemoval_AddsNewEntry()
+        {
+            var e = new Entity {Index = 1, Version = 1};
+            m_JournalData.RecordPrimaryEntity(1, e);
+            m_JournalData.RemovePrimaryEntity(1);
+            var e2 = new Entity {Index = 3, Version = 17};
+            m_JournalData.RecordPrimaryEntity(1, e2);
+            Assert.IsTrue(m_JournalData.TryGetPrimaryEntity(1, out var testEntity));
+            Assert.AreEqual(e2, testEntity);
+        }
+
+        [Test]
+        public void RecordingAndRemovingPrimaryEntitiesRepeatedly_DoesNotThrow()
+        {
+            const int n = 15;
+            var es = new Entity[n];
+            for (int i = 0; i < es.Length; i++)
+            {
+                es[i] = new Entity {Index = i + 1, Version = 17};
+                m_JournalData.RecordPrimaryEntity(i, es[i]);
+                Assert.IsTrue(m_JournalData.TryGetPrimaryEntity(i, out var e));
+                Assert.AreEqual(es[i], e);
+            }
+
+            for (int i = 0; i < es.Length; i += 2)
+            {
+                var e = m_JournalData.RemovePrimaryEntity(i);
+                Assert.AreEqual(es[i], e);
+                Assert.IsFalse(m_JournalData.TryGetPrimaryEntity(i, out _));
+            }
+
+            for (int i = 0; i < es.Length; i += 2)
+            {
+                m_JournalData.RecordPrimaryEntity(i, es[i]);
+                Assert.IsTrue(m_JournalData.TryGetPrimaryEntity(i, out var e));
+                Assert.AreEqual(es[i], e);
+            }
         }
     }
 }

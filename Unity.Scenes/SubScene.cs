@@ -98,6 +98,9 @@ namespace Unity.Scenes
             }
         }
 
+        /// <summary>
+        /// Returns whether the subscene is open for editing.
+        /// </summary>
         public bool IsLoaded
         {
             get { return EditingScene.isLoaded; }
@@ -167,6 +170,10 @@ namespace Unity.Scenes
 
         void OnEnable()
         {
+            // Do not move the default initialization below the early out, it's important for the world to exist
+            // if the Subscene gets assigned later, otherwise the change won't trigger an import/conversion.
+            DefaultWorldInitialization.DefaultLazyEditModeInitialize();
+
 #if UNITY_EDITOR
             WarnIfNeeded();
 
@@ -180,7 +187,6 @@ namespace Unity.Scenes
                 return;
 #endif
 
-            DefaultWorldInitialization.DefaultLazyEditModeInitialize();
             AddSceneEntities();
         }
 

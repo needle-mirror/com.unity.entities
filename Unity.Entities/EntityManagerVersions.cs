@@ -1,4 +1,5 @@
 using System;
+using Unity.Collections;
 
 namespace Unity.Entities
 {
@@ -24,6 +25,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>The current version number.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public int GetComponentOrderVersion<T>()
         {
             var access = GetCheckedEntityDataAccess();
@@ -48,6 +50,7 @@ namespace Unity.Entities
         /// <param name="sharedComponent">The shared component instance.</param>
         /// <typeparam name="T">The shared component type.</typeparam>
         /// <returns>The current version number.</returns>
+        [NotBurstCompatible]
         public int GetSharedComponentOrderVersion<T>(T sharedComponent) where T : struct, ISharedComponentData
         {
             var access = GetCheckedEntityDataAccess();

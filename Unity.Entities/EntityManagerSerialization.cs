@@ -1,4 +1,5 @@
 using Unity.Assertions;
+using Unity.Collections;
 
 namespace Unity.Entities
 {

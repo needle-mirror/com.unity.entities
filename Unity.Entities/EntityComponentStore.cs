@@ -1,6 +1,3 @@
-#if !UNITY_WEBGL && (UNITY_2020_1_OR_NEWER || UNITY_DOTSRUNTIME)
-#define USE_VIRTUAL_MEMORY
-#endif
 using System;
 using System.Diagnostics;
 using System.Threading;
@@ -291,6 +288,8 @@ namespace Unity.Entities
 
         internal ManagedDeferredCommands ManagedChangesTracker;
 
+        internal ChunkListChanges m_ChunkListChangesTracker;
+
         ulong m_NextChunkSequenceNumber;
 
         int  m_NextFreeEntityIndex;
@@ -316,13 +315,17 @@ namespace Unity.Entities
 
         const int kMaximumEmptyChunksInPool = 16; // can't alloc forever
         const int kDefaultCapacity = 1024;
-        const int kMaxSharedComponentCount = 8;
+        internal const int kMaxSharedComponentCount = 8;
 
-        static ulong s_TotalChunkAddressSpaceInBytes = 1024UL * 1024UL * 1024UL;
+        struct AddressSpaceTagType { }
+        static readonly SharedStatic<ulong> s_TotalChunkAddressSpaceInBytes = SharedStatic<ulong>.GetOrCreate<AddressSpaceTagType>();
+
+        static readonly ulong DefaultChunkAddressSpaceInBytes = 1024UL * 1024UL * 1024UL;
+
         public static ulong TotalChunkAddressSpaceInBytes
         {
-            get => s_TotalChunkAddressSpaceInBytes;
-            set => s_TotalChunkAddressSpaceInBytes = value;
+            get => s_TotalChunkAddressSpaceInBytes.Data > 0 ? s_TotalChunkAddressSpaceInBytes.Data - 1 : DefaultChunkAddressSpaceInBytes;
+            set => s_TotalChunkAddressSpaceInBytes.Data = value + 1;
         }
 
 #if UNITY_EDITOR
@@ -447,6 +450,9 @@ namespace Unity.Entities
             entities->m_EntityComponentType = ComponentType.ReadWrite<Entity>();
             entities->InitializeTypeManagerPointers();
 
+            entities->m_ChunkListChangesTracker = new ChunkListChanges();
+            entities->m_ChunkListChangesTracker.Init();
+
 #if USE_VIRTUAL_MEMORY
             s_chunkStore.Data.Initialize(TotalChunkAddressSpaceInBytes);
 #endif
@@ -534,6 +540,7 @@ namespace Unity.Entities
                 archetype->Chunks.Dispose();
                 archetype->ChunksWithEmptySlots.Dispose();
                 archetype->FreeChunksBySharedComponents.Dispose();
+                archetype->MatchingQueryData.Dispose();
             }
 
             m_Archetypes.Dispose();
@@ -921,7 +928,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        internal struct EntityBatchFromEntityChunkDataShared : IJobBurstScheduable
+        internal struct EntityBatchFromEntityChunkDataShared : IJobBurstSchedulable
         {
             [ReadOnly] public NativeArray<EntityInChunk> EntityChunkData;
             public NativeList<EntityBatchInChunk> EntityBatchList;
@@ -1018,7 +1025,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        internal struct SortEntityInChunk : IJobBurstScheduable
+        internal struct SortEntityInChunk : IJobBurstSchedulable
         {
             public NativeArray<EntityInChunk> EntityInChunks;
             public void Execute()
@@ -1080,7 +1087,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        internal struct GatherEntityInChunkForEntities : IJobParallelForBurstScheduable
+        internal struct GatherEntityInChunkForEntities : IJobParallelForBurstSchedulable
         {
             [ReadOnly][NativeDisableUnsafePtrRestriction]
             public Entity* Entities;
@@ -1202,8 +1209,8 @@ namespace Unity.Entities
             long m_pagesCommitted;
             VMRange m_chunkAddressSpace;
 
-            public long ReservedBytes => m_chunkAddressSpace.SizeInBytes;
-            public long CommittedBytes => m_pagesCommitted * m_chunkAddressSpace.PageSizeInBytes;
+            public ulong ReservedBytes => m_chunkAddressSpace.SizeInBytes;
+            public ulong CommittedBytes => (ulong)(m_pagesCommitted * m_chunkAddressSpace.PageSizeInBytes);
 
             public long ReservedPages => m_chunkAddressSpace.pageCount;
             public long CommittedPages => m_pagesCommitted;
@@ -1238,12 +1245,20 @@ namespace Unity.Entities
                 }
 
 #if USE_VIRTUAL_MEMORY
-                BaselibErrorState errorState = default;
-
                 m_pagesCommitted = 0;
 
-                m_chunkAddressSpace = VirtualMemoryUtility.ReserveAddressSpace(sizeOfAddressRangeInBytes / VirtualMemoryUtility.DefaultPageSizeInBytes, (ulong)VirtualMemoryUtility.DefaultPageSizeInBytes, out errorState);
+                BaselibErrorState errorState = default;
+                m_chunkAddressSpace = VirtualMemoryUtility.ReserveAddressSpace(sizeOfAddressRangeInBytes / VirtualMemoryUtility.DefaultPageSizeInBytes, VirtualMemoryUtility.DefaultPageSizeInBytes, out errorState);
+
                 VirtualMemoryUtility.ReportWrappedBaselibError(errorState);
+                if(errorState.OutOfMemory)
+                {
+                    FixedString512 error = "Failed to reserve ";
+                    error.Append(sizeOfAddressRangeInBytes);
+                    FixedString128 e2 = " bytes. System ran out of memory.";
+                    error.Append(e2);
+                    Debug.LogError(error);
+                }
 
                 m_MegachunkSizeInPages = (uint)(((MegachunkSizeInBytes + m_chunkAddressSpace.PageSizeInBytes - 1) & ~(m_chunkAddressSpace.PageSizeInBytes - 1)) / m_chunkAddressSpace.PageSizeInBytes);
 #endif
@@ -1260,6 +1275,11 @@ namespace Unity.Entities
                     BaselibErrorState errorState = default;
                     VirtualMemoryUtility.FreeAddressSpace(m_chunkAddressSpace, out errorState);
                     VirtualMemoryUtility.ReportWrappedBaselibError(errorState);
+                    if(errorState.InvalidAddressRange)
+                    {
+                        FixedString512 error = "Failed to free address range because it is was never reserved.";
+                        Debug.LogError(error);
+                    }
 #endif
                 }
             }
@@ -1289,11 +1309,28 @@ namespace Unity.Entities
 
                                     IntPtr allocationPtr = (IntPtr)((long)m_chunkAddressSpace.ptr + megachunkIndex * MegachunkSizeInBytes);
                                     VMRange allocationRange = new VMRange { ptr = allocationPtr, log2PageSize = m_chunkAddressSpace.log2PageSize, pageCount = m_MegachunkSizeInPages };
+
+                                    if (m_pagesCommitted + m_MegachunkSizeInPages > m_chunkAddressSpace.pageCount)
+                                    {
+                                        FixedString512 error = "You have committed all virtual memory reserved for Chunks (";
+                                        error.Append(CommittedBytes);
+                                        FixedString128 e2 = " bytes). To allocate more than ";
+                                        error.Append(e2);
+                                        error.Append((CommittedBytes / (ulong)ChunkSizeInBytesRoundedUpToPow2));
+                                        e2 = " Chunks, you must reserve a larger virtual address range by setting ";
+                                        error.Append(e2);
+                                        e2 = nameof(TotalChunkAddressSpaceInBytes);
+                                        error.Append(e2);
+                                        e2 = " during World initialization.";
+                                        error.Append(e2);
+                                        Debug.LogError(error);
+                                    }
+
                                     VirtualMemoryUtility.CommitMemory(allocationRange, out errorState);
                                     VirtualMemoryUtility.ReportWrappedBaselibError(errorState);
 
                                     long allocated = (long)allocationRange.ptr;
-                                    if (errorState.code != 0)
+                                    if (!errorState.Success)
                                     {
                                         AllocationFailed(megachunkIndex, bit);
                                         return (int)errorState.code;
@@ -1368,7 +1405,7 @@ namespace Unity.Entities
                                         VirtualMemoryUtility.DecommitMemory(rangeToFree, out errorState);
                                         VirtualMemoryUtility.ReportWrappedBaselibError(errorState);
 
-                                        if (errorState.code != 0)
+                                        if (!errorState.Success)
                                         {
                                             return (int)errorState.code;
                                         }
@@ -1390,7 +1427,7 @@ namespace Unity.Entities
 
         private static readonly SharedStatic<ChunkStore> s_chunkStore = SharedStatic<ChunkStore>.GetOrCreate<EntityComponentStore>();
 
-        public static void GetChunkMemoryStats(out long reservedPages, out long committedPages, out long reservedBytes, out long committedBytes, out long pageSizeInBytes)
+        public static void GetChunkMemoryStats(out long reservedPages, out long committedPages, out ulong reservedBytes, out ulong committedBytes, out long pageSizeInBytes)
         {
 #if USE_VIRTUAL_MEMORY
             reservedPages = s_chunkStore.Data.ReservedPages;
@@ -1540,6 +1577,8 @@ namespace Unity.Entities
             dstArchetype->EntityCount = 0;
             dstArchetype->Chunks = new ArchetypeChunkData(count, numSharedComponents);
             dstArchetype->ChunksWithEmptySlots = new UnsafeChunkPtrList(0, Allocator.Persistent);
+            dstArchetype->MatchingQueryData = new UnsafePtrList(0, Allocator.Persistent);
+            dstArchetype->NextChangedArchetype = null;
             dstArchetype->InstantiateArchetype = null;
             dstArchetype->CopyArchetype = null;
             dstArchetype->MetaChunkArchetype = null;
@@ -1786,6 +1825,46 @@ namespace Unity.Entities
 
             var changeList = new UnsafeArchetypePtrList(m_Archetypes.Ptr + changes.StartIndex, m_Archetypes.Length - changes.StartIndex);
             queries->AddAdditionalArchetypes(changeList);
+        }
+
+
+        internal struct ChunkListChanges
+        {
+            public Archetype* ArchetypeTrackingHead;
+
+            public void Init()
+            {
+                ArchetypeTrackingHead = null;
+            }
+
+            public void TrackArchetype(Archetype* archetype)
+            {
+                if (archetype->NextChangedArchetype == null)
+                {
+                    archetype->NextChangedArchetype = ArchetypeTrackingHead;
+                    ArchetypeTrackingHead = archetype;
+                }
+            }
+        }
+
+        public void InvalidateChunkListCacheForChangedArchetypes()
+        {
+            var archetype = m_ChunkListChangesTracker.ArchetypeTrackingHead;
+            while(archetype != null)
+            {
+                var matchingQueryCount = archetype->MatchingQueryData.Length;
+                for (int queryIndex = 0; queryIndex < matchingQueryCount; ++queryIndex)
+                {
+                    var queryData = (EntityQueryData*) archetype->MatchingQueryData.Ptr[queryIndex];
+                    queryData->MatchingChunkCache.InvalidateCache();
+                }
+
+                var nextArchetype = archetype->NextChangedArchetype;
+                archetype->NextChangedArchetype = null;
+                archetype = nextArchetype;
+            }
+
+            m_ChunkListChangesTracker.ArchetypeTrackingHead = null;
         }
 
         public int ManagedComponentIndexUsedCount => m_ManagedComponentIndex - 1 - m_ManagedComponentFreeIndex.Length / 4;

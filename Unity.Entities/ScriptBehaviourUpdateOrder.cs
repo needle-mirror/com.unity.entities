@@ -39,10 +39,20 @@ namespace Unity.Entities
         public Type SystemType { get; }
     }
 
-    // The specified Type must be a ComponentSystemGroup.
-    // Updating in a group means this system will be automatically updated by the specified ComponentSystemGroup.
-    // The system may order itself relative to other systems in the group with UpdateBegin and UpdateEnd,
-    // There is nothing preventing systems from being in multiple groups, it can be added if there is a use-case for it
+    /// <summary>
+    /// The specified Type must be a ComponentSystemGroup.
+    /// Updating in a group means this system will be automatically updated by the specified ComponentSystemGroup when the group is updated.
+    /// The system may order itself relative to other systems in the group with UpdateBefore and UpdateAfter. This ordering takes
+    /// effect when the system group is sorted.
+    ///
+    /// If the optional OrderFirst parameter is set to true, this system will act as if it has an implicit [UpdateBefore] targeting all other
+    /// systems in the group that do *not* have OrderFirst=true, but it may still order itself relative to other systems with OrderFirst=true.
+    ///
+    /// If the optional OrderLast parameter is set to true, this system will act as if it has an implicit [UpdateAfter] targeting all other
+    /// systems in the group that do *not* have OrderLast=true, but it may still order itself relative to other systems with OrderLast=true.
+    ///
+    /// An UpdateInGroup attribute with both OrderFirst=true and OrderLast=true is invalid, and will throw an exception.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class|AttributeTargets.Struct)]
     public class UpdateInGroupAttribute : Attribute
     {
@@ -98,7 +108,8 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="system">The ECS system to add to the player loop.</param>
         /// <param name="playerLoop">Existing player loop to modify (e.g. PlayerLoop.GetCurrentPlayerLoop())</param>
-        /// <param name="playerLoopSystemType">The Type of the PlayerLoopSystem subsystem to which the ECS system should be appended.</param>
+        /// <param name="playerLoopSystemType">The Type of the PlayerLoopSystem subsystem to which the ECS system should be appended.
+        /// See the UnityEngine.PlayerLoop namespace for valid values.</param>
         public static void AppendSystemToPlayerLoopList(ComponentSystemBase system, ref PlayerLoopSystem playerLoop, Type playerLoopSystemType)
         {
             if (!AppendSystemToPlayerLoopListImpl(system, ref playerLoop, playerLoopSystemType))

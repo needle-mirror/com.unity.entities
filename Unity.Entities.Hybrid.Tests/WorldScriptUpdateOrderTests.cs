@@ -1,7 +1,8 @@
+using System;
 using NUnit.Framework;
 using Unity.Entities.Hybrid.Tests;
 using UnityEngine.LowLevel;
-using UnityEngine.TestTools;
+using UnityEngine.PlayerLoop;
 
 namespace Unity.Entities.Tests
 {
@@ -14,6 +15,7 @@ namespace Unity.Entities.Tests
         public void Setup()
         {
             m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
             m_DefaultWorld.Setup();
         }
 
@@ -31,13 +33,190 @@ namespace Unity.Entities.Tests
             ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(newWorld);
             Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(newWorld));
 
-            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop()); // TODO(DOTS-2283): Shouldn't stomp default player loop here
+            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
             Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(newWorld));
 
-            var playerLoop = PlayerLoop.GetDefaultPlayerLoop(); // TODO(DOTS-2283): Shouldn't stomp default player loop here
+            var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
             ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(World.DefaultGameObjectInjectionWorld, ref playerLoop);
             PlayerLoop.SetPlayerLoop(playerLoop);
             Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(World.DefaultGameObjectInjectionWorld));
+        }
+
+        [Test]
+        public void IsInPlayerLoop_WorldNotInPlayerLoop_ReturnsFalse()
+        {
+            using (var world = new World("Test World"))
+            {
+                world.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+            }
+        }
+
+        [Test]
+        public void IsInPlayerLoop_WorldInPlayerLoop_ReturnsTrue()
+        {
+            using (var world = new World("Test World"))
+            {
+                world.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(world, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+            }
+        }
+
+        [Test]
+        public void RemoveFromPlayerLoop_WorldNotInPlayerLoop_DoesntThrow()
+        {
+            using (var world = new World("Test World"))
+            {
+                world.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(world, ref playerLoop);
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+            }
+        }
+
+        [Test]
+        public void RemoveFromPlayerLoop_WorldInPlayerLoop_Works()
+        {
+            using (var world = new World("Test World"))
+            {
+                world.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(world, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(world, ref playerLoop);
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(world, playerLoop));
+            }
+        }
+
+        [Test]
+        public void AddToPlayerLoop_AddTwoWorlds_BothAreAdded()
+        {
+            using (var worldA = new World("Test World A"))
+            using (var worldB = new World("Test World B"))
+            {
+                worldA.CreateSystem<InitializationSystemGroup>();
+                worldB.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldA, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldB, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
+            }
+        }
+
+        [Test]
+        public void RemoveFromPlayerLoop_OtherWorldsInPlayerLoop_NotAffected()
+        {
+            using (var worldA = new World("Test World A"))
+            using (var worldB = new World("Test World B"))
+            {
+                worldA.CreateSystem<InitializationSystemGroup>();
+                worldB.CreateSystem<InitializationSystemGroup>();
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldA, ref playerLoop);
+                ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(worldB, ref playerLoop);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
+
+                ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(worldA, ref playerLoop);
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldA, playerLoop));
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(worldB, playerLoop));
+            }
+        }
+
+        class InvalidPlayerLoopSystemType
+        {
+        }
+
+        class TestSystem : ComponentSystemBase
+        {
+            public override void Update()
+            {
+                throw new System.NotImplementedException();
+            }
+        }
+
+        [Test]
+        public void AppendSystemToPlayerLoopList_InvalidPlayerLoopSystemType_Throws()
+        {
+            using (var world = new World("Test World"))
+            {
+                var sys = world.CreateSystem<TestSystem>();
+                var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
+                Assert.That(
+                    () => ScriptBehaviourUpdateOrder.AppendSystemToPlayerLoopList(sys, ref playerLoop,
+                        typeof(InvalidPlayerLoopSystemType)),
+                    Throws.ArgumentException.With.Message.Matches(
+                        @"Could not find PlayerLoopSystem with type=.+InvalidPlayerLoopSystemType"));
+            }
+        }
+
+        bool IsSystemInSubsystemList(PlayerLoopSystem[] subsystemList, ComponentSystemBase system)
+        {
+            if (subsystemList == null)
+                return false;
+            for (int i = 0; i < subsystemList.Length; ++i)
+            {
+                var pls = subsystemList[i];
+                if (typeof(ComponentSystemBase).IsAssignableFrom(pls.type))
+                {
+                    var wrapper = pls.updateDelegate.Target as ScriptBehaviourUpdateOrder.DummyDelegateWrapper;
+                    if (wrapper.System == system)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        void ValidatePostAppendPlayerLoop(PlayerLoopSystem playerLoop, Type targetStageType, ComponentSystemBase system)
+        {
+            if (playerLoop.type == targetStageType)
+                Assert.IsTrue(IsSystemInSubsystemList(playerLoop.subSystemList, system));
+            else
+                Assert.IsFalse(IsSystemInSubsystemList(playerLoop.subSystemList, system));
+
+            if (playerLoop.subSystemList != null)
+            {
+                for (int i = 0; i < playerLoop.subSystemList.Length; ++i)
+                {
+                    ValidatePostAppendPlayerLoop(playerLoop.subSystemList[i], targetStageType, system);
+                }
+            }
+        }
+
+        [Test]
+        public void AppendSystemToPlayerLoopList_AddToNestedList_Works()
+        {
+            using (var world = new World("Test World"))
+            {
+                var playerLoop = PlayerLoop.GetDefaultPlayerLoop();
+                var sys = world.CreateSystem<TestSystem>();
+                Type targetStageType = typeof(PreLateUpdate.LegacyAnimationUpdate);
+                ScriptBehaviourUpdateOrder.AppendSystemToPlayerLoopList(sys, ref playerLoop, targetStageType);
+                ValidatePostAppendPlayerLoop(playerLoop, targetStageType, sys);
+            }
+        }
+
+        [Test]
+        public void CurrentPlayerLoopWrappers_Work()
+        {
+            using (var world = new World("Test World"))
+            {
+                // world must have at least one of the default top-level groups to add
+                var initSysGroup = world.CreateSystem<InitializationSystemGroup>();
+
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(world));
+                ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(world);
+                Assert.IsTrue(ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(world));
+                ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(world);
+                Assert.IsFalse(ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(world));
+            }
         }
 
         [TearDown]

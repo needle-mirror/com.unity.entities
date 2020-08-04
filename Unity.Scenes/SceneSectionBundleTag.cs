@@ -1,5 +1,6 @@
 #if !UNITY_DOTSRUNTIME
 using System;
+using System.Collections.Generic;
 using Unity.Entities;
 
 namespace Unity.Scenes
@@ -7,33 +8,51 @@ namespace Unity.Scenes
     [Serializable]
     internal struct SceneSectionBundle : ISharedComponentData, IEquatable<SceneSectionBundle>, IRefCounted
     {
-        private SceneBundleHandle _sceneBundleHandle;
+        private List<SceneBundleHandle> _sceneBundleHandles;
 
-        public SceneSectionBundle(SceneBundleHandle bundle)
+        public SceneSectionBundle(IEnumerable<SceneBundleHandle> bundles)
         {
-            _sceneBundleHandle = bundle;
+            _sceneBundleHandles = new List<SceneBundleHandle>(bundles);
         }
 
         public void Release()
         {
-            _sceneBundleHandle?.Release();
-            _sceneBundleHandle = null;
+            foreach (var b in _sceneBundleHandles)
+                b.Release();
         }
 
         public void Retain()
         {
-            _sceneBundleHandle?.Retain();
+            foreach (var b in _sceneBundleHandles)
+                b.Retain();
         }
 
         public bool Equals(SceneSectionBundle other)
         {
-            return _sceneBundleHandle == other._sceneBundleHandle;
+            if (GetHashCode() != other.GetHashCode())
+                return false;
+
+            if (other._sceneBundleHandles == null)
+                return false;
+
+            if (_sceneBundleHandles.Count != other._sceneBundleHandles.Count)
+                return false;
+
+            for (int i = 0; i < _sceneBundleHandles.Count; i++)
+                if (!_sceneBundleHandles[i].Equals(other._sceneBundleHandles[i]))
+                    return false;
+
+            return true;
         }
 
         public override int GetHashCode()
         {
+            if (_sceneBundleHandles == null || _sceneBundleHandles.Count == 0)
+                return 0;
+
             int hash = 0;
-            if (!ReferenceEquals(_sceneBundleHandle, null)) hash ^= _sceneBundleHandle.GetHashCode();
+            for (int i = 0; i < _sceneBundleHandles.Count; i++)
+                hash ^= _sceneBundleHandles[i].GetHashCode();
             return hash;
         }
     }

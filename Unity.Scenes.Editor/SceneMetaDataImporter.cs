@@ -25,6 +25,9 @@ class SceneMetaDataImporter : ScriptedImporter
     public static Hash128[] GetSubSceneGuids(string guid)
     {
         var hash = AssetDatabaseCompatibility.GetArtifactHash(guid, typeof(SceneMetaDataImporter), ImportMode.Synchronous);
+        if (!hash.isValid)
+            throw new ArgumentException($"Invalid artifact hash from guid {guid}");
+
         AssetDatabaseCompatibility.GetArtifactPaths(hash, out string[] paths);
 
         var metaPath = paths.First(o => o.EndsWith("scenemeta"));

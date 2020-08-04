@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
+using Unity.Burst;
 #if !NET_DOTS
 using System.Linq;
 #endif
@@ -40,6 +41,11 @@ namespace Unity.Entities
         internal UnsafeList<UpdateIndex> m_MasterUpdateList;
         internal UnsafeList<SystemHandleUntyped> m_UnmanagedSystemsToUpdate;
         internal UnsafeList<SystemHandleUntyped> m_UnmanagedSystemsToRemove;
+
+#if !UNITY_DOTSRUNTIME
+        internal delegate bool UnmanagedUpdateSignature(SystemState* state, out SystemDependencySafetyUtility.SafetyErrorDetails errorDetails);
+        static UnmanagedUpdateSignature s_UnmanagedUpdateFn = BurstCompiler.CompileFunctionPointer<UnmanagedUpdateSignature>(SystemBase.UnmanagedUpdate).Invoke;
+#endif
 
         public virtual IEnumerable<ComponentSystemBase> Systems => m_systemsToUpdate;
 
@@ -484,12 +490,17 @@ namespace Unity.Entities
                         SystemState* sys = World.ResolveSystemState(m_UnmanagedSystemsToUpdate[index.Index]);
                         if (sys != null)
                         {
-                            if (SystemBase.UnmanagedUpdate(sys, out var details))
+                            bool updateError = false;
+#if !UNITY_DOTSRUNTIME
+                            updateError = s_UnmanagedUpdateFn(sys, out var details);
+#else
+                            updateError = SystemBase.UnmanagedUpdate(sys, out var details);
+#endif
+
+                            if (updateError)
                             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                                var metaIndex = sys->m_UnmanagedMetaIndex;
-                                var systemDebugName = SystemBaseRegistry.GetDebugName(metaIndex);
-                                var errorString = details.FormatToString(systemDebugName);
+                                var errorString = details.FormatToString(sys->DebugName);
                                 Debug.LogError(errorString);
 #endif
                             }

@@ -185,14 +185,14 @@ namespace Unity.Entities
 
             var info = TypeManager.GetTypeInfo(TypeIndex);
             FixedString512 ns = default;
-            ns.AppendFrom(new FixedString128(info.Debug.TypeName));
+            ns.Append(info.Debug.TypeName);
 
             if (IsBuffer)
-                ns.AppendFrom(new FixedString32(" [B]"));
+                ns.Append(" [B]");
             if (AccessModeType == AccessMode.Exclude)
-                ns.AppendFrom(new FixedString32(" [S]"));
+                ns.Append(" [S]");
             if (AccessModeType == AccessMode.ReadOnly)
-                ns.AppendFrom(new FixedString32(" [RO]"));
+                ns.Append(" [RO]");
 
             return ns.ToString();
 #else

@@ -25,6 +25,8 @@ namespace Unity.Entities
     /// stores component data in blocks of memory called *chunks*. A given chunk stores only entities having the same
     /// archetype. You can get the EntityArchetype object for a chunk from its <see cref="ArchetypeChunk.Archetype"/>
     /// property.
+    ///
+    /// Instead of using new EntityArchetype(), use EntityManager.CreateArchetype() to create EntityArchetype values.
     /// </remarks>
     [DebuggerTypeProxy(typeof(EntityArchetypeDebugView))]
     public unsafe struct EntityArchetype : IEquatable<EntityArchetype>
@@ -139,5 +141,14 @@ namespace Unity.Entities
         /// </summary>
         /// <value>True, if the archetype is a disabled archetype.</value>
         public bool Disabled => Archetype->Disabled;
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal void CheckValidEntityArchetype()
+        {
+            if (!Valid)
+            {
+                throw new ArgumentException("EntityArchetype argument is invalid. Calling new EntityArchetype() produces an invalid value. Call EntityManager.CreateArchetype() to get a valid EntityArchetype value.");
+            }
+        }
     }
 }

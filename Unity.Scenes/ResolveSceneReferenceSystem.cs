@@ -13,6 +13,11 @@ namespace Unity.Scenes
         public Entity SectionEntity;
     }
 
+    struct BundleElementData : IBufferElementData
+    {
+        public Hash128 BundleId;
+    }
+
     struct SceneEntityReference : IComponentData
     {
         public Entity SceneEntity;
@@ -39,7 +44,8 @@ namespace Unity.Scenes
     struct SceneMetaData
     {
         public BlobArray<SceneSectionData> Sections;
-        public BlobString SceneName;
+        public BlobString                  SceneName;
+        public BlobArray<BlobArray<Hash128>> Dependencies;
         public BlobArray<BlobArray<SceneSectionCustomMetadata>> SceneSectionCustomMetadata;
     }
 
@@ -49,7 +55,7 @@ namespace Unity.Scenes
 
     static class SceneMetaDataSerializeUtility
     {
-        public static readonly int CurrentFileFormatVersion = 1;
+        public static readonly int CurrentFileFormatVersion = 3;
     }
 
 #if UNITY_EDITOR

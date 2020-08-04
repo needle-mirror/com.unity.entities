@@ -298,7 +298,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -322,7 +322,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -355,7 +355,7 @@ namespace Unity.Entities.PerformanceTests
                     FillWithCreateEntityCommands(ecb, size);
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -377,7 +377,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -406,7 +406,7 @@ namespace Unity.Entities.PerformanceTests
                     FillWithInstantiateEntityCommands(ecb, size, prefabEntity);
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -429,7 +429,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -461,7 +461,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -485,7 +485,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -521,7 +521,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -545,7 +545,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -581,7 +581,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -605,7 +605,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -644,7 +644,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -668,7 +668,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -705,7 +705,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -729,7 +729,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -767,7 +767,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -791,7 +791,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -828,7 +828,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -852,7 +852,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -887,7 +887,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.AddComponent(group, typeof(EcsTestData2));
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -911,7 +911,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -941,7 +941,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.RemoveComponent(group, typeof(EcsTestData));
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -965,7 +965,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -995,7 +995,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.DestroyEntity(group);
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -1019,7 +1019,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -1049,7 +1049,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.AddSharedComponent(group, new EcsTestSharedComp {value = 1});
                 })
                 .SampleGroup("Record")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {
@@ -1073,7 +1073,7 @@ namespace Unity.Entities.PerformanceTests
                     ecb.Playback(m_Manager);
                 })
                 .SampleGroup("Playback")
-                .WarmupCount(0)
+                .WarmupCount(1)
                 .MeasurementCount(100)
                 .SetUp(() =>
                 {

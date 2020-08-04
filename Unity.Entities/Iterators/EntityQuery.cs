@@ -426,6 +426,14 @@ namespace Unity.Entities
             return res;
         }
 
+        internal NativeArray<ArchetypeChunk> CreateArchetypeChunkArrayImmediate(Allocator allocator)
+        {
+            SyncFilterTypes();
+            var res = ChunkIterationUtility.CreateArchetypeChunkArrayWithoutSyncImmediate(_QueryData->MatchingArchetypes, allocator, ref _Filter);
+            return res;
+        }
+
+
         public NativeArray<Entity> ToEntityArrayAsync(Allocator allocator, out JobHandle jobhandle, EntityQuery outer)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -897,6 +905,11 @@ namespace Unity.Entities
             return _Filter.RequiresMatchesFilter;
         }
 
+        internal bool CheckChunkListCacheConsistency()
+        {
+            return UnsafeCachedChunkList.CheckCacheConsistency(ref _QueryData->MatchingChunkCache, _QueryData);
+        }
+
         internal static EntityQueryImpl* Allocate()
         {
             void* ptr = UnsafeUtility.Malloc(sizeof(EntityQueryImpl), 8, Allocator.Persistent);
@@ -1171,6 +1184,8 @@ namespace Unity.Entities
         /// <param name="allocator">Allocator to use for the array.</param>
         /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator) => _GetImpl()->CreateArchetypeChunkArray(allocator);
+
+        internal NativeArray<ArchetypeChunk> CreateArchetypeChunkArrayImmediate(Allocator allocator) => _GetImpl()->CreateArchetypeChunkArrayImmediate(allocator);
         /// <summary>
         /// Creates a NativeArray containing the selected entities.
         /// </summary>
@@ -1407,6 +1422,10 @@ namespace Unity.Entities
         /// </summary>
         /// <returns>Returns true if the query has a filter, returns false if the query does not have a filter.</returns>
         public bool HasFilter() => _GetImpl()->HasFilter();
+
+        internal void UpdateCache() => ChunkIterationUtility.RebuildChunkListCache(_GetImpl()->_QueryData);
+        internal bool CheckChunkListCacheConsistency() => _GetImpl()->CheckChunkListCacheConsistency();
+        internal bool IsCacheValid => _GetImpl()->_QueryData->MatchingChunkCache.IsCacheValid;
 
         /// <summary>
         ///  Internal gen impl

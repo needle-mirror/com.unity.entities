@@ -21,7 +21,7 @@ You can view the system configuration using the Entity Debugger window (menu: **
 Unity ECS provides several types of systems. In general, the systems you write to implement your game behavior and data transformations will extend [SystemBase]. The other system classes have specialized purposes. You typically use existing instances of the [EntityCommandBufferSystem] and [ComponentSystemGroup] classes. 
 
 * [SystemBase] -- the base class to implement when creating systems.
-* [EntityCommandBufferSystem] -- provides [EntityCommandBuffer] instances for other systems. Each of the default system groups maintains an Entity Command Buffer System at the beginning and end of its list of child systems. This allows you to group structural changes so that they incur fewer [syncronization points] in a frame.
+* [EntityCommandBufferSystem] -- provides [EntityCommandBuffer] instances for other systems. Each of the default system groups maintains an Entity Command Buffer System at the beginning and end of its list of child systems. This allows you to group structural changes so that they incur fewer [synchronization points] in a frame.
 * [ComponentSystemGroup] -- provides nested organization and update order for other systems. Unity ECS creates several Component System Groups by default.
 * [GameObjectConversionSystem] -- converts GameObject-based, in-Editor representations of your game to efficient, entity-based, runtime representations. Game conversion systems run in the Unity Editor.
 
@@ -39,7 +39,7 @@ Unity ECS provides several types of systems. In general, the systems you write t
 [OnStartRunning()]: xref:Unity.Entities.ComponentSystemBase.OnStartRunning*
 [OnStopRunning()]: xref:Unity.Entities.ComponentSystemBase.OnStopRunning*
 [OnUpdate()]: xref:Unity.Entities.SystemBase.OnUpdate*
-[syncronization points]: xref:sync-points
+[synchronization points]: xref:sync-points
 [system attributes]: system_update_order.md#attributes
 [SystemBase]: xref:Unity.Entities.SystemBase
 [World]: xref:Unity.Entities.World

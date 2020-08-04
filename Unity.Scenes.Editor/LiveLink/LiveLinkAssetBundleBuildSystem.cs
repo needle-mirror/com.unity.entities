@@ -49,35 +49,6 @@ namespace Unity.Scenes.Editor
             SendSubScene(subSceneId, args.playerId);
         }
 
-        NativeArray<ResolvedAssetID> GetSubSceneDependencies(Hash128 artifactHash)
-        {
-            //@TODO: should be based on connection / BuildSetting
-            var buildTarget = EditorUserBuildSettings.activeBuildTarget;
-
-            var resolvedDependencies = default(NativeArray<ResolvedAssetID>);
-            AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out string[] paths);
-            var loadPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesAssetDependencyGUIDs);
-
-            if (loadPath != null && File.Exists(loadPath))
-            {
-                using (var reader = new StreamBinaryReader(loadPath))
-                {
-                    var len = reader.ReadInt();
-                    var dependencies = new NativeArray<Unity.Entities.Hash128>(len, Allocator.Temp);
-                    reader.ReadArray(dependencies, len);
-
-                    resolvedDependencies = new NativeArray<ResolvedAssetID>(dependencies.Length, Allocator.Temp);
-                    for(int i = 0; i < dependencies.Length; i++)
-                    {
-                        var targetHash = LiveLinkBuildPipeline.CalculateTargetHash(dependencies[i], buildTarget, ImportMode.NoImport);
-                        resolvedDependencies[i] = new ResolvedAssetID { GUID = dependencies[i], TargetHash = targetHash };
-                    }
-                }
-            }
-
-            return resolvedDependencies;
-        }
-
         void RequestSubSceneTargetHash(MessageEventArgs args)
         {
             //@TODO: should be based on connection / BuildSetting
@@ -98,7 +69,7 @@ namespace Unity.Scenes.Editor
                     {
                         resolvedScenes.Add(new ResolvedSubSceneID {SubSceneGUID = subScene, TargetHash = targetHash});
 
-                        var sceneDependencies = GetSubSceneDependencies(targetHash);
+                        var sceneDependencies = LiveLinkBuildPipeline.GetSubSceneDependencies(targetHash);
                         foreach (var sceneDependency in sceneDependencies)
                         {
                             assetDependencies.Add(sceneDependency);
@@ -329,7 +300,7 @@ namespace Unity.Scenes.Editor
                 if (sceneMetaData.Sections[i].ObjectReferenceCount > 0)
                 {
                     var scriptedObjPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
-                    var bundleName = $"{(UnityEngine.Hash128)subSceneId.TargetHash}.{sectionIndex}.{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesUnitObjectReferencesBundle)}";
+                    var bundleName = $"{(UnityEngine.Hash128)subSceneId.TargetHash}.{sectionIndex}.{EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle)}";
                     var tempPath = Path.GetTempFileName();
 
                     AssetBundleTypeCache.RegisterMonoScripts();
@@ -480,7 +451,7 @@ namespace Unity.Scenes.Editor
                         LiveLinkMsg.LogInfo("Detected subscene change: " + subScene.Key);
                         changedSubScenes.Add(new ResolvedSubSceneID{ SubSceneGUID = subScene.Key, TargetHash = targetHash });
 
-                        var sceneDependencies = GetSubSceneDependencies(targetHash);
+                        var sceneDependencies = LiveLinkBuildPipeline.GetSubSceneDependencies(targetHash);
                         foreach (var sceneDependency in sceneDependencies)
                         {
                             assetDependencies.Add(sceneDependency);

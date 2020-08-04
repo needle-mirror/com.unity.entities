@@ -46,6 +46,8 @@ namespace Unity.Entities
             CloneAndAddChunks(srcEntityManager, dstEntityManager, archetypeChunkChanges.CreatedSrcChunks.Chunks);
 
             dstAccess->EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, dstAccess->EntityQueryManager);
+            srcAccess->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
+            dstAccess->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
 
             //@TODO-opt: use a query that searches for all chunks that have chunk components on it
             //@TODO-opt: Move this into a job

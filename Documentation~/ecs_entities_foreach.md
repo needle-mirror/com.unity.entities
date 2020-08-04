@@ -16,7 +16,7 @@ Note the use of the keywords `ref` and `in` on the parameters of the ForEach lam
 
 ## Selecting entities
 
-[Entities.ForEach] provides its own mechanism for defining the entity query used to select the entites to process. The query automatically includes any components you use as parameters of your lambda function. You can also use the `WithAll`, `WithAny`, and `WithNone` clauses to further refine which entities are selected. See [SystemBase.Entities] for the complete list of query options. 
+[Entities.ForEach] provides its own mechanism for defining the entity query used to select the entities to process. The query automatically includes any components you use as parameters of your lambda function. You can also use the `WithAll`, `WithAny`, and `WithNone` clauses to further refine which entities are selected. See [SystemBase.Entities] for the complete list of query options. 
 
 The following example selects entities that have the components, Destination, Source, and LocalToWorld; and have at least one of the components, Rotation, Translation, or Scale; but which do not have a LocalToParent component.
 

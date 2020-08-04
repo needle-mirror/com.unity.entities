@@ -94,6 +94,7 @@ namespace Unity.Entities
     /// [Entities.ForEach]: xref:ecs-entities-foreach
     /// [Job.WithCode]: xref:ecs-entities-foreach
     /// </remarks>
+    [BurstCompile]
     public unsafe abstract class SystemBase : ComponentSystemBase
     {
         /// <summary>
@@ -389,19 +390,15 @@ namespace Unity.Entities
 
                     state->BeforeOnUpdate();
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     var oldExecutingSystem = ms_ExecutingSystem;
                     ms_ExecutingSystem = this;
-#endif
                     try
                     {
                         OnUpdate();
                     }
                     catch
                     {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
                         ms_ExecutingSystem = oldExecutingSystem;
-#endif
 
                         state->AfterOnUpdate();
 
@@ -414,9 +411,7 @@ namespace Unity.Entities
                         throw;
                     }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
                     ms_ExecutingSystem = oldExecutingSystem;
-#endif
 
                     state->AfterOnUpdate();
 
@@ -440,6 +435,8 @@ namespace Unity.Entities
             }
         }
 
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(Func<IntPtr, SystemDependencySafetyUtility.SafetyErrorDetails, bool>))]
         internal static bool UnmanagedUpdate(SystemState* state, out SystemDependencySafetyUtility.SafetyErrorDetails errorDetails)
         {
             var hasSafetyError = false;

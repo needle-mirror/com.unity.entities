@@ -40,9 +40,7 @@ namespace Unity.Entities.Editor.Tests
             simGroup.AddSystemToUpdateList(emptySys);
             simGroup.SortSystems();
 
-            var playerLoop = PlayerLoop.GetDefaultPlayerLoop(); // TODO(DOTS-2283): shouldn't stomp default player loop here
-            ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(World.DefaultGameObjectInjectionWorld, ref playerLoop);
-            PlayerLoop.SetPlayerLoop(playerLoop);
+            ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(World.DefaultGameObjectInjectionWorld);
         }
 
         public override void TearDown()

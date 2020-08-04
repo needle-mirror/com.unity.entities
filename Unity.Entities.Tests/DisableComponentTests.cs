@@ -89,7 +89,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void DIS_GetAllIncludesDisabled()
+        public void DIS_GetAllIncludesDisabled([Values] bool immediate)
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(Disabled));
@@ -98,7 +98,7 @@ namespace Unity.Entities.Tests
             var entity1 = m_Manager.CreateEntity(archetype1);
             var entity2 = m_Manager.CreateEntity(archetype1);
 
-            var entities = m_Manager.GetAllEntities();
+            var entities = immediate ? m_Manager.GetAllEntitiesImmediate() : m_Manager.GetAllEntities();
             Assert.AreEqual(3, entities.Length);
             entities.Dispose();
 

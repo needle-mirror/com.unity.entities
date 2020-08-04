@@ -60,6 +60,11 @@ namespace Unity.Entities.CodeGen
         {
             return UserError.MakeError(nameof(DCICE010), $"Ldftn opcode was not preceeded with Ldloc opcode while IL was being re-written to keep DisplayClass on the stack for method {method.Name}.", method, instruction);
         }
+
+        public static DiagnosticMessage DCICE300(TypeReference producerReference, TypeReference jobStructType, Exception ex)
+        {
+            return UserError.MakeError(nameof(DCICE010), $"Unexpected error while generating automatic registration for job provider {producerReference.FullName} via job struct {jobStructType.FullName}. Please report this error.\nException: {ex.Message}", method: null, instruction: null);
+        }
     }
 
     static class UserError
@@ -383,6 +388,16 @@ namespace Unity.Entities.CodeGen
         public static DiagnosticMessage DC0057(MethodDefinition containingMethod, Instruction instruction)
         {
             return MakeError(nameof(DC0057), $"{nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges)} cannot be used with name Job.WithCode.  {nameof(LambdaJobDescriptionConstructionMethods.WithStructuralChanges)} should instead be used with Entities.ForEach.", containingMethod, instruction);
+        }
+
+        public static DiagnosticMessage DC3001(TypeReference type)
+        {
+            return MakeError(nameof(DC3001), $"{type.FullName}: [RegisterGenericJobType] requires an instance of a generic type", method: null, instruction: null);
+        }
+
+        public static DiagnosticMessage DC3002(TypeReference jobStructType)
+        {
+            return MakeError(nameof(DC3002), $"{jobStructType.FullName}: generic jobs cannot have their reflection data auto-registered - you must use the assembly-level RegisterGenericJobType attribute to specify which instantiations you need", method: null, instruction: null);
         }
 
         static DiagnosticMessage MakeInternal(DiagnosticType type, string errorCode, string messageData, MethodDefinition method, Instruction instruction)

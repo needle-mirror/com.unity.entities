@@ -30,6 +30,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public Entity CreateEntity(EntityArchetype archetype)
         {
+            archetype.CheckValidEntityArchetype();
             var access = GetCheckedEntityDataAccess();
             return access->CreateEntity(archetype);
         }
@@ -49,11 +50,24 @@ namespace Unity.Entities
         /// <param name="types">The types of components to add to the new entity.</param>
         /// <returns>The Entity object that you can use to access the entity.</returns>
         [StructuralChangeMethod]
+        [NotBurstCompatible]
         public Entity CreateEntity(params ComponentType[] types)
         {
             return CreateEntity(CreateArchetype(types));
         }
 
+        /// <summary>
+        /// Creates an entity with no components.
+        /// </summary>
+        /// <remarks>
+        /// The EntityManager creates the entity in the first available chunk with the archetype having no components.
+        ///
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <returns>The Entity object that you can use to access the entity.</returns>
         [StructuralChangeMethod]
         public Entity CreateEntity()
         {
@@ -81,6 +95,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public void CreateEntity(EntityArchetype archetype, NativeArray<Entity> entities)
         {
+            archetype.CheckValidEntityArchetype();
             GetCheckedEntityDataAccess()->CreateEntity(archetype, entities);
         }
 
@@ -100,6 +115,7 @@ namespace Unity.Entities
         [StructuralChangeMethod]
         public NativeArray<Entity> CreateEntity(EntityArchetype archetype, int entityCount, Allocator allocator)
         {
+            archetype.CheckValidEntityArchetype();
             var entities = new NativeArray<Entity>(entityCount, allocator);
             GetCheckedEntityDataAccess()->CreateEntity(archetype, entities);
 
@@ -181,7 +197,6 @@ namespace Unity.Entities
         /// If the source entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component,
         /// the entire group is cloned as a new set of entities. Entity references on components that are being cloned to entities inside
         /// the set are remapped to the instantiated entities.
-        /// 
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before creating the entity and no additional Jobs can start before
         /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not

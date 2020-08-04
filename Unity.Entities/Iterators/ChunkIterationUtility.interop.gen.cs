@@ -14,6 +14,7 @@
 
 using System;
 using Unity.Burst;
+using Unity.Collections;
 using System.Runtime.InteropServices;
 
 namespace Unity.Entities
@@ -38,24 +39,121 @@ namespace Unity.Entities
             return result;
         }
 
+        private delegate void _dlg_GatherChunksImmediate(in UnsafeMatchingArchetypePtrList matchingArchetypesList, int* offsets, ArchetypeChunk* chunks);
+        private static _dlg_GatherChunksImmediate _bfp_GatherChunksImmediate;
+        private delegate void _dlg_GatherChunksWithFilterImmediate(in UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, int* offsets, int* filteredCounts, ArchetypeChunk* sparseChunks);
+        private static _dlg_GatherChunksWithFilterImmediate _bfp_GatherChunksWithFilterImmediate;
+        private delegate void _dlg_JoinChunksImmediate(int* DestinationOffsets, ArchetypeChunk* SparseChunks, int* Offsets, ArchetypeChunk* JoinedChunks, int archetypeCount);
+        private static _dlg_JoinChunksImmediate _bfp_JoinChunksImmediate;
         private delegate int _dlg_CalculateEntityCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter);
         private static _dlg_CalculateEntityCount _bfp_CalculateEntityCount;
         private delegate int _dlg_CalculateChunkCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter);
         private static _dlg_CalculateChunkCount _bfp_CalculateChunkCount;
+        private delegate void _dlg_RebuildChunkListCache(EntityQueryData* queryData);
+        private static _dlg_RebuildChunkListCache _bfp_RebuildChunkListCache;
 
 #endif
 
+        [NotBurstCompatible]
         internal static void Initialize()
         {
 #if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
             if (_initialized)
                 return;
             _initialized = true;
+            _bfp_GatherChunksImmediate = BurstCompiler.CompileFunctionPointer<_dlg_GatherChunksImmediate>(_mono_to_burst_GatherChunksImmediate).Invoke;
+            _bfp_GatherChunksWithFilterImmediate = BurstCompiler.CompileFunctionPointer<_dlg_GatherChunksWithFilterImmediate>(_mono_to_burst_GatherChunksWithFilterImmediate).Invoke;
+            _bfp_JoinChunksImmediate = BurstCompiler.CompileFunctionPointer<_dlg_JoinChunksImmediate>(_mono_to_burst_JoinChunksImmediate).Invoke;
             _bfp_CalculateEntityCount = BurstCompiler.CompileFunctionPointer<_dlg_CalculateEntityCount>(_mono_to_burst_CalculateEntityCount).Invoke;
             _bfp_CalculateChunkCount = BurstCompiler.CompileFunctionPointer<_dlg_CalculateChunkCount>(_mono_to_burst_CalculateChunkCount).Invoke;
+            _bfp_RebuildChunkListCache = BurstCompiler.CompileFunctionPointer<_dlg_RebuildChunkListCache>(_mono_to_burst_RebuildChunkListCache).Invoke;
 
 #endif
         }
+
+        private  static void GatherChunksImmediate (in UnsafeMatchingArchetypePtrList matchingArchetypesList, int* offsets, ArchetypeChunk* chunks)
+        {
+#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+            if (UseDelegate())
+            {
+                _forward_mono_GatherChunksImmediate(in matchingArchetypesList, offsets, chunks);
+                return;
+            }
+#endif
+
+            _GatherChunksImmediate(in matchingArchetypesList, offsets, chunks);
+        }
+
+#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(_dlg_GatherChunksImmediate))]
+        private static void _mono_to_burst_GatherChunksImmediate(in UnsafeMatchingArchetypePtrList matchingArchetypesList, int* offsets, ArchetypeChunk* chunks)
+        {
+            _GatherChunksImmediate(in matchingArchetypesList, offsets, chunks);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_GatherChunksImmediate(in UnsafeMatchingArchetypePtrList matchingArchetypesList, int* offsets, ArchetypeChunk* chunks)
+        {
+            _bfp_GatherChunksImmediate(in matchingArchetypesList, offsets, chunks);
+        }
+#endif
+
+        private  static void GatherChunksWithFilterImmediate (in UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, int* offsets, int* filteredCounts, ArchetypeChunk* sparseChunks)
+        {
+#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+            if (UseDelegate())
+            {
+                _forward_mono_GatherChunksWithFilterImmediate(in matchingArchetypePtrList, ref filter, offsets, filteredCounts, sparseChunks);
+                return;
+            }
+#endif
+
+            _GatherChunksWithFilterImmediate(in matchingArchetypePtrList, ref filter, offsets, filteredCounts, sparseChunks);
+        }
+
+#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(_dlg_GatherChunksWithFilterImmediate))]
+        private static void _mono_to_burst_GatherChunksWithFilterImmediate(in UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, int* offsets, int* filteredCounts, ArchetypeChunk* sparseChunks)
+        {
+            _GatherChunksWithFilterImmediate(in matchingArchetypePtrList, ref filter, offsets, filteredCounts, sparseChunks);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_GatherChunksWithFilterImmediate(in UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, int* offsets, int* filteredCounts, ArchetypeChunk* sparseChunks)
+        {
+            _bfp_GatherChunksWithFilterImmediate(in matchingArchetypePtrList, ref filter, offsets, filteredCounts, sparseChunks);
+        }
+#endif
+
+        private  static void JoinChunksImmediate (int* DestinationOffsets, ArchetypeChunk* SparseChunks, int* Offsets, ArchetypeChunk* JoinedChunks, int archetypeCount)
+        {
+#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+            if (UseDelegate())
+            {
+                _forward_mono_JoinChunksImmediate(DestinationOffsets, SparseChunks, Offsets, JoinedChunks, archetypeCount);
+                return;
+            }
+#endif
+
+            _JoinChunksImmediate(DestinationOffsets, SparseChunks, Offsets, JoinedChunks, archetypeCount);
+        }
+
+#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(_dlg_JoinChunksImmediate))]
+        private static void _mono_to_burst_JoinChunksImmediate(int* DestinationOffsets, ArchetypeChunk* SparseChunks, int* Offsets, ArchetypeChunk* JoinedChunks, int archetypeCount)
+        {
+            _JoinChunksImmediate(DestinationOffsets, SparseChunks, Offsets, JoinedChunks, archetypeCount);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_JoinChunksImmediate(int* DestinationOffsets, ArchetypeChunk* SparseChunks, int* Offsets, ArchetypeChunk* JoinedChunks, int archetypeCount)
+        {
+            _bfp_JoinChunksImmediate(DestinationOffsets, SparseChunks, Offsets, JoinedChunks, archetypeCount);
+        }
+#endif
 
         public  static int CalculateEntityCount (ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
@@ -112,6 +210,34 @@ namespace Unity.Entities
         private static void _forward_mono_CalculateChunkCount(ref int _retval, ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
             _retval = _bfp_CalculateChunkCount(ref matchingArchetypes, ref filter);
+        }
+#endif
+
+        public  static void RebuildChunkListCache (EntityQueryData* queryData)
+        {
+#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+            if (UseDelegate())
+            {
+                _forward_mono_RebuildChunkListCache(queryData);
+                return;
+            }
+#endif
+
+            _RebuildChunkListCache(queryData);
+        }
+
+#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(_dlg_RebuildChunkListCache))]
+        private static void _mono_to_burst_RebuildChunkListCache(EntityQueryData* queryData)
+        {
+            _RebuildChunkListCache(queryData);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_RebuildChunkListCache(EntityQueryData* queryData)
+        {
+            _bfp_RebuildChunkListCache(queryData);
         }
 #endif
 

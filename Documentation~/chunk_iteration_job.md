@@ -21,7 +21,7 @@ For more information, the [ECS samples repository](https://github.com/Unity-Tech
 
 <a name="query"></a>
 
-## Query for data with a EntityQuery
+## Query for data with an EntityQuery
 
 An EntityQuery defines the set of component types that an archetype must contain for the system to process its associated chunks and entities. An archetype can have additional components, but it must have at least those that the EntityQuery defines. You can also exclude archetypes that contain specific types of components.  
 
@@ -94,11 +94,11 @@ __Note:__ If you use a concurrent entity command buffer, pass the `chunkIndex` a
 
 ## Skipping chunks with unchanged entities
 
-If you only need to update entities when a component value has changed, you can add that component type to the change filter of the EntityQuery that selects the entities and chunks for the job. For example, if you have a system that reads two components and only needs to update a third when one of the first two has changed, you can use a EntityQuery as follows:
+If you only need to update entities when a component value has changed, you can add that component type to the change filter of the EntityQuery that selects the entities and chunks for the job. For example, if you have a system that reads two components and only needs to update a third when one of the first two has changed, you can use an EntityQuery as follows:
 
 [!code-cs[changefilter](../DocCodeSamples.Tests/ChunkIterationJob.cs#changefilter)]
 
-The EntityQuery change filter supports up to two components. If you want to check more or you aren't using a EntityQuery, you can make the check manually. To make this check, use the `ArchetypeChunk.DidChange()` function to compare the chunk’s change version for the component to the system's `LastSystemVersion`. If this function returns false, you can skip the current chunk altogether because none of the components of that type have changed since the last time the system ran. 
+The EntityQuery change filter supports up to two components. If you want to check more or you aren't using an EntityQuery, you can make the check manually. To make this check, use the `ArchetypeChunk.DidChange()` function to compare the chunk’s change version for the component to the system's `LastSystemVersion`. If this function returns false, you can skip the current chunk altogether because none of the components of that type have changed since the last time the system ran. 
 
 You must use a struct field to pass the `LastSystemVersion` from the system into the job, as follows:
 

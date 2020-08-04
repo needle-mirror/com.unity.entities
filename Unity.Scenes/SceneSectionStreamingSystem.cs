@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -365,7 +366,7 @@ namespace Unity.Scenes
                             if (MoveEntities(streamingManager, sceneEntity))
                             {
 #if !UNITY_DOTSRUNTIME
-                                var bundle = operation.StealBundle();
+                                var bundles = operation.StealBundles();
 #endif
 
                                 if (EntityManager.HasComponent<StreamingState>(sceneEntity))
@@ -376,8 +377,12 @@ namespace Unity.Scenes
                                 }
 
 #if !UNITY_DOTSRUNTIME
-                                if (bundle != null)
-                                    EntityManager.AddSharedComponentData(sceneEntity, new SceneSectionBundle(bundle));
+                                if (bundles != null)
+                                {
+                                    EntityManager.AddSharedComponentData(sceneEntity, new SceneSectionBundle(bundles));
+                                    foreach (var b in bundles)
+                                        b.Release();
+                                }
 #endif
 
                                 return UpdateLoadOperationResult.Completed;
@@ -565,6 +570,12 @@ namespace Unity.Scenes
 
             var entitiesBinaryPath = sectionData.ScenePath.ToString();
             var resourcesPath = sectionData.HybridPath.ToString();
+            NativeArray<Entities.Hash128> dependencies = default;
+            if (EntityManager.HasComponent<BundleElementData>(entity))
+            {
+                var depBuffer = EntityManager.GetBuffer<BundleElementData>(entity);
+                dependencies = new NativeArray<Entities.Hash128>(depBuffer.AsNativeArray().Reinterpret<Entities.Hash128>(), Allocator.Persistent);
+            }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             PostLoadCommandBuffer postLoadCommandBuffer = null;
@@ -594,6 +605,7 @@ namespace Unity.Scenes
                 ResourcesPathObjRefs = resourcesPath,
                 EntityManager = dstManager,
                 BlockUntilFullyLoaded = blockUntilFullyLoaded,
+                Dependencies = dependencies,
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 PostLoadCommandBuffer = postLoadCommandBuffer
 #endif

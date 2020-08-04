@@ -519,7 +519,7 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        internal struct GetOrCreateDestroyedEntitiesJob : IJobBurstScheduable
+        internal struct GetOrCreateDestroyedEntitiesJob : IJobBurstSchedulable
         {
             public NativeList<int>    State;
             public NativeList<Entity> CreatedEntities;

@@ -28,6 +28,8 @@ namespace Unity.Scenes
         public string ScenePath;
         public Codec Codec;
         public bool BlockUntilFullyLoaded;
+        public NativeArray<Entities.Hash128> Dependencies;
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         public PostLoadCommandBuffer PostLoadCommandBuffer;
 #endif
@@ -83,7 +85,11 @@ namespace Unity.Scenes
             }
 
 #if !UNITY_DOTSRUNTIME
-            _SceneBundleHandle?.Release();
+            if (_SceneBundleHandles != null)
+            {
+                foreach (var h in _SceneBundleHandles)
+                    h.Release();
+            }
 #endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -141,7 +147,7 @@ namespace Unity.Scenes
 
 #if !UNITY_DOTSRUNTIME
         ReferencedUnityObjects  _ResourceObjRefs;
-        SceneBundleHandle       _SceneBundleHandle;
+        List<SceneBundleHandle> _SceneBundleHandles;
         AssetBundleRequest      _AssetRequest;
 #endif
 
@@ -182,11 +188,11 @@ namespace Unity.Scenes
         public Exception Exception => _LoadingException;
 
 #if !UNITY_DOTSRUNTIME
-        public SceneBundleHandle StealBundle()
+        public List<SceneBundleHandle> StealBundles()
         {
-            SceneBundleHandle sceneBundleHandle = _SceneBundleHandle;
-            _SceneBundleHandle = null;
-            return sceneBundleHandle;
+            var tmp = _SceneBundleHandles;
+            _SceneBundleHandles = null;
+            return tmp;
         }
 #endif
 
@@ -219,13 +225,19 @@ namespace Unity.Scenes
 #if !UNITY_DOTSRUNTIME
                 if (_ExpectedObjectReferenceCount != 0)
                 {
+                    if (SceneBundleHandle.UseAssetBundles)
+                    {
+                        _SceneBundleHandles = SceneBundleHandle.LoadSceneBundles(_ResourcesPathObjRefs, _Data.Dependencies, true);
+                        if(_SceneBundleHandles.Count > 0)
+                            _ResourceObjRefs = _SceneBundleHandles[0].AssetBundle?.LoadAsset<ReferencedUnityObjects>(Path.GetFileName(_ResourcesPathObjRefs));
+                    }
+                    else
+                    {
 #if UNITY_EDITOR
-                    var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(_ResourcesPathObjRefs);
-                    _ResourceObjRefs = (ReferencedUnityObjects)resourceRequests[0];
-#else
-                    _SceneBundleHandle = SceneBundleHandle.CreateOrRetainBundle(_ResourcesPathObjRefs);
-                    _ResourceObjRefs = _SceneBundleHandle.AssetBundle.LoadAsset<ReferencedUnityObjects>(Path.GetFileName(_ResourcesPathObjRefs));
+                        var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(_ResourcesPathObjRefs);
+                        _ResourceObjRefs = (ReferencedUnityObjects)resourceRequests[0];
 #endif
+                    }
                 }
 #endif
                 ScheduleSceneRead();
@@ -272,15 +284,19 @@ namespace Unity.Scenes
 #if !UNITY_DOTSRUNTIME
                     if (_ExpectedObjectReferenceCount != 0)
                     {
+                        if (SceneBundleHandle.UseAssetBundles)
+                        {
+                            _SceneBundleHandles = SceneBundleHandle.LoadSceneBundles(_ResourcesPathObjRefs, _Data.Dependencies, false);
+                            _LoadingStatus = LoadingStatus.WaitingForAssetBundleLoad;
+                        }
+                        else
+                        {
 #if UNITY_EDITOR
-                        var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(_ResourcesPathObjRefs);
-                        _ResourceObjRefs = (ReferencedUnityObjects)resourceRequests[0];
-
-                        _LoadingStatus = LoadingStatus.WaitingForResourcesLoad;
-#else
-                        _SceneBundleHandle = SceneBundleHandle.CreateOrRetainBundle(_ResourcesPathObjRefs);
-                        _LoadingStatus = LoadingStatus.WaitingForAssetBundleLoad;
+                            var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(_ResourcesPathObjRefs);
+                            _ResourceObjRefs = (ReferencedUnityObjects)resourceRequests[0];
+                            _LoadingStatus = LoadingStatus.WaitingForResourcesLoad;
 #endif
+                        }
                     }
                     else
                     {
@@ -302,20 +318,18 @@ namespace Unity.Scenes
             // Once async asset bundle load is done, we can read the asset
             if (_LoadingStatus == LoadingStatus.WaitingForAssetBundleLoad)
             {
-                if (!_SceneBundleHandle.IsReady())
-                    return;
-
-                if (!_SceneBundleHandle.AssetBundle)
+                string error = null;
+                if (SceneBundleHandle.CheckLoadingStatus(_SceneBundleHandles, ref error))
                 {
-                    _LoadingFailure = $"Failed to load Asset Bundle '{_ResourcesPathObjRefs}'";
-                    _LoadingStatus = LoadingStatus.Completed;
-                    return;
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        _LoadingFailure = error;
+                        _LoadingStatus = LoadingStatus.Completed;
+                    }
+                    var fileName = Path.GetFileName(_ResourcesPathObjRefs);
+                    _AssetRequest = _SceneBundleHandles[0].AssetBundle.LoadAssetAsync(fileName);
+                    _LoadingStatus = LoadingStatus.WaitingForAssetLoad;
                 }
-
-                var fileName = Path.GetFileName(_ResourcesPathObjRefs);
-
-                _AssetRequest = _SceneBundleHandle.AssetBundle.LoadAssetAsync(fileName);
-                _LoadingStatus = LoadingStatus.WaitingForAssetLoad;
             }
 
             // Once async asset bundle load is done, we can read the asset
@@ -326,7 +340,7 @@ namespace Unity.Scenes
 
                 if (!_AssetRequest.asset)
                 {
-                    _LoadingFailure = $"Failed to load Asset '{Path.GetFileName(_ResourcesPathObjRefs)}'";
+                    _LoadingFailure = $"Failed to load Asset '{_ResourcesPathObjRefs}'";
                     _LoadingStatus = LoadingStatus.Completed;
                     return;
                 }

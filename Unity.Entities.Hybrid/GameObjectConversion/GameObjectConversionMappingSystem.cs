@@ -536,7 +536,7 @@ namespace Unity.Entities.Conversion
                 m_DstManager.DestroyEntity(entity);
             }
 
-            m_JournalData.RemoveForIncremental(gameObject);
+            m_JournalData.RemoveForIncremental(gameObject.GetInstanceID(), gameObject);
         }
 
         /// <summary>
@@ -682,7 +682,7 @@ namespace Unity.Entities.Conversion
             EntityManager.SetComponentObject(entity, asset.GetType(), asset);
         }
 
-        public Guid GetGuidForAssetExport(UnityObject asset)
+        public Hash128 GetGuidForAssetExport(UnityObject asset)
         {
             if (!asset.IsAsset())
                 throw new ArgumentException("Object is not an Asset", nameof(asset));

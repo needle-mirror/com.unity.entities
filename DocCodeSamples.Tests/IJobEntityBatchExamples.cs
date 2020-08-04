@@ -76,7 +76,7 @@ namespace Doc.CodeSamples.Tests
             job.deltaTime = this.Time.DeltaTime;
 
             int batchesPerChunk = 4; // Partition each chunk into this many batches. Each batch will be processed concurrently.
-            this.Dependency = job.ScheduleParallelBatched(query, batchesPerChunk, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, batchesPerChunk, this.Dependency);
         }
     }
     #endregion

@@ -74,6 +74,7 @@ namespace Unity.Entities.CodeGen
         MethodDefinition GeneratedRegistryCCTORDef;
         bool IsReleaseConfig;
         bool IsMono;
+        bool IsNetDots;
         int ArchBits;
 
         /// <summary>
@@ -83,6 +84,12 @@ namespace Unity.Entities.CodeGen
         protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
             bool madeChange = false;
+
+            IsReleaseConfig = !EntitiesILPostProcessors.Defines.Contains("DEBUG");
+            IsMono = EntitiesILPostProcessors.Defines.Contains("UNITY_DOTSRUNTIME_DOTNET") && (EntitiesILPostProcessors.Defines.Contains("UNITY_MACOSX") || EntitiesILPostProcessors.Defines.Contains("UNITY_LINUX"));
+            IsNetDots = EntitiesILPostProcessors.Defines.Contains("NET_DOTS");
+            ArchBits = EntitiesILPostProcessors.Defines.Contains("UNITY_DOTSRUNTIME64") ? 64 : 32;
+
 
             (var typeGenInfoList, var systemList) = GatherTypeInformation();
             if (typeGenInfoList.Count > 0 || systemList.Count > 0)
@@ -131,10 +138,6 @@ namespace Unity.Entities.CodeGen
                 typeof(int), typeof(int), typeof(int), typeof(int),
                 typeof(int), typeof(int), typeof(int), typeof(int)
             }));
-
-            IsReleaseConfig = !EntitiesILPostProcessors.Defines.Contains("DEBUG");
-            IsMono = EntitiesILPostProcessors.Defines.Contains("UNITY_DOTSRUNTIME_DOTNET") && (EntitiesILPostProcessors.Defines.Contains("UNITY_MACOSX") || EntitiesILPostProcessors.Defines.Contains("UNITY_LINUX"));
-            ArchBits = EntitiesILPostProcessors.Defines.Contains("UNITY_DOTSRUNTIME64") ? 64 : 32;
         }
 
         TypeCategory FindTypeCategoryForType(TypeDefinition typeDef)
@@ -189,7 +192,9 @@ namespace Unity.Entities.CodeGen
                     if (!type.HasGenericParameters)
                     {
                         TypeCategory typeCategory;
-                        if (type.IsClass)
+
+                        // Managed Components are not supported in NET_DOTS
+                        if (type.IsClass && !IsNetDots)
                             typeCategory = FindTypeCategoryForTypeRecursive(type);
                         else
                             typeCategory = FindTypeCategoryForType(type);

@@ -19,7 +19,9 @@ namespace Unity.Entities
 {
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeIntListDebugView))]
-    internal unsafe struct UnsafeIntList : IDisposable
+    internal unsafe struct UnsafeIntList
+        : INativeDisposable
+//        , INativeList<int>
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly int* Ptr;
@@ -42,7 +44,7 @@ namespace Unity.Entities
         public void AddNoResize(int value) { this.ListData().AddNoResize(value); }
         public void AddRangeNoResize(void* ptr, int length) { this.ListData().AddRangeNoResize<int>(ptr, length); }
         public void AddRangeNoResize(UnsafeIntList src) { this.ListData().AddRangeNoResize<int>(src.ListData()); }
-        public void Add(int value) { this.ListData().Add(value); }
+        public void Add(in int value) { this.ListData().Add(value); }
         public void AddRange(UnsafeIntList src) { this.ListData().AddRange<int>(src.ListData()); }
         public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack<int>(index); }
 
@@ -106,7 +108,9 @@ namespace Unity.Entities
 
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeUintListDebugView))]
-    internal unsafe struct UnsafeUintList : IDisposable
+    internal unsafe struct UnsafeUintList
+        : INativeDisposable
+//        , INativeList<uint>
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly uint* Ptr;
@@ -129,7 +133,7 @@ namespace Unity.Entities
         public void AddNoResize(uint value) { this.ListData().AddNoResize(value); }
         public void AddRangeNoResize(void* ptr, int length) { this.ListData().AddRangeNoResize<uint>(ptr, length); }
         public void AddRangeNoResize(UnsafeUintList src) { this.ListData().AddRangeNoResize<uint>(src.ListData()); }
-        public void Add(uint value) { this.ListData().Add(value); }
+        public void Add(in uint value) { this.ListData().Add(value); }
         public void AddRange(UnsafeUintList src) { this.ListData().AddRange<uint>(src.ListData()); }
         public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack<uint>(index); }
 
@@ -193,7 +197,9 @@ namespace Unity.Entities
 
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeChunkPtrListDebugView))]
-    internal unsafe struct UnsafeChunkPtrList : IDisposable
+    internal unsafe struct UnsafeChunkPtrList
+        : INativeDisposable
+//        , INativeList<Chunk>
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly Chunk** Ptr;
@@ -213,7 +219,7 @@ namespace Unity.Entities
         public void TrimExcess() { this.ListData().TrimExcess(); }
         public int IndexOf(Chunk* value) { return this.ListData().IndexOf(value); }
         public bool Contains(Chunk* value) { return this.ListData().Contains(value); }
-        public void Add(Chunk* value) { this.ListData().Add(value); }
+        public void Add(in Chunk* value) { this.ListData().Add(value); }
         public void AddRange(UnsafeChunkPtrList src) { this.ListData().AddRange(src.ListData()); }
         public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack(index); }
 
@@ -279,7 +285,9 @@ namespace Unity.Entities
     }
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeArchetypePtrListDebugView))]
-    internal unsafe struct UnsafeArchetypePtrList : IDisposable
+    internal unsafe struct UnsafeArchetypePtrList
+        : INativeDisposable
+//        , INativeList<Archetype>
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly Archetype** Ptr;
@@ -299,7 +307,7 @@ namespace Unity.Entities
         public void TrimExcess() { this.ListData().TrimExcess(); }
         public int IndexOf(Archetype* value) { return this.ListData().IndexOf(value); }
         public bool Contains(Archetype* value) { return this.ListData().Contains(value); }
-        public void Add(Archetype* value) { this.ListData().Add(value); }
+        public void Add(in Archetype* value) { this.ListData().Add(value); }
         public void AddRange(UnsafeArchetypePtrList src) { this.ListData().AddRange(src.ListData()); }
         public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack(index); }
 
@@ -365,7 +373,9 @@ namespace Unity.Entities
     }
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(UnsafeEntityQueryDataPtrListDebugView))]
-    internal unsafe struct UnsafeEntityQueryDataPtrList : IDisposable
+    internal unsafe struct UnsafeEntityQueryDataPtrList
+        : INativeDisposable
+//        , INativeList<EntityQueryData>
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly EntityQueryData** Ptr;
@@ -385,7 +395,7 @@ namespace Unity.Entities
         public void TrimExcess() { this.ListData().TrimExcess(); }
         public int IndexOf(EntityQueryData* value) { return this.ListData().IndexOf(value); }
         public bool Contains(EntityQueryData* value) { return this.ListData().Contains(value); }
-        public void Add(EntityQueryData* value) { this.ListData().Add(value); }
+        public void Add(in EntityQueryData* value) { this.ListData().Add(value); }
         public void AddRange(UnsafeEntityQueryDataPtrList src) { this.ListData().AddRange(src.ListData()); }
         public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack(index); }
 

@@ -10,7 +10,6 @@ using Unity.Entities.Tests;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
@@ -42,7 +41,6 @@ namespace Unity.Scenes.Editor.Tests
         [SerializeField]
         TestWithCustomDefaultGameObjectInjectionWorld m_DefaultWorld;
 
-        private PlayerLoopSystem m_PrevPlayerLoop;
         [SerializeField]
         TestWithSubScenes m_SubSceneTest;
         [SerializeField]
@@ -71,7 +69,6 @@ namespace Unity.Scenes.Editor.Tests
 
             // Create a temporary folder for test assets
             m_Assets.SetUp();
-            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
             m_DefaultWorld.Setup();
             m_SubSceneTest.Setup();
             m_WasLiveLinkEnabled = SubSceneInspectorUtility.LiveLinkEnabledInEditMode;
@@ -93,7 +90,6 @@ namespace Unity.Scenes.Editor.Tests
             EditorSettings.enterPlayModeOptions = m_EnterPlayModeOptions;
             EditorSettings.enterPlayModeOptionsEnabled = m_UseEnterPlayerModeOptions;
             SubSceneInspectorUtility.LiveLinkEnabledInEditMode = m_WasLiveLinkEnabled;
-            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
         }
 
         static string AssetPath(string name) => "Packages/com.unity.entities/Unity.Scenes.Editor.Tests/Assets/" + name;

@@ -65,6 +65,11 @@ namespace Unity.Scenes.Editor
             UnityEngine.Hash128 fileFormatHash = default;
             HashUnsafeUtilities.ComputeHash128(&fileFormatVersion, sizeof(int), &fileFormatHash);
             UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency("EntityBinaryFileFormatVersion", fileFormatHash);
+
+            int sceneFileFormatVersion = SceneMetaDataSerializeUtility.CurrentFileFormatVersion;
+            UnityEngine.Hash128 sceneFileFormatHash = default;
+            HashUnsafeUtilities.ComputeHash128(&sceneFileFormatVersion, sizeof(int), &sceneFileFormatHash);
+            UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency("SceneMetaDataFileFormatVersion", sceneFileFormatHash);
         }
 
         static void RegisterComponentTypes()

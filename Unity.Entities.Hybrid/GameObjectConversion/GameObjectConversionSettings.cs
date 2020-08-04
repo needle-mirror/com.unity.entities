@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Text;
 #if UNITY_EDITOR
+using UnityEditor;
 #if UNITY_2020_2_OR_NEWER
 using UnityEditor.AssetImporters;
 #else
@@ -34,6 +36,18 @@ namespace Unity.Entities
         public Action<World>            ConversionWorldPreDispose;     // get a callback right before the conversion world gets disposed (good for tests that want to validate world contents)
 
         public BlobAssetStore BlobAssetStore { get; protected internal set; }
+
+        //Export fields
+        class ExportedAsset
+        {
+#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
+            public Hash128 Guid;
+            public string AssetPath;
+            public FileInfo ExportFileInfo;
+            public bool Exported;
+#pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
+        }
+        Dictionary<UnityObject, ExportedAsset> m_ExportedAssets = new Dictionary<UnityObject, ExportedAsset>();
 
         public GameObjectConversionSettings() {}
 
@@ -101,15 +115,63 @@ namespace Unity.Entities
 
         // ** EXPORTING **
 
-        public bool SupportsExporting
-            => GetType() == typeof(GameObjectConversionSettings);
+        public bool SupportsExporting => (GetType() != typeof(GameObjectConversionSettings) || FilterFlags == WorldSystemFilterFlags.DotsRuntimeGameObjectConversion);
 
-        public virtual Guid GetGuidForAssetExport(UnityObject uobject)
+        public virtual Hash128 GetGuidForAssetExport(UnityObject uobject)
         {
             if (uobject == null)
                 throw new ArgumentNullException(nameof(uobject));
+#if UNITY_EDITOR
+            if (!m_ExportedAssets.TryGetValue(uobject, out var found))
+            {
+                var guid = GetGuidForUnityObject(uobject);
+                if (guid.IsValid)
+                {
+                    //Use the guid as an extension and retrieve the path to where to save in the AssetDataBase
+                    if (AssetImportContext != null)
+                    {
+                        var exportFileInfo = AssetImportContext.GetResultPath(guid.ToString());
+                        var assetPath = AssetDatabase.GetAssetPath(uobject);
+                        m_ExportedAssets.Add(uobject, found = new ExportedAsset
+                        {
+                            Guid = guid,
+                            AssetPath = assetPath,
+                            ExportFileInfo = new FileInfo(exportFileInfo),
+                        });
+                    }
+                    //TODO: Set the exported asset path for LiveLink case because AssetImportContext might still be null
+                }
+            }
+            if(found != null)
+                return found.Guid;
+#endif
+            return new Hash128();
+        }
 
-            return Guid.Empty;
+        internal Hash128 GetGuidForUnityObject(UnityObject obj)
+        {
+#if UNITY_EDITOR
+            if (!AssetDatabase.TryGetGUIDAndLocalFileIdentifier(obj, out var guid, out long fileId))
+                return new Hash128();
+
+            if (!new Hash128(guid).IsValid)
+            {
+                // Special case for memory textures
+                if (obj is UnityEngine.Texture texture)
+                {
+                    return texture.imageContentsHash;
+                }
+                UnityEngine.Debug.LogWarning($"Could not get a Guid for object type '{obj.GetType().FullName}'.", obj);
+                return new Hash128();
+            }
+
+            // Merge asset database guid and file identifier
+            var hash = UnityEngine.Hash128.Compute(guid);
+            hash.Append(fileId);
+            return hash;
+#else
+            return new Hash128();
+#endif
         }
 
         public virtual Stream TryCreateAssetExportWriter(UnityObject uobject)
@@ -117,7 +179,20 @@ namespace Unity.Entities
             if (uobject == null)
                 throw new ArgumentNullException(nameof(uobject));
 
-            return null;
+            if (!m_ExportedAssets.TryGetValue(uobject, out var item))
+            {
+                throw new Exception($"Trying to create export writer for asset {uobject}, but it has never been registered to be exported." +
+                    $"Make sure {nameof(GetGuidForAssetExport)} is being called in a conversion system first before using {nameof(TryCreateAssetExportWriter)} in a conversion system from the {nameof(GameObjectExportGroup)}");
+            }
+
+            //if the asset has already been exported, no need to export it twice
+            if (item.Exported)
+                return null;
+
+            item.Exported = true;
+            item.ExportFileInfo.Directory.Create();
+
+            return item.ExportFileInfo.Create();
         }
     }
 }

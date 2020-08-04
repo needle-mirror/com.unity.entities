@@ -3,9 +3,6 @@ using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
-#if !UNITY_DOTSRUNTIME
-using UnityEngine.LowLevel;
-#endif
 using UnityEngine.Scripting;
 
 namespace Unity.Entities.Tests
@@ -82,7 +79,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(system.Created);
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
         class StackedTestSystem1 : TestSystem
         {
             public Type FoundTypeBefore;
@@ -117,7 +113,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(typeof(StackedTestSystem1), system1.FoundTypeAfter);
         }
 
-#endif
 
 #if !UNITY_PORTABLE_TEST_RUNNER
         // TODO: IL2CPP_TEST_RUNNER can't handle Assert.That Throws
@@ -430,19 +425,6 @@ namespace Unity.Entities.Tests
 
 #pragma warning restore 618
 
-        class InvalidPlayerLoopSystemType
-        {
-        }
-
-        [Test]
-        public void AppendToPlayerLoopSystemList_InvalidPlayerLoopSystemType_Throws()
-        {
-            var sys = World.CreateSystem<TestSystem>();
-            var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
-            Assert.That(() => ScriptBehaviourUpdateOrder.AppendSystemToPlayerLoopList(sys, ref playerLoop, typeof(InvalidPlayerLoopSystemType)),
-                Throws.ArgumentException.With.Message.Contains(
-                    "Could not find PlayerLoopSystem with type=Unity.Entities.Tests.ComponentSystemTests+InvalidPlayerLoopSystemType"));
-        }
 #endif
     }
 }

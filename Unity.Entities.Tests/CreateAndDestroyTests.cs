@@ -93,6 +93,29 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void CreateEntity_InvalidEntityArchetypeThrows()
+        {
+            var archetype = new EntityArchetype();
+            Assert.Throws<ArgumentException>(() => m_Manager.CreateEntity(archetype));
+        }
+
+        [Test]
+        public void CreateEntity_PassArray_InvalidEntityArchetypeThrows()
+        {
+            var arr = new NativeArray<Entity>(10, Allocator.Temp);
+            var archetype = new EntityArchetype();
+            Assert.Throws<ArgumentException>(() => m_Manager.CreateEntity(archetype, arr));
+            arr.Dispose();
+        }
+
+        [Test]
+        public void CreateEntity_ReturnArray_InvalidEntityArchetypeThrows()
+        {
+            var archetype = new EntityArchetype();
+            Assert.Throws<ArgumentException>(() => m_Manager.CreateEntity(archetype, 10, Allocator.Temp));
+        }
+
+        [Test]
         unsafe public void CreateAndDestroyStressTest()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -193,6 +216,39 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void RemoveMultipleComponents()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
+            var entity = m_Manager.CreateEntity(archetype);
+
+            m_Manager.RemoveComponent(entity, new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData4)));
+            Assert.AreEqual(m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3)), m_Manager.GetChunk(entity).Archetype);
+            m_Manager.DestroyEntity(entity);
+        }
+
+        [Test]
+        public void RemoveMultipleComponents_EmptyComponentTypes()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4));
+            var entity = m_Manager.CreateEntity(archetype);
+
+            m_Manager.RemoveComponent(entity, new ComponentTypes());
+            Assert.AreEqual(archetype, m_Manager.GetChunk(entity).Archetype);
+            m_Manager.DestroyEntity(entity);
+        }
+
+        [Test]
+        public void RemoveMultipleComponents_ZeroComponentsPresent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
+            var entity = m_Manager.CreateEntity(archetype);
+
+            m_Manager.RemoveComponent(entity, new ComponentTypes(typeof(EcsTestTag), typeof(EcsTestData4)));
+            Assert.AreEqual(archetype, m_Manager.GetChunk(entity).Archetype);
+            m_Manager.DestroyEntity(entity);
+        }
+
+        [Test]
         public void AddComponentSetsValueOfComponentToDefault()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -277,7 +333,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetAllEntitiesCorrectCount()
+        public void GetAllEntitiesCorrectCount([Values] bool immediate)
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype0);
@@ -286,7 +342,7 @@ namespace Unity.Entities.Tests
             var moreEntities = new NativeArray<Entity>(1024, Allocator.Temp);
             m_Manager.CreateEntity(archetype1, moreEntities);
 
-            var foundEntities = m_Manager.GetAllEntities();
+            var foundEntities = immediate ? m_Manager.GetAllEntitiesImmediate() : m_Manager.GetAllEntities();
             Assert.AreEqual(1024 + 1, foundEntities.Length);
 
             foundEntities.Dispose();
@@ -294,7 +350,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetAllEntitiesCorrectValues()
+        public void GetAllEntitiesCorrectValues([Values] bool immediate)
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entity = m_Manager.CreateEntity(archetype0);
@@ -308,7 +364,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(moreEntities[i], new EcsTestData { value = i + 1});
             }
 
-            var foundEntities = m_Manager.GetAllEntities();
+            var foundEntities = immediate ? m_Manager.GetAllEntitiesImmediate() : m_Manager.GetAllEntities();
 
             Assert.AreEqual(1025, foundEntities.Length);
 
@@ -596,6 +652,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void SetArchetype_InvalidEntityArchetypeThrows()
+        {
+            var entity = m_Manager.CreateEntity();
+            var archetype = new EntityArchetype();
+            Assert.Throws<ArgumentException>(delegate { m_Manager.SetArchetype(entity, archetype); });
+        }
+
+        [Test]
         public void SetArchetypeWithSharedComponentWorks()
         {
             var entity = m_Manager.CreateEntity();
@@ -622,6 +686,13 @@ namespace Unity.Entities.Tests
             Assert.Throws<ArgumentException>(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype(typeof(EcsTestData))));
             Assert.Throws<ArgumentException>(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype()));
             Assert.Throws<ArgumentException>(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype(typeof(EcsStateTag1))));
+        }
+
+        [Test]
+        public void SetArchetypePreservingStateComponentNoThrows()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsState1));
+            Assert.DoesNotThrow(() => m_Manager.SetArchetype(entity, m_Manager.CreateArchetype(typeof(EcsState1))));
         }
 
         [Test]

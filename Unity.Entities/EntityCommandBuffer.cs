@@ -848,6 +848,8 @@ namespace Unity.Entities
 
         [NativeDisableUnsafePtrRestriction] internal EntityCommandBufferData* m_Data;
 
+        internal int SystemID;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private AtomicSafetyHandle m_Safety0;
         private AtomicSafetyHandle m_BufferSafety;
@@ -865,7 +867,6 @@ namespace Unity.Entities
             AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ArrayInvalidationSafety);
         }
 
-        internal int SystemID;
 
 #if UNITY_2020_1_OR_NEWER
         private static readonly SharedStatic<int> s_staticSafetyId = SharedStatic<int>.GetOrCreate<EntityCommandBuffer>();
@@ -978,6 +979,8 @@ namespace Unity.Entities
             m_Data->m_ThreadedChains = null;
             m_Data->m_RecordedChainCount = 0;
 
+            SystemID = 0;
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (disposeSentinelStackDepth >= 0)
             {
@@ -996,7 +999,6 @@ namespace Unity.Entities
 
             m_SafetyReadOnlyCount = 0;
             m_SafetyReadWriteCount = 3;
-            SystemID = 0;
 
 #if UNITY_2020_1_OR_NEWER
             if (s_staticSafetyId.Data == 0)
@@ -1089,7 +1091,24 @@ namespace Unity.Entities
         internal int MainThreadSortKey => Int32.MaxValue;
         private const bool kBatchableCommand = true;
 
-        public Entity CreateEntity(EntityArchetype archetype = new EntityArchetype())
+        /// <summary>
+        /// Create an entity with specified archetype.</summary>
+        /// <param name="archetype">The archetype of the new entity.</param>
+        public Entity CreateEntity(EntityArchetype archetype)
+        {
+            archetype.CheckValidEntityArchetype();
+            return _CreateEntity(archetype);
+        }
+
+        /// <summary>
+        /// Create an entity with no components.</summary>
+        public Entity CreateEntity()
+        {
+            EntityArchetype archetype = new EntityArchetype();
+            return _CreateEntity(archetype);
+        }
+
+        private Entity _CreateEntity(EntityArchetype archetype)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
@@ -1179,15 +1198,14 @@ namespace Unity.Entities
 
 
         /// <summary> Records a command to add one or more components to an entity. </summary>
-        /// <remarks>
-        /// </remarks>
+        /// <remarks></remarks>
         /// <param name="e"> The entity to get additional components. </param>
-        /// <param name="types"> The types of components to add. </param>
-        public void AddComponent(Entity e, ComponentTypes types)
+        /// <param name="componentTypes"> The types of components to add. </param>
+        public void AddComponent(Entity e, ComponentTypes componentTypes)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
-            m_Data->AddEntityComponentTypesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddMultipleComponents, e, types);
+            m_Data->AddEntityComponentTypesCommand(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddMultipleComponents, e, componentTypes);
         }
 
         public void SetComponent<T>(Entity e, T component) where T : struct, IComponentData
@@ -1214,7 +1232,7 @@ namespace Unity.Entities
         /// <remarks>
         /// </remarks>
         /// <param name="e"> The entity to have components removed. </param>
-        /// <param name="types"> The types of components to remove. </param>
+        /// <param name="componentTypes"> The types of components to remove. </param>
         public void RemoveComponent(Entity e, ComponentTypes componentTypes)
         {
             EnforceSingleThreadOwnership();
@@ -1223,19 +1241,22 @@ namespace Unity.Entities
                 ECBCommand.RemoveMultipleComponents, e, componentTypes);
         }
 
-        /// <summary> Records a command to remove one or more components from all entities matching a query. </summary>
-        /// <remarks>
-        /// </remarks>
+        /// <summary> Records a command to remove one or more components from all entities matching a query.</summary>
+        /// <remarks>The query is performed at playback time, not when the method is called.</remarks>
         /// <param name="entityQuery"> The query specifying which entities to remove the components from. </param>
-        /// <param name="types"> The types of components to remove. </param>
-        public void RemoveComponent(EntityQuery q, ComponentTypes componentTypes)
+        /// <param name="componentTypes"> The types of components to remove. </param>
+        public void RemoveComponent(EntityQuery entityQuery, ComponentTypes componentTypes)
         {
             EnforceSingleThreadOwnership();
             AssertDidNotPlayback();
             m_Data->AddEntityQueryMultipleComponentsCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
-                ECBCommand.RemoveMultipleComponentsEntityQuery, q, componentTypes);
+                ECBCommand.RemoveMultipleComponentsEntityQuery, entityQuery, componentTypes);
         }
 
+        /// <summary> Records a command to add a component to all entities matching a query.</summary>
+        /// <remarks>The query is performed at playback time, not when the method is called.</remarks>
+        /// <param name="entityQuery"> The query specifying which entities to add the component to. </param>
+        /// <param name="componentType"> The type of component to add.</param>
         public void AddComponent(EntityQuery entityQuery, ComponentType componentType)
         {
             AssertDidNotPlayback();
@@ -1244,10 +1265,9 @@ namespace Unity.Entities
         }
 
         /// <summary> Records a command to add one or more components to all entities matching a query. </summary>
-        /// <remarks>
-        /// </remarks>
+        /// <remarks>The query is performed at playback time, not when the method is called.</remarks>
         /// <param name="entityQuery"> The query specifying which entities get the added components. </param>
-        /// <param name="types"> The types of components to add. </param>
+        /// <param name="componentTypes"> The types of components to add. </param>
         public void AddComponent(EntityQuery entityQuery, ComponentTypes types)
         {
             AssertDidNotPlayback();
@@ -1255,11 +1275,19 @@ namespace Unity.Entities
                 ECBCommand.AddMultipleComponentsEntityQuery, entityQuery, types);
         }
 
+        /// <summary> Records a command to add a component to all entities matching a query.</summary>
+        /// <remarks>The query is performed at playback time, not when the method is called.</remarks>
+        /// <param name="entityQuery"> The query specifying which entities get the added component. </param>
+        /// <typeparam name="T"> The type of component to add. </typeparam>
         public void AddComponent<T>(EntityQuery entityQuery)
         {
             AddComponent(entityQuery, ComponentType.ReadWrite<T>());
         }
 
+        /// <summary> Records a command to remove a component from all entities matching a query.</summary>
+        /// <remarks>The query is performed at playback time, not when the method is called.</remarks>
+        /// <param name="entityQuery"> The query specifying which entities from which the component is removed. </param>
+        /// <param name="componentTypes"> The type of component to remove. </param>
         public void RemoveComponent(EntityQuery entityQuery, ComponentType componentType)
         {
             AssertDidNotPlayback();
@@ -1267,11 +1295,18 @@ namespace Unity.Entities
                 ECBCommand.RemoveComponentEntityQuery, entityQuery, componentType);
         }
 
+        /// <summary> Records a command to remove a component from all entities matching a query.</summary>
+        /// <remarks>The query is performed at playback time, not when the method is called.</remarks>
+        /// <param name="entityQuery"> The query specifying which entities from which the component is removed. </param>
+        /// <typeparam name="T"> The type of component to remove. </typeparam>
         public void RemoveComponent<T>(EntityQuery entityQuery)
         {
             RemoveComponent(entityQuery, ComponentType.ReadWrite<T>());
         }
 
+        /// <summary> Records a command to destroy all entities matching a query.</summary>
+        /// <remarks>The query is performed at playback time, not when the method is called.</remarks>
+        /// <param name="entityQuery"> The query specifying which entities from which the component is removed. </param>
         public void DestroyEntity(EntityQuery entityQuery)
         {
             AssertDidNotPlayback();
@@ -1298,6 +1333,11 @@ namespace Unity.Entities
                 m_Data->AddEntitySharedComponentCommand<T>(&m_Data->m_MainThreadChain, MainThreadSortKey, ECBCommand.AddSharedComponentData, e, hashCode, component);
         }
 
+        /// <summary> Records a command to add a shared component to all entities matching a query.</summary>
+        /// <remarks>The query is performed at playback time, not when the method is called. For entities matching the query which already have
+        /// this component type, the value is updated.</remarks>
+        /// <param name="entityQuery"> The query specifying which entities to add the component value to. </param>
+        /// <param name="component"> The component value to add. </param>
         public void AddSharedComponent<T>(EntityQuery entityQuery, T component) where T : struct, ISharedComponentData
         {
             EnforceSingleThreadOwnership();
@@ -2096,6 +2136,7 @@ namespace Unity.Entities
             ECBInterop.RemoveManagedReferences(mgr, (int*)managedReferenceIndexRemovalCount->Ptr, count );
 
             mgr->EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, mgr->EntityQueryManager);
+            mgr->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
 
             managedReferenceIndexRemovalCount->Clear();
         }
@@ -2234,7 +2275,36 @@ namespace Unity.Entities
                 }
             }
 
-            public Entity CreateEntity(int sortKey, EntityArchetype archetype = new EntityArchetype())
+            /// <summary>
+            /// Create an entity with specified archetype.</summary>
+            /// <remarks>Returns the new Entity.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to the concurrent command buffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. You can calculate a
+            /// similar index in an <see cref="IJobChunk"/> by adding the current entity index within a chunk to the
+            /// <see cref="IJobChunk.Execute(ArchetypeChunk, int, int)"/> method's `firstEntityIndex` argument.</param>
+            /// <param name="archetype">The archetype of the new entity.</param>
+            public Entity CreateEntity(int sortKey, EntityArchetype archetype)
+            {
+                archetype.CheckValidEntityArchetype();
+                return _CreateEntity(sortKey, archetype);
+            }
+
+            /// <summary>
+            /// Create an entity with no components.</summary>
+            /// <remarks>Returns the new Entity.</remarks>
+            /// <param name="sortKey">A unique index for each set of commands added to the concurrent command buffer
+            /// across all parallel jobs writing commands to this buffer. The `entityInQueryIndex` argument provided by
+            /// <see cref="SystemBase.Entities"/> is an appropriate value to use for this parameter. You can calculate a
+            /// similar index in an <see cref="IJobChunk"/> by adding the current entity index within a chunk to the
+            /// <see cref="IJobChunk.Execute(ArchetypeChunk, int, int)"/> method's `firstEntityIndex` argument.</param>
+            public Entity CreateEntity(int sortKey)
+            {
+                EntityArchetype archetype = new EntityArchetype();
+                return _CreateEntity(sortKey, archetype);
+            }
+
+            private Entity _CreateEntity(int sortKey, EntityArchetype archetype)
             {
                 CheckWriteAccess();
                 var chain = ThreadChain;

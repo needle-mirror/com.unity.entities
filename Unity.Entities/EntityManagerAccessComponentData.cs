@@ -29,6 +29,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to retrieve.</typeparam>
         /// <returns>A struct of type T containing the component value.</returns>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public T GetComponentData<T>(Entity entity) where T : struct, IComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -42,6 +43,7 @@ namespace Unity.Entities
         /// <param name="componentData">The data to set.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void SetComponentData<T>(Entity entity, T componentData) where T : struct, IComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -59,6 +61,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A struct of type T containing the component value.</returns>
         /// <exception cref="ArgumentException">Thrown if the ArchetypeChunk object is invalid.</exception>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public T GetChunkComponentData<T>(ArchetypeChunk chunk) where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -80,6 +83,7 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A struct of type T containing the component value.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public T GetChunkComponentData<T>(Entity entity) where T : struct, IComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -102,6 +106,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the ArchetypeChunk object is invalid.</exception>
         [StructuralChangeMethod]
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void SetChunkComponentData<T>(ArchetypeChunk chunk, T componentValue) where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -120,6 +125,7 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// <typeparam name="T">The type of the managed object.</typeparam>
         /// <returns>The managed object, cast to type T.</returns>
+        [NotBurstCompatible]
         public T GetComponentObject<T>(Entity entity)
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -127,6 +133,7 @@ namespace Unity.Entities
             return ecs->GetComponentObject<T>(entity, ComponentType.ReadWrite<T>(), mcs);
         }
 
+        [NotBurstCompatible]
         public T GetComponentObject<T>(Entity entity, ComponentType componentType)
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -151,6 +158,7 @@ namespace Unity.Entities
         /// <param name="componentData">A shared component object containing the values to set.</param>
         /// <typeparam name="T">The shared component type.</typeparam>
         [StructuralChangeMethod]
+        [NotBurstCompatible]
         public void SetSharedComponentData<T>(Entity entity, T componentData) where T : struct, ISharedComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -173,6 +181,7 @@ namespace Unity.Entities
         /// <param name="componentData">A shared component object containing the values to set.</param>
         /// <typeparam name="T">The shared component type.</typeparam>
         [StructuralChangeMethod]
+        [NotBurstCompatible]
         public void SetSharedComponentData<T>(EntityQuery query, T componentData) where T : struct, ISharedComponentData
         {
             using (var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob))
@@ -208,6 +217,7 @@ namespace Unity.Entities
             return ecs->GetSharedComponentData<T>(entity, mcs);
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
         public int GetSharedComponentDataIndex<T>(Entity entity) where T : struct, ISharedComponentData
         {
             var ecs = GetCheckedEntityDataAccess()->EntityComponentStore;
@@ -290,6 +300,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of the buffer's elements.</typeparam>
         /// <returns>The DynamicBuffer object for accessing the buffer contents.</returns>
         /// <exception cref="ArgumentException">Thrown if T is an unsupported type.</exception>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         public DynamicBuffer<T> GetBuffer<T>(Entity entity) where T : struct, IBufferElementData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -360,6 +371,7 @@ namespace Unity.Entities
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
 
+        [NotBurstCompatible]
         internal void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, object componentData)
         {
             var hashCode = 0;
@@ -369,6 +381,7 @@ namespace Unity.Entities
             SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData);
         }
 
+        [NotBurstCompatible]
         void SetSharedComponentDataBoxedDefaultMustBeNull(Entity entity, int typeIndex, int hashCode, object componentData)
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -376,6 +389,7 @@ namespace Unity.Entities
             ecs->SetSharedComponentDataBoxedDefaultMustBeNull(entity, typeIndex, hashCode, componentData, mcs);
         }
 
+        [NotBurstCompatible]
         internal void SetComponentObject(Entity entity, ComponentType componentType, object componentObject)
         {
             var ecs = GetCheckedEntityDataAccess();
@@ -383,6 +397,7 @@ namespace Unity.Entities
             ecs->SetComponentObject(entity, componentType, componentObject, mcs);
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         internal ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
             where T : struct, IComponentData
         {
@@ -390,6 +405,7 @@ namespace Unity.Entities
             return GetComponentDataFromEntity<T>(typeIndex, isReadOnly);
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         internal ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(int typeIndex, bool isReadOnly)
             where T : struct, IComponentData
         {
@@ -407,12 +423,14 @@ namespace Unity.Entities
 #endif
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         internal BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false)
             where T : struct, IBufferElementData
         {
             return GetBufferFromEntity<T>(TypeManager.GetTypeIndex<T>(), isReadOnly);
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         internal BufferFromEntity<T> GetBufferFromEntity<T>(int typeIndex, bool isReadOnly = false)
             where T : struct, IBufferElementData
         {

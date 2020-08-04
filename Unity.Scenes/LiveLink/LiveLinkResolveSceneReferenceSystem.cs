@@ -78,8 +78,9 @@ namespace Unity.Scenes
                 EntityManager.AddComponentData(sectionEntity, new SceneBoundingVolume { Value = sceneMetaData.Sections[i].BoundingVolume });
                 EntityManager.AddComponentData(sectionEntity, new SceneEntityReference {SceneEntity = sceneEntity});
 
+#if !UNITY_DOTSPLAYER
                 var sectionPath = new ResolvedSectionPath();
-                var hybridPath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesUnitObjectReferencesBundle, sectionIndex);
+                var hybridPath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle, sectionIndex);
                 var scenePath = EntityScenesPaths.GetLiveLinkCachePath(artifactHash, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
 
                 sectionPath.ScenePath.SetString(scenePath);
@@ -92,6 +93,7 @@ namespace Unity.Scenes
 
                 var buffer = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
                 buffer.Add(new ResolvedSectionEntity { SectionEntity = sectionEntity });
+#endif
                 var linkedEntityGroup = EntityManager.GetBuffer<LinkedEntityGroup>(sceneEntity);
                 linkedEntityGroup.Add(new LinkedEntityGroup { Value = sectionEntity });
             }

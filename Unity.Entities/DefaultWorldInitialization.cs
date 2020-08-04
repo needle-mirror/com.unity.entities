@@ -84,7 +84,6 @@ namespace Unity.Entities
             if (!s_UnloadOrPlayModeChangeShutdownRegistered)
                 return;
 
-
             var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
             foreach (var w in World.s_AllWorlds)
             {
@@ -132,9 +131,7 @@ namespace Unity.Entities
             AddSystemToRootLevelSystemGroupsInternal(world, systemList, systemList.Count);
 
 #if !UNITY_DOTSRUNTIME
-            var playerLoop = PlayerLoop.GetDefaultPlayerLoop(); // TODO(DOTS-2283): shouldn't stomp the default player loop here
-            ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(world, ref playerLoop);
-            PlayerLoop.SetPlayerLoop(playerLoop);
+            ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(world);
 #endif
 
             DefaultWorldInitialized?.Invoke(world);
@@ -171,13 +168,26 @@ namespace Unity.Entities
             AddSystemToRootLevelSystemGroupsInternal(world, systemTypes, systemTypes.Count);
         }
 
-        private static void AddSystemToRootLevelSystemGroupsInternal(World world, IEnumerable<Type> systemTypes, int systemTypesCount)
+        private static void AddSystemToRootLevelSystemGroupsInternal(World world, IEnumerable<Type> systemTypesOrig, int managedTypesCountOrig)
         {
             var initializationSystemGroup = world.GetOrCreateSystem<InitializationSystemGroup>();
             var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
             var presentationSystemGroup = world.GetOrCreateSystem<PresentationSystemGroup>();
 
-            var systems = world.GetOrCreateSystemsAndLogException(systemTypes, systemTypesCount);
+            var managedTypes = new List<Type>();
+            var unmanagedTypes = new List<Type>();
+
+            foreach (var stype in systemTypesOrig)
+            {
+                if (typeof(ComponentSystemBase).IsAssignableFrom(stype))
+                    managedTypes.Add(stype);
+                else if (typeof(ISystemBase).IsAssignableFrom(stype))
+                    unmanagedTypes.Add(stype);
+                else
+                    throw new InvalidOperationException("Bad type");
+            }
+
+            var systems = world.GetOrCreateSystemsAndLogException(managedTypes, managedTypes.Count);
 
             // Add systems to their groups, based on the [UpdateInGroup] attribute.
             foreach (var system in systems)
@@ -202,37 +212,7 @@ namespace Unity.Entities
 
                 foreach (var attr in updateInGroupAttributes)
                 {
-                    var uga = attr as UpdateInGroupAttribute;
-                    if (uga == null)
-                        continue;
-
-                    if (!TypeManager.IsSystemAGroup(uga.GroupType))
-                    {
-                       throw new InvalidOperationException($"Invalid [UpdateInGroup] attribute for {type}: {uga.GroupType} must be derived from ComponentSystemGroup.");
-                    }
-                    if (uga.OrderFirst && uga.OrderLast)
-                    {
-                        throw new InvalidOperationException($"The system {type} can not specify both OrderFirst=true and OrderLast=true in its [UpdateInGroup] attribute.");
-                    }
-
-                    var groupSys = world.GetExistingSystem(uga.GroupType);
-                    if (groupSys == null)
-                    {
-                        // Warn against unexpected behaviour combining DisableAutoCreation and UpdateInGroup
-                        var parentDisableAutoCreation = TypeManager.GetSystemAttributes(uga.GroupType, typeof(DisableAutoCreationAttribute)).Length > 0;
-                        if (parentDisableAutoCreation)
-                        {
-                            Debug.LogWarning($"A system {type} wants to execute in {uga.GroupType} but this group has [DisableAutoCreation] and {type} does not. The system will not be added to any group and thus not update.");
-                        }
-                        else
-                        {
-                            Debug.LogWarning(
-                                $"A system {type} could not be added to group {uga.GroupType}, because the group was not created. Fix these errors before continuing. The system will not be added to any group and thus not update.");
-                        }
-                        continue;
-                    }
-
-                    var group = groupSys as ComponentSystemGroup;
+                    var group = FindGroup(world, type, attr);
                     if (group != null)
                     {
                         group.AddSystemToUpdateList(system);
@@ -240,10 +220,72 @@ namespace Unity.Entities
                 }
             }
 
+#if !UNITY_DOTSRUNTIME
+            // Add unmanaged systems
+            foreach (var type in unmanagedTypes)
+            {
+                SystemHandleUntyped sysHandle = world.CreateUnmanagedSystem(type);
+
+                // Add systems to their groups, based on the [UpdateInGroup] attribute.
+
+                var updateInGroupAttributes = TypeManager.GetSystemAttributes(type, typeof(UpdateInGroupAttribute));
+                if (updateInGroupAttributes.Length == 0)
+                {
+                    simulationSystemGroup.AddUnmanagedSystemToUpdateList(sysHandle);
+                }
+
+                foreach (var attr in updateInGroupAttributes)
+                {
+                    ComponentSystemGroup groupSys = FindGroup(world, type, attr);
+
+                    if (groupSys != null)
+                    {
+                        groupSys.AddUnmanagedSystemToUpdateList(sysHandle);
+                    }
+                }
+            }
+#endif
+
+
             // Update player loop
             initializationSystemGroup.SortSystems();
             simulationSystemGroup.SortSystems();
             presentationSystemGroup.SortSystems();
+        }
+
+        private static ComponentSystemGroup FindGroup(World world, Type systemType, Attribute attr)
+        {
+            var uga = attr as UpdateInGroupAttribute;
+
+            if (uga == null)
+                return null;
+
+            if (!TypeManager.IsSystemAGroup(uga.GroupType))
+            {
+                throw new InvalidOperationException($"Invalid [UpdateInGroup] attribute for {systemType}: {uga.GroupType} must be derived from ComponentSystemGroup.");
+            }
+            if (uga.OrderFirst && uga.OrderLast)
+            {
+                throw new InvalidOperationException($"The system {systemType} can not specify both OrderFirst=true and OrderLast=true in its [UpdateInGroup] attribute.");
+            }
+
+            var groupSys = world.GetExistingSystem(uga.GroupType);
+            if (groupSys == null)
+            {
+                // Warn against unexpected behaviour combining DisableAutoCreation and UpdateInGroup
+                var parentDisableAutoCreation = TypeManager.GetSystemAttributes(uga.GroupType, typeof(DisableAutoCreationAttribute)).Length > 0;
+                if (parentDisableAutoCreation)
+                {
+                    Debug.LogWarning($"A system {systemType} wants to execute in {uga.GroupType} but this group has [DisableAutoCreation] and {systemType} does not. The system will not be added to any group and thus not update.");
+                }
+                else
+                {
+                    Debug.LogWarning(
+                        $"A system {systemType} could not be added to group {uga.GroupType}, because the group was not created. Fix these errors before continuing. The system will not be added to any group and thus not update.");
+                }
+            }
+
+            return groupSys as ComponentSystemGroup;
         }
 
         /// <summary>

@@ -409,7 +409,7 @@ namespace Unity.Scenes
 
                 if (sceneMetaData.Sections[i].ObjectReferenceCount != 0)
                 {
-                    var assetBundlePath = EntityScenesPaths.GetLiveLinkCachePath(subSceneId.TargetHash, EntityScenesPaths.PathType.EntitiesUnitObjectReferencesBundle, sectionIndex);
+                    var assetBundlePath = EntityScenesPaths.GetLiveLinkCachePath(subSceneId.TargetHash, EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle, sectionIndex);
                     if (!File.Exists(assetBundlePath))
                     {
                         LiveLinkMsg.LogInfo($"Missing Entity AssetBundle file! {assetBundlePath}");

@@ -4,6 +4,7 @@ using System.Threading;
 using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Assertions;
+using Unity.Collections;
 
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<int>))]
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<float>))]
@@ -138,6 +139,79 @@ namespace Unity.Entities.Tests
         public int value2;
 
         public EcsTestSharedComp3(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    // need many shared types for testing that we don't exceed kMaxNumSharedComponentCount
+    public struct EcsTestSharedComp4 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp4(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp5 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp5(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp6 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp6(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp7 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp7(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp8 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp8(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp9 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp9(int inValue)
         {
             value0 = value1 = value2 = inValue;
         }

@@ -99,10 +99,8 @@ namespace Unity.Entities
 
                     BeforeOnUpdate();
 
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
                     var oldExecutingSystem = ms_ExecutingSystem;
                     ms_ExecutingSystem = this;
-            #endif
 
                     try
                     {
@@ -110,9 +108,7 @@ namespace Unity.Entities
                     }
                     finally
                     {
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
                         ms_ExecutingSystem = oldExecutingSystem;
-            #endif
                         AfterOnUpdate();
                     }
                 }

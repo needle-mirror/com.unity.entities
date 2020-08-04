@@ -202,6 +202,11 @@ namespace Unity.Entities
             Count += srcChunks.Count;
         }
 
+        public void AddToCachedChunkList(ref UnsafeCachedChunkList chunkList, int matchingArchetypeIndex, int startIndex = 0)
+        {
+            chunkList.Append(p + startIndex, Count - startIndex, matchingArchetypeIndex);
+        }
+
         public void RemoveAtSwapBack(int chunkIndex)
         {
             Count--;

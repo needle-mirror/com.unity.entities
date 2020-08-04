@@ -83,7 +83,9 @@ namespace Unity.Entities.Tests
         public virtual void Setup()
         {
 #if !UNITY_DOTSRUNTIME
+            // unit tests preserve the current player loop to restore later, and start from a blank slate.
             m_PreviousPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
 #endif
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
             World = World.DefaultGameObjectInjectionWorld = new World("Test World");

@@ -29,7 +29,7 @@ It is helpful to use a managed `IComponentData` (that is, `IComponentData` decla
 
 These components are used the same way as value type `IComponentData`. However, ECS handles them internally in a much different (and slower) way. If you don't need managed component support, define `UNITY_DISABLE_MANAGED_COMPONENTS` in your application's __Player Settings__ (menu: __Edit &gt; Project Settings &gt; Player &gt; Scripting Define Symbols__) to prevent accidental usage.
 
-Because managed `IComponentData` is a managed type, it has the following performance drawbacks compared to valuetype `IComponentData`:
+Because managed `IComponentData` is a managed type, it has the following performance drawbacks compared to value-type `IComponentData`:
 * It cannot be used with the Burst Compiler
 * It cannot be used in job structs 
 * It cannot use [Chunk memory](chunk_iteration.md) 

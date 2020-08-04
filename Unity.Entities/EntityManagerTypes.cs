@@ -23,6 +23,7 @@ namespace Unity.Entities
         /// or read and write. For managed components isReadonly will always be treated as false.</param>
         /// <typeparam name="T">The compile-time type of the component.</typeparam>
         /// <returns>The run-time type information of the component.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -72,6 +73,7 @@ namespace Unity.Entities
         /// or read and write. </param>
         /// <typeparam name="T">The compile-time type of the buffer elements.</typeparam>
         /// <returns>The run-time type information of the buffer component.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         public BufferTypeHandle<T> GetBufferTypeHandle<T>(bool isReadOnly)
             where T : struct, IBufferElementData
         {
@@ -89,6 +91,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <typeparam name="T">The compile-time type of the shared component.</typeparam>
         /// <returns>The run-time type information of the shared component.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
         public SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>()
             where T : struct, ISharedComponentData
         {
@@ -149,6 +152,7 @@ namespace Unity.Entities
         /// <param name="interfaceType">The type to check.</param>
         /// <param name="listOut">The list to receive the output.</param>
         /// <returns>The list that was passed in, containing the System.Types that can be assigned to `interfaceType`.</returns>
+        [NotBurstCompatible]
         public List<Type> GetAssignableComponentTypes(Type interfaceType, List<Type> listOut)
         {
             // #todo Cache this. It only can change when TypeManager.GetTypeCount() changes
@@ -169,6 +173,7 @@ namespace Unity.Entities
         /// inherit from the same compile-time type.</remarks>
         /// <param name="interfaceType">The type to check.</param>
         /// <returns>A new List object containing the System.Types that can be assigned to `interfaceType`.</returns>
+        [NotBurstCompatible]
         public List<Type> GetAssignableComponentTypes(Type interfaceType)
             => GetAssignableComponentTypes(interfaceType, new List<Type>());
 

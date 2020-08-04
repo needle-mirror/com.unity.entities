@@ -117,6 +117,12 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Reports whether container is empty.
+        /// </summary>
+        /// <value>True if this container empty.</value>
+        public bool IsEmpty => !IsCreated || Length == 0;
+
+        /// <summary>
         /// Whether the memory for this dynamic buffer has been allocated.
         /// </summary>
         public bool IsCreated

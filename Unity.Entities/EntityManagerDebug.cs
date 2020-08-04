@@ -72,6 +72,28 @@ namespace Unity.Entities
             return array;
         }
 
+        internal NativeArray<Entity> GetAllEntitiesImmediate(Allocator allocator = Allocator.Temp)
+        {
+            BeforeStructuralChange();
+
+            var chunks = GetAllChunksImmediate(Allocator.TempJob);
+            var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
+            var array = new NativeArray<Entity>(count, allocator);
+            var entityType = GetEntityTypeHandle();
+            var offset = 0;
+
+            for (int i = 0; i < chunks.Length; i++)
+            {
+                var chunk = chunks[i];
+                var entities = chunk.GetNativeArray(entityType);
+                array.Slice(offset, entities.Length).CopyFrom(entities);
+                offset += entities.Length;
+            }
+
+            chunks.Dispose();
+            return array;
+        }
+
         // @TODO document EntityManagerDebug
         /// <summary>
         /// Provides information and utility functions for debugging.

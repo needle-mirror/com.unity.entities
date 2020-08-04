@@ -372,6 +372,29 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void CreateEntityWithArchetype_InvalidThrows()
+        {
+            var a = new EntityArchetype();
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+            using (cmds)
+            {
+                Assert.Throws<ArgumentException>(() => cmds.CreateEntity(a));
+            }
+        }
+
+        [Test]
+        public void CreateEntityWithArchetype_Parallel_InvalidThrows()
+        {
+            var a = new EntityArchetype();
+            var ecb = new EntityCommandBuffer(Allocator.TempJob);
+            var cmds = ecb.AsParallelWriter();
+            using (ecb)
+            {
+                Assert.Throws<ArgumentException>(() => cmds.CreateEntity(0, a));
+            }
+        }
+
+        [Test]
         public void CreateTwoComponents()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob, PlaybackPolicy.MultiPlayback);
@@ -424,7 +447,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestMultiChunks()
         {
-#if UNITY_DOTSPLAYER_IL2CPP && !DEVELOP    // IL2CPP is a little slow in debug; reduce the number of tests in DEBUG (but not DEVELOP).
+#if UNITY_DOTSRUNTIME && !DEVELOP    // IL2CPP is a little slow in debug; reduce the number of tests in DEBUG (but not DEVELOP).
             const int count = 4096;
 #else
             const int count = 65536;
@@ -2685,6 +2708,38 @@ namespace Unity.Entities.Tests
                 cmds.Playback(m_Manager);
             }
             m_Manager.Debug.CheckInternalConsistency();
+        }
+
+        [Test]
+        public void AddAndRemoveComponent_EntityQueryCacheIsValid()
+        {
+            var ent = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            using(EntityQuery query2 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), ComponentType.Exclude<EcsTestData3>()))
+            using(EntityQuery query3 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3)))
+            using (EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob))
+            {
+                cmds.AddComponent<EcsTestData3>(ent);
+                cmds.RemoveComponent<EcsTestData3>(ent);
+                cmds.Playback(m_Manager);
+                Assert.IsFalse(query2.IsCacheValid);
+                Assert.IsFalse(query3.IsCacheValid);
+            }
+        }
+
+        [Test]
+        public void RemoveAndAddComponent_EntityQueryCacheIsValid()
+        {
+            var ent = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            using(EntityQuery query2 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2)))
+            using(EntityQuery query1 = m_Manager.CreateEntityQuery(typeof(EcsTestData), ComponentType.Exclude<EcsTestData2>()))
+            using (EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob))
+            {
+                cmds.RemoveComponent<EcsTestData2>(ent);
+                cmds.AddComponent<EcsTestData2>(ent);
+                cmds.Playback(m_Manager);
+                Assert.IsFalse(query2.IsCacheValid);
+                Assert.IsFalse(query1.IsCacheValid);
+            }
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

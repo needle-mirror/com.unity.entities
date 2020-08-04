@@ -390,6 +390,7 @@ namespace Unity.Entities.Tests
 
 #endif // !UNITY_DOTSRUNTIME
 
+#if !UNITY_2020_2_OR_NEWER
         struct InitializedAsSingleAndParallelJob : IJobChunk
         {
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset) {}
@@ -402,5 +403,6 @@ namespace Unity.Entities.Tests
 
             Assert.AreNotEqual(jobReflectionDataParallel, jobReflectionDataSingle);
         }
+#endif
     }
 }

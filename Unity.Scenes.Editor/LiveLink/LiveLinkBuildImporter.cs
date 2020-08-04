@@ -101,9 +101,6 @@ namespace Unity.Scenes.Editor
             return AssetDatabaseCompatibility.GetArtifactHash(guid, typeof(LiveLinkBuildImporter), importMode);
         }
 
-        [Obsolete("LiveLinkBuildImport.GetDependencies has been deprecated. It will not be supported in the future. (RemovedAfter 2020-06-13).")]
-        public static Hash128[] GetDependencies(Hash128 artifactHash) => GetDependenciesInternal(artifactHash, new Hash128());
-
         // Recursive until new SBP APIs land in 2020.1
         internal static Hash128[] GetDependenciesInternal(in Hash128 artifactHash, in Hash128 assetGUID)
         {
@@ -139,9 +136,6 @@ namespace Unity.Scenes.Editor
             buildMetaData.Dispose();
             return guids;
         }
-
-        [Obsolete("LiveLinkBuildImport.GetBundlePath has been deprecated. It will not be supported in the future. (RemovedAfter 2020-06-13).")]
-        public static string GetBundlePath(Hash128 artifactHash, GUID guid) => GetBundlePathInternal(artifactHash, guid);
 
         internal static string GetBundlePathInternal(in Hash128 artifactHash, in Hash128 assetGUID)
         {

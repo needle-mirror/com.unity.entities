@@ -17,21 +17,22 @@ namespace Unity.Scenes
         public static Type SubSceneImporterType = null;
 
 #if !UNITY_DOTSRUNTIME
+        public static Hash128 BuiltinShadersBundleHash = new Hash128(0, 0, 0, 1);
         internal static readonly string PersistentDataPath = Application.persistentDataPath;
         internal static readonly string StreamingAssetsPath = Application.streamingAssetsPath;
 #else
         internal static readonly string PersistentDataPath = "Data";
         internal static readonly string StreamingAssetsPath = "Data";
 #endif
-
         public enum PathType
         {
             EntitiesUnityObjectReferences,
-            EntitiesUnitObjectReferencesBundle,
+            EntitiesUnityObjectReferencesBundle,
             EntitiesAssetDependencyGUIDs,
             EntitiesBinary,
             EntitiesConversionLog,
-            EntitiesHeader
+            EntitiesHeader,
+            EntitiesSharedReferencesBundle
         }
 
         public static string GetExtension(PathType pathType)
@@ -41,13 +42,14 @@ namespace Unity.Scenes
                 // these must all be lowercase
                 case PathType.EntitiesUnityObjectReferences: return "asset";
                 case PathType.EntitiesBinary: return "entities";
-                case PathType.EntitiesUnitObjectReferencesBundle: return "bundle";
+                case PathType.EntitiesUnityObjectReferencesBundle: return "bundle";
                 case PathType.EntitiesHeader: return "entityheader";
                 case PathType.EntitiesConversionLog: return "conversionlog";
+                case PathType.EntitiesSharedReferencesBundle: return "bundle";
                 case PathType.EntitiesAssetDependencyGUIDs: return "dependencies";
             }
 
-            throw new ArgumentException("Unknown PathType");
+            throw new ArgumentException($"Unknown PathType {pathType}");
         }
 
 #if UNITY_EDITOR
@@ -79,10 +81,10 @@ namespace Unity.Scenes
 
         public static string GetLoadPath(Hash128 sceneGUID, PathType type, int sectionIndex)
         {
-            return StreamingAssetsPath + "/" + RelativePathInStreamingAssetsFolderFor(sceneGUID, type, sectionIndex);
+            return StreamingAssetsPath + "/" + RelativePathFolderFor(sceneGUID, type, sectionIndex);
         }
 
-        public static string RelativePathInStreamingAssetsFolderFor(Hash128 sceneGUID, PathType type, int sectionIndex)
+        public static string RelativePathFolderFor(Hash128 sceneGUID, PathType type, int sectionIndex)
         {
             var extension = GetExtension(type);
             switch (type)
@@ -90,9 +92,13 @@ namespace Unity.Scenes
                 case PathType.EntitiesBinary:
                     return $"SubScenes/{sceneGUID}.{sectionIndex}.{extension}";
                 case PathType.EntitiesHeader:
+                case PathType.EntitiesConversionLog:
                     return $"SubScenes/{sceneGUID}.{extension}";
                 case PathType.EntitiesUnityObjectReferences:
-                    return $"SubScenes/{sceneGUID}.{sectionIndex}.bundle";
+                case PathType.EntitiesUnityObjectReferencesBundle:
+                    return $"SubScenes/{sceneGUID}.{sectionIndex}.{extension}";
+                case PathType.EntitiesSharedReferencesBundle:
+                    return $"SubScenes/{sceneGUID}.{extension}";
                 default:
                     throw new ArgumentException();
             }
@@ -107,7 +113,7 @@ namespace Unity.Scenes
                     return $"{PersistentDataPath}/{k_LiveLinkCacheDir}/{targetHash}.{extension}";
                 case PathType.EntitiesBinary:
                 case PathType.EntitiesUnityObjectReferences:
-                case PathType.EntitiesUnitObjectReferencesBundle:
+                case PathType.EntitiesUnityObjectReferencesBundle:
                     return $"{PersistentDataPath}/{k_LiveLinkCacheDir}/{targetHash}.{sectionIndex}.{extension}";
                 default:
                     return "";

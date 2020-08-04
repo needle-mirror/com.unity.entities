@@ -1,9 +1,46 @@
+# Change log
+
+## [0.14.0] - 2020-08-04
+
+### Added
+
+* Added `IsEmpty` property to `DynamicBuffer`.
+* Added deduplication for asset bundles generated for subscenes.
+* Added new `EntityManager` methods: `AddComponent(EntityQuery, ComponentTypes)`, which adds multiple components to all entities matching a query; and `RemoveComponent(Entity, ComponentTypes)`, which removes multiple components from a single entity. (`AddComponent(Entity, ComponentTypes)` and `RemoveComponent(EntityQuery, ComponentTypes)` already existed. This patch just fills in a few 'missing' methods.)
+
+### Changed
+* `IJobEntityBatch.ScheduleSingle` is being renamed to `IJobEntityBatch.Schedule` to match our naming guidelines for job scheduling.
+* When `DefaultWorldInitialization.Initialize()` adds the default World's system groups to the Unity player loop, it now bases its modifications on the current player loop instead of the default player loop. This prevents the Entities package from accidentally erasing any previous player loop modifications made outside the package.
+* `DefaultWorldInitialization.DomainUnloadOrPlayModeChangeShutdown()` now removes all existing `World`s from the Unity player loop before destroying them. If a `World` that was added to the player loop is destroyed manually prior to domain unload, it must also be removed from the player loop manually using `ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop()`.
+* Updated package `com.unity.platforms` to version `0.7.0-preview.8`.
+* `EntityManager.CreateEntity()`, `EntityManager.SetArchetype()`, and `EntityCommandBuffer.CreateEntity()` no longer accept the value returned by `new EntityArchetype()` because it's invalid. Same for `EntityCommandBuffer.CreateEntity()` and `EntityCommandBuffer.ParallelWriter.CreateEntity()`. Always use `EntityManager.CreateArchetype()` instead of `new EntityArchetype()` to create `EntityArchetype` values. (Ideally, the `EntityArchetype` constructor wouldn't be public, but C# doesn't allow that for a struct.)
+* Subscene Inspector now uses a table format to allow easier management of multiple subscenes
+
+### Deprecated
+* `IJobEntityBatch.ScheduleParallelBatched` is being deprecated in favor of adding a batching parameter to `IJobEntityBatch.ScheduleParallel`
+* `ScriptBehaviourUpdateOrder.UpdatePlayerLoop()` is being deprecated in favor of `ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop()`. Due to slightly different semantics, a direct automated API update is not possible: the new function always takes a `PlayerLoopSystem` object to modify, does not call `UnityEngine.LowLevel.PlayerLoop.SetPlayerLoop()`, and does not create the top-level system groups if they don't exist.
+* `ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(World)` is being deprecated in favor of `ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(World)`.
+
+### Removed
+
+* Removed obsolete `ScriptBehaviourUpdateOrder.CurrentPlayerLoop`. Use `UnityEngine.LowLevel.PlayerLoop.GetCurrentPlayerLoop()` instead.
+* Removed obsolete `ScriptBehaviourUpdateOrder.SetPlayerLoop()`. Use `UnityEngine.LowLevel.PlayerLoop.SetPlayerLoop()` instead.
+
+### Fixed
+
+* Setting the Scene Asset on a Subscene would sometimes fail to trigger an import/conversion because the default ECS world was missing.
+* Fixed crash when using Singleton access methods (GetSingleton, SetSingleton, etc.) with a generic parameter as argument.
+* Fixed an issue which caused WebGL not to work, and could produce this error message on IL2CPP-based backends:
+```
+NotSupportedException: To marshal a managed method, please add an attribute named 'MonoPInvokeCallback' to the method definition. The method we're attempting to marshal is: Unity.Entities.SystemBase::UnmanagedUpdate
+
+
 ## [0.13.0] - 2020-07-10
 
 ### Added
-* Added new `EntityCommandBuffer` methods: `AddComponent(Entity, ComponentTypes)` and `AddComponent(EntityQuery, ComponentTypes)`. These add multiple components in one call. **Note:** `EntityManager` has an equivalent of the first and will get an equivalent of the second in a later release.
-* Added new `EntityCommandBuffer` methods: `RemoveComponent(Entity, ComponentTypes)` and `RemoveComponent(EntityQuery, ComponentTypes)`. These remove multiple components in one call. **Note:** `EntityManager` will get equivalents in a future release.
-* Added new `IJobEntityBatchWithIndex` job interface. This is a variant of `IJobEntityBatch` and provides an additional `indexOfFirstEntityInQuery` parameter, which provides a per-batch index that is the aggregate of all previous batch counts.
+* Added new `EntityCommandBuffer` methods: `AddComponent(Entity, ComponentTypes)` and `AddComponent(EntityQuery, ComponentTypes)` for adding multiple components in one call. (`EntityManager` has an equivalent of the first already and will get an equivalent of the second later.)
+* Added new `EntityCommandBuffer` methods: `RemoveComponent(Entity, ComponentTypes)` and `RemoveComponent(EntityQuery, ComponentTypes)` for removing multiple components in one call. (`EntityManager` will get equivalents in the future.)
+* Added new `IJobEntityBatchWithIndex` job interface, a variant of `IJobEntityBatch` that provides an additional `indexOfFirstEntityInQuery` parameter, which provides a per-batch index that is the aggregate of all previous batch counts.
 * Added `MaximumDeltaTime` property to `FixedStepSimulationSystemGroup`, used similarly to `UnityEngine.Time.maximumDeltaTime` to control how gradually the application should recover from large transient frame time spikes.
 * Added new player loop management functions to the `ScriptBehaviourUpdateOrder` class:
   * `AppendSystemToPlayerLoopList()`: adds a single ECS system to a specific point in the Unity player loop.
@@ -15,39 +52,31 @@
 ### Changed
 
 * Updated minimum Unity Editor version to 2020.1.0b15 (40d9420e7de8)
-* Changed the Profiler markers for `EntityCommandBuffer.Playback` from `EntityCommandBufferSystem`s to include the name of the system that recorded the `EntityCommandBuffer`.
+* Profiler markers for `EntityCommandBuffer.Playback` from `EntityCommandBufferSystem`s now include name of the system that recorded the `EntityCommandBuffer`.
 * Bumped burst to 1.3.2 version.
-* Changed the EntityQuery commands for `AddComponent`, `RemoveComponent`, and `DestroyEntity` in the EntityCommandBuffer to use Burst during Playback.
-* Optimized `IJobChunk` and `Entities.ForEach` `ScheduleParallel` when there is no EntityQuery filtering necessary (shared component or change filtering).
-* Changed `TypeManager.GetSystems()` to return an `IReadOnlyList<Type>` rather than a `List<Type>`
-* Updated package `com.unity.platforms` to version `0.6.0-preview.1`.
-* Changed `EntityContainer` to write data back to the entity.
+* EntityQuery commands for `AddComponent`, `RemoveComponent`, and `DestroyEntity` in the EntityCommandBuffer now use Burst during Playback.
+* IJobChunk and Entities.ForEach ScheduleParallel has been optimized in case there is no EntityQuery filtering necessary (Shared component or change filtering)
+* `TypeManager.GetSystems()` now returns an `IReadOnlyList<Type>` rather than a `List<Type>`
+* Updated package `com.unity.platforms` to version `0.6.0-preview.4`.
+* `EntityContainer` will now allow to write data back to the entity.
 * Updated package `com.unity.properties` and `com.unity.serialization` to version `1.3.1-preview`.
 
 ### Fixed
 
-* Fixed an issue where a warning was treated as an error when `Entities.ForEach` passed a component type as value.
+* Fixed warning treated as error in the case that a warning is emitted for Entities.ForEach passing a component type as value.
 * Fixed paths displayed in IL post-processing error messages to be more consistent with Unity error messages.
-* Fixed an issue where an exceptions was thrown when inspecting an entity with a GameObject added through `EntityManager.AddComponentObject`.
-* Fixed a `DCICE002` error that was thrown during IL post-processing when `Entities.ForEach` contained multiple Entities.ForEach in the same scope capturing multiple variables.
-* Fixed an issue where `EntityManager`'s `AddComponent()`, `RemoveComponent()`, and `CopyEntitiesFrom()` methods threw an error if their input was a `NativeArray<Entity>` allocated with `Allocator.Temp` whose length is more than 10 elements.
-* An error is thrown when Entities.ForEach has an argument that is a generic DynamicBuffer.
-* Fixed an issue where re-adding a system to a `ComponentSystemGroup` immediately after removing it from the group did not work correctly.
-* `ComponentSystemGroup.Remove()` is now ignored if the target system is already queued for removal, or if it isn't in the group's update list in the first place.
-* Fixed an issue where IL post-processing warnings were emitted with "error" title.
-* Fixed "Invalid IL" error when try/finally block happened in the `Entities.ForEach` lambda body or cloned method. This usually happened with `using` or `foreach` and `WithoutBurst`.
-* Fixed an `Unexpected error` when `Job.WithCode` was used with `WithStructuralChanges`. This now throws an error.
-* Fixed a bug where `Unity.Scenes.EntityScenesPaths.GetTempCachePath()` returned invalid strings.
-
-### Deprecated
-* `ScriptBehaviourUpdateOrder.UpdatePlayerLoop()` is being deprecated in favor of `ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop()`. Due to slightly different semantics, a direct automated API update is not possible: the new function always takes a `PlayerLoopSystem` object to modify, does not call `UnityEngine.LowLevel.PlayerLoop.SetPlayerLoop()`, and does not create the top-level system groups if they don't exist.
-* `ScriptBehaviourUpdateOrder.IsWorldInPlayerLoop(World)` is being deprecated in favor of `ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(World)`.
-
-
-### Removed
-* Removed obsolete `ScriptBehaviourUpdateOrder.CurrentPlayerLoop`. Use `UnityEngine.LowLevel.PlayerLoop.GetCurrentPlayerLoop()` instead.
-* Removed obsolete `ScriptBehaviourUpdateOrder.SetPlayerLoop()`. Use `UnityEngine.LowLevel.PlayerLoop.SetPlayerLoop()` instead.
-
+* Fixed exceptions being thrown when inspecting an entity with a GameObject added through `EntityManager.AddComponentObject`.
+* Fixed `DCICE002` error thrown during IL post-processing when `Entities.ForEach` contains multiple Entities.ForEach in same scope capturing multiple variables.
+* `EntityManager`'s `AddComponent()`, `RemoveComponent()`, and `CopyEntitiesFrom()` methods no longer throw an error if their input is a `NativeArray<Entity>` allocated with `Allocator.Temp` whose length is >10 elements.
+* Throw error when Entities.ForEach has an argument that is a generic DynamicBuffer.
+* Re-adding a system to a `ComponentSystemGroup` immediately after removing it from the group now works correctly.
+* `ComponentSystemGroup.Remove()` is now ignored if the target system is already enqueued for removal, or if it isn't in the group's update list in the first place.
+* Fixed IL post-processing warnings being emitted with "error" title.
+* Fixed "Invalid IL" error when try/finally block occurs in `Entities.ForEach` lambda body or cloned method (usually occurs with `using` or `foreach` and `WithoutBurst`).
+* Fixed `Unexpected error` when `Job.WithCode` is used with `WithStructuralChanges` (now throw an error).
+* Fixed a bug where `Unity.Scenes.EntityScenesPaths.GetTempCachePath()` could return invalid strings
+* Fixed freezing of editor due to accessing the `EntityManager` property within Rider's debugger
+* Fixed a bug where calling `SetArchetype` on an entity containing a component with `ISystemStateComponentData` may sometimes incorrectly throw an `ArgumentException`
 
 ### Known Issues
 

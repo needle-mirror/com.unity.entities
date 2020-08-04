@@ -984,11 +984,26 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         [Test]
-        public void ReadOnlyWarnsAboutArgumentType()
+        public void ReadOnlyWarnsAboutArgumentType_CorrectReadOnlyUsageWithNativeContainer()
         {
             AssertProducesNoError(typeof(CorrectReadOnlyUsageWithNativeContainer));
+        }
+
+        [Test]
+        public void ReadOnlyWarnsAboutArgumentType_CorrectReadOnlyUsageWithStruct()
+        {
             AssertProducesNoError(typeof(CorrectReadOnlyUsageWithStruct));
+        }
+
+        [Test]
+        public void ReadOnlyWarnsAboutArgumentType_IncorrectReadOnlyUsageWithStruct()
+        {
             AssertProducesError(typeof(IncorrectReadOnlyUsageWithStruct), nameof(UserError.DC0034), "structWithPrimitiveType");
+        }
+
+        [Test]
+        public void ReadOnlyWarnsAboutArgumentType_IncorrectReadOnlyUsageWithPrimitiveType()
+        {
             AssertProducesError(typeof(IncorrectReadOnlyUsageWithPrimitiveType), nameof(UserError.DC0034), "myVar");
         }
 
@@ -1038,11 +1053,23 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         [Test]
-        public void DeallocateOnJobCompletionWarnsAboutArgumentType()
+        public void DeallocateOnJobCompletionWarnsAboutArgumentType_CorrectDeallocateOnJobCompletionUsageWithNativeContainer()
         {
             AssertProducesNoError(typeof(CorrectDeallocateOnJobCompletionUsageWithNativeContainer));
+        }
+        [Test]
+        public void DeallocateOnJobCompletionWarnsAboutArgumentType_CorrectDeallocateOnJobCompletionUsageWithStruct()
+        {
             AssertProducesNoError(typeof(CorrectDeallocateOnJobCompletionUsageWithStruct));
+        }
+        [Test]
+        public void DeallocateOnJobCompletionWarnsAboutArgumentType_IncorrectDeallocateOnJobCompletionUsageWithStruct()
+        {
             AssertProducesError(typeof(IncorrectDeallocateOnJobCompletionUsageWithStruct), nameof(UserError.DC0035), "structWithPrimitiveType");
+        }
+        [Test]
+        public void DeallocateOnJobCompletionWarnsAboutArgumentType_IncorrectDeallocateOnJobCompletionUsageWithPrimitiveType()
+        {
             AssertProducesError(typeof(IncorrectDeallocateOnJobCompletionUsageWithPrimitiveType), nameof(UserError.DC0035), "myVar");
         }
 
@@ -1095,11 +1122,23 @@ namespace Unity.Entities.CodeGen.Tests
 #pragma warning restore 0618
 
         [Test]
-        public void DisableContainerSafetyRestrictionWarnsAboutArgumentType()
+        public void DisableContainerSafetyRestrictionWarnsAboutArgumentType_CorrectDisableContainerSafetyRestrictionUsageWithNativeContainer()
         {
             AssertProducesNoError(typeof(CorrectDisableContainerSafetyRestrictionUsageWithNativeContainer));
+        }
+        [Test]
+        public void DisableContainerSafetyRestrictionWarnsAboutArgumentType_CorrectDisableContainerSafetyRestrictionUsageWithStruct()
+        {
             AssertProducesNoError(typeof(CorrectDisableContainerSafetyRestrictionUsageWithStruct));
+        }
+        [Test]
+        public void DisableContainerSafetyRestrictionWarnsAboutArgumentType_IncorrectDisableContainerSafetyRestrictionUsageWithStruct()
+        {
             AssertProducesError(typeof(IncorrectDisableContainerSafetyRestrictionUsageWithStruct), nameof(UserError.DC0036), "structWithPrimitiveType");
+        }
+        [Test]
+        public void DisableContainerSafetyRestrictionWarnsAboutArgumentType_IncorrectDisableContainerSafetyRestrictionUsageWithPrimitiveType()
+        {
             AssertProducesError(typeof(IncorrectDisableContainerSafetyRestrictionUsageWithPrimitiveType), nameof(UserError.DC0036), "myVar");
         }
 
@@ -1154,11 +1193,23 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         [Test]
-        public void DisableParallelForRestrictionWarnsAboutArgumentType()
+        public void DisableParallelForRestrictionWarnsAboutArgumentType_CorrectDisableParallelForRestrictionUsageWithNativeContainer()
         {
             AssertProducesNoError(typeof(CorrectDisableParallelForRestrictionUsageWithNativeContainer));
+        }
+        [Test]
+        public void DisableParallelForRestrictionWarnsAboutArgumentType_CorrectDisableParallelForRestrictionUsageWithStruct()
+        {
             AssertProducesNoError(typeof(CorrectDisableParallelForRestrictionUsageWithStruct));
+        }
+        [Test]
+        public void DisableParallelForRestrictionWarnsAboutArgumentType_IncorrectDisableParallelForRestrictionUsageWithStruct()
+        {
             AssertProducesError(typeof(IncorrectDisableParallelForRestrictionUsageWithStruct), nameof(UserError.DC0037), "structWithPrimitiveType");
+        }
+        [Test]
+        public void DisableParallelForRestrictionWarnsAboutArgumentType_IncorrectDisableParallelForRestrictionUsageWithPrimitiveType()
+        {
             AssertProducesError(typeof(IncorrectDisableParallelForRestrictionUsageWithPrimitiveType), nameof(UserError.DC0037), "myVar");
         }
 
@@ -1329,10 +1380,19 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         [Test]
-        public void InvalidJobNamesThrow()
+        public void InvalidJobNamesThrow_InvalidJobNameWithSpaces()
         {
             AssertProducesError(typeof(InvalidJobNameWithSpaces), nameof(UserError.DC0043), "WithName");
+        }
+
+        [Test]
+        public void InvalidJobNamesThrow_InvalidJobNameStartsWithDigit()
+        {
             AssertProducesError(typeof(InvalidJobNameStartsWithDigit), nameof(UserError.DC0043), "WithName");
+        }
+        [Test]
+        public void InvalidJobNamesThrow_InvalidJobNameCompilerReservedName()
+        {
             AssertProducesError(typeof(InvalidJobNameCompilerReservedName), nameof(UserError.DC0043), "WithName");
         }
 
@@ -1644,12 +1704,20 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         [Test]
-        public void InvalidWithNoneComponentGeneratesError_Test()
+        public void InvalidWithNoneComponentGeneratesError_Test_WithNone_WithAll()
         {
             AssertProducesError(typeof(InvalidWithNoneInWithAllComponentGeneratesError_System), nameof(UserError.DC0056),
                 nameof(LambdaJobQueryConstructionMethods.WithNone), nameof(LambdaJobQueryConstructionMethods.WithAll));
+        }
+        [Test]
+        public void InvalidWithNoneComponentGeneratesError_Test_WithNone_WithAny()
+        {
             AssertProducesError(typeof(InvalidWithNoneInWithAnyComponentGeneratesError_System), nameof(UserError.DC0056),
                 nameof(LambdaJobQueryConstructionMethods.WithNone), nameof(LambdaJobQueryConstructionMethods.WithAny));
+        }
+        [Test]
+        public void InvalidWithNoneComponentGeneratesError_Test_WithNone_LambdaParameter()
+        {
             AssertProducesError(typeof(InvalidWithNoneInLambdaParamComponentGeneratesError_System), nameof(UserError.DC0056),
                 nameof(LambdaJobQueryConstructionMethods.WithNone), "lambda parameter");
         }
@@ -1665,10 +1733,14 @@ namespace Unity.Entities.CodeGen.Tests
         }
 
         [Test]
-        public void InvalidWithAnyComponentGeneratesError_Test()
+        public void InvalidWithAnyComponentGeneratesError_Test_WithAny_WithAll()
         {
             AssertProducesError(typeof(InvalidWithAnyInWithAllComponentGeneratesError_System), nameof(UserError.DC0056),
                 nameof(LambdaJobQueryConstructionMethods.WithAny), nameof(LambdaJobQueryConstructionMethods.WithAll));
+        }
+        [Test]
+        public void InvalidWithAnyComponentGeneratesError_Test_WithAny_LambdaParameter()
+        {
             AssertProducesError(typeof(InvalidWithAnyInLambdaParamComponentGeneratesError_System), nameof(UserError.DC0056),
                 nameof(LambdaJobQueryConstructionMethods.WithAny), "lambda parameter");
         }

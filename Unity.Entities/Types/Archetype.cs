@@ -28,6 +28,12 @@ namespace Unity.Entities
         public ChunkListMap FreeChunksBySharedComponents;
         public ComponentTypeInArchetype* Types;
 
+        // back pointer to EntityQueryData(s), used for chunk list caching
+        public UnsafePtrList MatchingQueryData;
+
+        // single-linked list used for invalidating chunk list caches
+        public Archetype* NextChangedArchetype;
+
         public int EntityCount;
         public int ChunkCapacity;
 
@@ -114,7 +120,7 @@ namespace Unity.Entities
             return info;
         }
 
-        public void AddToChunkList(Chunk *chunk, SharedComponentValues sharedComponentIndices, uint changeVersion)
+        public void AddToChunkList(Chunk *chunk, SharedComponentValues sharedComponentIndices, uint changeVersion, ref EntityComponentStore.ChunkListChanges changes)
         {
             chunk->ListIndex = Chunks.Count;
             if (Chunks.Count == Chunks.Capacity)
@@ -135,13 +141,23 @@ namespace Unity.Entities
             }
 
             Chunks.Add(chunk, sharedComponentIndices, changeVersion);
+
+            fixed(Archetype* archetype = &this)
+            {
+                changes.TrackArchetype(archetype);
+            }
         }
 
-        public void RemoveFromChunkList(Chunk* chunk)
+        public void RemoveFromChunkList(Chunk* chunk, ref EntityComponentStore.ChunkListChanges changes)
         {
             Chunks.RemoveAtSwapBack(chunk->ListIndex);
             var chunkThatMoved = Chunks[chunk->ListIndex];
             chunkThatMoved->ListIndex = chunk->ListIndex;
+
+            fixed(Archetype* archetype = &this)
+            {
+                changes.TrackArchetype(archetype);
+            }
         }
 
         public void AddToChunkListWithEmptySlots(Chunk *chunk)

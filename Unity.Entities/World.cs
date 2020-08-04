@@ -160,6 +160,48 @@ namespace Unity.Entities
         public static implicit operator SystemHandleUntyped(SystemHandle<T> self) => self.MHandle;
     }
 
+    internal struct WorldUnmanagedImpl
+    {
+        public TimeData CurrentTime;
+    }
+
+    public unsafe struct WorldUnmanaged
+    {
+        private WorldUnmanagedImpl* m_Impl;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        private AtomicSafetyHandle m_Safety;
+#endif
+        public ref TimeData CurrentTime => ref GetImpl()->CurrentTime;
+
+        internal void Create()
+        {
+            m_Impl = (WorldUnmanagedImpl*) UnsafeUtility.Malloc(sizeof(WorldUnmanagedImpl), 16, Allocator.Persistent);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_Safety = AtomicSafetyHandle.Create();
+#endif
+        }
+
+        internal void Dispose()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckDeallocateAndThrow(m_Safety);
+            AtomicSafetyHandle.Release (m_Safety);
+#endif
+            UnsafeUtility.Free(m_Impl, Allocator.Persistent);
+            m_Impl = null;
+        }
+
+        private WorldUnmanagedImpl* GetImpl()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
+#endif
+            return m_Impl;
+        }
+    }
+
     [DebuggerDisplay("{Name} - {Flags} (#{SequenceNumber})")]
     public unsafe partial class World : IDisposable
     {
@@ -380,6 +422,10 @@ namespace Unity.Entities
 
         static int ms_SystemIDAllocator = 0;
 
+        private WorldUnmanaged m_Unmanaged;
+
+        public WorldUnmanaged Unmanaged => m_Unmanaged;
+
         internal static readonly SharedStatic<ulong> ms_NextSequenceNumber = SharedStatic<ulong>.GetOrCreate<World>();
 
         public readonly WorldFlags Flags;
@@ -399,11 +445,9 @@ namespace Unity.Entities
 
         public ulong SequenceNumber => m_SequenceNumber;
 
-        protected TimeData m_CurrentTime;
+        public ref TimeData Time => ref m_Unmanaged.CurrentTime;
 
-        public ref TimeData Time => ref m_CurrentTime;
-
-        protected EntityQuery m_TimeSingletonQuery;
+        private EntityQuery m_TimeSingletonQuery;
 
         public World(string name) : this(name, WorldFlags.Simulation)
         {}
@@ -413,6 +457,8 @@ namespace Unity.Entities
 
         internal World(string name, WorldFlags flags)
         {
+            m_Unmanaged.Create();
+
             Systems = new NoAllocReadOnlyCollection<ComponentSystemBase>(m_Systems);
 
             m_SequenceNumber = ms_NextSequenceNumber.Data++;
@@ -467,6 +513,7 @@ namespace Unity.Entities
             m_PendingUnmanagedDestroys.Dispose();
 
             m_StateMemory.Dispose();
+            m_Unmanaged.Dispose();
         }
 
         public static void DisposeAllWorlds()
@@ -500,13 +547,13 @@ namespace Unity.Entities
         public void SetTime(TimeData newTimeData)
         {
             EntityManager.SetComponentData(TimeSingleton, new WorldTime() {Time = newTimeData});
-            m_CurrentTime = newTimeData;
+            this.Time = newTimeData;
         }
 
         public void PushTime(TimeData newTimeData)
         {
             var queue = EntityManager.GetBuffer<WorldTimeQueue>(TimeSingleton);
-            queue.Add(new WorldTimeQueue() { Time = m_CurrentTime });
+            queue.Add(new WorldTimeQueue() { Time = this.Time });
             SetTime(newTimeData);
         }
 
@@ -881,6 +928,17 @@ namespace Unity.Entities
             return ResolveSystemState(id) != null;
         }
 
+        internal SystemHandleUntyped InternalGetExistingUnmanagedSystem(long typeHash)
+        {
+            if (m_UnmanagedSlotByTypeHash.TryGetFirstValue(typeHash, out ushort handle, out _))
+            {
+                var block = m_StateMemory.GetBlock(handle, out var subIndex);
+                return new SystemHandleUntyped(handle, block->Version[subIndex], (uint) m_SequenceNumber);
+            }
+
+            throw new InvalidOperationException("system does not exist");
+        }
+
         internal SystemRef<T> InternalGetExistingUnmanagedSystem<T>() where T : struct, ISystemBase
         {
             if (m_UnmanagedSlotByTypeHash.TryGetFirstValue(BurstRuntime.GetHashCode64<T>(), out ushort handle, out _))
@@ -912,9 +970,7 @@ namespace Unity.Entities
             statePtr = m_StateMemory.Alloc(out var handle, out version, systemPtr, typeHash);
 
             UnsafeUtility.MemClear(statePtr, sizeof(SystemState));
-            statePtr->Init(this, null);
-            statePtr->m_UnmanagedMetaIndex = metaIndex;
-            statePtr->m_SystemPtr = systemPtr;
+            statePtr->InitUnmanaged(this, metaIndex, systemPtr);
 
             ++Version;
 
@@ -972,6 +1028,29 @@ namespace Unity.Entities
             return new SystemRef<T>(systemPtr, new SystemHandle<T>(handle, version, (uint)m_SequenceNumber));
         }
 
+#if !UNITY_DOTSRUNTIME
+        internal SystemHandleUntyped InternalCreateUnmanagedSystem(Type t, long typeHash)
+        {
+            void* systemPtr = null;
+            ushort handle = AllocSlot(UnsafeUtility.SizeOf(t), typeHash, out var statePtr, out systemPtr, out var version);
+
+            try
+            {
+                SystemBaseRegistry.CallOnCreate(statePtr);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                FreeSlot(handle);
+                throw;
+            }
+
+            m_UnmanagedSlotByTypeHash.Add(typeHash, handle);
+
+            return new SystemHandleUntyped(handle, version, (uint)m_SequenceNumber);
+        }
+#endif
+
         internal void InternalDestroyUnmanagedSystem(SystemHandleUntyped sysHandle)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -1016,13 +1095,34 @@ namespace Unity.Entities
             }
         }
 
+#if !UNITY_DOTSRUNTIME
+        internal SystemHandleUntyped GetOrCreateUnmanagedSystem(Type t)
+        {
+            long hash = BurstRuntime.GetHashCode64(t);
+            if (m_UnmanagedSlotByTypeHash.ContainsKey(hash))
+            {
+                return InternalGetExistingUnmanagedSystem(hash);
+            }
+            else
+            {
+                return InternalCreateUnmanagedSystem(t, hash);
+            }
+        }
+
+        internal SystemHandleUntyped CreateUnmanagedSystem(Type t)
+        {
+            long hash = BurstRuntime.GetHashCode64(t);
+            return InternalCreateUnmanagedSystem(t, hash);
+        }
+#endif
+
         internal Type GetTypeOfUnmanagedSystem(SystemHandleUntyped systemHandleUntyped)
         {
             SystemState* s = ResolveSystemState(systemHandleUntyped);
 
             if (s != null)
             {
-                return SystemBaseRegistry.GetStructType(s->m_UnmanagedMetaIndex);
+                return SystemBaseRegistry.GetStructType(s->UnmanagedMetaIndex);
             }
 
             return null;
@@ -1072,6 +1172,13 @@ namespace Unity.Entities
         {
             return self.GetOrCreateUnmanagedSystem<T>();
         }
+
+#if !UNITY_DOTSRUNTIME
+        internal static SystemHandleUntyped GetOrCreateUnmanagedSystem(this World self, Type unmanagedType)
+        {
+            return self.GetOrCreateUnmanagedSystem(unmanagedType);
+        }
+#endif
 
         internal static void DestroySystem(this World self, SystemHandleUntyped sysHandle)
         {

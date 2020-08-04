@@ -44,7 +44,7 @@ namespace Unity.Entities
 
                 var systemTypes = settings.Systems ?? DefaultWorldInitialization.GetAllSystems(settings.FilterFlags);
 
-                var includeExport = settings.GetType() != typeof(GameObjectConversionSettings);
+                var includeExport = settings.SupportsExporting;
                 AddConversionSystems(gameObjectWorld, systemTypes.Concat(settings.ExtraSystems), includeExport);
 
                 settings.ConversionWorldCreated?.Invoke(gameObjectWorld);

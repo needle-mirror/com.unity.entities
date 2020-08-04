@@ -1,3 +1,5 @@
+using System;
+using System.Runtime.InteropServices;
 using NUnit.Framework;
 using Unity.Collections;
 
@@ -124,6 +126,158 @@ namespace Unity.Entities.Tests
                 if (type.IsChunkComponent)
                     Assert.AreEqual(1, metaChunkGroup.CalculateEntityCount());
             }
+        }
+
+        [Test]
+        public void AddMultipleComponentsWithQuery()
+        {
+            var componentTypes = new ComponentTypes(
+                typeof(EcsTestTag), typeof(EcsTestData2), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp));
+
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var entity3 = m_Manager.CreateEntity(typeof(EcsTestData2));
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            m_Manager.AddComponent(query, componentTypes);
+
+            m_ManagerDebug.CheckInternalConsistency();
+
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestTag), typeof(EcsTestData2), ComponentType.ChunkComponent<EcsTestData4>(),
+                typeof(EcsTestSharedComp));
+            Assert.AreEqual(archetype, m_Manager.GetChunk(entity1).Archetype);
+            Assert.AreEqual(archetype, m_Manager.GetChunk(entity2).Archetype);
+
+            // verify entity3 is unchanged
+            Assert.AreEqual(m_Manager.CreateArchetype(typeof(EcsTestData2)), m_Manager.GetChunk(entity3).Archetype);
+        }
+
+        [Test]
+        public void AddMultipleComponentsWithQuery_AddingEntityComponentTypeThrows()
+        {
+            var componentTypes = new ComponentTypes(
+                typeof(EcsTestTag), typeof(Entity), typeof(EcsTestData2), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp));
+
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var entity3 = m_Manager.CreateEntity(typeof(EcsTestData2));
+            var archetype1 = m_Manager.GetChunk(entity1).Archetype;
+            var archetype2 = m_Manager.GetChunk(entity2).Archetype;
+            var archetype3 = m_Manager.GetChunk(entity3).Archetype;
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(query, componentTypes));
+
+            m_ManagerDebug.CheckInternalConsistency();
+
+            // entities should be unchanged
+            Assert.AreEqual(archetype1, m_Manager.GetChunk(entity1).Archetype);
+            Assert.AreEqual(archetype2, m_Manager.GetChunk(entity2).Archetype);
+            Assert.AreEqual(archetype3, m_Manager.GetChunk(entity3).Archetype);
+        }
+
+        [Test]
+        public void AddMultipleComponentsWithQuery_ExceedMaxSharedComponentsThrows()
+        {
+            var componentTypes = new ComponentTypes(new ComponentType[] {
+                typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2), typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4),
+                typeof(EcsTestSharedComp5), typeof(EcsTestSharedComp6), typeof(EcsTestSharedComp7), typeof(EcsTestSharedComp8)
+            });
+
+            Assert.AreEqual(8, EntityComponentStore.kMaxSharedComponentCount);   // if kMaxSharedComponentCount changes, need to update this test
+
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp9));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var entity3 = m_Manager.CreateEntity(typeof(EcsTestData2));
+            var archetype1 = m_Manager.GetChunk(entity1).Archetype;
+            var archetype2 = m_Manager.GetChunk(entity2).Archetype;
+            var archetype3 = m_Manager.GetChunk(entity3).Archetype;
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+
+#if UNITY_DOTSRUNTIME
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent(query, componentTypes));
+#else
+            Assert.That(() => m_Manager.AddComponent(query, componentTypes), Throws.InvalidOperationException
+                  .With.Message.EqualTo("Cannot add more than 8 SharedComponent to a single Archetype"));
+#endif
+
+            m_ManagerDebug.CheckInternalConsistency();
+
+            // entities should be unchanged
+            Assert.AreEqual(archetype1, m_Manager.GetChunk(entity1).Archetype);
+            Assert.AreEqual(archetype2, m_Manager.GetChunk(entity2).Archetype);
+            Assert.AreEqual(archetype3, m_Manager.GetChunk(entity3).Archetype);
+        }
+
+        private struct EcsTestDataHuge : IComponentData
+        {
+            public FixedString4096 value0;
+            public FixedString4096 value1;
+            public FixedString4096 value2;
+            public FixedString4096 value3;
+            public FixedString4096 value4;
+
+            public EcsTestDataHuge(FixedString4096 inValue)
+            {
+                value4 = value3 = value2 = value1 = value0 = inValue;
+            }
+        }
+
+        [Test]
+        public void AddMultipleComponentsWithQuery_ExceedChunkCapacityThrows()
+        {
+            var componentTypes = new ComponentTypes(typeof(EcsTestDataHuge)); // add really big component(s)
+
+            Assert.AreEqual(16064, Chunk.GetChunkBufferSize());   // if chunk size changes, need to update this test
+
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var entity3 = m_Manager.CreateEntity(typeof(EcsTestData2));
+            var archetype1 = m_Manager.GetChunk(entity1).Archetype;
+            var archetype2 = m_Manager.GetChunk(entity2).Archetype;
+            var archetype3 = m_Manager.GetChunk(entity3).Archetype;
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+#if UNITY_DOTSRUNTIME
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent(query, componentTypes));
+#else
+            Assert.That(() => m_Manager.AddComponent(query, componentTypes), Throws.InvalidOperationException
+                            .With.Message.Contains("Entity archetype component data is too large."));
+#endif
+
+            m_ManagerDebug.CheckInternalConsistency();
+
+            // entities should be unchanged
+            Assert.AreEqual(archetype1, m_Manager.GetChunk(entity1).Archetype);
+            Assert.AreEqual(archetype2, m_Manager.GetChunk(entity2).Archetype);
+            Assert.AreEqual(archetype3, m_Manager.GetChunk(entity3).Archetype);
+        }
+
+        [Test]
+        [Ignore("Changes this test was introduced with were reverted due to a bug")]
+        public void RemoveMultipleComponentsWithQuery()
+        {
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsTestData), typeof(EcsTestData4), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp) );
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp) );
+            var entity3 = m_Manager.CreateEntity(typeof(EcsTestData2));
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData2));
+
+            m_Manager.RemoveComponent(query, new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData4), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp)));
+
+            m_ManagerDebug.CheckInternalConsistency();
+
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestTag), typeof(EcsTestData), typeof(EcsTestData4), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp) );
+            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetype3 = m_Manager.CreateArchetype();
+            Assert.AreEqual(archetype1, m_Manager.GetChunk(entity1).Archetype);
+            Assert.AreEqual(archetype2, m_Manager.GetChunk(entity2).Archetype);
+            Assert.AreEqual(archetype3, m_Manager.GetChunk(entity3).Archetype);
         }
 
         [Test]

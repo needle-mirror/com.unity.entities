@@ -287,7 +287,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
 
     // ** EXPORT **
 
-    public Guid GetGuidForAssetExport(UnityObject asset)
+    public Unity.Entities.Hash128 GetGuidForAssetExport(UnityObject asset)
         => m_MappingSystem.GetGuidForAssetExport(asset);
     public Stream TryCreateAssetExportWriter(UnityObject asset)
         => m_MappingSystem.TryCreateAssetExportWriter(asset);

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using Unity.Collections;
 using UnityEngine;
@@ -15,6 +16,22 @@ namespace Unity.Scenes
         private AssetBundleCreateRequest _assetBundleCreateRequest;
         private AssetBundle _assetBundle;
         private readonly string _bundlePath;
+
+        public static bool UseAssetBundles
+        {
+            get
+            {
+#if UNITY_EDITOR
+#if USE_ASSETBUNDLES_IN_EDITOR_PLAY_MODE
+                if (Application.isPlaying)
+                    return true;
+#endif
+                return false;
+#else
+                return true;
+#endif
+            }
+        }
 
         internal AssetBundle AssetBundle
         {
@@ -33,8 +50,8 @@ namespace Unity.Scenes
         private SceneBundleHandle(string bundlePath)
         {
             _refCount = 0;
-            _assetBundleCreateRequest = AssetBundle.LoadFromFileAsync(bundlePath);
             _bundlePath = bundlePath;
+            _assetBundleCreateRequest = AssetBundle.LoadFromFileAsync(_bundlePath);
         }
 
         internal bool IsReady()
@@ -63,16 +80,70 @@ namespace Unity.Scenes
                 ReleaseBundle(this);
             }
         }
+        //used by tests
+        internal static string[] GetLoadedBundlesPaths()
+        {
+            return LoadedBundles.Keys.ToArray();
+        }
 
         internal void Retain()
         {
             Interlocked.Increment(ref _refCount);
         }
-
         private static readonly Dictionary<string, SceneBundleHandle> LoadedBundles = new Dictionary<string, SceneBundleHandle>();
         private static readonly ConcurrentDictionary<string, SceneBundleHandle> UnloadingBundles = new ConcurrentDictionary<string, SceneBundleHandle>();
+        internal static List<SceneBundleHandle> LoadSceneBundles(string mainBundlePath, NativeArray<Entities.Hash128> sharedBundles, bool blocking)
+        {
+            var bundles = new List<SceneBundleHandle>();
 
-        internal static SceneBundleHandle CreateOrRetainBundle(string bundlePath)
+            if (sharedBundles.IsCreated)
+            {
+                for (int i = 0; i < sharedBundles.Length; i++)
+                {
+                    var path = $"{Application.streamingAssetsPath}/{EntityScenesPaths.RelativePathFolderFor(sharedBundles[i], EntityScenesPaths.PathType.EntitiesSharedReferencesBundle, -1)}";
+                    bundles.Add(CreateOrRetainBundle(path));
+                }
+                sharedBundles.Dispose();
+            }
+
+            if (!string.IsNullOrEmpty(mainBundlePath))
+            {
+                bundles.Insert(0, CreateOrRetainBundle(mainBundlePath));
+            }
+
+            if (blocking)
+            {
+                foreach (var b in bundles)
+                {
+                    var forceLoad = b.AssetBundle;
+                    if (forceLoad == null)
+                    {
+                        Debug.LogWarning($"Failed to load asset bundle at path {b._bundlePath}");
+                    }
+                }
+            }
+            return bundles;
+        }
+
+        internal static bool CheckLoadingStatus(List<SceneBundleHandle> bundles, ref string error)
+        {
+            if (bundles == null)
+                return true;
+
+            foreach (var b in bundles)
+            {
+                if (!b.IsReady())
+                    return false;
+                if (b.AssetBundle == null)
+                {
+                    error = $"Failed to load asset bundle at path {b._bundlePath}";
+                    return true;
+                }
+            }
+            return true;
+        }
+
+        static SceneBundleHandle CreateOrRetainBundle(string bundlePath)
         {
             if (bundlePath == null)
                 throw new InvalidOperationException("Bundle Path is null!");
@@ -82,9 +153,7 @@ namespace Unity.Scenes
             {
                 // Check if it's about to be unloaded
                 if (!UnloadingBundles.TryRemove(bundlePath, out assetBundleHandle))
-                {
                     assetBundleHandle = new SceneBundleHandle(bundlePath);
-                }
 
                 LoadedBundles[bundlePath] = assetBundleHandle;
             }
@@ -114,7 +183,7 @@ namespace Unity.Scenes
             {
                 if (sceneBundleHandle.Value.IsReady())
                 {
-                    sceneBundleHandle.Value.AssetBundle.Unload(true);
+                    sceneBundleHandle.Value.AssetBundle?.Unload(true);
 
                     UnloadingBundles.TryRemove(sceneBundleHandle.Key, out _);
                 }

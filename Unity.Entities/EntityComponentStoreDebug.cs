@@ -201,7 +201,7 @@ namespace Unity.Entities
         {
             if (count < 1)
                 throw new ArgumentException($"Invalid component count");
-            
+
             // NOTE: LookUpCache / ComponentDataFromEntity uses short for the IndexInArchetype cache
             if (count >= short.MaxValue)
                 throw new ArgumentException($"Archetypes can have a maximum of {short.MaxValue} components.");
@@ -326,6 +326,31 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanAddComponents(UnsafeMatchingArchetypePtrList archetypeList, ComponentTypes componentTypes)
+        {
+            int newShared = 0;
+            int totalNewComponentSize = 0;
+            for (int i = 0; i < componentTypes.Length; i++)
+            {
+                var componentType = componentTypes.GetComponentType(i);
+                if (componentType == m_EntityComponentType)
+                    throw new ArgumentException("Cannot add Entity as a component.");
+                if (componentType.IsSharedComponent)
+                    newShared++;
+                totalNewComponentSize += GetComponentArraySize(GetTypeInfo(componentType.TypeIndex).SizeInChunk, 1);
+            }
+
+            for (int i = 0; i < archetypeList.Length; i++)
+            {
+                var archetype = archetypeList.Ptr[i]->Archetype;
+                if ((archetype->NumSharedComponents + newShared) > kMaxSharedComponentCount)
+                    throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent to a single Archetype");
+                if ((archetype->InstanceSizeWithOverhead + totalNewComponentSize) > Chunk.GetChunkBufferSize())
+                    throw new InvalidOperationException("Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead}  bytes. Attempting to add component size {componentInstanceSize} bytes. Maximum chunk size {chunkDataSize}.");
+            }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertCanAddComponents(Entity entity, ComponentTypes types)
         {
             for (int i = 0; i < types.Length; ++i)
@@ -447,7 +472,7 @@ namespace Unity.Entities
             int o = 0;
             int n = 0;
 
-            for (; n < src->TypesCount && o < dst->TypesCount;)
+            for (; o < src->TypesCount && n < dst->TypesCount;)
             {
                 int srcType = src->Types[o].TypeIndex;
                 int dstType = dst->Types[n].TypeIndex;
@@ -475,16 +500,25 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        public void AssertCanAddChunkComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType)
+        public void CheckCanAddChunkComponent(NativeArray<ArchetypeChunk> chunkArray, ComponentType componentType, ref bool result)
         {
             var chunks = (ArchetypeChunk*)chunkArray.GetUnsafeReadOnlyPtr();
+
             for (int i = 0; i < chunkArray.Length; ++i)
             {
                 var chunk = chunks[i].m_Chunk;
                 if (ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, componentType.TypeIndex) != -1)
-                    throw new ArgumentException(
-                        $"A chunk component with type:{componentType} has already been added to the chunk.");
+                {
+                    result = false;
+                    return;
+                }
             }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void ThrowDuplicateChunkComponentError(ComponentType componentType)
+        {
+            throw new ArgumentException($"A chunk component with type:{componentType} has already been added to the chunk.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]

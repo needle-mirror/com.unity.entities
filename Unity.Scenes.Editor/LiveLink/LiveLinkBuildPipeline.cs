@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Unity.Collections;
+using Unity.Entities.Serialization;
 using UnityEditor;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
@@ -629,5 +631,39 @@ namespace Unity.Scenes.Editor
 
             dependencies = resolvedDependencies.ToArray();
         }
+
+        internal static NativeArray<ResolvedAssetID> GetSubSceneDependencies(Hash128 artifactHash)
+        {
+            //@TODO: should be based on connection / BuildSetting
+            var buildTarget = EditorUserBuildSettings.activeBuildTarget;
+
+            var resolvedDependencies = default(NativeArray<ResolvedAssetID>);
+            AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out string[] paths);
+
+            if(paths == null || paths.Length == 0)
+                throw new InvalidOperationException($"SubScene had no valid artifact paths - hash {artifactHash}");
+
+            var loadPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesAssetDependencyGUIDs);
+
+            if (loadPath != null && File.Exists(loadPath))
+            {
+                using (var reader = new StreamBinaryReader(loadPath))
+                {
+                    var len = reader.ReadInt();
+                    var dependencies = new NativeArray<Unity.Entities.Hash128>(len, Allocator.Temp);
+                    reader.ReadArray(dependencies, len);
+
+                    resolvedDependencies = new NativeArray<ResolvedAssetID>(dependencies.Length, Allocator.Temp);
+                    for(int i = 0; i < dependencies.Length; i++)
+                    {
+                        var targetHash = LiveLinkBuildPipeline.CalculateTargetHash(dependencies[i], buildTarget, ImportMode.NoImport);
+                        resolvedDependencies[i] = new ResolvedAssetID { GUID = dependencies[i], TargetHash = targetHash };
+                    }
+                }
+            }
+
+            return resolvedDependencies;
+        }
+
     }
 }

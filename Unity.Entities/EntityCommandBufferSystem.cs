@@ -80,9 +80,7 @@ namespace Unity.Entities
         public EntityCommandBuffer CreateCommandBuffer()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob, -1, PlaybackPolicy.SinglePlayback);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             cmds.SystemID = ms_ExecutingSystem != null ? ms_ExecutingSystem.CheckedState()->m_SystemID : 0;
-#endif
             m_PendingBuffers.Add(cmds);
 
             return cmds;

@@ -88,16 +88,20 @@ namespace Unity.Entities.CodeGen
             {
                 if (instruction.IsInvocation(out var methodReference))
                 {
-                    // Ensure a good match with the singleton method we want to patch
-                    if (methodReference.DeclaringType.TypeReferenceEquals(typeof(ComponentSystemBase)) &&
-                        SingletonAccessMethodDescriptions.TryGetValue(methodReference.Name, out var methodDescription) &&
-                        methodReference is GenericInstanceMethod genericInvocation && genericInvocation.GenericArguments.Count() == 1 &&
-                        methodReference.Parameters.Count() == methodDescription.parameterCount)
+                    if (methodReference.DeclaringType.TypeReferenceEquals(typeof(ComponentSystemBase)))
                     {
-                        if (!madeChange)
-                            containingMethod.Body.SimplifyMacros();
-                        PatchSingletonMethod(containingMethod, methodReference, instruction, entityQueryFields, methodDescription);
-                        madeChange = true;
+                        // Ensure a good match with the singleton method we want to patch
+                        // and that the generic argument is not a generic parameter itself (in which case it is difficult to predetermine query type)
+                        if (SingletonAccessMethodDescriptions.TryGetValue(methodReference.Name, out var methodDescription) &&
+                            methodReference.Parameters.Count() == methodDescription.parameterCount &&
+                            methodReference is GenericInstanceMethod genericInstanceMethod && genericInstanceMethod.GenericArguments.Count() == 1 &&
+                            !genericInstanceMethod.GenericArguments.First().IsGenericParameter)
+                        {
+                            if (!madeChange)
+                                containingMethod.Body.SimplifyMacros();
+                            PatchSingletonMethod(containingMethod, methodReference, instruction, entityQueryFields, methodDescription);
+                            madeChange = true;
+                        }
                     }
                 }
             }

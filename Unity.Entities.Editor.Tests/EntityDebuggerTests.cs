@@ -37,7 +37,6 @@ namespace Unity.Entities.Editor.Tests
 
         private const string World2Name = "Test World 2";
         private World World2;
-        private PlayerLoopSystem m_PrevPlayerLoop;
 
         public override void Setup()
         {
@@ -50,9 +49,7 @@ namespace Unity.Entities.Editor.Tests
             m_System = World.GetOrCreateSystem<SingleGroupSystem>();
             World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_System);
 
-            var playerLoop = PlayerLoop.GetDefaultPlayerLoop(); // TODO(DOTS-2283): shouldn't stomp default player loop here
-            ScriptBehaviourUpdateOrder.AddWorldToPlayerLoop(World, ref playerLoop);
-            PlayerLoop.SetPlayerLoop(playerLoop);
+            ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(World);
 
             World2 = new World(World2Name);
             var emptySys = World2.GetOrCreateSystem<EmptySystem>();

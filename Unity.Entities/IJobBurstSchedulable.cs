@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Burst;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -9,15 +8,15 @@ using Unity.Jobs;
 
 namespace Unity.Entities
 {
-    [JobProducerType(typeof(IJobBurstScheduableExtensions.JobStruct<>))]
-    internal interface IJobBurstScheduable
+    [JobProducerType(typeof(IJobBurstSchedulableExtensions.JobStruct<>))]
+    internal interface IJobBurstSchedulable
     {
         void Execute();
     }
 
-    internal static class IJobBurstScheduableExtensions
+    internal static class IJobBurstSchedulableExtensions
     {
-        internal struct JobStruct<T> where T : struct, IJobBurstScheduable
+        internal struct JobStruct<T> where T : struct, IJobBurstSchedulable
         {
             public static readonly SharedStatic<IntPtr> jobReflectionData = SharedStatic<IntPtr>.GetOrCreate<JobStruct<T>>();
 
@@ -26,7 +25,7 @@ namespace Unity.Entities
             {
                 if (jobReflectionData.Data == IntPtr.Zero)
                 {
-#if UNITY_2020_2_OR_NEWER
+#if UNITY_2020_2_OR_NEWER || UNITY_DOTSRUNTIME
                     jobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(T), (ExecuteJobFunction)Execute);
 #else
                     jobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(T), JobType.Single, (ExecuteJobFunction)Execute);
@@ -49,11 +48,11 @@ namespace Unity.Entities
                 throw new InvalidOperationException("Reflection data was not set up by an Initialize() call");
         }
 
-        unsafe internal static JobHandle Schedule<T>(this T jobData, JobHandle dependsOn = new JobHandle()) where T : struct, IJobBurstScheduable
+        unsafe internal static JobHandle Schedule<T>(this T jobData, JobHandle dependsOn = new JobHandle()) where T : struct, IJobBurstSchedulable
         {
             var reflectionData = JobStruct<T>.jobReflectionData.Data;
             CheckReflectionDataCorrect(reflectionData);
-#if UNITY_2020_2_OR_NEWER            
+#if UNITY_2020_2_OR_NEWER || UNITY_DOTSRUNTIME
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref jobData), reflectionData, dependsOn, ScheduleMode.Parallel);
 #else
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref jobData), reflectionData, dependsOn, ScheduleMode.Batched);
@@ -61,7 +60,7 @@ namespace Unity.Entities
             return JobsUtility.Schedule(ref scheduleParams);
         }
 
-        unsafe internal static void Run<T>(this T jobData) where T : struct, IJobBurstScheduable
+        unsafe internal static void Run<T>(this T jobData) where T : struct, IJobBurstSchedulable
         {
             var reflectionData = JobStruct<T>.jobReflectionData.Data;
             CheckReflectionDataCorrect(reflectionData);
@@ -70,9 +69,3 @@ namespace Unity.Entities
         }
     }
 }
-#else
-namespace Unity.Jobs
-{
-    internal interface IJobBurstScheduable : IJob {}
-}
-#endif

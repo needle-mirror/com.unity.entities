@@ -104,6 +104,7 @@ namespace Unity.Entities
             s->AllocateConsecutiveEntitiesForLoading(count);
         }
 
+        [NotBurstCompatible]
         internal void AddSharedComponent<T>(NativeArray<ArchetypeChunk> chunks, T componentData)
             where T : struct, ISharedComponentData
         {

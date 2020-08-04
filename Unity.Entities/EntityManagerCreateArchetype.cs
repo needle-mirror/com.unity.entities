@@ -1,3 +1,5 @@
+using System;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
@@ -16,8 +18,12 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="types">The component types to include as part of the archetype.</param>
         /// <returns>The EntityArchetype object for the archetype.</returns>
+        [NotBurstCompatible]
         public EntityArchetype CreateArchetype(params ComponentType[] types)
         {
+            if (types == null)
+                throw new NullReferenceException(nameof(types));
+
             fixed(ComponentType* typesPtr = types)
             {
                 var access = GetCheckedEntityDataAccess();

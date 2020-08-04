@@ -17,3 +17,4 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen.Tests")]
 [assembly: InternalsVisibleTo("Unity.Tiny.Rendering.Authoring")]
+[assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build")]

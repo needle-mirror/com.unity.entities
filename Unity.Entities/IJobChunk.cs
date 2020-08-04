@@ -64,17 +64,30 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 #pragma warning disable 414
-            [ReadOnly] public EntitySafetyHandle safety;
+            [ReadOnly] internal EntitySafetyHandle safety;
 #pragma warning restore
 #endif
-            public T JobData;
+            internal T JobData;
 
             [NativeDisableContainerSafetyRestriction]
             [DeallocateOnJobCompletion]
-            public NativeArray<byte> PrefilterData;
+            internal NativeArray<byte> PrefilterData;
 
-            public int IsParallel;
+            internal int IsParallel;
         }
+
+#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
+        /// <summary>
+        /// This method is only to be called by automatically generated setup code.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        public static void EarlyJobInit<T>()
+            where T : struct, IJobChunk
+        {
+            JobChunkProducer<T>.CreateReflectionData();
+        }
+#endif
+
 
         /// <summary>
         /// Adds an IJobChunk instance to the Job scheduler queue for parallel execution.
@@ -190,7 +203,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // All IJobChunk jobs have a EntityManager safety handle to ensure that BeforeStructuralChange throws an error if
                 // jobs without any other safety handles are still running (haven't been synced).
-                safety = new EntitySafetyHandle {m_Safety = impl->_Access->DependencyManager->Safety.GetEntityManagerSafetyHandle()},
+                safety = new EntitySafetyHandle { m_Safety = impl->_Access->DependencyManager->Safety.GetEntityManagerSafetyHandle() },
 #endif
 
                 JobData = jobData,
@@ -204,10 +217,62 @@ namespace Unity.Entities
                 prefilterHandle,
                 mode);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if UNITY_DOTSRUNTIME
             try
             {
+                if (!isParallel)
+                {
+                    return JobsUtility.Schedule(ref scheduleParams);
+                }
+                else
+                {
+                    if (useFiltering)
+                        return JobsUtility.ScheduleParallelForDeferArraySize(ref scheduleParams, 1, deferredCountData, null);
+                    else
+                        return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredChunkCount, 1);
+                }
+            }
+            catch (InvalidOperationException e)
+            {
+                prefilterHandle.Complete();
+                prefilterData.Dispose();
+                throw e;
+            }
+#else
+            // We can't use try {} catch {} with 2020.2 as we will be burst compiling the schedule code.
+            // Burst doesn't support exception handling.
+            bool executedManaged = false;
+            JobHandle result = default;
+            FinalizeScheduleChecked(isParallel, unfilteredChunkCount, prefilterHandle, prefilterData, deferredCountData, useFiltering, ref scheduleParams, ref executedManaged, ref result);
+
+            if (executedManaged)
+                return result;
+
+            return FinalizeScheduleNoExceptions(isParallel, unfilteredChunkCount, deferredCountData, useFiltering, ref scheduleParams);
 #endif
+        }
+
+#if !UNITY_DOTSRUNTIME
+        // Burst does not support exception handling.
+        [BurstDiscard]
+        private static unsafe void FinalizeScheduleChecked(bool isParallel, int unfilteredChunkCount, JobHandle prefilterHandle, NativeArray<byte> prefilterData, void* deferredCountData, bool useFiltering, ref JobsUtility.JobScheduleParameters scheduleParams, ref bool executed, ref JobHandle result)
+        {
+            executed = true;
+
+            try
+            {
+                result = FinalizeScheduleNoExceptions(isParallel, unfilteredChunkCount, deferredCountData, useFiltering, ref scheduleParams);
+            }
+            catch (InvalidOperationException e)
+            {
+                prefilterHandle.Complete();
+                prefilterData.Dispose();
+                throw e;
+            }
+        }
+
+        private static unsafe JobHandle FinalizeScheduleNoExceptions(bool isParallel, int unfilteredChunkCount, void* deferredCountData, bool useFiltering, ref JobsUtility.JobScheduleParameters scheduleParams)
+        {
             if (!isParallel)
             {
                 return JobsUtility.Schedule(ref scheduleParams);
@@ -219,55 +284,55 @@ namespace Unity.Entities
                 else
                     return JobsUtility.ScheduleParallelFor(ref scheduleParams, unfilteredChunkCount, 1);
             }
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        }
-
-        catch (InvalidOperationException e)
-        {
-            prefilterHandle.Complete();
-            prefilterData.Dispose();
-            throw e;
         }
 #endif
-        }
 
         internal struct JobChunkProducer<T>
             where T : struct, IJobChunk
         {
+
+#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
+            internal static readonly SharedStatic<IntPtr> s_ReflectionData = SharedStatic<IntPtr>.GetOrCreate<T>();
+
+            internal static void CreateReflectionData()
+            {
+                s_ReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>), typeof(T), (ExecuteJobFunction)Execute);
+            }
+#else
             static IntPtr s_JobReflectionDataParallel;
             static IntPtr s_JobReflectionDataSingle;
+#endif
 
-            public static IntPtr InitializeSingle()
+            internal static IntPtr InitializeSingle()
             {
+#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
+                return InitializeParallel();
+#else
                 if (s_JobReflectionDataSingle == IntPtr.Zero)
-#if UNITY_2020_2_OR_NEWER
-                    s_JobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
-                        typeof(T), (ExecuteJobFunction)Execute);
-#else
-                    s_JobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
-                        typeof(T), JobType.Single, (ExecuteJobFunction)Execute);
-#endif
-
+                    s_JobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>), typeof(T), JobType.Single, (ExecuteJobFunction)Execute);
                 return s_JobReflectionDataSingle;
-            }
-
-            public static IntPtr InitializeParallel()
-            {
-                if (s_JobReflectionDataParallel == IntPtr.Zero)
-#if UNITY_2020_2_OR_NEWER
-                    s_JobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
-                        typeof(T), (ExecuteJobFunction)Execute);
-#else
-                    s_JobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>),
-                        typeof(T), JobType.ParallelFor, (ExecuteJobFunction)Execute);
 #endif
-
-                return s_JobReflectionDataParallel;
             }
 
-            public delegate void ExecuteJobFunction(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
+            internal static IntPtr InitializeParallel()
+            {
+#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
+                IntPtr result = s_ReflectionData.Data;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (result == IntPtr.Zero)
+                    throw new InvalidOperationException("IJobChunk job reflection data has not been automatically computed - this is a bug");
+#endif
+                return result;
+#else
+                if (s_JobReflectionDataParallel == IntPtr.Zero)
+                    s_JobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>), typeof(T), JobType.ParallelFor, (ExecuteJobFunction)Execute);
+                return s_JobReflectionDataParallel;
+#endif
+            }
 
-            public static void Execute(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
+            internal delegate void ExecuteJobFunction(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
+
+            internal static void Execute(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
                 ExecuteInternal(ref jobWrapper, ref ranges, jobIndex);
             }

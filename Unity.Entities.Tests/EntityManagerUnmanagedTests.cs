@@ -40,6 +40,7 @@ namespace Unity.Entities.Tests
             {
             }
 
+
             [BurstCompile(CompileSynchronously = true)]
             public void OnUpdate(ref SystemState state)
             {

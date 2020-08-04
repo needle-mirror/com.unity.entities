@@ -30,7 +30,9 @@ namespace Unity.Entities
 #>
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(Unsafe<#=typeName#>ListDebugView))]
-    internal unsafe struct Unsafe<#=typeName#>List : IDisposable
+    internal unsafe struct Unsafe<#=typeName#>List
+        : INativeDisposable
+//        , INativeList<<#=type#>>
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly <#=type#>* Ptr;
@@ -53,7 +55,7 @@ namespace Unity.Entities
         public void AddNoResize(<#=type#> value) { this.ListData().AddNoResize(value); }
         public void AddRangeNoResize(void* ptr, int length) { this.ListData().AddRangeNoResize<<#=type#>>(ptr, length); }
         public void AddRangeNoResize(Unsafe<#=typeName#>List src) { this.ListData().AddRangeNoResize<<#=type#>>(src.ListData()); }
-        public void Add(<#=type#> value) { this.ListData().Add(value); }
+        public void Add(in <#=type#> value) { this.ListData().Add(value); }
         public void AddRange(Unsafe<#=typeName#>List src) { this.ListData().AddRange<<#=type#>>(src.ListData()); }
         public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack<<#=type#>>(index); }
 
@@ -126,7 +128,9 @@ namespace Unity.Entities
 #>
     [DebuggerDisplay("Length = {Length}, Capacity = {Capacity}, IsCreated = {IsCreated}")]
     [DebuggerTypeProxy(typeof(Unsafe<#=typeName#>PtrListDebugView))]
-    internal unsafe struct Unsafe<#=typeName#>PtrList : IDisposable
+    internal unsafe struct Unsafe<#=typeName#>PtrList
+        : INativeDisposable
+//        , INativeList<<#=type#>>
     {
         [NativeDisableUnsafePtrRestriction]
         public readonly <#=type#>** Ptr;
@@ -146,7 +150,7 @@ namespace Unity.Entities
         public void TrimExcess() { this.ListData().TrimExcess(); }
         public int IndexOf(<#=type#>* value) { return this.ListData().IndexOf(value); }
         public bool Contains(<#=type#>* value) { return this.ListData().Contains(value); }
-        public void Add(<#=type#>* value) { this.ListData().Add(value); }
+        public void Add(in <#=type#>* value) { this.ListData().Add(value); }
         public void AddRange(Unsafe<#=typeName#>PtrList src) { this.ListData().AddRange(src.ListData()); }
         public void RemoveAtSwapBack(int index) { this.ListData().RemoveAtSwapBack(index); }
 

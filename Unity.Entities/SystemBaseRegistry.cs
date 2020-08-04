@@ -302,7 +302,7 @@ namespace Unity.Entities
         [BurstCompatible]
         internal static unsafe void CallForwardingFunction(SystemState* systemState, int index)
         {
-            var metaIndex = systemState->m_UnmanagedMetaIndex;
+            var metaIndex = systemState->UnmanagedMetaIndex;
             var systemPointer = systemState->m_SystemPtr;
             var delegates = s_Data.Data.GetSystemDelegates(metaIndex);
             bool isBurst = true;

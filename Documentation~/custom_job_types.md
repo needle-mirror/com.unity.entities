@@ -252,7 +252,7 @@ counter.Count = 0;
 var handle = jobData.Schedule(input.Length, 8);
 handle.Complete();
 
-Debug.Log("The array countains " + counter.Count + " zeros");
+Debug.Log("The array contains " + counter.Count + " zeros");
 counter.Dispose();
 ```
 

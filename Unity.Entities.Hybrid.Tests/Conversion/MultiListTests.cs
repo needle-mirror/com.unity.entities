@@ -7,7 +7,7 @@ namespace Unity.Entities.Tests.Conversion
 {
     class MultiListTests
     {
-        MultiList<string> m_MultiList;
+        MultiList<string, MultiListArrayData<string>> m_MultiList;
 
         [SetUp]
         public void SetUp()
@@ -21,16 +21,18 @@ namespace Unity.Entities.Tests.Conversion
         public void TearDown()
         {
             MultiListDebugUtility.ValidateIntegrity(ref m_MultiList);
+            m_MultiList.Dispose();
         }
 
         [Test]
         public void AddHead_AfterRelease_ReusesCapacity()
         {
+            m_MultiList.Dispose();
             m_MultiList.Init();
             m_MultiList.EnsureCapacity(2);
             m_MultiList.SetHeadIdsCapacity(2);
 
-            Assert.That(m_MultiList.Data.Length, Is.EqualTo(2));
+            Assert.That(m_MultiList.Data.Data.Length, Is.GreaterThanOrEqualTo(2));
             var oldHeadIds = m_MultiList.HeadIds;
             var oldNext = m_MultiList.Next;
             var oldData = m_MultiList.Data;
@@ -40,15 +42,15 @@ namespace Unity.Entities.Tests.Conversion
 
             m_MultiList.ReleaseList(1);
 
-            Assert.That(m_MultiList.HeadIds, Is.SameAs(oldHeadIds));
-            Assert.That(m_MultiList.Next, Is.SameAs(oldNext));
-            Assert.That(m_MultiList.Data, Is.SameAs(oldData));
+            Assert.That(m_MultiList.HeadIds, Is.EqualTo(oldHeadIds));
+            Assert.That(m_MultiList.Next, Is.EqualTo(oldNext));
+            Assert.That(m_MultiList.Data, Is.EqualTo(oldData));
 
             m_MultiList.AddHead(1, "2");
 
-            Assert.That(m_MultiList.HeadIds, Is.SameAs(oldHeadIds));
-            Assert.That(m_MultiList.Next, Is.SameAs(oldNext));
-            Assert.That(m_MultiList.Data, Is.SameAs(oldData));
+            Assert.That(m_MultiList.HeadIds, Is.EqualTo(oldHeadIds));
+            Assert.That(m_MultiList.Next, Is.EqualTo(oldNext));
+            Assert.That(m_MultiList.Data, Is.EqualTo(oldData));
         }
 
         [Test]
@@ -64,28 +66,29 @@ namespace Unity.Entities.Tests.Conversion
         [Test]
         public void AddVarious_WithInvalidId_Throws()
         {
-            var(min, max) = (-1, m_MultiList.HeadIds.Length);
+            const int invalid = -1;
+            var outOfRange = m_MultiList.HeadIds.Length;
 
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddHead(min, "0"));
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddHead(max, "0"));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddHead(invalid, "0"));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddHead(outOfRange, "0"));
 
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.Add(min, "0"));
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.Add(max, "0"));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.Add(invalid, "0"));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.Add(outOfRange, "0"));
 
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(min));
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(max));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(invalid));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(outOfRange));
 
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(min, "0"));
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(max, "0"));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(invalid, "0"));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.AddTail(outOfRange, "0"));
 
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.ReleaseList(min));
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.ReleaseList(max));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.ReleaseList(invalid));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.ReleaseList(outOfRange));
 
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.ReleaseListKeepHead(min));
-            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.ReleaseListKeepHead(max));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.ReleaseListKeepHead(invalid));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.ReleaseListKeepHead(outOfRange));
 
-            Assert.DoesNotThrow(() => { foreach (var _ in m_MultiList.SelectListAt(min)) {} });
-            Assert.Throws<IndexOutOfRangeException>(() => { foreach (var _ in m_MultiList.SelectListAt(max)) {} });
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.SelectList(invalid));
+            Assert.Throws<IndexOutOfRangeException>(() => m_MultiList.SelectList(outOfRange));
         }
 
         [Test]
@@ -110,7 +113,7 @@ namespace Unity.Entities.Tests.Conversion
             m_MultiList.AddHead(0, "0a");
             int id;
             m_MultiList.AddTail(0, &id, 1);
-            m_MultiList.Data[id] = "0b";
+            m_MultiList.Data.Data[id] = "0b";
             MultiListDebugUtility.ValidateIntegrity(ref m_MultiList);
             var data = MultiListDebugUtility.SelectAllData(m_MultiList);
             Assert.That(data, Is.EqualTo(new[] {new[] {"0a", "0b"}}));
@@ -122,11 +125,11 @@ namespace Unity.Entities.Tests.Conversion
             m_MultiList.AddHead(0, "0a");
             int* ids = stackalloc int[5];
             m_MultiList.AddTail(0, ids, 5);
-            m_MultiList.Data[ids[0]] = "0b";
-            m_MultiList.Data[ids[1]] = "0c";
-            m_MultiList.Data[ids[2]] = "0d";
-            m_MultiList.Data[ids[3]] = "0e";
-            m_MultiList.Data[ids[4]] = "0f";
+            m_MultiList.Data.Data[ids[0]] = "0b";
+            m_MultiList.Data.Data[ids[1]] = "0c";
+            m_MultiList.Data.Data[ids[2]] = "0d";
+            m_MultiList.Data.Data[ids[3]] = "0e";
+            m_MultiList.Data.Data[ids[4]] = "0f";
             MultiListDebugUtility.ValidateIntegrity(ref m_MultiList);
             var data = MultiListDebugUtility.SelectAllData(m_MultiList);
             Assert.That(data, Is.EqualTo(new[] {new[] {"0a", "0b", "0c", "0d", "0e", "0f"}}));
@@ -203,7 +206,7 @@ namespace Unity.Entities.Tests.Conversion
             Assert.That(MultiListDebugUtility.SelectAllData(m_MultiList), Is.EqualTo(
                 new[] { new[] { "0", "0a", null, "0c" } }));
 
-            m_MultiList.Data[added.id] = "0b";
+            m_MultiList.Data.Data[added.id] = "0b";
 
             Assert.That(MultiListDebugUtility.SelectAllData(m_MultiList), Is.EqualTo(
                 new[] { new[] { "0", "0a", "0b", "0c" } }));
@@ -277,7 +280,7 @@ namespace Unity.Entities.Tests.Conversion
                 Assert.That(e.MoveNext(), Is.False);
             }
 
-            using (var e = MultiListEnumerator<string>.Empty)
+            using (var e = MultiListEnumerator<string, MultiListArrayData<string>>.Empty)
             {
                 Assert.That(e.MoveNext(), Is.False);
             }
@@ -317,7 +320,7 @@ namespace Unity.Entities.Tests.Conversion
         [Test]
         public void EnumeratorCurrent_WithDefault_Throws()
         {
-            using (var e = MultiListEnumerator<string>.Empty)
+            using (var e = MultiListEnumerator<string, MultiListArrayData<string>>.Empty)
             {
                 // ReSharper disable once NotAccessedVariable
                 string s;

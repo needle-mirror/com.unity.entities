@@ -46,7 +46,7 @@ namespace Unity.Entities.Conversion
 
     partial struct ConversionJournalData
     {
-        static IEnumerable<IJournalDataDebug> SelectJournalDataDebug<T>(int objectInstanceId, int headIdIndex, ref MultiList<T> store) =>
+        static IEnumerable<IJournalDataDebug> SelectJournalDataDebug<T, I>(int objectInstanceId, int headIdIndex, ref MultiList<T, I> store) where I : IMultiListDataImpl<T> =>
             store
                 .SelectListAt(store.HeadIds[headIdIndex])
                 .Select(e => new JournalDataDebug<T>(objectInstanceId, e));

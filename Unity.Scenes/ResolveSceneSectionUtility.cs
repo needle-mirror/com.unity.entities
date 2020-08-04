@@ -38,22 +38,33 @@ namespace Unity.Scenes
             EntityManager.AddComponentData(sceneEntity, new SceneMetaDataLoaded() { Success = sceneHeaderStatus == AsyncOp.Status.Success });
         }
 #endif
-
-        public static bool ResolveSceneSections(EntityManager EntityManager, Entity sceneEntity, Hash128 sceneGUID, RequestSceneLoaded requestSceneLoaded, Hash128 artifactHash)
+        public unsafe static bool ResolveSceneSections(EntityManager EntityManager, Entity sceneEntity, Hash128 sceneGUID, RequestSceneLoaded requestSceneLoaded, Hash128 artifactHash)
         {
             // Resolve first (Even if the file doesn't exist we want to stop continously trying to load the section)
             EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
-            EntityManager.AddBuffer<LinkedEntityGroup>(sceneEntity).Add(sceneEntity);
+            var sceneHeaderPath = "";
+#if UNITY_EDITOR
+            string[] paths = null;
+#endif
 
-    #if UNITY_EDITOR
+            bool useStreamingAssetPath = true;
+#if !UNITY_DOTSRUNTIME
+            useStreamingAssetPath = SceneBundleHandle.UseAssetBundles;
+#endif
+            if (useStreamingAssetPath)
+            {
+                sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
+            }
+            else
+            {
+#if UNITY_EDITOR
+                AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out paths);
+                sceneHeaderPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesHeader);
+#endif
+            }
+
             EntityManager.AddComponentData(sceneEntity, new ResolvedSceneHash { ArtifactHash = artifactHash });
-
-            AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out var paths);
-
-            var sceneHeaderPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesHeader);
-    #else
-            var sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
-    #endif
+            EntityManager.AddBuffer<LinkedEntityGroup>(sceneEntity).Add(sceneEntity);
 
             // @TODO: AsyncReadManager currently crashes with empty path.
             //        It should be possible to remove this after that is fixed.
@@ -106,10 +117,10 @@ namespace Unity.Scenes
 
             ref var sceneMetaData = ref sceneMetaDataRef.Value;
 
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
             var sceneName = sceneMetaData.SceneName.ToString();
             EntityManager.SetName(sceneEntity, $"Scene: {sceneName}");
-    #endif
+#endif
 
             // If auto-load is enabled
             var loadSections = (requestSceneLoaded.LoadFlags & SceneLoadFlags.DisableAutoLoad) == 0;
@@ -118,9 +129,9 @@ namespace Unity.Scenes
             {
                 var sectionEntity = EntityManager.CreateEntity();
                 var sectionIndex = sceneMetaData.Sections[i].SubSectionIndex;
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
                 EntityManager.SetName(sectionEntity, $"SceneSection: {sceneName} ({sectionIndex})");
-    #endif
+#endif
 
                 if (loadSections)
                 {
@@ -131,14 +142,22 @@ namespace Unity.Scenes
                 EntityManager.AddComponentData(sectionEntity, new SceneBoundingVolume { Value = sceneMetaData.Sections[i].BoundingVolume });
                 EntityManager.AddComponentData(sectionEntity, new SceneEntityReference { SceneEntity = sceneEntity });
 
+                var hybridPath = "";
+                var scenePath = "";
                 var sectionPath = new ResolvedSectionPath();
-    #if !UNITY_EDITOR
-                var hybridPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
-                var scenePath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
-    #else
-                var scenePath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
-                var hybridPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
-    #endif
+
+                if (useStreamingAssetPath)
+                {
+                    hybridPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle, sectionIndex);
+                    scenePath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
+                }
+                else
+                {
+#if UNITY_EDITOR
+                    scenePath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
+                    hybridPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
+#endif
+                }
 
                 sectionPath.ScenePath.SetString(scenePath);
                 if (hybridPath != null)
@@ -146,15 +165,25 @@ namespace Unity.Scenes
 
                 EntityManager.AddComponentData(sectionEntity, sectionPath);
 
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
                 if (EntityManager.HasComponent<SubScene>(sceneEntity))
                     EntityManager.AddComponentObject(sectionEntity, EntityManager.GetComponentObject<SubScene>(sceneEntity));
-    #endif
+#endif
 
                 AddSectionMetadataComponents(sectionEntity, ref sceneMetaData.SceneSectionCustomMetadata[i], EntityManager);
 
                 var buffer = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
                 buffer.Add(new ResolvedSectionEntity { SectionEntity = sectionEntity });
+                if (sceneMetaData.Dependencies.Length > 0)
+                {
+                    ref var deps = ref sceneMetaData.Dependencies[i];
+                    if (deps.Length > 0)
+                    {
+                        var bundleSet = EntityManager.AddBuffer<BundleElementData>(sectionEntity);
+                        bundleSet.ResizeUninitialized(deps.Length);
+                        UnsafeUtility.MemCpy(bundleSet.GetUnsafePtr(), deps.GetUnsafePtr(), sizeof(Hash128) * deps.Length);
+                    }
+                }
                 var linkedEntityGroup = EntityManager.GetBuffer<LinkedEntityGroup>(sceneEntity);
                 linkedEntityGroup.Add(new LinkedEntityGroup { Value = sectionEntity });
             }

@@ -1,3 +1,5 @@
+using Unity.Collections;
+
 namespace Unity.Entities
 {
     public unsafe partial struct EntityManager
@@ -36,6 +38,7 @@ namespace Unity.Entities
         /// <param name="entity">The Entity object.</param>
         /// <typeparam name="T">The data type of the component.</typeparam>
         /// <returns>True, if the specified entity has the component.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public bool HasComponent<T>(Entity entity)
         {
             return GetCheckedEntityDataAccess()->HasComponent(entity, ComponentType.ReadWrite<T>());
@@ -60,6 +63,7 @@ namespace Unity.Entities
         /// <param name="entity">The Entity object.</param>
         /// <typeparam name="T">The data type of the chunk component.</typeparam>
         /// <returns>True, if the chunk containing the specified entity has the component.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public bool HasChunkComponent<T>(Entity entity)
         {
             return GetCheckedEntityDataAccess()->HasComponent(entity, ComponentType.ChunkComponent<T>());

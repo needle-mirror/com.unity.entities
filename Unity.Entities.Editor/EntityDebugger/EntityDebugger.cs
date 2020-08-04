@@ -443,6 +443,25 @@ namespace Unity.Entities.Editor
             return String.Format("{0:0.00} GB", bytes / 1024.0);
         }
 
+        public static string FormatBytesForDisplay(ulong bytes)
+        {
+            if (bytes < 0)
+                return "Unknown";
+
+            if (bytes < 512)
+                return String.Format("{0} B", bytes);
+
+            if (bytes < 512 * 1024)
+                return String.Format("{0:0.0} KB", bytes / 1024.0);
+
+            bytes /= 1024;
+            if (bytes < 512 * 1024)
+                return String.Format("{0:0.0} MB", bytes / 1024.0);
+
+            bytes /= 1024;
+            return String.Format("{0:0.00} GB", bytes / 1024.0);
+        }
+
         private void EntityHeader()
         {
             GUILayout.BeginHorizontal(Styles.ToolbarStyle);
@@ -466,8 +485,8 @@ namespace Unity.Entities.Editor
             long pageSize;
             long chunkReservedPages;
             long chunkCommittedPages;
-            long chunkReservedBytes;
-            long chunkCommittedBytes;
+            ulong chunkReservedBytes;
+            ulong chunkCommittedBytes;
             EntityComponentStore.GetChunkMemoryStats(out chunkReservedPages, out chunkCommittedPages, out chunkReservedBytes, out chunkCommittedBytes, out pageSize);
             if(chunkReservedPages > 0)
             {
@@ -475,7 +494,7 @@ namespace Unity.Entities.Editor
                                 $"Committed: {chunkCommittedPages} pages / " +
                                 $"{FormatBytesForDisplay(chunkCommittedBytes)}, " +
                                 $"In use by selected query: {entityListView.ChunkArray.Length * 16384 / pageSize } pages  / " +
-                                $"{FormatBytesForDisplay(entityListView.ChunkArray.Length * 16384)}", Styles.LabelStyle);
+                                $"{FormatBytesForDisplay((ulong)entityListView.ChunkArray.Length * 16384UL)}", Styles.LabelStyle);
             }
             ShowingChunkInfoView = GUILayout.Toggle(ShowingChunkInfoView, "Chunk Info", Styles.ToolbarButtonStyle);
             GUILayout.EndHorizontal();

@@ -154,15 +154,17 @@ namespace Unity.Entities
             }
         }
 
+
         unsafe public List<DebugViewUtility.Components> Entities
         {
             get
             {
-                var entities = m_target.GetAllEntities();
+                var entities = m_target.GetAllEntitiesImmediate();
                 entities.Sort(new Comparer());
                 using (entities)
                 {
                     var result = new List<DebugViewUtility.Components>();
+
                     for (var i = 0; i < entities.Length; ++i)
                         result.Add(DebugViewUtility.GetComponents(m_target, entities[i]));
                     return result;

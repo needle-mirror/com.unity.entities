@@ -28,6 +28,20 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
             }
 
+            T GenericMethodWithSingletonAccess<T>(T value) where T : struct, IComponentData
+            {
+                SetSingleton(value);
+                return GetSingleton<T>();
+            }
+
+            public void GetSetSingletonWithGenericParameter()
+            {
+                EntityManager.CreateEntity(typeof(EcsTestData));
+
+                GenericMethodWithSingletonAccess(new EcsTestData(10));
+                Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
+            }
+
             public void SingletonMethodsWithValidFilter_GetsAndSets()
             {
                 var queryWithFilter1 = EntityManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
@@ -194,6 +208,12 @@ namespace Unity.Entities.Tests
         public void SystemBase_GetSetSingleton()
         {
             TestSystem.GetSetSingleton();
+        }
+
+        [Test]
+        public void SystemBase_GetSetSingletonWithGenericParameter()
+        {
+            TestSystem.GetSetSingletonWithGenericParameter();
         }
 
         [Test]

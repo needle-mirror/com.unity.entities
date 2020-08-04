@@ -4,6 +4,7 @@ using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 
@@ -652,5 +653,50 @@ namespace Unity.Entities.Tests
             listOfInt.Dispose();
             eArr.Dispose();
         }
+
+        public struct SimpleJobFor : IJobFor
+        {
+            [WriteOnly]
+            public NativeHashMap<int, int>.ParallelWriter result;
+
+            public void Execute(int i)
+            {
+                result.TryAdd(i, 123);
+            }
+        }
+
+        [Test]
+        public void TestIJobFor([Values(0, 1, 2)] int mode)
+        {
+            const int N = 1000;
+
+            NativeHashMap<int, int> output = new NativeHashMap<int, int>(N, Allocator.TempJob);
+            SimpleJobFor job = new SimpleJobFor()
+            {
+                result = output.AsParallelWriter()
+            };
+
+            if (mode == 0)
+            {
+                job.Run(N);
+            }
+            else if (mode == 1)
+            {
+                job.Schedule(N, new JobHandle()).Complete();
+            }
+            else
+            {
+                job.ScheduleParallel(N, 13, new JobHandle()).Complete();
+            }
+
+            Assert.AreEqual(N, output.Count());
+            for (int i = 0; i < N; ++i)
+            {
+                Assert.AreEqual(123, output[i]);
+            }
+
+            output.Dispose();
+        }
+
     }
 }

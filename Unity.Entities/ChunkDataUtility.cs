@@ -502,7 +502,7 @@ namespace Unity.Entities
             if (chunk->Count < chunk->Capacity)
                 chunk->Archetype->EmptySlotTrackingRemoveChunk(chunk);
 
-            chunk->Archetype->RemoveFromChunkList(chunk);
+            chunk->Archetype->RemoveFromChunkList(chunk, ref entityComponentStore->m_ChunkListChangesTracker);
             chunk->Archetype = null;
 
             entityComponentStore->FreeChunk(chunk);
@@ -691,7 +691,7 @@ namespace Unity.Entities
             int chunkIndexInSrcArchetype = srcChunk->ListIndex;
 
             //Change version is overriden below
-            dstArchetype->AddToChunkList(srcChunk, sharedComponentValues, 0);
+            dstArchetype->AddToChunkList(srcChunk, sharedComponentValues, 0, ref entityComponentStore->m_ChunkListChangesTracker);
             int chunkIndexInDstArchetype = srcChunk->ListIndex;
 
             // For unchanged components: Copy versions from src to dst archetype
@@ -702,7 +702,7 @@ namespace Unity.Entities
             CloneChangeVersions(srcArchetype, chunkIndexInSrcArchetype, dstArchetype, chunkIndexInDstArchetype);
 
             srcChunk->ListIndex = chunkIndexInSrcArchetype;
-            srcArchetype->RemoveFromChunkList(srcChunk);
+            srcArchetype->RemoveFromChunkList(srcChunk, ref entityComponentStore->m_ChunkListChangesTracker);
             srcChunk->ListIndex = chunkIndexInDstArchetype;
 
             if (hasEmptySlots)
@@ -740,13 +740,13 @@ namespace Unity.Entities
 
             if (chunk->Count < chunk->Capacity)
                 srcArchetype->EmptySlotTrackingRemoveChunk(chunk);
-            srcArchetype->RemoveFromChunkList(chunk);
+            srcArchetype->RemoveFromChunkList(chunk, ref entityComponentStore->m_ChunkListChangesTracker);
             srcArchetype->EntityCount -= chunk->Count;
 
             chunk->Archetype = dstArchetype;
 
             dstArchetype->EntityCount += chunk->Count;
-            dstArchetype->AddToChunkList(chunk, sharedComponentValues, globalSystemVersion);
+            dstArchetype->AddToChunkList(chunk, sharedComponentValues, globalSystemVersion, ref entityComponentStore->m_ChunkListChangesTracker);
             if (chunk->Count < chunk->Capacity)
                 dstArchetype->EmptySlotTrackingAddChunk(chunk);
 
@@ -1130,7 +1130,7 @@ namespace Unity.Entities
             var archetype = chunk->Archetype;
             var entityComponentStore = archetype->EntityComponentStore;
             var globalSystemVersion = entityComponentStore->GlobalSystemVersion;
-            archetype->AddToChunkList(chunk, sharedComponentIndices, globalSystemVersion);
+            archetype->AddToChunkList(chunk, sharedComponentIndices, globalSystemVersion, ref entityComponentStore->m_ChunkListChangesTracker);
             archetype->EntityCount += chunk->Count;
 
             for (var i = 0; i < archetype->NumSharedComponents; ++i)
@@ -1164,7 +1164,7 @@ namespace Unity.Entities
                 }
             }
 
-            archetype->AddToChunkList(chunk, sharedComponentValues, globalSystemVersion);
+            archetype->AddToChunkList(chunk, sharedComponentValues, globalSystemVersion, ref entityComponentStore->m_ChunkListChangesTracker);
 
             Assert.IsTrue(archetype->Chunks.Count != 0);
 

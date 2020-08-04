@@ -32,7 +32,7 @@ namespace Unity.Entities.Tests
             {
                 EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
-            job.ScheduleParallelBatched(query, jobsPerChunk).Complete();
+            job.ScheduleParallel(query, jobsPerChunk).Complete();
 
             for (int batchIndex = 0; batchIndex < jobsPerChunk; ++batchIndex)
             {
@@ -72,7 +72,7 @@ namespace Unity.Entities.Tests
             {
                 EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
-            job.ScheduleParallelBatched(query, jobsPerChunk).Complete();
+            job.ScheduleParallel(query, jobsPerChunk).Complete();
 
             for (int batchIndex = 0; batchIndex < jobsPerChunk; ++batchIndex)
             {

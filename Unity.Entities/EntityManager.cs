@@ -124,6 +124,7 @@ namespace Unity.Entities
         /// The <see cref="World"/> of this EntityManager.
         /// </summary>
         /// <value>A World has one EntityManager and an EntityManager manages the entities of one World.</value>
+        [NotBurstCompatible]
         public World World => GetCheckedEntityDataAccess()->ManagedEntityDataAccess.m_World;
 
         /// <summary>
@@ -165,6 +166,7 @@ namespace Unity.Entities
         /// <summary>
         /// An object providing debugging information and operations.
         /// </summary>
+        [NotBurstCompatible]
         public EntityManagerDebug Debug
         {
             get
@@ -185,6 +187,7 @@ namespace Unity.Entities
             set => Entities.EntityComponentStore.TotalChunkAddressSpaceInBytes = value;
         }
 
+        [NotBurstCompatible]
         internal void Initialize(World world)
         {
             TypeManager.Initialize();
@@ -194,11 +197,10 @@ namespace Unity.Entities
             ChunkIterationUtility.Initialize();
 
             // Pick any recorded types that have come in after a domain reload.
+            EarlyInitHelpers.FlushEarlyInits();
             SystemBaseRegistry.InitializePendingTypes();
 
-#if !UNITY_DOTSRUNTIME
             CreateJobReflectionData();
-#endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Safety = AtomicSafetyHandle.Create();
@@ -218,32 +220,30 @@ namespace Unity.Entities
             EntityDataAccess.Initialize(m_EntityDataAccess, world);
         }
 
-#if !UNITY_DOTSRUNTIME
         private void CreateJobReflectionData()
         {
             // Until we have reliable IL postprocessing or code generation we will have to resort to making these initialization calls manually.
-            IJobBurstScheduableExtensions.JobStruct<EntityComponentStore.EntityBatchFromEntityChunkDataShared>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<EntityComponentStore.SortEntityInChunk>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<EntityComponentStore.GetOrCreateDestroyedEntitiesJob>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<EntityDataAccess.DestroyChunks>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<ChunkPatchEntities>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<MoveChunksJob>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<MoveAllChunksJob>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<GatherAllManagedComponentIndicesJob>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<GatherManagedComponentIndicesInChunkJob>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<MoveFilteredChunksBetweenArchetypexJob>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<GatherChunksAndOffsetsJob>.Initialize();
-            IJobBurstScheduableExtensions.JobStruct<GatherChunksAndOffsetsWithFilteringJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<EntityComponentStore.EntityBatchFromEntityChunkDataShared>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<EntityComponentStore.SortEntityInChunk>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<EntityComponentStore.GetOrCreateDestroyedEntitiesJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<EntityDataAccess.DestroyChunks>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<ChunkPatchEntities>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<MoveChunksJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<MoveAllChunksJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<GatherAllManagedComponentIndicesJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<GatherManagedComponentIndicesInChunkJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<MoveFilteredChunksBetweenArchetypexJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<GatherChunksAndOffsetsJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<GatherChunksAndOffsetsWithFilteringJob>.Initialize();
 
-            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<EntityComponentStore.GatherEntityInChunkForEntities>.Initialize();
-            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<RemapChunksFilteredJob>.Initialize();
-            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<RemapAllChunksJob>.Initialize();
-            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<RemapAllArchetypesJob>.Initialize();
-            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<GatherChunks>.Initialize();
-            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<GatherChunksWithFiltering>.Initialize();
-            IJobParallelForExtensionsBurstScheduable.ParallelForJobStructBurstScheduable<JoinChunksJob>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<EntityComponentStore.GatherEntityInChunkForEntities>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<RemapChunksFilteredJob>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<RemapAllChunksJob>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<RemapAllArchetypesJob>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<GatherChunks>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<GatherChunksWithFiltering>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<JoinChunksJob>.Initialize();
         }
-#endif
 
         internal void PreDisposeCheck()
         {
@@ -280,6 +280,7 @@ namespace Unity.Entities
             return m_EntityDataAccess == other.m_EntityDataAccess;
         }
 
+        [NotBurstCompatible]
         public override bool Equals(object obj)
         {
             return obj is EntityManager other && Equals(other);

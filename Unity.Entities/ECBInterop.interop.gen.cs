@@ -14,6 +14,7 @@
 
 using System;
 using Unity.Burst;
+using Unity.Collections;
 using System.Runtime.InteropServices;
 
 namespace Unity.Entities
@@ -45,6 +46,7 @@ namespace Unity.Entities
 
 #endif
 
+        [NotBurstCompatible]
         internal static void Initialize()
         {
 #if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))

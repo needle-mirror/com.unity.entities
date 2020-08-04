@@ -123,7 +123,8 @@ namespace Unity.Entities.CodeGen
                 }
 
                 // already checked the base; can start one up the chain.
-                var parent = attr.AttributeType.Resolve().BaseType;
+                var attributeTypeDef = attr.AttributeType.Resolve();
+                var parent = attributeTypeDef?.BaseType;
                 while (parent != null)
                 {
                     if (parent.FullName == attributeName || parent.FullName == fullAttrName)
