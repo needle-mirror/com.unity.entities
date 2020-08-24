@@ -1,5 +1,12 @@
 # Change log
 
+## [0.11.2] - 2020-08-24
+
+### Fixed
+* Remove burst job scheduling to work around flaky ILPP in 2019.4
+### Changed
+* updated cecil dependency
+
 ## [0.11.1] - 2020-06-09
 
 ### Fixed

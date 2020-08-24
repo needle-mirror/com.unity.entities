@@ -12,7 +12,7 @@ namespace Unity.Entities.Tests
 public unsafe class BurstCompatibilityTests_Generated
 {
     private delegate void TestFunc(IntPtr p);
-    public static readonly string Guid = "fbc0f35cd3fbe7dd682e63c298e126f4";
+    public static readonly string Guid = "d3e32b537b8652db0ba3856522163d51";
     [EditorBrowsable(EditorBrowsableState.Never)]
     [BurstCompile(CompileSynchronously = true)]
     public static void Burst_Unity__Entities__EntityDataAccess_AddComponent(IntPtr p)
@@ -30,22 +30,6 @@ var v1 = default(ComponentType);
     }
     [EditorBrowsable(EditorBrowsableState.Never)]
     [BurstCompile(CompileSynchronously = true)]
-    public static void Burst_Unity__Entities__EntityDataAccess_AddComponent_overload0(IntPtr p)
-    {
-var v0 = default(UnsafeMatchingArchetypePtrList);
-var v1 = default(EntityQueryFilter);
-var v2 = default(ComponentType);
-        var instance = (EntityDataAccess*)p;
-        instance->AddComponent(v0 ,v1 ,v2);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Test]
-    public void BurstCompile_Unity__Entities__EntityDataAccess_AddComponent_overload0()
-    {
-        BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_AddComponent_overload0);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [BurstCompile(CompileSynchronously = true)]
     public static void Burst_Unity__Entities__EntityDataAccess_AddComponentDuringStructuralChange(IntPtr p)
     {
 var v0 = default(Entity);
@@ -58,22 +42,6 @@ var v1 = default(ComponentType);
     public void BurstCompile_Unity__Entities__EntityDataAccess_AddComponentDuringStructuralChange()
     {
         BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_AddComponentDuringStructuralChange);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [BurstCompile(CompileSynchronously = true)]
-    public static void Burst_Unity__Entities__EntityDataAccess_AddComponentDuringStructuralChange_overload0(IntPtr p)
-    {
-var v0 = default(UnsafeMatchingArchetypePtrList);
-var v1 = default(EntityQueryFilter);
-var v2 = default(ComponentType);
-        var instance = (EntityDataAccess*)p;
-        instance->AddComponentDuringStructuralChange(v0 ,v1 ,v2);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Test]
-    public void BurstCompile_Unity__Entities__EntityDataAccess_AddComponentDuringStructuralChange_overload0()
-    {
-        BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_AddComponentDuringStructuralChange_overload0);
     }
     [EditorBrowsable(EditorBrowsableState.Never)]
     [BurstCompile(CompileSynchronously = true)]
@@ -238,36 +206,6 @@ var v0 = default(Entity);
     public void BurstCompile_Unity__Entities__EntityDataAccess_DestroyEntity()
     {
         BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_DestroyEntity);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [BurstCompile(CompileSynchronously = true)]
-    public static void Burst_Unity__Entities__EntityDataAccess_DestroyEntity_overload0(IntPtr p)
-    {
-var v0 = default(UnsafeMatchingArchetypePtrList);
-var v1 = default(EntityQueryFilter);
-        var instance = (EntityDataAccess*)p;
-        instance->DestroyEntity(v0 ,v1);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Test]
-    public void BurstCompile_Unity__Entities__EntityDataAccess_DestroyEntity_overload0()
-    {
-        BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_DestroyEntity_overload0);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [BurstCompile(CompileSynchronously = true)]
-    public static void Burst_Unity__Entities__EntityDataAccess_DestroyEntityDuringStructuralChange(IntPtr p)
-    {
-var v0 = default(UnsafeMatchingArchetypePtrList);
-var v1 = default(EntityQueryFilter);
-        var instance = (EntityDataAccess*)p;
-        instance->DestroyEntityDuringStructuralChange(v0 ,v1);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Test]
-    public void BurstCompile_Unity__Entities__EntityDataAccess_DestroyEntityDuringStructuralChange()
-    {
-        BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_DestroyEntityDuringStructuralChange);
     }
     [EditorBrowsable(EditorBrowsableState.Never)]
     [BurstCompile(CompileSynchronously = true)]
@@ -440,7 +378,7 @@ var v2 = default(int);
     [BurstCompile(CompileSynchronously = true)]
     public static void Burst_Unity__Entities__EntityDataAccess_RemoveComponent(IntPtr p)
     {
-var v0 = default(Entity);
+var v0 = default(NativeArray<ArchetypeChunk>);
 var v1 = default(ComponentType);
         var instance = (EntityDataAccess*)p;
         instance->RemoveComponent(v0 ,v1);
@@ -453,40 +391,9 @@ var v1 = default(ComponentType);
     }
     [EditorBrowsable(EditorBrowsableState.Never)]
     [BurstCompile(CompileSynchronously = true)]
-    public static void Burst_Unity__Entities__EntityDataAccess_RemoveComponent_overload0(IntPtr p)
-    {
-var v0 = default(NativeArray<ArchetypeChunk>);
-var v1 = default(ComponentType);
-        var instance = (EntityDataAccess*)p;
-        instance->RemoveComponent(v0 ,v1);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Test]
-    public void BurstCompile_Unity__Entities__EntityDataAccess_RemoveComponent_overload0()
-    {
-        BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_RemoveComponent_overload0);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [BurstCompile(CompileSynchronously = true)]
-    public static void Burst_Unity__Entities__EntityDataAccess_RemoveComponent_overload1(IntPtr p)
-    {
-var v0 = default(UnsafeMatchingArchetypePtrList);
-var v1 = default(EntityQueryFilter);
-var v2 = default(ComponentType);
-        var instance = (EntityDataAccess*)p;
-        instance->RemoveComponent(v0 ,v1 ,v2);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Test]
-    public void BurstCompile_Unity__Entities__EntityDataAccess_RemoveComponent_overload1()
-    {
-        BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_RemoveComponent_overload1);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [BurstCompile(CompileSynchronously = true)]
     public static void Burst_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange(IntPtr p)
     {
-var v0 = default(Entity);
+var v0 = default(NativeArray<ArchetypeChunk>);
 var v1 = default(ComponentType);
         var instance = (EntityDataAccess*)p;
         instance->RemoveComponentDuringStructuralChange(v0 ,v1);
@@ -496,37 +403,6 @@ var v1 = default(ComponentType);
     public void BurstCompile_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange()
     {
         BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [BurstCompile(CompileSynchronously = true)]
-    public static void Burst_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange_overload0(IntPtr p)
-    {
-var v0 = default(NativeArray<ArchetypeChunk>);
-var v1 = default(ComponentType);
-        var instance = (EntityDataAccess*)p;
-        instance->RemoveComponentDuringStructuralChange(v0 ,v1);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Test]
-    public void BurstCompile_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange_overload0()
-    {
-        BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange_overload0);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [BurstCompile(CompileSynchronously = true)]
-    public static void Burst_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange_overload1(IntPtr p)
-    {
-var v0 = default(UnsafeMatchingArchetypePtrList);
-var v1 = default(EntityQueryFilter);
-var v2 = default(ComponentType);
-        var instance = (EntityDataAccess*)p;
-        instance->RemoveComponentDuringStructuralChange(v0 ,v1 ,v2);
-    }
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    [Test]
-    public void BurstCompile_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange_overload1()
-    {
-        BurstCompiler.CompileFunctionPointer<TestFunc>(Burst_Unity__Entities__EntityDataAccess_RemoveComponentDuringStructuralChange_overload1);
     }
     [EditorBrowsable(EditorBrowsableState.Never)]
     [BurstCompile(CompileSynchronously = true)]

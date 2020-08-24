@@ -1,7 +1,7 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "0.11.1-preview.4",
+  "version": "0.11.2-preview.1",
   "unity": "2019.3",
   "unityRelease": "12f1",
   "dependencies": {
@@ -11,8 +11,8 @@
     "com.unity.mathematics": "1.1.0",
     "com.unity.test-framework.performance": "2.0.8-preview",
     "com.unity.serialization": "1.2.0-preview",
-    "nuget.mono-cecil": "0.1.5-preview",
-    "com.unity.jobs": "0.2.10-preview.12",
+    "com.unity.nuget.mono-cecil": "0.1.6-preview.2",
+    "com.unity.jobs": "0.2.10-preview.13",
     "com.unity.scriptablebuildpipeline": "1.6.4-preview",
     "com.unity.platforms": "0.3.0-preview.4"
   },
@@ -23,11 +23,11 @@
     "unity"
   ],
   "upmCi": {
-    "footprint": "764c3bde223a79f9b4e98c3edddaa2d6411f52f3"
+    "footprint": "0e7437a77e51d07c25778889c345c1b85acd28b5"
   },
   "repository": {
     "url": "https://github.com/Unity-Technologies/dots.git",
     "type": "git",
-    "revision": "b85fea08d1d5a6824f2dcfafe080cfc1b16c5800"
+    "revision": "19f0fd3c92494d08334339856e7219fcfed58fff"
   }
 }

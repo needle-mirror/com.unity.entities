@@ -9,10 +9,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Profiling;
 
-#if !NET_DOTS
-using IJob = Unity.Jobs.IJobBurstScheduable;
-#endif
-
 namespace Unity.Entities
 {
     class ManagedEntityDataAccess
@@ -306,6 +302,7 @@ namespace Unity.Entities
         }
 
 
+        [NotBurstCompatible]
         public void DestroyEntity(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter)
         {
             if (!IsMainThread)
@@ -377,6 +374,7 @@ namespace Unity.Entities
         /// <param name="archetypeList"></param>
         /// <param name="filter"></param>
         /// <exception cref="InvalidOperationException"></exception>
+        [NotBurstCompatible]
         public void DestroyEntityDuringStructuralChange(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter)
         {
             if (!IsMainThread)
@@ -561,6 +559,7 @@ namespace Unity.Entities
             return result;
         }
 
+        [NotBurstCompatible]
         public void AddComponent(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
             ComponentType componentType)
         {
@@ -598,6 +597,7 @@ namespace Unity.Entities
         /// <param name="filter"></param>
         /// <param name="componentType"></param>
         /// <exception cref="InvalidOperationException"></exception>
+        [NotBurstCompatible]
         public void AddComponentDuringStructuralChange(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType)
         {
             if (!IsMainThread)
@@ -611,6 +611,7 @@ namespace Unity.Entities
             chunks.Dispose();
         }
 
+        [NotBurstCompatible]
         public bool RemoveComponent(Entity entity, ComponentType componentType)
         {
             if (IsMainThread)
@@ -635,6 +636,7 @@ namespace Unity.Entities
         /// <param name="entity"></param>
         /// <param name="componentType"></param>
         /// <returns></returns>
+        [NotBurstCompatible]
         public bool RemoveComponentDuringStructuralChange(Entity entity, ComponentType componentType)
         {
             var removed = EntityComponentStore->RemoveComponent(entity, componentType);

@@ -4,11 +4,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
-#if !UNITY_DOTSPLAYER
-using IJob = Unity.Jobs.IJobBurstScheduable;
-using IJobParallelFor = Unity.Jobs.IJobParallelForBurstScheduable;
-#endif
-
 namespace Unity.Entities
 {
     [BurstCompile]
