@@ -441,84 +441,87 @@ namespace Unity.Scenes
             }
         }
 
+        bool SceneSectionRequiresSynchronousLoading(Entity entity) =>
+            (EntityManager.GetComponentData<RequestSceneLoaded>(entity).LoadFlags & SceneLoadFlags.BlockOnStreamIn) != 0;
+
         protected override void OnUpdate()
         {
-            var destroySubScenes = new NativeList<Entity>(Allocator.Temp);
-
-            var sceneDataFromEntity = GetComponentDataFromEntity<SceneSectionData>();
-
-            bool SceneSectionRequiresSynchronousLoading(Entity entity) =>
-                (EntityManager.GetComponentData<RequestSceneLoaded>(entity).LoadFlags & SceneLoadFlags.BlockOnStreamIn) != 0;
-
             // Sections > 0 need the external references from sections 0 and will wait for it to be loaded.
             // So we have to ensure sections 0 are loaded first, otherwise there's a risk of starving loading streams.
-            var priorityList = new NativeList<Entity>(Allocator.Temp);
-            using (var entities = m_PendingStreamRequests.ToEntityArray(Allocator.TempJob))
-            {
-                var priorities = new NativeArray<int>(entities.Length, Allocator.Temp);
-
-                for (int i = 0; i < entities.Length; ++i)
+            if (!m_PendingStreamRequests.IsEmptyIgnoreFilter) {
+                using (var entities = m_PendingStreamRequests.ToEntityArray(Allocator.TempJob))
                 {
-                    var entity = entities[i];
+                    var priorityList = new NativeList<Entity>(Allocator.Temp);
+                    var priorities = new NativeArray<int>(entities.Length, Allocator.Temp);
+                    var sceneDataFromEntity = GetComponentDataFromEntity<SceneSectionData>();
 
-                    if (SceneSectionRequiresSynchronousLoading(entity))
-                    {
-                        var streamingState = new StreamingState { ActiveStreamIndex = -1, Status = StreamingStatus.NotYetProcessed };
-                        EntityManager.AddComponentData(entity, streamingState);
-
-                        priorities[i] = 0;
-                        var operation = CreateAsyncLoadSceneOperation(m_SynchronousSceneLoadWorld.EntityManager, entity, true);
-                        var result = UpdateLoadOperation(operation, m_SynchronousSceneLoadWorld, entity);
-
-                        if (result == UpdateLoadOperationResult.Error)
-                        {
-                            m_SynchronousSceneLoadWorld.Dispose();
-                            m_SynchronousSceneLoadWorld = new World("LoadingWorld (synchronous)", WorldFlags.Streaming);
-                            AddStreamingWorldSystems(m_SynchronousSceneLoadWorld);
-                        }
-
-                        Assert.AreNotEqual(UpdateLoadOperationResult.Aborted, result);
-                    }
-                    else if (sceneDataFromEntity[entity].SubSectionIndex == 0)
-                        priorities[i] = 1;
-                    else
-                        priorities[i] = 2;
-                }
-
-                for (int priority = 1; priority <= 2; ++priority)
-                {
                     for (int i = 0; i < entities.Length; ++i)
                     {
-                        if (priorityList.Length == LoadScenesPerFrame)
-                        {
-                            break;
-                        }
+                        var entity = entities[i];
 
-                        if (priorities[i] == priority)
-                            priorityList.Add(entities[i]);
+                        if (SceneSectionRequiresSynchronousLoading(entity))
+                        {
+                            var streamingState = new StreamingState
+                                {ActiveStreamIndex = -1, Status = StreamingStatus.NotYetProcessed};
+                            EntityManager.AddComponentData(entity, streamingState);
+
+                            priorities[i] = 0;
+                            var operation = CreateAsyncLoadSceneOperation(m_SynchronousSceneLoadWorld.EntityManager,
+                                entity, true);
+                            var result = UpdateLoadOperation(operation, m_SynchronousSceneLoadWorld, entity);
+
+                            if (result == UpdateLoadOperationResult.Error)
+                            {
+                                m_SynchronousSceneLoadWorld.Dispose();
+                                m_SynchronousSceneLoadWorld =
+                                    new World("LoadingWorld (synchronous)", WorldFlags.Streaming);
+                                AddStreamingWorldSystems(m_SynchronousSceneLoadWorld);
+                            }
+
+                            Assert.AreNotEqual(UpdateLoadOperationResult.Aborted, result);
+                        }
+                        else if (sceneDataFromEntity[entity].SubSectionIndex == 0)
+                            priorities[i] = 1;
+                        else
+                            priorities[i] = 2;
+                    }
+
+                    for (int priority = 1; priority <= 2; ++priority)
+                    {
+                        for (int i = 0; i < entities.Length; ++i)
+                        {
+                            if (priorityList.Length == LoadScenesPerFrame)
+                            {
+                                break;
+                            }
+
+                            if (priorities[i] == priority)
+                                priorityList.Add(entities[i]);
+                        }
+                    }
+
+                    var priorityArray = priorityList.AsArray();
+
+                    foreach (var entity in priorityArray)
+                    {
+                        var streamIndex = CreateAsyncLoadScene(entity, false);
+                        if (streamIndex != -1)
+                        {
+                            var streamingState = new StreamingState
+                                {ActiveStreamIndex = streamIndex, Status = StreamingStatus.NotYetProcessed};
+                            EntityManager.AddComponentData(entity, streamingState);
+                        }
                     }
                 }
             }
 
-            var priorityArray = priorityList.AsArray();
-
-            foreach (var entity in priorityArray)
+            if (!m_UnloadStreamRequests.IsEmptyIgnoreFilter)
             {
-                var streamIndex = CreateAsyncLoadScene(entity, false);
-                if (streamIndex != -1)
-                {
-                    var streamingState = new StreamingState { ActiveStreamIndex = streamIndex, Status = StreamingStatus.NotYetProcessed };
-                    EntityManager.AddComponentData(entity, streamingState);
-                }
+                var destroySubScenes = new NativeList<Entity>(Allocator.Temp);
+                Entities.With(m_UnloadStreamRequests).ForEach((Entity entity) => { destroySubScenes.Add(entity); });
+                foreach (var destroyScene in destroySubScenes.AsArray())
+                    UnloadSectionImmediate(destroyScene);
             }
-
-            Entities.With(m_UnloadStreamRequests).ForEach((Entity entity) =>
-            {
-                destroySubScenes.Add(entity);
-            });
-
-            foreach (var destroyScene in destroySubScenes.AsArray())
-                UnloadSectionImmediate(destroyScene);
 
             if (ProcessActiveStreams())
                 EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();

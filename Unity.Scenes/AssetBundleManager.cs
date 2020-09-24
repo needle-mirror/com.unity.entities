@@ -179,6 +179,8 @@ namespace Unity.Scenes
 
         internal static void ProcessUnloadingBundles()
         {
+            if (UnloadingBundles.IsEmpty)
+                return;
             foreach (var sceneBundleHandle in UnloadingBundles)
             {
                 if (sceneBundleHandle.Value.IsReady())

@@ -1,5 +1,117 @@
 # Change log
 
+## [0.16.0] - 2020-09-24
+
+### Added
+
+* EntityManager method CreateEntity(EntityArchetype, int). Unlike existing overloads of CreateEntity, this new overload takes no Entity array and returns no Entity array, so it avoids waste and bother in cases where callers don't need the actual Entity values.
+* Special handling for Cameras and Colliders in preparation for root scene conversion, though they are disabled by default still
+* `World.MaximumDeltaTime` now controls the maximum deltaTime that is reported to a World.
+* Exception's stacktrace are recorded in conversion logs.
+* Add `IFixedRateManager` interface for fixed-timestep implementations. See `FixedRateUtils.cs` for reference implementations.
+* Add `ComponentSystemGroup.FixedRateManager` property, to store the current active `IFixedRateManager` implementation.
+* Added `SceneSystem.IsSectionLoaded` to enable querying if a specific section of a scene is loaded.
+* `EntityQuery.SetOrderVersionFilter()` and `EntityQuery.AddOrderVersionFilter()` which can be used to filter the Order Version independently from the Changed Version of a chunk.
+* DOTS naming standards to CONVENTIONS.md
+* libcurl Stevedore artifact registration
+* Mathematics tests are turned on in CI
+
+### Changed
+
+* Improved performance of `EntityQuery.ToEntityArray()`
+* Platform packages updated to `0.9.0-preview.9`
+* Burst package updated to `1.3.7`
+* Properties packages updated to `1.5.0-preview`
+* The job safety system has be moved to NativeJobs as C++ code
+* The UnsafeUtility memory allocators have been moved to NativeJobs
+* improved performance of EntityQuery.CopyFromComponentDataArray
+* changed chunk size from 16128 bytes (16 KB - 256 bytes) to exactly 16384 bytes (16 KB).
+* `TypeManager.GetFieldInfo` now takes in a `Type` to return an `NativeArray<FieldInfo>`. The passed in type must be registered to have field information generated explicitly via the `[GenerateComponentFieldInfo]` assembly attribute.
+* `IJobEntityBatch` and `IJobEntityBatchWithIndex` now quietly skip batches whose size is zero. This can happen legitimately if the requested `batchesPerChunk` value is higher than the entity count for a particular chunk.
+*Removed deprecated `ArchetypeChunk.Locked()` method.
+*Deprecated `ArchetypeChunk.BatchEntityCount` property. The `.Count` property should be used instead.
+* Removed usage of TempAssetCache for some livelink cases. Now these files are under SceneDependencyCache instead, so there is only one magic directory to deal with until we can remove it completely in future Unity versions.
+*Fixed Reduced overhead of `IJobEntityBatchWithIndex` prefiltering by up to 20% if `batchesPerChunk` is 1, or if `EntityQuery` filtering is disabled.
+
+### Deprecated
+
+* `FixedStepSimulationSystemGroup.MaximumDeltaTime` has been deprecated. The maximum delta time is now stored in `World.MaximumDeltaTime`. For better compatibility with UnityEngine, the new field applies to both the fixed-rate and variable-rate timesteps.
+* `ComponentSystemGroup.UpdateCallback` is deprecated. Instead, the group calls the `ShouldGroupUpdate()` method on its `FixedRateManager` property (if non-null) to accomplish the same effect.
+* `FixedRateUtils.EnableFixedRateCatchUp()`, `FixedRateUtils.EnableFixedRateSimple()`, and `FixedRateUtils.DisableFixedRate()`. These functions were used to set the deprecated `ComponentSystemGroup.UpdateCallback` field; instead, just set `ComponentSystemGroup.FixedRateManager` directly.
+
+### Removed
+
+* Old <2020.1 ifdef blocks in LiveLink scene culling code
+* Deprecated legacy sort order code in ComponentSystemGroup was removed
+
+### Fixed
+
+* Removed GC-allocations in `SceneSystem` and `SceneSectionStreamingSystem` that were happening every frame
+* Issue with invalid GUID in SubScene importer causing Player LiveLink to stall waiting for an asset it will never get
+* Hybrid component transform syncing was not working when entity order changed
+* Hybrid components being editable when in Preview Scenes (by selecting gizmos)
+* Fixed an issue in 2020.2 which caused `NativeContainer` min-max ranges to be incorrectly patched when scheduling and `IJobChunk` or `IJobEntityBatch` with a "Single" or "Run" schedule call.
+* Fields marked with `RestrictAuthoringInputTo` can now be set to `None` in the inspector
+* The Entities package now uses a faster code path for `CreateArchetypeChunkArray()` more consistently.
+* Retroactively added a changelog entry that notes a behavior change in `RemoveComponent(EntityQuery, ComponentTypes)`. See 'Change' entry under 0.14.0.
+* Generic job reflection data across assemblies would sometimes not work
+* Fixed HLOD component throwing out of bounds exception when setup incorrectly against LODGroup.
+* Scene section meta data now works in standalone builds again
+* Native memory leak in EditorSubSceneLiveLinkSystem when failing to apply patches
+* Generic job registration is more robust when generic parameters
+* LiveLink will not generate errors on scenes that have not yet loaded scene sections
+* Corrected inverted test in `IJobEntityBatchWithIndex` if EntityQuery filtering is enabled.
+* `EntityManger.AddComponent<T>(EntityQuery entityQuery)` and `EntityManger.AddComponentData<T>(EntityQuery entityQuery, NativeArray<T> componentArray)` is 2x faster.
+* Reduced overhead of `IJobEntityBatch` execution by 5-10% if `batchesPerChunk` is 1.
+
+### Security
+
+
+
+
+## [0.15.0] - 2020-08-26
+
+### Added
+
+* More detailed profiling of individual EntitiesILPostProcessors to Editor log (look for lines with "EILPP" marker).
+* Added `EntityQuery.IsEmpty` function which respects the `EntityQueryFilter`s
+
+### Changed
+
+* DOTS Runtime now supports `Burst.CompileFunctionPointer` allowing for lambda job and `EntityCommandBuffer` playback to be Burst compiled.
+* `World.Time.ElapsedTime` is now initialized to zero when the World is created.
+* Bumped Burst to 1.3.5.
+* Updated package `com.unity.platforms` to version `0.9.0-preview.1`.
+* Improved performance of `EntityQuery.CreateArchetypeChunkArray()`
+* Updated packages `com.unity.properties` and `com.unity.serialization` to version `1.4.3-preview`.
+* improved performance of `EntityManager.AddComponent(NativeArray<Entity>,ComponentType)` and `EntityManager.RemoveComponent(NativeArray<Entity>,ComponentType)`
+* `TypeCategory.Class` is deprecated in favour of `TypeCategory.UnityEngineObject`
+* A `ComponentTypes` value can no longer consist of duplicate types. (The collections safety checks look for duplicates and throw an exception.)
+
+### Deprecated
+
+* Deprecated `RequiresEntityConversion` attribute since it is not used anymore
+
+### Removed
+
+* Removed previously deprecated `LiveLinkBuildImporter.GetHash`
+
+### Fixed
+
+* Limit of 128 million Entities per World instituted.
+* Fixed `[GenerateAuthoringComponent]` on `IBufferElementData` throwing a NullReferenceException at initialization when Live Conversion is active.
+* Fixed an issue which caused an exception to occur when `IJobEntityBatchWithIndex` is scheduled with `.Run()`
+* Fixed a few methods not correctly preserving shared component values: `EntityManager.RemoveComponent(EntityQuery, ComponentTypes)`, `EntityCommandBuffer.RemoveComponent(EntityQuery, ComponentTypes)`, `EntityCommandBuffer.AddComponent(EntityQuery, ComponentTypes)`.
+* Fixed a bug with `BufferFromEntity<T>` which caused it to incorrectly update the version number of the buffer when marked `ReadOnly`
+* `TypeManager.GetWriteGroupTypes()` no longer leaks `AtomicSafetyHandle` instances each time it is called.
+* Fixed an issue where `GetEntityInfo()` can potentially crash the editor if the user passes in an invalid Entity
+* Fixed buffer element authoring component not showing up in DOTS Compiler Inspector.
+* `TypeManager.Initialize` now uses the TypeCache in Editor, improving the time it takes to enter playmode when no script compilation occurs. (1800ms -> 200ms)
+* Fix `Entities.ForEach` `WithDisposeOnJob` method to work correctly with NativeArrays when scheduled with `.Run`.
+* Fix IL2CPP build error with local methods used inside of Entities.ForEach lambdas.
+
+
+
 ## [0.14.0] - 2020-08-04
 
 ### Added
@@ -7,14 +119,17 @@
 * Added `IsEmpty` property to `DynamicBuffer`.
 * Added deduplication for asset bundles generated for subscenes.
 * Added new `EntityManager` methods: `AddComponent(EntityQuery, ComponentTypes)`, which adds multiple components to all entities matching a query; and `RemoveComponent(Entity, ComponentTypes)`, which removes multiple components from a single entity. (`AddComponent(Entity, ComponentTypes)` and `RemoveComponent(EntityQuery, ComponentTypes)` already existed. This patch just fills in a few 'missing' methods.)
+* Added `EntityManagerDifferOptions.UseReferentialEquality` which instructs the Differ to compare entity fields by GUID and blob asset reference fields by hash instead of bitwise equality
 
 ### Changed
+* `BlockAllocator` is now backed by memory retrieved from platform virtual memory APIs. Platforms which do not support virtual memory will fall back to malloc/free.
 * `IJobEntityBatch.ScheduleSingle` is being renamed to `IJobEntityBatch.Schedule` to match our naming guidelines for job scheduling.
 * When `DefaultWorldInitialization.Initialize()` adds the default World's system groups to the Unity player loop, it now bases its modifications on the current player loop instead of the default player loop. This prevents the Entities package from accidentally erasing any previous player loop modifications made outside the package.
 * `DefaultWorldInitialization.DomainUnloadOrPlayModeChangeShutdown()` now removes all existing `World`s from the Unity player loop before destroying them. If a `World` that was added to the player loop is destroyed manually prior to domain unload, it must also be removed from the player loop manually using `ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop()`.
 * Updated package `com.unity.platforms` to version `0.7.0-preview.8`.
 * `EntityManager.CreateEntity()`, `EntityManager.SetArchetype()`, and `EntityCommandBuffer.CreateEntity()` no longer accept the value returned by `new EntityArchetype()` because it's invalid. Same for `EntityCommandBuffer.CreateEntity()` and `EntityCommandBuffer.ParallelWriter.CreateEntity()`. Always use `EntityManager.CreateArchetype()` instead of `new EntityArchetype()` to create `EntityArchetype` values. (Ideally, the `EntityArchetype` constructor wouldn't be public, but C# doesn't allow that for a struct.)
 * Subscene Inspector now uses a table format to allow easier management of multiple subscenes
+* RemoveComponent(EntityQuery, ComponentTypes) now removes all provided components at once from all entities matching the query. Previously, the components were removed one at a time in a loop. This was less efficient and could affect which entities matched the query in subsequent loop iterations in unexpected ways.
 
 ### Deprecated
 * `IJobEntityBatch.ScheduleParallelBatched` is being deprecated in favor of adding a batching parameter to `IJobEntityBatch.ScheduleParallel`
@@ -33,6 +148,7 @@
 * Fixed an issue which caused WebGL not to work, and could produce this error message on IL2CPP-based backends:
 ```
 NotSupportedException: To marshal a managed method, please add an attribute named 'MonoPInvokeCallback' to the method definition. The method we're attempting to marshal is: Unity.Entities.SystemBase::UnmanagedUpdate
+```
 
 
 ## [0.13.0] - 2020-07-10

@@ -214,7 +214,7 @@ namespace Unity.Entities
         {
             m_Size = chainStates.Length;
             m_Allocator = alloc;
-            m_Heap = (ECBChainHeapElement*)UnsafeUtility.Malloc((m_Size + BaseIndex) * sizeof(ECBChainHeapElement), 64, m_Allocator);
+            m_Heap = (ECBChainHeapElement*)Memory.Unmanaged.Allocate((m_Size + BaseIndex) * sizeof(ECBChainHeapElement), 64, m_Allocator);
             for (int i = m_Size - 1; i >= m_Size / 2; --i)
             {
                 m_Heap[BaseIndex + i].SortKey = chainStates[i].NextSortKey;
@@ -230,7 +230,7 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            UnsafeUtility.Free(m_Heap, m_Allocator);
+            Memory.Unmanaged.Free(m_Heap, m_Allocator);
         }
 
         public bool Empty { get { return m_Size <= 0; } }
@@ -402,7 +402,7 @@ namespace Unity.Entities
             // PERF: It's be great if we had a way to actually get the number of worst-case threads so we didn't have to allocate 128.
             int allocSize = sizeof(EntityCommandBufferChain) * JobsUtility.MaxJobThreadCount;
 
-            m_ThreadedChains = (EntityCommandBufferChain*)UnsafeUtility.Malloc(allocSize, JobsUtility.CacheLineSize, m_Allocator);
+            m_ThreadedChains = (EntityCommandBufferChain*)Memory.Unmanaged.Allocate(allocSize, JobsUtility.CacheLineSize, m_Allocator);
             UnsafeUtility.MemClear(m_ThreadedChains, allocSize);
 
             for (var i = 0; i < JobsUtility.MaxJobThreadCount; ++i)
@@ -415,7 +415,7 @@ namespace Unity.Entities
         {
             if (m_ThreadedChains != null)
             {
-                UnsafeUtility.Free(m_ThreadedChains, m_Allocator);
+                Memory.Unmanaged.Free(m_ThreadedChains, m_Allocator);
                 m_ThreadedChains = null;
             }
         }
@@ -732,7 +732,7 @@ namespace Unity.Entities
             int newSortKey = sortKey;
             if (newSortKey < chain->m_LastSortKey)
             {
-                EntityCommandBufferChain* archivedChain = (EntityCommandBufferChain*)UnsafeUtility.Malloc(sizeof(EntityCommandBufferChain), 8, m_Allocator);
+                EntityCommandBufferChain* archivedChain = (EntityCommandBufferChain*)Memory.Unmanaged.Allocate(sizeof(EntityCommandBufferChain), 8, m_Allocator);
                 *archivedChain = *chain;
                 UnsafeUtility.MemClear(chain, sizeof(EntityCommandBufferChain));
                 chain->m_NextChain = archivedChain;
@@ -743,7 +743,7 @@ namespace Unity.Entities
             {
                 var chunkSize = math.max(m_MinimumChunkSize, size);
 
-                var c = (ECBChunk*)UnsafeUtility.Malloc(sizeof(ECBChunk) + chunkSize, 16, m_Allocator);
+                var c = (ECBChunk*)Memory.Unmanaged.Allocate(sizeof(ECBChunk) + chunkSize, 16, m_Allocator);
                 var prev = chain->m_Tail;
                 c->Next = null;
                 c->Prev = prev;
@@ -957,7 +957,7 @@ namespace Unity.Entities
         /// <param name="playbackPolicy">Specifies if the EntityCommandBuffer can be played a single time or more than once.</param>
         internal EntityCommandBuffer(Allocator label, int disposeSentinelStackDepth, PlaybackPolicy playbackPolicy)
         {
-            m_Data = (EntityCommandBufferData*)UnsafeUtility.Malloc(sizeof(EntityCommandBufferData), UnsafeUtility.AlignOf<EntityCommandBufferData>(), label);
+            m_Data = (EntityCommandBufferData*)Memory.Unmanaged.Allocate(sizeof(EntityCommandBufferData), UnsafeUtility.AlignOf<EntityCommandBufferData>(), label);
             m_Data->m_Allocator = label;
             m_Data->m_PlaybackPolicy = playbackPolicy;
             m_Data->m_MinimumChunkSize = kDefaultMinimumChunkSize;
@@ -1038,7 +1038,7 @@ namespace Unity.Entities
                     m_Data->DestroyConcurrentAccess();
                 }
 
-                UnsafeUtility.Free(m_Data, m_Data->m_Allocator);
+                Memory.Unmanaged.Free(m_Data, m_Data->m_Allocator);
                 m_Data = null;
             }
         }
@@ -1075,7 +1075,7 @@ namespace Unity.Entities
             while (chain->m_Tail != null)
             {
                 var prev = chain->m_Tail->Prev;
-                UnsafeUtility.Free(chain->m_Tail, m_Data->m_Allocator);
+                Memory.Unmanaged.Free(chain->m_Tail, m_Data->m_Allocator);
                 chain->m_Tail = prev;
             }
 
@@ -1083,7 +1083,7 @@ namespace Unity.Entities
             if (chain->m_NextChain != null)
             {
                 FreeChain(chain->m_NextChain, playbackPolicy, didPlayback);
-                UnsafeUtility.Free(chain->m_NextChain, m_Data->m_Allocator);
+                Memory.Unmanaged.Free(chain->m_NextChain, m_Data->m_Allocator);
                 chain->m_NextChain = null;
             }
         }
@@ -1467,10 +1467,10 @@ namespace Unity.Entities
                     if (playbackStateSize > kMaxStatesOnStack)
                     {
                         createEntitiesBatch = (Entity*)
-                            UnsafeUtility.Malloc(entityCount * sizeof(Entity),
+                            Memory.Unmanaged.Allocate(entityCount * sizeof(Entity),
                             4, Allocator.Temp);
                         buffersWithFixup = (ECBSharedPlaybackState.BufferWithFixUp*)
-                            UnsafeUtility.Malloc(bufferCount * sizeof(ECBSharedPlaybackState.BufferWithFixUp),
+                            Memory.Unmanaged.Allocate(bufferCount * sizeof(ECBSharedPlaybackState.BufferWithFixUp),
                             4, Allocator.Temp);
                     }
                     else
@@ -1531,8 +1531,8 @@ namespace Unity.Entities
 
                     if (playbackStateSize > kMaxStatesOnStack)
                     {
-                        UnsafeUtility.Free(createEntitiesBatch, Allocator.Temp);
-                        UnsafeUtility.Free(buffersWithFixup, Allocator.Temp);
+                        Memory.Unmanaged.Free(createEntitiesBatch, Allocator.Temp);
+                        Memory.Unmanaged.Free(buffersWithFixup, Allocator.Temp);
                     }
                 }
 

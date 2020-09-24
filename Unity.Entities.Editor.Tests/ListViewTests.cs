@@ -22,7 +22,7 @@ namespace Unity.Entities.Editor.Tests
         {
         }
 
-        private static void SetSystemSelection(ComponentSystemBase system, World world)
+        private static void SetSystemSelection(SystemSelection system, World world)
         {
         }
 
@@ -170,7 +170,7 @@ namespace Unity.Entities.Editor.Tests
             var systemItems = listView.GetRows().Where(x => listView.systemsById.ContainsKey(x.id)).Select(x => listView.systemsById[x.id]);
             var systemList = systemItems.ToList();
 
-            var world2Systems = new List<ComponentSystemBase>();
+            var world2Systems = new List<SystemSelection>();
             foreach (var system in World2.Systems)
             {
                 world2Systems.Add(system);
@@ -189,7 +189,7 @@ namespace Unity.Entities.Editor.Tests
                 () => null,
                 () => true);
             var systemItems = listView.GetRows().Where(x => listView.systemsById.ContainsKey(x.id)).Select(x => listView.systemsById[x.id]);
-            var allSystems = new List<ComponentSystemBase>();
+            var allSystems = new List<SystemSelection>();
             foreach (var system in World.Systems)
             {
                 allSystems.Add(system);
@@ -199,7 +199,7 @@ namespace Unity.Entities.Editor.Tests
                 allSystems.Add(system);
             }
             var systemList = systemItems.ToList();
-            Assert.AreEqual(allSystems.Count(x => !(x is ComponentSystemGroup)), allSystems.Intersect(systemList).Count());
+            Assert.AreEqual(allSystems.Count(x => !(x.Managed is ComponentSystemGroup)), allSystems.Intersect(systemList).Count());
         }
     }
 }

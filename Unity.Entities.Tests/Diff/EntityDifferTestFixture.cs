@@ -3,7 +3,7 @@ using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
-    public abstract class EntityDifferTestFixture
+    public abstract class EntityDifferTestFixture : ECSTestsCommonBase
     {
         ulong m_NextEntityGuidIndex;
 
@@ -33,8 +33,10 @@ namespace Unity.Entities.Tests
         protected EntityManager DstEntityManager;
 
         [SetUp]
-        public virtual void SetUp()
+        public override void Setup()
         {
+            base.Setup();
+
             m_NextEntityGuidIndex = 1;
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
             SrcWorld = new World(nameof(EntityDifferTests) + ".Source");
@@ -44,13 +46,15 @@ namespace Unity.Entities.Tests
         }
 
         [TearDown]
-        public void TearDown()
+        public override void TearDown()
         {
             World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
             SrcEntityManager.Debug.CheckInternalConsistency();
             SrcWorld.Dispose();
             DstEntityManager.Debug.CheckInternalConsistency();
             DstWorld.Dispose();
+
+            base.TearDown();
         }
 
         /// <summary>

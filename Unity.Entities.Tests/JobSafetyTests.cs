@@ -196,6 +196,29 @@ namespace Unity.Entities.Tests
             componentData.Dispose();
         }
 
+        // This does what normal TearDown does, minus shutting down engine subsystems
+        private void CleanupWorld()
+        {
+            if (World != null && World.IsCreated)
+            {
+                // Clean up systems before calling CheckInternalConsistency because we might have filters etc
+                // holding on SharedComponentData making checks fail
+                while (World.Systems.Count > 0)
+                {
+                    World.DestroySystem(World.Systems[0]);
+                }
+
+                m_ManagerDebug.CheckInternalConsistency();
+
+                World.Dispose();
+                World = null;
+
+                World.DefaultGameObjectInjectionWorld = m_PreviousWorld;
+                m_PreviousWorld = null;
+                m_Manager = default;
+            }
+        }
+
         [Test]
         public void EntityManagerDestructionDetectsUnregisteredJob()
         {
@@ -214,19 +237,19 @@ namespace Unity.Entities.Tests
             job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             var jobHandle = job.Schedule();
 
-            // This call should detect the unregistered running job & emit the expected error message
-            TearDown();
+            // This should detect the unregistered running job & emit the expected error message
+            CleanupWorld();
 
             // Manually complete the job before cleaning up for real
             jobHandle.Complete();
-            TearDown();
+            CleanupWorld();
             job.entities.Dispose();
 #if !NET_DOTS
             LogAssert.NoUnexpectedReceived();
 #endif
         }
 
-            [Test]
+        [Test]
         public void DestroyEntityDetectsUnregisteredJob()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));
@@ -397,14 +420,24 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
 #pragma warning disable 618
-        struct BufferSafetyJobA : IJobForEach_B<EcsIntElement>
+        struct BufferSafetyJobA : IJobChunk
         {
-            public void Execute(DynamicBuffer<EcsIntElement> b0)
+            public BufferTypeHandle<EcsIntElement> BufferTypeHandleRO;
+
+            [DeallocateOnJobCompletion]
+            public NativeArray<int> MyArray;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                b0[3] = new EcsIntElement
+                var accessor = chunk.GetBufferAccessor(BufferTypeHandleRO);
+                for (int bufferIndex = 0; bufferIndex < chunk.Count; ++bufferIndex)
                 {
-                    Value = b0[0].Value + b0[1].Value + b0[2].Value,
-                };
+                    var buffer = accessor[bufferIndex];
+                    MyArray[0] = new EcsIntElement
+                    {
+                        Value = buffer[0].Value + buffer[1].Value + buffer[2].Value,
+                    };
+                }
             }
         }
 
@@ -421,6 +454,31 @@ namespace Unity.Entities.Tests
             {
                 var buffer = BuffersFromEntity[Entities[index]];
                 var total = buffer[3].Value;
+            }
+        }
+
+        struct BufferSafetyJobC : IJobChunk
+        {
+            [ReadOnly]
+            public EntityTypeHandle EntityTypeHandle;
+
+            [ReadOnly]
+            public BufferFromEntity<EcsIntElement> BufferFromEntityRO;
+
+            [DeallocateOnJobCompletion]
+            public NativeArray<int> MyArray;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                var entities = chunk.GetNativeArray(EntityTypeHandle);
+                for (int entityIndex = 0; entityIndex < chunk.Count; ++entityIndex)
+                {
+                    var buffer = BufferFromEntityRO[entities[entityIndex]];
+                    MyArray[0] = new EcsIntElement
+                    {
+                        Value = buffer[0].Value + buffer[1].Value + buffer[2].Value,
+                    };
+                }
             }
         }
 #pragma warning restore 618
@@ -443,7 +501,7 @@ namespace Unity.Entities.Tests
 
             var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
 
-            var jobA = new BufferSafetyJobA();
+            var jobA = new BufferSafetyJobA{BufferTypeHandleRO = m_Manager.GetBufferTypeHandle<EcsIntElement>(true), MyArray = new NativeArray<int>(1, Allocator.TempJob)};
             var jobAHandle = jobA.Schedule(query, default(JobHandle));
 
             var jobB = new BufferSafetyJobB
@@ -451,7 +509,29 @@ namespace Unity.Entities.Tests
                 Entities = query.ToEntityArray(Allocator.TempJob),
                 BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
             };
-            var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, jobAHandle);
+            var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, default(JobHandle));
+            jobBHandle.Complete();
+            jobAHandle.Complete();
+        }
+
+        [Test]
+        public void TwoJobsUsingReadOnlyDynamicBuffersCanRunInParallel_BufferFromEntity()
+        {
+            SetupDynamicBufferJobTestEnvironment();
+
+            var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
+
+            var jobA = new BufferSafetyJobC{EntityTypeHandle = m_Manager.GetEntityTypeHandle(), BufferFromEntityRO = m_Manager.GetBufferFromEntity<EcsIntElement>(true), MyArray = new NativeArray<int>(1, Allocator.TempJob)};
+            var jobAHandle = jobA.Schedule(query, default(JobHandle));
+
+            var jobB = new BufferSafetyJobB
+            {
+                Entities = query.ToEntityArray(Allocator.TempJob),
+                BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
+            };
+            var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, default(JobHandle));
+
+            jobAHandle.Complete();
             jobBHandle.Complete();
         }
 

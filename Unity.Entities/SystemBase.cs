@@ -380,6 +380,8 @@ namespace Unity.Entities
             using (state->m_ProfilerMarker.Auto())
 #endif
             {
+                state->BeforeUpdateResetRunTracker();
+
                 if (Enabled && ShouldRunSystem())
                 {
                     if (!state->m_PreviouslyEnabled)
@@ -437,21 +439,23 @@ namespace Unity.Entities
 
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Func<IntPtr, SystemDependencySafetyUtility.SafetyErrorDetails, bool>))]
-        internal static bool UnmanagedUpdate(SystemState* state, out SystemDependencySafetyUtility.SafetyErrorDetails errorDetails)
+        internal static bool UnmanagedUpdate(IntPtr pSystemState, out SystemDependencySafetyUtility.SafetyErrorDetails errorDetails)
         {
+            SystemState* state = (SystemState*) pSystemState;
             var hasSafetyError = false;
             errorDetails = default;
 
 #if ENABLE_PROFILER
             state->m_ProfilerMarker.Begin();
 #endif
+            state->BeforeUpdateResetRunTracker();
+
             if (state->Enabled && state->ShouldRunSystem())
             {
                 if (!state->m_PreviouslyEnabled)
                 {
                     state->m_PreviouslyEnabled = true;
-                    // TODO - don't have this
-                    // OnStartRunning();
+                    SystemBaseRegistry.CallOnStartRunning(state);
                 }
 
                 state->BeforeOnUpdate();
@@ -469,8 +473,7 @@ namespace Unity.Entities
             else if (state->m_PreviouslyEnabled)
             {
                 state->m_PreviouslyEnabled = false;
-                // TODO - don't have this
-                // OnStopRunning();
+                SystemBaseRegistry.CallOnStopRunning(state);
             }
 #if ENABLE_PROFILER
             state->m_ProfilerMarker.End();

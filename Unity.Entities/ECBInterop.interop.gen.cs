@@ -22,8 +22,7 @@ namespace Unity.Entities
      unsafe partial struct ECBInterop
     {
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
-        static bool _initialized = false;
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
 
         [BurstDiscard]
         private static void CheckDelegate(ref bool useDelegate)
@@ -39,22 +38,28 @@ namespace Unity.Entities
             return result;
         }
 
-        private delegate void _dlg_RemoveManagedReferences(EntityDataAccess* mgr, int* sharedIndex, int count);
-        private static object _gcDefeat_RemoveManagedReferences;
-        private struct TagType_RemoveManagedReferences {};
-        private static readonly SharedStatic<IntPtr> _bfp_RemoveManagedReferences = SharedStatic<IntPtr>.GetOrCreate<TagType_RemoveManagedReferences>();
+        static class Managed
+        {
+            public static bool _initialized = false;
+
+            public delegate void _dlg_RemoveManagedReferences(IntPtr mgr, IntPtr sharedIndex, int count);
+            public static object _gcDefeat_RemoveManagedReferences;
+        }
+
+        struct TagType_RemoveManagedReferences {};
+        public static readonly SharedStatic<IntPtr> _bfp_RemoveManagedReferences = SharedStatic<IntPtr>.GetOrCreate<TagType_RemoveManagedReferences>();
 
 #endif
 
         [NotBurstCompatible]
         internal static void Initialize()
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
-            if (_initialized)
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+            if (Managed._initialized)
                 return;
-            _initialized = true;
-        _dlg_RemoveManagedReferences delegateObject = _wrapper_RemoveManagedReferences;
-        _gcDefeat_RemoveManagedReferences = delegateObject;
+            Managed._initialized = true;
+        Managed._dlg_RemoveManagedReferences delegateObject = _wrapper_RemoveManagedReferences;
+        Managed._gcDefeat_RemoveManagedReferences = delegateObject;
         _bfp_RemoveManagedReferences.Data = Marshal.GetFunctionPointerForDelegate(delegateObject);
 
 #endif
@@ -63,7 +68,7 @@ namespace Unity.Entities
 
         internal static void RemoveManagedReferences (EntityDataAccess* mgr, int* sharedIndex, int count)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (!UseDelegate())
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -71,20 +76,20 @@ namespace Unity.Entities
                     throw new InvalidOperationException("Burst Interop Classes must be initialized manually");
 #endif
 
-                var fp = new FunctionPointer<_dlg_RemoveManagedReferences>(_bfp_RemoveManagedReferences.Data);
-                fp.Invoke(mgr, sharedIndex, count);
+                var fp = new FunctionPointer<Managed._dlg_RemoveManagedReferences>(_bfp_RemoveManagedReferences.Data);
+                fp.Invoke((IntPtr) mgr, (IntPtr) sharedIndex, count);
                 return;
             }
 #endif
             _RemoveManagedReferences(mgr, sharedIndex, count);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
-        [MonoPInvokeCallback(typeof(_dlg_RemoveManagedReferences))]
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+        [MonoPInvokeCallback(typeof(Managed._dlg_RemoveManagedReferences))]
 #endif
-        private static void _wrapper_RemoveManagedReferences (EntityDataAccess* mgr, int* sharedIndex, int count)
+        private static void _wrapper_RemoveManagedReferences (IntPtr mgr, IntPtr sharedIndex, int count)
         {
-            _RemoveManagedReferences(mgr, sharedIndex, count);
+            _RemoveManagedReferences((EntityDataAccess*)mgr, (int*)sharedIndex, count);
         }
 
 

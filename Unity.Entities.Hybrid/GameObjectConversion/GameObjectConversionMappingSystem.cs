@@ -603,14 +603,9 @@ namespace Unity.Entities.Conversion
             // In SceneView Live Link mode we want to show the original MeshRenderer
             if (hasGameObjectBasedRenderingRepresentation && liveLinkScene)
             {
-                #if UNITY_2020_1_OR_NEWER
-
                 var sceneCullingMask = UnityEditor.GameObjectUtility.ModifyMaskIfGameObjectIsHiddenForPrefabModeInContext(
                     UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask,
                     pickableObject);
-                #else
-                var sceneCullingMask = EditorRenderData.LiveLinkEditGameViewMask;
-                #endif
                 m_DstManager.AddSharedComponentData(entity, new EditorRenderData
                 {
                     PickableObject = pickableObject,
@@ -846,8 +841,7 @@ namespace Unity.Entities.Conversion
                 {
                     gameObject.SetActive(false);
 
-                    var companion = UnityObject.Instantiate(gameObject);
-                    CompanionLink.SetCompanionName(entity, companion);
+                    var companion = CompanionLink.InstantiateCompanionObject(entity, gameObject);
 
                     foreach (var component in gameObject.GetComponents<UnityComponent>())
                     {

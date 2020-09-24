@@ -13,6 +13,7 @@ namespace Unity.Entities.Conversion
     {
         public UnityLogType Type;
         public string Message;
+        public string Stacktrace;
     }
 
     internal struct ConvertedEntitiesAccessor
@@ -243,11 +244,11 @@ namespace Unity.Entities.Conversion
             return true;
         }
 
-        public bool RecordLogEvent(UnityObject context, UnityLogType logType, string message) =>
-            RecordEvent(context, ref m_LogEvents, new LogEventData { Type = logType, Message = message });
+        public bool RecordLogEvent(UnityObject context, UnityLogType logType, string message, string stacktrace = default) =>
+            RecordEvent(context, ref m_LogEvents, new LogEventData { Type = logType, Message = message, Stacktrace = stacktrace });
 
         public bool RecordExceptionEvent(UnityObject context, Exception exception) =>
-            RecordLogEvent(context, UnityLogType.Exception, $"{exception.GetType().Name}: {exception.Message}");
+            RecordLogEvent(context, UnityLogType.Exception, $"{exception.GetType().Name}: {exception.Message}", exception.StackTrace);
 
         MultiListEnumerator<T, I> SelectJournalData<T, I>(UnityObject context, ref MultiList<T, I> store) where I : IMultiListDataImpl<T>
         {

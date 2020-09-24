@@ -1,9 +1,17 @@
+using System;
 using System.ComponentModel;
 using Unity.Core;
 using Unity.Mathematics;
 
 namespace Unity.Entities
 {
+
+    public interface IFixedRateManager
+    {
+        bool ShouldGroupUpdate(ComponentSystemGroup group);
+        float Timestep { get; set; }
+    }
+
     public static class FixedRateUtils
     {
         /// <summary>
@@ -13,10 +21,11 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="group">The group whose UpdateCallback will be configured with a fixed timestep update call</param>
         /// <param name="timestep">The duration of each fixed timestep (in seconds). The timestep value will be clamped to the range [0.0001f ... 10.0f].</param>
+        [Obsolete("Assign ComponentSystemGroup.FixedRateManager directly. (RemovedAfter 2020-12-26)")]
         public static void EnableFixedRateWithCatchUp(ComponentSystemGroup group, float timestep)
         {
             var manager = new FixedRateCatchUpManager(timestep);
-            group.UpdateCallback = manager.UpdateCallback;
+            group.FixedRateManager = manager;
         }
 
         /// <summary>
@@ -26,43 +35,43 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="group">The group whose UpdateCallback will be configured with a fixed timestep update call</param>
         /// <param name="timestep">The duration of each fixed timestep (in seconds). The timestep valuewill be clamped to the range [0.0001f ... 10.0f].</param>
+        [Obsolete("Assign ComponentSystemGroup.FixedRateManager directly. (RemovedAfter 2020-12-26)")]
         public static void EnableFixedRateSimple(ComponentSystemGroup group, float timestep)
         {
             var manager = new FixedRateSimpleManager(timestep);
-            group.UpdateCallback = manager.UpdateCallback;
+            group.FixedRateManager = manager;
         }
 
         /// <summary>
         /// Disable fixed rate updates on the given group, by setting the UpdateCallback to null.
         /// </summary>
         /// <param name="group">The group whose UpdateCallback to set to null.</param>
+        [Obsolete("Set ComponentSystemGroup.FixedRateManager to null. (RemovedAfter 2020-12-26)")]
         public static void DisableFixedRate(ComponentSystemGroup group)
         {
-            group.UpdateCallback = null;
+            group.FixedRateManager = null;
         }
 
         internal const float MinFixedDeltaTime = 0.0001f;
         internal const float MaxFixedDeltaTime = 10.0f;
-        internal const float DefaultMaxDeltaTime = 1.0f / 3.0f;
 
-        internal class FixedRateSimpleManager
+        public class FixedRateSimpleManager : IFixedRateManager
         {
-            protected float m_FixedTimestep;
-            internal float Timestep
+            float m_FixedTimestep;
+            public float Timestep
             {
                 get => m_FixedTimestep;
                 set => m_FixedTimestep = math.clamp(value, MinFixedDeltaTime, MaxFixedDeltaTime);
             }
+            double m_LastFixedUpdateTime;
+            bool m_DidPushTime;
 
-            protected double m_LastFixedUpdateTime;
-            protected bool m_DidPushTime;
-
-            internal FixedRateSimpleManager(float fixedDeltaTime)
+            public FixedRateSimpleManager(float fixedDeltaTime)
             {
                 Timestep = fixedDeltaTime;
             }
 
-            internal bool UpdateCallback(ComponentSystemGroup group)
+            public bool ShouldGroupUpdate(ComponentSystemGroup group)
             {
                 // if this is true, means we're being called a second or later time in a loop
                 if (m_DidPushTime)
@@ -83,38 +92,41 @@ namespace Unity.Entities
             }
         }
 
-        internal class FixedRateCatchUpManager
+        public class FixedRateCatchUpManager : IFixedRateManager
         {
-            protected float m_FixedTimestep;
-            internal float Timestep
+            // TODO: move this to World
+            float m_MaximumDeltaTime;
+            public float MaximumDeltaTime
+            {
+                get => m_MaximumDeltaTime;
+                set => m_MaximumDeltaTime = math.max(value, m_FixedTimestep);
+            }
+
+            float m_FixedTimestep;
+            public float Timestep
             {
                 get => m_FixedTimestep;
                 set
                 {
                     m_FixedTimestep = math.clamp(value, MinFixedDeltaTime, MaxFixedDeltaTime);
-                    MaximumDeltaTime = m_MaximumDeltaTime;
                 }
             }
 
-            protected float m_MaximumDeltaTime;
-            internal float MaximumDeltaTime
-            {
-                get => m_MaximumDeltaTime;
-                set => m_MaximumDeltaTime = math.max(value, m_FixedTimestep);
-            }
-            protected double m_LastFixedUpdateTime;
-            protected long m_FixedUpdateCount;
-            protected bool m_DidPushTime;
-            protected double m_MaxFinalElapsedTime;
+            double m_LastFixedUpdateTime;
+            long m_FixedUpdateCount;
+            bool m_DidPushTime;
+            double m_MaxFinalElapsedTime;
 
-            internal FixedRateCatchUpManager(float fixedDeltaTime)
+            public FixedRateCatchUpManager(float fixedDeltaTime)
             {
                 Timestep = fixedDeltaTime;
-                MaximumDeltaTime = DefaultMaxDeltaTime;
             }
 
-            internal bool UpdateCallback(ComponentSystemGroup group)
+            public bool ShouldGroupUpdate(ComponentSystemGroup group)
             {
+                float worldMaximumDeltaTime = group.World.MaximumDeltaTime;
+                float maximumDeltaTime = math.max(worldMaximumDeltaTime, m_FixedTimestep);
+
                 // if this is true, means we're being called a second or later time in a loop
                 if (m_DidPushTime)
                 {
@@ -122,7 +134,7 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    m_MaxFinalElapsedTime = m_LastFixedUpdateTime + m_MaximumDeltaTime;
+                    m_MaxFinalElapsedTime = m_LastFixedUpdateTime + maximumDeltaTime;
                 }
 
                 var finalElapsedTime = math.min(m_MaxFinalElapsedTime, group.World.Time.ElapsedTime);

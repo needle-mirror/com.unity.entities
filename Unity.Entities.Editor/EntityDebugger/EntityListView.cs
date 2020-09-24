@@ -8,7 +8,7 @@ namespace Unity.Entities.Editor
 {
     internal delegate void EntitySelectionCallback(Entity selection);
     internal delegate World WorldSelectionGetter();
-    internal delegate ComponentSystemBase SystemSelectionGetter();
+    internal delegate SystemSelection SystemSelectionGetter();
     internal delegate void ChunkArrayAssignmentCallback(NativeArray<ArchetypeChunk> chunkArray);
 
     internal class EntityListView : TreeView, IDisposable
@@ -91,8 +91,19 @@ namespace Unity.Entities.Editor
             Reload();
         }
 
-        internal bool ShowingSomething => getWorldSelection() != null &&
-        (selectedEntityQuery != null || !(getSystemSelection() is ComponentSystemBase));
+        internal unsafe bool ShowingSomething
+        {
+            get
+            {
+                if (getWorldSelection() == null)
+                    return false;
+
+                if (selectedEntityQuery != null)
+                    return true;
+
+                return !getSystemSelection().Valid; // True if on the world node itself
+            }
+        }
 
         private int lastVersion = -1;
 

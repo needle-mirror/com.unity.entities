@@ -11,7 +11,6 @@ using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
-
     /// <summary>
     /// A system provides behavior in an ECS architecture.
     /// </summary>
@@ -230,6 +229,16 @@ namespace Unity.Entities
 
             return null;
         }
+
+
+#if ENABLE_PROFILER
+        internal string GetProfilerMarkerName()
+        {
+            string name = default;
+            CheckedState()->m_ProfilerMarker.GetName(ref name);
+            return name;
+        }
+#endif
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void CheckExists()
@@ -569,6 +578,43 @@ namespace Unity.Entities
         {
             return GetEntityQueryInternal(queryDesc);
         }
+
+#if UNITY_ENTITIES_RUNTIME_TOOLING
+        /// <summary>
+        /// Return the Stopwatch ticks at the start of when this system last actually executed.
+        /// Only available with UNITY_ENTITIES_RUNTIME_TOOLING defined
+        /// </summary>
+        public long SystemStartTicks => this.m_StatePtr->m_LastSystemStartTime;
+
+        /// <summary>
+        /// Return the Stopwatch ticks at the end of when this system last actually executed.
+        /// Only available with UNITY_ENTITIES_RUNTIME_TOOLING defined
+        /// </summary>
+        public long SystemEndTicks => this.m_StatePtr->m_LastSystemEndTime;
+
+        /// <summary>
+        /// Return the Stopwatch ticks for how long this system ran the last time Update() was called.
+        /// If the system was disabled or didn't run due to no matching queries at last Update(), 0
+        /// is returned.
+        /// Only available with UNITY_ENTITIES_RUNTIME_TOOLING defined
+        /// </summary>
+        public long SystemElapsedTicks
+        {
+            get
+            {
+                if (!this.m_StatePtr->m_RanLastUpdate)
+                    return 0;
+
+                return SystemEndTicks - SystemStartTicks;
+            }
+        }
+
+        /// <summary>
+        /// Return SystemElapsedTicks converted to float milliseconds.
+        /// Only available with UNITY_ENTITIES_RUNTIME_TOOLING defined
+        /// </summary>
+        public float SystemElapsedMilliseconds => (float) (SystemElapsedTicks * 1000.0 / Stopwatch.Frequency);
+#endif
     }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

@@ -374,24 +374,17 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        public void AssertCanRemoveComponent(Entity entity, ComponentType componentType)
+        public void AssertCanRemoveComponent(ComponentType componentType)
         {
             if (componentType == m_EntityComponentType)
                 throw new ArgumentException("Cannot remove Entity as a component. Use DestroyEntity if you want to delete Entity and all associated components.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        public void AssertCanRemoveComponent(NativeArray<Entity> entity, ComponentType componentType)
-        {
-            if (componentType == m_EntityComponentType)
-                throw new ArgumentException("Cannot remove Entity as a component. Use DestroyEntity if you want to delete Entity and all associated components.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        public void AssertCanRemoveComponents(Entity entity, ComponentTypes types)
+        public void AssertCanRemoveComponents(ComponentTypes types)
         {
             for (int i = 0; i < types.Length; ++i)
-                AssertCanRemoveComponent(entity, ComponentType.FromTypeIndex(types.GetTypeIndex(i)));
+                AssertCanRemoveComponent(ComponentType.FromTypeIndex(types.GetTypeIndex(i)));
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]

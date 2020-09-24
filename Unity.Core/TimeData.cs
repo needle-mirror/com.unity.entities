@@ -8,6 +8,8 @@ namespace Unity.Core
         /// <summary>
         /// The total cumulative elapsed time in seconds.
         /// </summary>
+        /// <remarks>The ElapsedTime for each World is initialized to zero when the World is created. Thus,
+        /// comparing timestamps across Worlds (or between Worlds and MonoBehaviours) is generally an error.</remarks>
         public readonly double ElapsedTime;
 
         /// <summary>

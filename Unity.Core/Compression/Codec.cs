@@ -44,7 +44,7 @@ namespace Unity.Core.Compression
         static public unsafe int Compress(Codec codec, in byte* src, int srcSize, out byte* dst, Allocator allocator = Allocator.Temp)
         {
             int boundedSize = CompressUpperBound(codec, srcSize);
-            dst = (byte*)UnsafeUtility.Malloc(boundedSize, 16, allocator);
+            dst = (byte*)Memory.Unmanaged.Allocate(boundedSize, 16, allocator);
 
             int compressedSize = 0;
             switch (codec)
@@ -57,7 +57,7 @@ namespace Unity.Core.Compression
 
             if (compressedSize < 0)
             {
-                UnsafeUtility.Free(dst, allocator);
+                Memory.Unmanaged.Free(dst, allocator);
                 dst = null;
             }
 
@@ -89,20 +89,15 @@ namespace Unity.Core.Compression
 #if !UNITY_DOTSRUNTIME
         // We assume when not using DOTS Runtime the liblz4 dll is provided externally for linking
         const string DllName = "liblz4";
+        
+#else
+        const string DllName = "lib_unity_entities";
+#endif
         [DllImport(DllName, EntryPoint = "LZ4_compressBound")]
         static extern unsafe int CompressBoundLZ4(int srcSize);
         [DllImport(DllName, EntryPoint = "LZ4_compress_default")]
         static extern unsafe int CompressLZ4(byte* src, byte* dst, int srcSize, int dstCapacity);
         [DllImport(DllName, EntryPoint = "LZ4_decompress_safe")]
         static extern unsafe int DecompressLZ4(byte* src, byte* dst, int compressedSize, int dstCapacity);
-#else
-        const string DllName = "lib_unity_entities";
-        [DllImport(DllName, EntryPoint = "CompressBound_LZ4")]
-        static extern unsafe int CompressBoundLZ4(int srcSize);
-        [DllImport(DllName, EntryPoint = "Compress_LZ4")]
-        static extern unsafe int CompressLZ4(byte* src, byte* dst, int srcSize, int dstCapacity);
-        [DllImport(DllName, EntryPoint = "Decompress_LZ4")]
-        static extern unsafe int DecompressLZ4(byte* src, byte* dst, int compressedSize, int dstCapacity);
-#endif
     }
 }

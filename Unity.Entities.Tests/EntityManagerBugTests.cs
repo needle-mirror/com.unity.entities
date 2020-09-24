@@ -132,6 +132,7 @@ namespace Unity.Entities.Tests
         }
     }
 
+#if !(UNITY_WEBGL && UNITY_DOTSRUNTIME) // https://unity3d.atlassian.net/browse/DOTSR-2031
     class Bug1294 : ECSTestsFixture
     {
         [Test]
@@ -176,7 +177,7 @@ namespace Unity.Entities.Tests
             Assert.Less(eic1.CompareTo(eic2), 0);
         }
     }
-
+#endif
     class Bug476 : ECSTestsFixture
     {
         [Test]

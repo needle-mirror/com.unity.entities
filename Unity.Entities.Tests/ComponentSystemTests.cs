@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
@@ -371,6 +372,48 @@ namespace Unity.Entities.Tests
             World.DestroySystem(system);
             Assert.Throws<InvalidOperationException>(system.Update);
         }
+
+#if UNITY_ENTITIES_RUNTIME_TOOLING
+        class SystemThatTakesTime : SystemBase
+        {
+            private int updateCount = 0;
+            protected override void OnUpdate()
+            {
+                var start = Stopwatch.StartNew();
+
+                updateCount++;
+                long howlongtowait = updateCount * 2;
+                while (start.ElapsedMilliseconds < howlongtowait)
+                    ;
+            }
+        }
+
+        [Test]
+        public void RuntimeToolingSystemTiming()
+        {
+            var s1 = World.CreateSystem<SystemThatTakesTime>();
+
+            s1.Update();
+            Assert.Greater(s1.SystemElapsedTicks, 0);
+            Assert.Greater(s1.SystemStartTicks, 0);
+            Assert.Greater(s1.SystemEndTicks, s1.SystemStartTicks);
+            Assert.GreaterOrEqual(s1.SystemElapsedMilliseconds, 2);
+
+            s1.Update();
+            Assert.GreaterOrEqual(s1.SystemElapsedMilliseconds, 4);
+
+            s1.Enabled = false;
+            // check that the time still represents the last time it updated, even if
+            // we disabled it in the meantime
+            Assert.Greater(s1.SystemElapsedTicks, 0);
+            Assert.Greater(s1.SystemStartTicks, 0);
+            Assert.Greater(s1.SystemEndTicks, s1.SystemStartTicks);
+            Assert.GreaterOrEqual(s1.SystemElapsedMilliseconds, 4);
+
+            s1.Update();
+            Assert.AreEqual(0, s1.SystemElapsedTicks);
+        }
+#endif
 
 #if !UNITY_DOTSRUNTIME
 

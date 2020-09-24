@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.EndToEnd.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.Tests")]
+[assembly: InternalsVisibleTo("Unity.Entities.Hybrid.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Editor")]
 [assembly: InternalsVisibleTo("Unity.Scenes")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests")]
@@ -24,4 +25,10 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.DataFlowGraph.Tests")]
 [assembly: InternalsVisibleTo("Unity.Samples.Tests")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Hybrid")]
-
+#if UNITY_ENTITIES_RUNTIME_TOOLING
+[assembly: InternalsVisibleTo("Unity.Entities.RuntimeTools")]
+[assembly: InternalsVisibleTo("Unity.Entities.RuntimeTools2")]
+[assembly: InternalsVisibleTo("Unity.Entities.RuntimeTools3")]
+[assembly: InternalsVisibleTo("Unity.Entities.RuntimeTools4")]
+[assembly: InternalsVisibleTo("Unity.Entities.RuntimeTools5")]
+#endif

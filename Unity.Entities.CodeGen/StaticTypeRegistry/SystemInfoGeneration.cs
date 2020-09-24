@@ -9,6 +9,7 @@ using MethodAttributes = Mono.Cecil.MethodAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
 using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
 using SystemList = System.Collections.Generic.List<Mono.Cecil.TypeDefinition>;
+using Unity.Cecil.Awesome;
 
 namespace Unity.Entities.CodeGen
 {
@@ -50,31 +51,20 @@ namespace Unity.Entities.CodeGen
 
         public MethodDefinition InjectGetSystemAttributes(List<TypeReference> systems)
         {
-            var createSystemsFunction = new MethodDefinition(
+            var getSystemAttributesFn = new MethodDefinition(
                 "GetSystemAttributes",
                 MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig,
                 AssemblyDefinition.MainModule.ImportReference(typeof(Attribute).MakeArrayType()));
 
-            createSystemsFunction.Parameters.Add(
+            getSystemAttributesFn.Parameters.Add(
                 new ParameterDefinition("systemType",
                     ParameterAttributes.None,
                     AssemblyDefinition.MainModule.ImportReference(typeof(Type))));
 
-            createSystemsFunction.Body.InitLocals = true;
-            createSystemsFunction.Body.SimplifyMacros();
+            getSystemAttributesFn.Body.InitLocals = true;
+            getSystemAttributesFn.Body.SimplifyMacros();
 
-            var bc = createSystemsFunction.Body.Instructions;
-
-            var allGroups = new string[]
-            {
-                typeof(UpdateBeforeAttribute).FullName,
-                typeof(UpdateAfterAttribute).FullName,
-                typeof(UpdateInGroupAttribute).FullName,
-                typeof(AlwaysUpdateSystemAttribute).FullName,
-                typeof(AlwaysSynchronizeSystemAttribute).FullName,
-                typeof(DisableAutoCreationAttribute).FullName
-            };
-
+            var bc = getSystemAttributesFn.Body.Instructions;
             foreach (var sysRef in systems)
             {
                 var sysDef = sysRef.Resolve();
@@ -87,13 +77,7 @@ namespace Unity.Entities.CodeGen
                 int branchToNext = bc.Count;
                 bc.Add(Instruction.Create(OpCodes.Nop));    // will be: Brfalse_S nextTestCase
 
-                // Stack: <null>
-                List<CustomAttribute> attrList = new List<CustomAttribute>();
-                foreach (var g in allGroups)
-                {
-                    var list = sysDef.CustomAttributes.Where(t => t.AttributeType.FullName == g);
-                    attrList.AddRange(list);
-                }
+                var attrList = sysDef.CustomAttributes;
 
                 var disableAutoCreationAttr = sysRef.Module.Assembly.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(DisableAutoCreationAttribute));
                 if (disableAutoCreationAttr != null)
@@ -121,8 +105,7 @@ namespace Unity.Entities.CodeGen
                     // need to handle (Type, and bool) currently.
                     foreach (var ca in attr.ConstructorArguments)
                     {
-                        if(!InjectLoadFromCustomArgument(bc, ca))
-                            throw new ArgumentException($"Currently only 'Type', 'int' and 'bool' attribute constructor arguments are supported for ComponentSystems. '{sysDef.FullName}' has attribute '{attr.AttributeType.FullName}' using unsupported constructor '{attr.Constructor.FullName}'");
+                        InjectLoadFromCustomArgument(bc, ca);
                     }
 
                     // Construct the attribute; push it on the list.
@@ -136,8 +119,7 @@ namespace Unity.Entities.CodeGen
                         {
                             // Copy the element on the stack (the attribute) so we can store into it's fields
                             bc.Add(Instruction.Create(OpCodes.Dup));
-                            if (!InjectLoadFromCustomArgument(bc, field.Argument))
-                                throw new ArgumentException($"Currently initializing attribute fields supports 'Type', 'int' and 'bool' for ComponentSystems. '{sysDef.FullName}' has attribute '{attr.AttributeType.FullName}' initializing field '{field.Name}' of type '{field.Argument.Type.FullName}'");
+                            InjectLoadFromCustomArgument(bc, field.Argument);
 
                             var attributeTypeDef = attr.AttributeType.Resolve();
                             var attributeField = attributeTypeDef.Fields.Single(f => f.Name == field.Name);
@@ -166,28 +148,93 @@ namespace Unity.Entities.CodeGen
             bc.Add(Instruction.Create(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(arguementExceptionCtor)));
             bc.Add(Instruction.Create(OpCodes.Throw));
 
-            createSystemsFunction.Body.OptimizeMacros();
+            getSystemAttributesFn.Body.OptimizeMacros();
 
-            return createSystemsFunction;
+            return getSystemAttributesFn;
         }
 
-        bool InjectLoadFromCustomArgument(Mono.Collections.Generic.Collection<Instruction> instructions, CustomAttributeArgument customArgument)
+        void InjectLoadFromCustomArgument(Mono.Collections.Generic.Collection<Instruction> instructions, CustomAttributeArgument customArgument)
         {
-            var arg = customArgument.Value;
+            var caType = customArgument.Type;
+            var caValue = customArgument.Value;
 
-            if (arg is TypeReference)
-            {
-                instructions.Add(Instruction.Create(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference((TypeReference)arg)));
-                instructions.Add(Instruction.Create(OpCodes.Call, m_GetTypeFromHandleFnRef));
-            }
-            else if (arg is bool)
-            {
-                instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (bool)arg ? 1 : 0));
-            }
-            else
-                return false;
+            /*
+                https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/attributes#positional-and-named-parameters
+                The types of positional and named parameters for an attribute class are limited to the attribute parameter types, which are:
+                    - One of the following types: bool, byte, char, double, float, int, long, sbyte, short, string, uint, ulong, ushort.
+                    - The type object.
+                    - The type System.Type.
+                    - An enum type, provided it has public accessibility and the types in which it is nested (if any) also have public accessibility (Attribute specification).
+                    - Single-dimensional arrays of the above types.
+                    - A constructor argument or public field which does not have one of these types, cannot be used as a positional or named parameter in an attribute specification.
+            */
 
-            return true;
+            // NOTE: Any odd looking double casts (such as "(int)(uint)") is the result of C#'s type system and cecil's lack of proper overloads for its
+            // Instruction.Create type safety system which will complain which will promote uint to ulongs as that is the best type for the container given cecil only provides an 'int' overload
+            // but a ulong isn't correct for the operand we are passing. Bleh, it's ungly and misleading but now at least correct and safe.
+            switch (caType.MetadataType)
+            {
+                case MetadataType.Boolean:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (bool) caValue ? 1 : 0)); break;
+                case MetadataType.Byte:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (byte) caValue)); break;
+                case MetadataType.Char:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (char) caValue)); break;
+                case MetadataType.Double:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_R8, (double) caValue)); break;
+                case MetadataType.Single:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_R4, (float) caValue)); break;
+                case MetadataType.UInt16:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int)(ushort) caValue)); break;
+                case MetadataType.Int16:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int)(short) caValue)); break;
+                case MetadataType.UInt32:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int)(uint) caValue)); break;
+                case MetadataType.Int32:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int) caValue)); break;
+                case MetadataType.UInt64:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I8, (long)(ulong) caValue)); break;
+                case MetadataType.Int64:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I8, (long) caValue)); break;
+                case MetadataType.SByte:
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (sbyte) caValue)); break;
+                case MetadataType.String:
+                    instructions.Add(Instruction.Create(OpCodes.Ldstr, (string) caValue)); break;
+                case MetadataType.Class:
+                {
+                    if (caValue is TypeReference)
+                    {
+                        instructions.Add(Instruction.Create(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference((TypeReference)caValue)));
+                        instructions.Add(Instruction.Create(OpCodes.Call, m_GetTypeFromHandleFnRef));
+                    }
+                    break;
+                }
+                case MetadataType.Array:
+                    throw new NotImplementedException("Single-array attribute support needs to be implemented");
+                case MetadataType.ValueType:
+                {
+                    if (caType.IsEnum())
+                    {
+                        var td = caType.Resolve();
+                        var enumTypeRef = td.GetEnumUnderlyingType();
+                        if (enumTypeRef.MetadataType == MetadataType.UInt16)
+                            instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int)(ushort) caValue));
+                        else if (enumTypeRef.MetadataType == MetadataType.Int16)
+                            instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int)(short) caValue));
+                        else if (enumTypeRef.MetadataType == MetadataType.UInt32)
+                            instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int)(uint) caValue));
+                        else if (enumTypeRef.MetadataType == MetadataType.Int32)
+                            instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int) caValue));
+                        else if (enumTypeRef.MetadataType == MetadataType.UInt64)
+                            instructions.Add(Instruction.Create(OpCodes.Ldc_I8, (long)(ulong) caValue));
+                        else if(enumTypeRef.MetadataType == MetadataType.Int64)                               
+                            instructions.Add(Instruction.Create(OpCodes.Ldc_I8, (long) caValue));
+                    }
+                    break;
+                }
+                default:
+                    throw new ArgumentException($"Invalid custom argument type for {caType.FullName}");
+            }
         }
 
         public MethodDefinition InjectCreateSystem(List<TypeReference> systems)
@@ -207,6 +254,9 @@ namespace Unity.Entities.CodeGen
 
             foreach (var sysRef in systems)
             {
+                if (sysRef.IsValueType)
+                    continue;
+
                 var sysDef = sysRef.Resolve();
                 var constructor = AssemblyDefinition.MainModule.ImportReference(sysDef.GetConstructors()
                     .FirstOrDefault(param => param.HasParameters == false));

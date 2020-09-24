@@ -52,7 +52,7 @@ namespace Unity.Scenes.Editor
                 throw new System.InvalidOperationException("com.unity.entities requires Asset Pipeline Version 2. Please enable Version 2 in Project Settings / Editor / Asset Pipeline / Mode");
 
             // Custom dependencies are transmitted to the import worker so dont spent time on registering them
-            if (UnityEditor.Experimental.AssetDatabaseExperimental.IsAssetImportWorkerProcess())
+            if (AssetDatabaseCompatibility.IsAssetImportWorkerProcess())
                 return;
 
             using (kRegisterComponentTypes.Auto())
@@ -64,26 +64,26 @@ namespace Unity.Scenes.Editor
             int fileFormatVersion = SerializeUtility.CurrentFileFormatVersion;
             UnityEngine.Hash128 fileFormatHash = default;
             HashUnsafeUtilities.ComputeHash128(&fileFormatVersion, sizeof(int), &fileFormatHash);
-            UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency("EntityBinaryFileFormatVersion", fileFormatHash);
+            AssetDatabaseCompatibility.RegisterCustomDependency("EntityBinaryFileFormatVersion", fileFormatHash);
 
             int sceneFileFormatVersion = SceneMetaDataSerializeUtility.CurrentFileFormatVersion;
             UnityEngine.Hash128 sceneFileFormatHash = default;
             HashUnsafeUtilities.ComputeHash128(&sceneFileFormatVersion, sizeof(int), &sceneFileFormatHash);
-            UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency("SceneMetaDataFileFormatVersion", sceneFileFormatHash);
+            AssetDatabaseCompatibility.RegisterCustomDependency("SceneMetaDataFileFormatVersion", sceneFileFormatHash);
         }
 
         static void RegisterComponentTypes()
         {
             TypeManager.Initialize();
 
-            UnityEditor.Experimental.AssetDatabaseExperimental.UnregisterCustomDependencyPrefixFilter("DOTSType/");
+            AssetDatabaseCompatibility.UnregisterCustomDependencyPrefixFilter("DOTSType/");
             int typeCount = TypeManager.GetTypeCount();
 
             for (int i = 1; i < typeCount; ++i)
             {
                 var typeInfo = TypeManager.GetTypeInfo(i);
                 var hash = typeInfo.StableTypeHash;
-                UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency(TypeString(typeInfo.Type),
+                AssetDatabaseCompatibility.RegisterCustomDependency(TypeString(typeInfo.Type),
                     new UnityEngine.Hash128(hash, hash));
             }
         }
@@ -139,7 +139,7 @@ namespace Unity.Scenes.Editor
                 HashUnsafeUtilities.ComputeHash128(&version, sizeof(int), &hash);
             }
 
-            UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency(SystemsVersion, hash);
+            AssetDatabaseCompatibility.RegisterCustomDependency(SystemsVersion, hash);
         }
 
         public static void AddDependency(AssetImportContext ctx, ComponentType type)

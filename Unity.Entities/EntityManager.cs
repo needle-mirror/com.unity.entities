@@ -194,6 +194,7 @@ namespace Unity.Entities
             StructuralChange.Initialize();
             EntityCommandBuffer.Initialize();
             ECBInterop.Initialize();
+            Entities.EntityComponentStore.Initialize();
             ChunkIterationUtility.Initialize();
 
             // Pick any recorded types that have come in after a domain reload.
@@ -215,7 +216,7 @@ namespace Unity.Entities
 
             m_IsInExclusiveTransaction = false;
 #endif
-            m_EntityDataAccess = (EntityDataAccess*)UnsafeUtility.Malloc(sizeof(EntityDataAccess), 16, Allocator.Persistent);
+            m_EntityDataAccess = (EntityDataAccess*)Memory.Unmanaged.Allocate(sizeof(EntityDataAccess), 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_EntityDataAccess, sizeof(EntityDataAccess));
             EntityDataAccess.Initialize(m_EntityDataAccess, world);
         }
@@ -223,8 +224,6 @@ namespace Unity.Entities
         private void CreateJobReflectionData()
         {
             // Until we have reliable IL postprocessing or code generation we will have to resort to making these initialization calls manually.
-            IJobBurstSchedulableExtensions.JobStruct<EntityComponentStore.EntityBatchFromEntityChunkDataShared>.Initialize();
-            IJobBurstSchedulableExtensions.JobStruct<EntityComponentStore.SortEntityInChunk>.Initialize();
             IJobBurstSchedulableExtensions.JobStruct<EntityComponentStore.GetOrCreateDestroyedEntitiesJob>.Initialize();
             IJobBurstSchedulableExtensions.JobStruct<EntityDataAccess.DestroyChunks>.Initialize();
             IJobBurstSchedulableExtensions.JobStruct<ChunkPatchEntities>.Initialize();
@@ -235,13 +234,13 @@ namespace Unity.Entities
             IJobBurstSchedulableExtensions.JobStruct<MoveFilteredChunksBetweenArchetypexJob>.Initialize();
             IJobBurstSchedulableExtensions.JobStruct<GatherChunksAndOffsetsJob>.Initialize();
             IJobBurstSchedulableExtensions.JobStruct<GatherChunksAndOffsetsWithFilteringJob>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<PrefilterForJobEntityBatchWithIndex>.Initialize();
 
-            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<EntityComponentStore.GatherEntityInChunkForEntities>.Initialize();
             IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<RemapChunksFilteredJob>.Initialize();
             IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<RemapAllChunksJob>.Initialize();
             IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<RemapAllArchetypesJob>.Initialize();
-            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<GatherChunks>.Initialize();
-            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<GatherChunksWithFiltering>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<GatherChunksJob>.Initialize();
+            IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<GatherChunksWithFilteringJob>.Initialize();
             IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<JoinChunksJob>.Initialize();
         }
 
@@ -261,7 +260,7 @@ namespace Unity.Entities
             PreDisposeCheck();
 
             GetCheckedEntityDataAccess()->Dispose();
-            UnsafeUtility.Free(m_EntityDataAccess, Allocator.Persistent);
+            Memory.Unmanaged.Free(m_EntityDataAccess, Allocator.Persistent);
             m_EntityDataAccess = null;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

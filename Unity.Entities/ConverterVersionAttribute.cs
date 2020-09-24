@@ -9,7 +9,16 @@ namespace Unity.Entities
     [AttributeUsage(AttributeTargets.Class)]
     public class ConverterVersionAttribute : Attribute
     {
+        /// <summary>
+        /// An identifier for the user that made the last change. Use this to enforce a merge conflict when two different
+        /// users both try to bump the version at the same time.
+        /// </summary>
         public string UserName;
+
+        /// <summary>
+        /// The version number of the converter. Increase this to invalidate the cached versions of entity scenes that
+        /// use the converter that is tagged with this attribute.
+        /// </summary>
         public int    Version;
 
         public ConverterVersionAttribute(string userName, int version)

@@ -58,7 +58,7 @@ namespace Unity.Entities
         [FieldOffset(kBufferOffset)]
         public fixed byte Buffer[4];
 
-        public const int kChunkSize = 16 * 1024 - 256; // allocate a bit less to allow for UnsafeUtility.Malloc header overhead
+        public const int kChunkSize = 16 * 1024;
         public const int kBufferSize = kChunkSize - kBufferOffset;
         public const int kMaximumEntitiesPerChunk = kBufferSize / 8;
 

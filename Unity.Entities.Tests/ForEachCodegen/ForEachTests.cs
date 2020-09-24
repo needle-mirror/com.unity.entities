@@ -51,49 +51,49 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void SimplestCase()
         {
-            TestSystem.SimplestCase().Complete();
+            TestSystem.SimplestCase();
             Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void WithTagComponent()
         {
-            TestSystem.WithTagComponent().Complete();
+            TestSystem.WithTagComponent();
             Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void WithTagComponentReadOnly()
         {
-            TestSystem.WithTagComponentReadOnly().Complete();
+            TestSystem.WithTagComponentReadOnly();
             Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void WithAllSharedComponent()
         {
-            TestSystem.WithAllSharedComponentData().Complete();
+            TestSystem.WithAllSharedComponentData();
             Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void WithSharedComponentFilter()
         {
-            TestSystem.WithSharedComponentFilter().Complete();
+            TestSystem.WithSharedComponentFilter();
             Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void WithChangeFilter()
         {
-            TestSystem.WithChangeFilter().Complete();
+            TestSystem.WithChangeFilter();
             Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void WithJobAndThenEntitiesForEach()
         {
-            TestSystem.WithJobAndThenEntitiesForEach().Complete();
+            TestSystem.WithJobAndThenEntitiesForEach();
             Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
@@ -108,7 +108,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void AddToDynamicBuffer()
         {
-            TestSystem.AddToDynamicBuffer().Complete();
+            TestSystem.AddToDynamicBuffer();
             var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
             Assert.AreEqual(3, buffer.Length);
             CollectionAssert.AreEqual(new[] {18, 19, 4}, buffer.Reinterpret<int>().AsNativeArray());
@@ -117,7 +117,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void ModifyDynamicBuffer()
         {
-            TestSystem.ModifyDynamicBuffer().Complete();
+            TestSystem.ModifyDynamicBuffer();
             var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
             CollectionAssert.AreEqual(new[] {18 * 2, 19 * 2}, buffer.Reinterpret<int>().AsNativeArray());
         }
@@ -125,49 +125,49 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void IterateExistingDynamicBufferReadOnly()
         {
-            TestSystem.IterateExistingDynamicBufferReadOnly().Complete();
+            TestSystem.IterateExistingDynamicBufferReadOnly();
             Assert.AreEqual(18 + 19, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void IterateExistingDynamicBuffer_NoModifier()
         {
-            TestSystem.IterateExistingDynamicBuffer_NoModifier().Complete();
+            TestSystem.IterateExistingDynamicBuffer_NoModifier();
             Assert.AreEqual(18 + 19 + 20, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void WithNone()
         {
-            TestSystem.WithNone().Complete();
+            TestSystem.WithNone();
             AssertNothingChanged();
         }
 
         [Test]
         public void WithAny_DoesntExecute_OnEntityWithoutThatComponent()
         {
-            TestSystem.WithAny_DoesntExecute_OnEntityWithoutThatComponent().Complete();
+            TestSystem.WithAny_DoesntExecute_OnEntityWithoutThatComponent();
             AssertNothingChanged();
         }
 
         [Test]
         public void ExecuteLocalFunctionThatCapturesTest()
         {
-            TestSystem.ExecuteLocalFunctionThatCaptures().Complete();
+            TestSystem.ExecuteLocalFunctionThatCaptures();
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void FirstCapturingSecondNotCapturingTest()
         {
-            TestSystem.FirstCapturingSecondNotCapturing().Complete();
+            TestSystem.FirstCapturingSecondNotCapturing();
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
         [Test]
         public void FirstNotCapturingThenCapturingTest()
         {
-            TestSystem.FirstNotCapturingThenCapturing().Complete();
+            TestSystem.FirstNotCapturingThenCapturing();
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
@@ -272,7 +272,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void CaptureFromMultipleScopesAndScheduleTest()
         {
-            TestSystem.CaptureFromMultipleScopesAndSchedule().Complete();
+            TestSystem.CaptureFromMultipleScopesAndSchedule();
             Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
@@ -286,7 +286,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void CaptureInnerAndOuterValueAndScheduleTest()
         {
-            TestSystem.CaptureInnerAndOuterValueAndSchedule().Complete();
+            TestSystem.CaptureInnerAndOuterValueAndSchedule();
             Assert.AreEqual(6, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
@@ -385,64 +385,71 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.DoesNotThrow(TestSystem.RunWithUsingCreatingTryFinallyBlock);
         }
 
-        class MyTestSystem : TestJobComponentSystem
+        class MyTestSystem : SystemBase
         {
             public EntityQuery m_StoredQuery;
             public EntityQuery m_ResolvedQuery;
 
-            public JobHandle SimplestCase()
+            public void SimplestCase()
             {
                 //int multiplier = 1;
-                return Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0;}).Schedule(default);
+                Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0;}).Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle WithTagComponent()
+            public void WithTagComponent()
             {
-                return Entities.ForEach((ref EcsTestData e1, ref EcsTestTag e2) => { e1.value = 5;}).Schedule(default);
+                Entities.ForEach((ref EcsTestData e1, ref EcsTestTag e2) => { e1.value = 5;}).Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle WithTagComponentReadOnly()
+            public void WithTagComponentReadOnly()
             {
-                return Entities.ForEach((ref EcsTestData e1, in EcsTestTag e2) => { e1.value = 5;}).Schedule(default);
+                Entities.ForEach((ref EcsTestData e1, in EcsTestTag e2) => { e1.value = 5;}).Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle WithNone()
+            public void WithNone()
             {
                 int multiplier = 1;
-                return Entities
+                Entities
                     .WithNone<EcsTestData2>()
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
-                    .Schedule(default);
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle WithAny_DoesntExecute_OnEntityWithoutThatComponent()
+            public void WithAny_DoesntExecute_OnEntityWithoutThatComponent()
             {
                 int multiplier = 1;
-                return Entities
+                Entities
                     .WithAny<EcsTestData3>()
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
-                    .Schedule(default);
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle WithAllSharedComponentData()
+            public void WithAllSharedComponentData()
             {
                 int multiplier = 1;
-                return Entities
+                Entities
                     .WithAll<EcsTestSharedComp>()
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
-                    .Schedule(default);
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle WithSharedComponentFilter()
+            public void WithSharedComponentFilter()
             {
                 int multiplier = 1;
-                return Entities
+                Entities
                     .WithSharedComponentFilter(new EcsTestSharedComp() { value = 5 })
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
-                    .Schedule(default);
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle WithChangeFilter()
+            public void WithChangeFilter()
             {
                 int multiplier = 1;
 
@@ -461,19 +468,18 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .WithChangeFilter<EcsTestData>()
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
                     .Run();
-
-                return default;
             }
 
-            public JobHandle WithJobAndThenEntitiesForEach()
+            public void WithJobAndThenEntitiesForEach()
             {
                 int multiplier = 1;
 
                 Job.WithCode(() => { multiplier = 3; }).Run();
 
-                return Entities
+                Entities
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
-                    .Schedule(default);
+                    .Schedule();
+                Dependency.Complete();
             }
 
             public int StoresEntityQueryInField()
@@ -488,48 +494,52 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 return count;
             }
 
-            public JobHandle AddToDynamicBuffer()
+            public void AddToDynamicBuffer()
             {
-                return Entities
+                Entities
                     .ForEach((ref EcsTestData e1, ref DynamicBuffer<TestBufferElement> buf) =>
-                {
-                    buf.Add(4);
-                })
-                    .Schedule(default);
+                    {
+                        buf.Add(4);
+                    })
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle ModifyDynamicBuffer()
+            public void ModifyDynamicBuffer()
             {
-                return Entities
+                Entities
                     .ForEach((ref EcsTestData e1, ref DynamicBuffer<TestBufferElement> buf) =>
-                {
-                    for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
-                })
-                    .Schedule(default);
+                    {
+                        for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
+                    })
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle IterateExistingDynamicBufferReadOnly()
+            public void IterateExistingDynamicBufferReadOnly()
             {
-                return Entities
+                Entities
                     .ForEach((ref EcsTestData e1, in DynamicBuffer<TestBufferElement> buf) =>
-                {
-                    e1.value = SumOfBufferElements(buf);
-                })
-                    .Schedule(default);
+                    {
+                        e1.value = SumOfBufferElements(buf);
+                    })
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle IterateExistingDynamicBuffer_NoModifier()
+            public void IterateExistingDynamicBuffer_NoModifier()
             {
-                return Entities
+                Entities
                     .ForEach((DynamicBuffer<TestBufferElement> buf, ref EcsTestData e1) =>
-                {
-                    buf.Add(20);
-                    e1.value = SumOfBufferElements(buf);
-                })
-                    .Schedule(default);
+                    {
+                        buf.Add(20);
+                        e1.value = SumOfBufferElements(buf);
+                    })
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            private static int SumOfBufferElements(DynamicBuffer<TestBufferElement> buf)
+            static int SumOfBufferElements(DynamicBuffer<TestBufferElement> buf)
             {
                 int total = 0;
                 for (int i = 0; i != buf.Length; i++)
@@ -561,51 +571,55 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }
             }
 
-            public JobHandle CaptureFromMultipleScopesAndSchedule()
+            public void CaptureFromMultipleScopesAndSchedule()
             {
                 int scope1 = 1;
                 {
                     int scope2 = 2;
                     {
                         int scope3 = 3;
-                        return Entities
+                        Entities
                             .ForEach((ref EcsTestData e1) =>
-                        {
-                            e1.value = scope1 + scope2 + scope3;
-                        })
-                            .Schedule(default);
+                            {
+                                e1.value = scope1 + scope2 + scope3;
+                            })
+                            .Schedule();
                     }
                 }
+                Dependency.Complete();
             }
 
-            public JobHandle ExecuteLocalFunctionThatCaptures()
+            public void ExecuteLocalFunctionThatCaptures()
             {
                 int capture_from_outer_scope = 1;
-                return Entities
+                Entities
                     .ForEach((ref EcsTestData e1) =>
-                {
-                    int capture_from_delegate_scope = 8;
-                    int MyLocalFunction()
                     {
-                        return capture_from_outer_scope + capture_from_delegate_scope;
-                    }
-                    e1.value = MyLocalFunction();
-                })
-                    .Schedule(default);
+                        int capture_from_delegate_scope = 8;
+                        int MyLocalFunction()
+                        {
+                            return capture_from_outer_scope + capture_from_delegate_scope;
+                        }
+                        e1.value = MyLocalFunction();
+                    })
+                    .Schedule();
+                Dependency.Complete();
             }
 
-            public JobHandle FirstCapturingSecondNotCapturing()
+            public void FirstCapturingSecondNotCapturing()
             {
                 int capturedValue = 3;
-                var job1 = Entities.ForEach((ref EcsTestData e1) => e1.value = capturedValue).Schedule(default);
-                return Entities.ForEach((ref EcsTestData e1) => e1.value *= 3).Schedule(job1);
+                var job1 = Entities.ForEach((ref EcsTestData e1) => e1.value = capturedValue).Schedule(Dependency);
+                Dependency = Entities.ForEach((ref EcsTestData e1) => e1.value *= 3).Schedule(job1);
+                Dependency.Complete();
             }
 
-            public JobHandle FirstNotCapturingThenCapturing()
+            public void FirstNotCapturingThenCapturing()
             {
                 int capturedValue = 3;
-                var job1 = Entities.ForEach((ref EcsTestData e1) => e1.value = 3).Schedule(default);
-                return Entities.ForEach((ref EcsTestData e1) => e1.value *= capturedValue).Schedule(job1);
+                var job1 = Entities.ForEach((ref EcsTestData e1) => e1.value = 3).Schedule(Dependency);
+                Dependency = Entities.ForEach((ref EcsTestData e1) => e1.value *= capturedValue).Schedule(job1);
+                Dependency.Complete();
             }
 
             public void InvokeMethodWhoseLocalsLeak()
@@ -724,25 +738,26 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     int multiplier = 1;
                     Entities
                         .ForEach((ref EcsTestData e1) =>
-                    {
-                        e1.value += multiplier + outter.Value + inner.Value;
-                    })
+                        {
+                            e1.value += multiplier + outter.Value + inner.Value;
+                        })
                         .Run();
                 }
             }
 
-            public JobHandle CaptureInnerAndOuterValueAndSchedule()
+            public void CaptureInnerAndOuterValueAndSchedule()
             {
                 int outerCapure = 3;
                 {
                     int innerCapture = 2;
-                    return Entities
+                    Entities
                         .ForEach((ref EcsTestData testData) =>
-                    {
-                        testData.value = outerCapure * innerCapture;
-                    })
-                        .Schedule(default);
+                        {
+                            testData.value = outerCapure * innerCapture;
+                        })
+                        .Schedule();
                 }
+                Dependency.Complete();
             }
 
             public void MultipleEntitiesForEachInNestedDisplayClasses()
@@ -828,6 +843,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(3,  grabbedData);
             }
 
+            // Not invoked, only used to store query in field with WithStoreEntityQueryInField
             public void ResolveDuplicateFieldsInEntityQuery()
             {
                 Entities
@@ -872,14 +888,11 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
                 Assert.AreEqual(10, counter);
             }
+
+            protected override void OnUpdate() { }
         }
 
         void AssertNothingChanged() => Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
-    }
-
-    public class TestJobComponentSystem : JobComponentSystem
-    {
-        protected override JobHandle OnUpdate(JobHandle inputDeps) => inputDeps;
     }
 }
 
@@ -893,3 +906,4 @@ static class BringYourOwnDelegate
         where TDescription : struct, ISupportForEachWithUniversalDelegate =>
         LambdaForEachDescriptionConstructionMethods.ThrowCodeGenException<TDescription>();
 }
+

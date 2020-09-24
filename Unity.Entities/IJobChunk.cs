@@ -191,7 +191,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = query.CalculateChunkCountWithoutFiltering();
             var impl = query._GetImpl();
 
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount,
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount,
 
                 impl->_QueryData->MatchingArchetypes, impl->_Filter, dependsOn, mode,
                 out NativeArray<byte> prefilterData,
@@ -332,12 +332,12 @@ namespace Unity.Entities
 
             internal delegate void ExecuteJobFunction(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
 
-            internal static void Execute(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
+            public static void Execute(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
-                ExecuteInternal(ref jobWrapper, ref ranges, jobIndex);
+                ExecuteInternal(ref jobWrapper, bufferRangePatchData, ref ranges, jobIndex);
             }
 
-            internal unsafe static void ExecuteInternal(ref JobChunkWrapper<T> jobWrapper, ref JobRanges ranges, int jobIndex)
+            internal unsafe static void ExecuteInternal(ref JobChunkWrapper<T> jobWrapper, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
             {
                 ChunkIterationUtility.UnpackPrefilterData(jobWrapper.PrefilterData, out var filteredChunks, out var entityIndices, out var chunkCount);
 
@@ -360,6 +360,13 @@ namespace Unity.Entities
                     {
                         var chunk = filteredChunks[chunkIndex];
                         var entityOffset = entityIndices[chunkIndex];
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        if(isParallel)
+                        {
+                            JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobWrapper), entityOffset, chunk.Count);
+                        }
+#endif
                         jobWrapper.JobData.Execute(chunk, chunkIndex, entityOffset);
                     }
 

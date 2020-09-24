@@ -8,6 +8,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
+using Unity.Mathematics;
 
 namespace Unity.Entities
 {
@@ -210,6 +211,9 @@ namespace Unity.Entities
 
     internal unsafe struct EntityQueryImpl
     {
+        //64KB limit before branch off for certain immediate/async functions
+        private  const int kImmediateMemoryThreshold = 64 * 1024;
+
         internal EntityDataAccess*              _Access;
         internal EntityQueryData* _QueryData;
         internal EntityQueryFilter          _Filter;
@@ -235,6 +239,31 @@ namespace Unity.Entities
             fixed(EntityQueryImpl* self = &this)
             {
                 access->AliveEntityQueries.Add((ulong)(IntPtr)self, default);
+            }
+        }
+
+        public bool IsEmpty
+        {
+            get
+            {
+                if (!_Filter.RequiresMatchesFilter)
+                    return IsEmptyIgnoreFilter;
+
+                for (var m = 0; m < _QueryData->MatchingArchetypes.Length; ++m)
+                {
+                    var match = _QueryData->MatchingArchetypes.Ptr[m];
+                    var archetype = match->Archetype;
+                    if (archetype->EntityCount > 0)
+                    {
+                        for (var c = 0; c < archetype->Chunks.Count; ++c)
+                        {
+                            if (match->ChunkMatchesFilter(c, ref _Filter) && archetype->Chunks[c]->Count > 0)
+                                return false;
+                        }
+                    }
+                }
+
+                return true;
             }
         }
 
@@ -382,6 +411,12 @@ namespace Unity.Entities
             return ChunkIterationUtility.CalculateChunkCount(ref _QueryData->MatchingArchetypes, ref dummyFilter);
         }
 
+        void CalculateChunkAndEntityCount(out int entityCount, out int chunkCount)
+        {
+            SyncFilterTypes();
+            entityCount = ChunkIterationUtility.CalculateChunkAndEntityCount(ref _QueryData->MatchingArchetypes, ref _Filter, out chunkCount);
+        }
+
         public ArchetypeChunkIterator GetArchetypeChunkIterator()
         {
             return new ArchetypeChunkIterator(_QueryData->MatchingArchetypes, _Access->DependencyManager, _Access->EntityComponentStore->GlobalSystemVersion, ref _Filter);
@@ -414,22 +449,13 @@ namespace Unity.Entities
                 dependency = _Access->DependencyManager->GetDependency(readerTypes, filterCount, null, 0);
             }
 
-            return ChunkIterationUtility.CreateArchetypeChunkArrayWithoutSync(_QueryData->MatchingArchetypes, allocator, out jobhandle, ref _Filter, dependency);
+            return ChunkIterationUtility.CreateArchetypeChunkArrayAsync(_QueryData->MatchingArchetypes, allocator, out jobhandle, ref _Filter, dependency);
         }
 
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator)
         {
             SyncFilterTypes();
-            JobHandle job;
-            var res = ChunkIterationUtility.CreateArchetypeChunkArrayWithoutSync(_QueryData->MatchingArchetypes, allocator, out job, ref _Filter);
-            job.Complete();
-            return res;
-        }
-
-        internal NativeArray<ArchetypeChunk> CreateArchetypeChunkArrayImmediate(Allocator allocator)
-        {
-            SyncFilterTypes();
-            var res = ChunkIterationUtility.CreateArchetypeChunkArrayWithoutSyncImmediate(_QueryData->MatchingArchetypes, allocator, ref _Filter);
+            var res = ChunkIterationUtility.CreateArchetypeChunkArray(_QueryData->MatchingArchetypes, allocator, ref _Filter);
             return res;
         }
 
@@ -442,7 +468,8 @@ namespace Unity.Entities
             var entityType = new EntityTypeHandle();
 #endif
 
-            return ChunkIterationUtility.CreateEntityArray(_QueryData->MatchingArchetypes, allocator, entityType, outer, ref _Filter, out jobhandle, GetDependency());
+            return ChunkIterationUtility.CreateEntityArrayAsync(_QueryData->MatchingArchetypes, allocator, entityType,
+                outer,CalculateEntityCount(), out jobhandle, GetDependency());
         }
 
         public NativeArray<Entity> ToEntityArray(Allocator allocator, EntityQuery outer)
@@ -452,9 +479,23 @@ namespace Unity.Entities
 #else
             var entityType = new EntityTypeHandle();
 #endif
-            JobHandle job;
-            var res = ChunkIterationUtility.CreateEntityArray(_QueryData->MatchingArchetypes, allocator, entityType, outer, ref _Filter, out job, GetDependency());
-            job.Complete();
+            CalculateChunkAndEntityCount(out int entityCount, out int chunkCount);
+
+            NativeArray<Entity> res;
+
+            /*in cases of sparse entities spread over many archetypes, the cache lines read from chunks will exceed
+             the actual memory of the entities read. In cases like these, a jobified path is the better approach */
+            if (math.max(chunkCount * 64,entityCount * sizeof(Entity)) <= kImmediateMemoryThreshold)
+            {
+                 res = ChunkIterationUtility.CreateEntityArray(
+                    _QueryData->MatchingArchetypes, allocator, entityType,outer,entityCount);
+            }
+            else
+            {
+                res = ChunkIterationUtility.CreateEntityArrayAsync(_QueryData->MatchingArchetypes, allocator, entityType,
+                    outer, entityCount, out var job, GetDependency());
+                job.Complete();
+            }
             return res;
         }
 
@@ -507,7 +548,7 @@ namespace Unity.Entities
             if (indexInEntityQuery == -1)
                 throw new InvalidOperationException($"Trying ToComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
-            return ChunkIterationUtility.CreateComponentDataArray(_QueryData->MatchingArchetypes, allocator, componentType, outer, ref _Filter, out jobhandle, GetDependency());
+            return ChunkIterationUtility.CreateComponentDataArrayAsync(allocator, componentType,CalculateEntityCount(), outer, out jobhandle, GetDependency());
         }
 
         public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, EntityQuery outer)
@@ -526,9 +567,21 @@ namespace Unity.Entities
                 throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
 
-            JobHandle job;
-            var res = ChunkIterationUtility.CreateComponentDataArray(_QueryData->MatchingArchetypes, allocator, componentType, outer, ref _Filter, out job, GetDependency());
-            job.Complete();
+            CalculateChunkAndEntityCount(out int entityCount, out int chunkCount);
+
+            NativeArray<T> res;
+
+            /*in cases of sparse entities spread over many archetypes, the cache lines read from chunks will exceed
+             the actual memory of the entities read. In cases like these, a jobified path is the better approach */
+            if (math.max(chunkCount * 64,entityCount * UnsafeUtility.SizeOf<T>()) <= kImmediateMemoryThreshold)
+            {
+                res = ChunkIterationUtility.CreateComponentDataArray(allocator, componentType,entityCount,outer);
+            }
+            else
+            {
+                res = ChunkIterationUtility.CreateComponentDataArrayAsync(allocator, componentType, entityCount,outer, out var job, GetDependency());
+                job.Complete();
+            }
             return res;
         }
 
@@ -551,7 +604,7 @@ namespace Unity.Entities
 
             var mcs = _Access->ManagedComponentStore;
             var matches = _QueryData->MatchingArchetypes;
-            var entityCount = ChunkIterationUtility.CalculateEntityCount(ref matches, ref _Filter);
+            var entityCount = ChunkIterationUtility.CalculateChunkAndEntityCount(ref matches, ref _Filter, out int dummyChunkCount);
             T[] res = new T[entityCount];
             int i = 0;
             for (int mi = 0; mi < matches.Length; ++mi)
@@ -583,8 +636,8 @@ namespace Unity.Entities
         public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, EntityQuery outer)
             where T : struct, IComponentData
         {
+            CalculateChunkAndEntityCount(out var entityCount, out var chunkCount);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var entityCount = CalculateEntityCount();
             if (entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
 
@@ -597,12 +650,19 @@ namespace Unity.Entities
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
-                throw new InvalidOperationException($"Trying CopyFromComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+                throw new InvalidOperationException($"Trying CopyFromComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
-
-
-            ChunkIterationUtility.CopyFromComponentDataArray(_QueryData->MatchingArchetypes, componentDataArray, componentType, outer, ref _Filter, out var job, GetDependency());
-            job.Complete();
+            /*in cases of sparse entities spread over many archetypes, the cache lines read from chunks will exceed
+             the actual memory of the entities read. In cases like these, a jobified path is the better approach */
+            if (math.max(chunkCount * 64,entityCount * UnsafeUtility.SizeOf<T>()) <= kImmediateMemoryThreshold)
+            {
+                ChunkIterationUtility.CopyFromComponentDataArray(componentDataArray, componentType, outer);
+            }
+            else
+            {
+                ChunkIterationUtility.CopyFromComponentDataArrayAsync(_QueryData->MatchingArchetypes, componentDataArray, componentType, outer, ref _Filter, out var job, GetDependency());
+                job.Complete();
+            }
         }
 
         public void CopyFromComponentDataArrayAsync<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle, EntityQuery outer)
@@ -627,7 +687,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException($"Trying CopyFromComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
 
-            ChunkIterationUtility.CopyFromComponentDataArray(_QueryData->MatchingArchetypes, componentDataArray, componentType, outer, ref _Filter, out jobhandle, GetDependency());
+            ChunkIterationUtility.CopyFromComponentDataArrayAsync(_QueryData->MatchingArchetypes, componentDataArray, componentType, outer, ref _Filter, out jobhandle, GetDependency());
         }
 
         public Entity GetSingletonEntity()
@@ -786,6 +846,12 @@ namespace Unity.Entities
             AddChangedVersionFilter(componentType);
         }
 
+        public void SetOrderVersionFilter()
+        {
+            ResetFilter();
+            AddOrderVersionFilter();
+        }
+
         internal void SetChangedFilterRequiredVersion(uint requiredVersion)
         {
             _Filter.RequiredChangeVersion = requiredVersion;
@@ -831,6 +897,15 @@ namespace Unity.Entities
             _Filter.Shared.Count = newFilterIndex + 1;
             _Filter.Shared.IndexInEntityQuery[newFilterIndex] = GetIndexInEntityQuery(TypeManager.GetTypeIndex<SharedComponent>());
             _Filter.Shared.SharedComponentIndex[newFilterIndex] = sm.InsertSharedComponent(sharedComponent);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            _Filter.AssertValid();
+#endif
+        }
+
+        public void AddOrderVersionFilter()
+        {
+            _Filter.UseOrderFiltering = true;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             _Filter.AssertValid();
@@ -912,14 +987,14 @@ namespace Unity.Entities
 
         internal static EntityQueryImpl* Allocate()
         {
-            void* ptr = UnsafeUtility.Malloc(sizeof(EntityQueryImpl), 8, Allocator.Persistent);
+            void* ptr = Memory.Unmanaged.Allocate(sizeof(EntityQueryImpl), 8, Allocator.Persistent);
             UnsafeUtility.MemClear(ptr, sizeof(EntityQueryImpl));
             return (EntityQueryImpl*)ptr;
         }
 
         internal static void Free(EntityQueryImpl* impl)
         {
-            UnsafeUtility.Free(impl, Allocator.Persistent);
+            Memory.Unmanaged.Free(impl, Allocator.Persistent);
         }
     }
 
@@ -1033,6 +1108,12 @@ namespace Unity.Entities
         /// Reports whether this query would currently select zero entities.
         /// </summary>
         /// <returns>True, if this EntityQuery matches zero existing entities. False, if it matches one or more entities.</returns>
+        public bool IsEmpty => _GetImpl()->IsEmpty;
+
+        /// <summary>
+        /// Reports whether this query would currently select zero entities. This will ignore any filters set on the EntityQuery.
+        /// </summary>
+        /// <returns>True, if this EntityQuery matches zero existing entities. False, if it matches one or more entities.</returns>
         public bool IsEmptyIgnoreFilter => _GetImpl()->IsEmptyIgnoreFilter;
 
         /// <summary>
@@ -1114,7 +1195,7 @@ namespace Unity.Entities
         /// Calculates the number of entities selected by this EntityQuery.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must execute and apply any filters to calculate the entity count.
+        /// The EntityQuery must execute and apply any filters to calculate the entity count. If you are checking for whether the entity count equals zero, consider the more efficient IsEmpty property.
         /// </remarks>
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCount() => _GetImpl()->CalculateEntityCount();
@@ -1122,7 +1203,7 @@ namespace Unity.Entities
         /// Calculates the number of entities selected by this EntityQuery, ignoring any set filters.
         /// </summary>
         /// <remarks>
-        /// The EntityQuery must execute to calculate the entity count.
+        /// The EntityQuery must execute to calculate the entity count. If you are checking for whether the entity count equals zero, consider the more efficient IsEmptyIgnoreFilter property.
         /// </remarks>
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCountWithoutFiltering() => _GetImpl()->CalculateEntityCountWithoutFiltering();
@@ -1185,7 +1266,6 @@ namespace Unity.Entities
         /// <returns>NativeArray of all the chunks in this ComponentChunkIterator.</returns>
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator) => _GetImpl()->CreateArchetypeChunkArray(allocator);
 
-        internal NativeArray<ArchetypeChunk> CreateArchetypeChunkArrayImmediate(Allocator allocator) => _GetImpl()->CreateArchetypeChunkArrayImmediate(allocator);
         /// <summary>
         /// Creates a NativeArray containing the selected entities.
         /// </summary>
@@ -1375,10 +1455,44 @@ namespace Unity.Entities
         /// <param name="componentType">ComponentType to mark as changed on this EntityQuery's filter.</param>
         public void SetChangedVersionFilter(ComponentType componentType) => _GetImpl()->SetChangedVersionFilter(componentType);
         internal void SetChangedFilterRequiredVersion(uint requiredVersion) => _GetImpl()->SetChangedFilterRequiredVersion(requiredVersion);
+
+        /// <summary>
+        /// Filters out entities in chunks for which the specified component has not changed.
+        /// </summary>
+        /// <remarks>
+        ///     Saves a given ComponentType's index in RequiredComponents in this group's Changed filter.
+        /// </remarks>
+        /// <param name="componentType">ComponentTypes to mark as changed on this EntityQuery's filter.</param>
         public void SetChangedVersionFilter(ComponentType[] componentType) => _GetImpl()->SetChangedVersionFilter(componentType);
+
+        /// <summary>
+        /// Filters out entities in chunks for which the specified component has not changed. Additive with other filter functions.
+        /// </summary>
+        /// <remarks>
+        ///     Saves a given ComponentType's index in RequiredComponents in this group's Changed filter.
+        /// </remarks>
+        /// <param name="componentType">ComponentType to mark as changed on this EntityQuery's filter.</param>
         public void AddChangedVersionFilter(ComponentType componentType) => _GetImpl()->AddChangedVersionFilter(componentType);
+
+        /// <summary>
+        /// Filters this EntityQuery so that it only selects entities with shared component values
+        /// matching the values specified by the `sharedComponent1` parameter. Additive with other filter functions.
+        /// </summary>
+        /// <param name="sharedComponent1">The shared component values on which to filter.</param>
+        /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
+        /// one of the types used to create the EntityQuery.</typeparam>
         public void AddSharedComponentFilter<SharedComponent>(SharedComponent sharedComponent)            where SharedComponent : struct, ISharedComponentData
             => _GetImpl()->AddSharedComponentFilter<SharedComponent>(sharedComponent);
+
+        /// <summary>
+        /// Filters out entities in chunks for which no structural changes have occurred.
+        /// </summary>
+        public void SetOrderVersionFilter() => _GetImpl()->SetOrderVersionFilter();
+
+        /// <summary>
+        /// Filters out entities in chunks for which no structural changes have occurred. Additive with other filter functions.
+        /// </summary>
+        public void AddOrderVersionFilter() => _GetImpl()->AddOrderVersionFilter();
         /// <summary>
         /// Ensures all jobs running on this EntityQuery complete.
         /// </summary>

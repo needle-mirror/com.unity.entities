@@ -153,10 +153,10 @@ namespace Unity.Entities
 
         public void OnCreate()
         {
-            m_TypeArrayIndices = (ushort*)UnsafeUtility.Malloc(sizeof(ushort) * kMaxTypes, 16, Allocator.Persistent);
+            m_TypeArrayIndices = (ushort*)Memory.Unmanaged.Allocate(sizeof(ushort) * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemSet(m_TypeArrayIndices, 0xFF, sizeof(ushort) * kMaxTypes);
 
-            m_ComponentSafetyHandles = (ComponentSafetyHandle*)UnsafeUtility.Malloc(sizeof(ComponentSafetyHandle) * kMaxTypes, 16, Allocator.Persistent);
+            m_ComponentSafetyHandles = (ComponentSafetyHandle*)Memory.Unmanaged.Allocate(sizeof(ComponentSafetyHandle) * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_ComponentSafetyHandles, sizeof(ComponentSafetyHandle) * kMaxTypes);
 
             m_TempSafety = AtomicSafetyHandle.Create();
@@ -167,13 +167,13 @@ namespace Unity.Entities
             if (m_StaticSafetyIdsForComponentDataFromEntity == null)
             {
                 m_StaticSafetyIdsForComponentDataFromEntity =
-                    (int*)UnsafeUtility.Malloc(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
+                    (int*)Memory.Unmanaged.Allocate(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
                 UnsafeUtility.MemClear(m_StaticSafetyIdsForComponentDataFromEntity, sizeof(int) * kMaxTypes);
             }
             if (m_StaticSafetyIdsForArchetypeChunkArrays == null)
             {
                 m_StaticSafetyIdsForArchetypeChunkArrays =
-                    (int*)UnsafeUtility.Malloc(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
+                    (int*)Memory.Unmanaged.Allocate(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
                 UnsafeUtility.MemClear(m_StaticSafetyIdsForArchetypeChunkArrays, sizeof(int) * kMaxTypes);
             }
 
@@ -230,8 +230,8 @@ namespace Unity.Entities
 
             AtomicSafetyHandle.Release(m_TempSafety);
 
-            UnsafeUtility.Free(m_TypeArrayIndices, Allocator.Persistent);
-            UnsafeUtility.Free(m_ComponentSafetyHandles, Allocator.Persistent);
+            Memory.Unmanaged.Free(m_TypeArrayIndices, Allocator.Persistent);
+            Memory.Unmanaged.Free(m_ComponentSafetyHandles, Allocator.Persistent);
             m_ComponentSafetyHandles = null;
         }
 

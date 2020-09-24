@@ -62,7 +62,7 @@ namespace Unity.Entities
             ulong nextEntityCountSize = (ulong)(sizeof(int) * nextCapacity);
             ulong nextSharedComponentValuesSize = (ulong)(sizeof(int) * SharedComponentCount * nextCapacity);
             ulong nextBufferSize = nextChunkPtrSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize;
-            ulong nextBufferPtr = (ulong)UnsafeUtility.Malloc((long)nextBufferSize, 16, Allocator.Persistent);
+            ulong nextBufferPtr = (ulong)Memory.Unmanaged.Allocate((long)nextBufferSize, 16, Allocator.Persistent);
 
             Chunk** nextChunkData = (Chunk**)nextBufferPtr;
             nextBufferPtr += nextChunkPtrSize;
@@ -90,7 +90,7 @@ namespace Unity.Entities
 
             UnsafeUtility.MemCpy(nextEntityCount, prevEntityCount, sizeof(int) * Count);
 
-            UnsafeUtility.Free(p, Allocator.Persistent);
+            Memory.Unmanaged.Free(p, Allocator.Persistent);
 
             p = nextChunkData;
             Capacity = nextCapacity;
@@ -228,7 +228,7 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            UnsafeUtility.Free(p, Allocator.Persistent);
+            Memory.Unmanaged.Free(p, Allocator.Persistent);
             p = null;
             Capacity = 0;
             Count = 0;

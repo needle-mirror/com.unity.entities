@@ -21,5 +21,12 @@ namespace Unity.Entities.Tests
 
             m_ObjectsRequiringDestruction.Clear();
         }
+
+        protected GameObject CreateGameObject()
+        {
+            var go = new GameObject();
+            m_ObjectsRequiringDestruction.Add(go);
+            return go;
+        }
     }
 }

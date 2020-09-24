@@ -2,6 +2,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Unity.Entities.CodeGen;
+using UnityEngine;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen.Tests")]
 namespace Unity.Entities.Hybrid.CodeGen
@@ -25,6 +26,23 @@ namespace Unity.Entities.Hybrid.CodeGen
         {
             return typeDefinition.Interfaces.Any(i => i.InterfaceType.Name == nameof(IComponentData)) &&
                 HasGenerateAuthoringComponentAttribute(typeDefinition);
+        }
+
+        static TypeDefinition CreateAuthoringType(TypeDefinition componentType)
+        {
+            var authoringType = new TypeDefinition(componentType.Namespace, $"{componentType.Name}Authoring", TypeAttributes.Class)
+            {
+                Scope = componentType.Scope
+            };
+
+            authoringType.CustomAttributes.Add(
+                new CustomAttribute(componentType.Module.ImportReference(
+                    typeof(DOTSCompilerGeneratedAttribute).GetConstructors().Single())));
+            authoringType.CustomAttributes.Add(
+                new CustomAttribute(componentType.Module.ImportReference(
+                    typeof(DisallowMultipleComponent).GetConstructors().Single(c => !c.GetParameters().Any()))));
+
+            return authoringType;
         }
 
         protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)

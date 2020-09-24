@@ -22,11 +22,11 @@ namespace Unity.Scenes.Editor
 
         public static void RegisterMonoScripts()
         {
-            if (AssetDatabaseExperimental.IsAssetImportWorkerProcess() || s_Initialized)
+            if (AssetDatabaseCompatibility.IsAssetImportWorkerProcess() || s_Initialized)
                 return;
             s_Initialized = true;
 
-            AssetDatabaseExperimental.UnregisterCustomDependencyPrefixFilter("UnityEngineType/");
+            AssetDatabaseCompatibility.UnregisterCustomDependencyPrefixFilter("UnityEngineType/");
 
             var behaviours = TypeCache.GetTypesDerivedFrom<UnityEngine.MonoBehaviour>();
             var scripts = TypeCache.GetTypesDerivedFrom<UnityEngine.ScriptableObject>();
@@ -37,7 +37,7 @@ namespace Unity.Scenes.Editor
                 if (type.IsGenericType)
                     continue;
                 var hash = TypeHash.CalculateStableTypeHash(type);
-                AssetDatabaseExperimental.RegisterCustomDependency(TypeString(type),
+                AssetDatabaseCompatibility.RegisterCustomDependency(TypeString(type),
                     new UnityEngine.Hash128(hash, hash));
             }
 
@@ -47,7 +47,7 @@ namespace Unity.Scenes.Editor
                 if (type.IsGenericType)
                     continue;
                 var hash = TypeHash.CalculateStableTypeHash(type);
-                AssetDatabaseExperimental.RegisterCustomDependency(TypeString(type),
+                AssetDatabaseCompatibility.RegisterCustomDependency(TypeString(type),
                     new UnityEngine.Hash128(hash, hash));
             }
         }
@@ -68,28 +68,6 @@ namespace Unity.Scenes.Editor
         public struct BuildMetaData
         {
             public BlobArray<Hash128> Dependencies;
-        }
-
-        [Obsolete("LiveLinkBuildImporter.GetHash has been deprecated. It will not be supported in the future. (RemovedAfter 2020-06-13).")]
-        public static Hash128 GetHash(string guid, BuildTarget target, AssetDatabaseExperimental.ImportSyncMode syncMode)
-        {
-            ImportMode importMode;
-            switch (syncMode)
-            {
-                case AssetDatabaseExperimental.ImportSyncMode.Block:
-                    importMode = ImportMode.Synchronous;
-                    break;
-                case AssetDatabaseExperimental.ImportSyncMode.Poll:
-                    importMode = ImportMode.NoImport;
-                    break;
-                case AssetDatabaseExperimental.ImportSyncMode.Queue:
-                    importMode = ImportMode.Asynchronous;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(syncMode), $"Invalid enum value encountered: {syncMode}");
-            }
-
-            return GetHash(guid, target, importMode);
         }
 
         internal static Hash128 GetHash(string guid, BuildTarget target, ImportMode importMode)

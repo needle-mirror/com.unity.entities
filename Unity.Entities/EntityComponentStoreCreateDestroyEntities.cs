@@ -27,8 +27,10 @@ namespace Unity.Entities
 
                 ChunkDataUtility.Allocate(chunk, entities, allocateCount);
 
-                entities += allocateCount;
                 count -= allocateCount;
+
+                if (entities != null)
+                    entities += allocateCount;
             }
         }
 
@@ -84,7 +86,7 @@ namespace Unity.Entities
                 ///      Figure out how to make this more general purpose.
                 if (minDestroyStride == maxDestroyStride)
                 {
-                    var reordered = (Entity*)UnsafeUtility.Malloc(additionalDestroyList.Length * sizeof(Entity), 16,
+                    var reordered = (Entity*)Memory.Unmanaged.Allocate(additionalDestroyList.Length * sizeof(Entity), 16,
                         Allocator.TempJob);
                     int batchCount = additionalDestroyList.Length / minDestroyStride;
                     for (int i = 0; i != batchCount; i++)
@@ -94,14 +96,14 @@ namespace Unity.Entities
                     }
 
                     DestroyEntities(reordered, additionalDestroyList.Length);
-                    UnsafeUtility.Free(reordered, Allocator.TempJob);
+                    Memory.Unmanaged.Free(reordered, Allocator.TempJob);
                 }
                 else
                 {
                     DestroyEntities(additionalDestroyPtr, additionalDestroyList.Length);
                 }
 
-                UnsafeUtility.Free(additionalDestroyPtr, Allocator.Persistent);
+                Memory.Unmanaged.Free(additionalDestroyPtr, Allocator.Persistent);
             }
         }
 
@@ -379,7 +381,7 @@ namespace Unity.Entities
 
             if (tempAllocSize > kMaxStackAllocSize)
             {
-                allocation = (byte*)UnsafeUtility.Malloc(tempAllocSize, 16, Allocator.Temp);
+                allocation = (byte*)Memory.Unmanaged.Allocate(tempAllocSize, 16, Allocator.Temp);
             }
             else
             {
@@ -443,7 +445,7 @@ namespace Unity.Entities
             }
 
             if (tempAllocSize > kMaxStackAllocSize)
-                UnsafeUtility.Free(allocation, Allocator.Temp);
+                Memory.Unmanaged.Free(allocation, Allocator.Temp);
         }
 
         EntityBatchInChunk GetFirstEntityBatchInChunk(Entity* entities, int count)

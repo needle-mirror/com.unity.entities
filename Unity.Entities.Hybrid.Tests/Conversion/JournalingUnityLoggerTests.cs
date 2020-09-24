@@ -135,14 +135,32 @@ namespace Unity.Entities.Tests.Conversion
 
             m_MappingSystem.CreatePrimaryEntity(go);
 
-            try { throw new InvalidOperationException("test exception0"); } catch (Exception x) { Debug.LogException(x, go); }
-            try { throw new InvalidOperationException("test exception1"); } catch (Exception x) { Debug.LogException(x, comp); }
+            string[] stacktraces = new string[2];
+            try
+            {
+                throw new InvalidOperationException("test exception0");
+            }
+            catch (Exception x)
+            {
+                Debug.LogException(x, go);
+                stacktraces[0] = x.StackTrace;
+            }
+
+            try
+            {
+                throw new InvalidOperationException("test exception1");
+            }
+            catch (Exception x)
+            {
+                Debug.LogException(x, comp);
+                stacktraces[1] = x.StackTrace;
+            }
 
             var logs = m_MappingSystem.JournalData.SelectJournalDataDebug().EventsOfType<LogEventData>().ToList();
             Assert.That(logs, Is.EqualTo(new[]
             {
-                JournalDataDebug.Create(go.GetInstanceID(), new LogEventData { Type = LogType.Exception, Message = "InvalidOperationException: test exception0"}),
-                JournalDataDebug.Create(go.GetInstanceID(), new LogEventData { Type = LogType.Exception, Message = "InvalidOperationException: test exception1"})
+                JournalDataDebug.Create(go.GetInstanceID(), new LogEventData { Type = LogType.Exception, Message = "InvalidOperationException: test exception0", Stacktrace = stacktraces[0]}),
+                JournalDataDebug.Create(go.GetInstanceID(), new LogEventData { Type = LogType.Exception, Message = "InvalidOperationException: test exception1", Stacktrace = stacktraces[1]})
             }));
 
             LogAssert.Expect(LogType.Exception, "InvalidOperationException: test exception0");

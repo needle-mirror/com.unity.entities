@@ -6,6 +6,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
@@ -41,6 +42,8 @@ namespace Unity.Entities.CodeGen
 
                 changes = true;
 
+                // We will be generating functions using these types (e.g. GetHashCode64<T>()) which will require internal access rights
+                td.MakeTypeInternal();
                 memos.Add(AddStaticForwarders(td));
             }
 
@@ -54,8 +57,16 @@ namespace Unity.Entities.CodeGen
 
         private static readonly string GeneratedPrefix = "__codegen__";
 
-        static readonly string[] MethodNames = new string[] { "OnCreate", "OnUpdate", "OnDestroy" };
-        static readonly string[] GeneratedMethodNames = new string[] { GeneratedPrefix + "OnCreate", GeneratedPrefix + "OnUpdate", GeneratedPrefix + "OnDestroy" };
+        static readonly string[] MethodNames = new string[] { "OnCreate", "OnUpdate", "OnDestroy", "OnStartRunning", "OnStopRunning" };
+
+        static readonly string[] MethodFullNames = new string[]
+        {
+            "Unity.Entities.ISystemBase.OnCreate",
+            "Unity.Entities.ISystemBase.OnUpdate",
+            "Unity.Entities.ISystemBase.OnDestroy",
+            "Unity.Entities.ISystemBaseStartStop.OnStartRunning",
+            "Unity.Entities.ISystemBaseStartStop.OnStopRunning"
+        };
 
         private TypeMemo AddStaticForwarders(TypeDefinition systemType)
         {
@@ -65,16 +76,25 @@ namespace Unity.Entities.CodeGen
 
             TypeMemo memo = default;
             memo.m_SystemType = systemType;
-            memo.m_Wrappers = new MethodDefinition[3];
+            memo.m_Wrappers = new MethodDefinition[5];
+
+            var hasStartStop = systemType.Interfaces.Any((x) => x.InterfaceType.FullName == "Unity.Entities.ISystemBaseStartStop");
 
             for (int i = 0; i < MethodNames.Length; ++i)
             {
                 var name = MethodNames[i];
-                var methodDef = new MethodDefinition(GeneratedMethodNames[i], MethodAttributes.Static | MethodAttributes.Assembly, mod.ImportReference(typeof(void)));
+                var fullName = MethodFullNames[i]; // Cecil sees interface method names from other assemblies as the full namespaced name
+
+                if (!hasStartStop && i >= 3)
+                    break;
+
+                var methodDef = new MethodDefinition(GeneratedPrefix + name, MethodAttributes.Static | MethodAttributes.Assembly, mod.ImportReference(typeof(void)));
                 methodDef.Parameters.Add(new ParameterDefinition("self", ParameterAttributes.None, intPtrRef));
                 methodDef.Parameters.Add(new ParameterDefinition("state", ParameterAttributes.None, intPtrRef));
 
-                var targetMethod = systemType.Methods.FirstOrDefault(x => x.Name == name && x.Parameters.Count == 1).Resolve();
+                var targetMethod = systemType.Methods.FirstOrDefault(x => x.Parameters.Count == 1 && (x.Name == name || x.Name == fullName));
+                if (targetMethod == null)
+                    continue;
 
                 // Transfer any BurstCompile attribute from target function to the forwarding wrapper
                 var burstAttribute = targetMethod.CustomAttributes.FirstOrDefault(x => x.Constructor.DeclaringType.Name == nameof(BurstCompileAttribute));
@@ -83,6 +103,13 @@ namespace Unity.Entities.CodeGen
                     methodDef.CustomAttributes.Add(new CustomAttribute(burstAttribute.Constructor, burstAttribute.GetBlob()));
                     memo.m_BurstCompileBits |= 1 << i;
                 }
+
+#if UNITY_DOTSRUNTIME
+                // Burst CompileFunctionPointer in DOTS Runtime will not currently decorate methods as [MonoPInvokeCallback]
+                // so we add that here until that is supported
+                var monoPInvokeCallbackAttributeConstructor = typeof(Jobs.MonoPInvokeCallbackAttribute).GetConstructor(Type.EmptyTypes);
+                methodDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructor)));
+#endif
 
                 var processor = methodDef.Body.GetILProcessor();
 
@@ -112,8 +139,8 @@ namespace Unity.Entities.CodeGen
             var funcDef = new MethodDefinition("EarlyInit", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(typeof(void)));
             funcDef.Body.InitLocals = false;
 
-#if !UNITY_DOTSRUNTIME // This will need a different solution
-            if (!Defines.Contains("UNITY_DOTSRUNTIME") && !Defines.Contains("UNITY_DOTSPLAYER") && !Defines.Contains("UNITY_EDITOR"))
+#if !UNITY_DOTSRUNTIME
+            if (!Defines.Contains("UNITY_EDITOR"))
             {
                 // Needs to run automatically in the player.
                 var attributeCtor = AssemblyDefinition.MainModule.ImportReference(typeof(UnityEngine.RuntimeInitializeOnLoadMethodAttribute).GetConstructor(Type.EmptyTypes));
@@ -149,9 +176,16 @@ namespace Unity.Entities.CodeGen
 
                 for (int i = 0; i < memo.m_Wrappers.Length; ++i)
                 {
-                    processor.Emit(OpCodes.Ldnull);
-                    processor.Emit(OpCodes.Ldftn, memo.m_Wrappers[i]);
-                    processor.Emit(OpCodes.Newobj, delegateCtor);
+                    if (memo.m_Wrappers[i] != null)
+                    {
+                        processor.Emit(OpCodes.Ldnull);
+                        processor.Emit(OpCodes.Ldftn, memo.m_Wrappers[i]);
+                        processor.Emit(OpCodes.Newobj, delegateCtor);
+                    }
+                    else
+                    {
+                        processor.Emit(OpCodes.Ldnull);
+                    }
                 }
 
                 processor.Emit(OpCodes.Ldstr, memo.m_SystemType.Name);

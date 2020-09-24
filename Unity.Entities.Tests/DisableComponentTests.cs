@@ -98,7 +98,7 @@ namespace Unity.Entities.Tests
             var entity1 = m_Manager.CreateEntity(archetype1);
             var entity2 = m_Manager.CreateEntity(archetype1);
 
-            var entities = immediate ? m_Manager.GetAllEntitiesImmediate() : m_Manager.GetAllEntities();
+            var entities = immediate ? m_Manager.GetAllEntities() : m_Manager.GetAllEntities();
             Assert.AreEqual(3, entities.Length);
             entities.Dispose();
 

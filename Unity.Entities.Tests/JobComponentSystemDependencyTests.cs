@@ -182,7 +182,7 @@ namespace Unity.Entities.Tests
             Assert.Throws<System.InvalidOperationException>(() => { rs2.Update(); });
         }
 
-        [Test]
+        [Test, Ignore("Unstable - DOTS-2621")]
         public void IgnoredInputDepsThrowsInCorrectSystemUpdate()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData));

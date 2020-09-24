@@ -154,15 +154,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void UnrelatedChunkOrderUnchanged([Values] bool immediate)
+        public void UnrelatedChunkOrderUnchanged()
         {
             AddEvenOddTestData();
 
             ActionEvenOdd((version, group) =>
             {
                 var entityType = m_Manager.GetEntityTypeHandle();
-                var chunks = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-                    : group.CreateArchetypeChunkArray(Allocator.TempJob);
+                var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
                 var firstEntity = chunks[0].GetNativeArray(entityType);
                 m_Manager.DestroyEntity(firstEntity);
                 chunks.Dispose();

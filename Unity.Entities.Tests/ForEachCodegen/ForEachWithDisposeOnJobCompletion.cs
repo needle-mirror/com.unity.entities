@@ -36,7 +36,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public unsafe void Execute()
             {
                 *m_Ptr = 0;
-                UnsafeUtility.Free(m_Ptr, m_Allocator);
+                Memory.Unmanaged.Free(m_Ptr, m_Allocator);
             }
         }
 
@@ -51,7 +51,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public unsafe SupportsDisposeOnCompletion(Allocator allocator)
             {
                 m_Allocator = allocator;
-                m_Ptr = (int*)UnsafeUtility.Malloc(sizeof(int), 16, allocator);
+                m_Ptr = (int*)Memory.Unmanaged.Allocate(sizeof(int), 16, allocator);
                 *m_Ptr = 54321;
 
                 m_Safety = AtomicSafetyHandle.Create();
@@ -60,7 +60,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public unsafe void Dispose()
             {
                 *m_Ptr = 0;
-                UnsafeUtility.Free(m_Ptr, m_Allocator);
+                Memory.Unmanaged.Free(m_Ptr, m_Allocator);
                 AtomicSafetyHandle.CheckDeallocateAndThrow(m_Safety);
                 AtomicSafetyHandle.Release(m_Safety);
             }
@@ -120,6 +120,15 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
+        public void DisposeNativeArray_DisposesAtEnd()
+        {
+            var testArray = new NativeArray<int>(100, Allocator.Temp);
+            var isCreated = false;
+            Assert.DoesNotThrow(() => isCreated = TestSystem.DisposeNativeArray(testArray));
+            Assert.IsFalse(isCreated);
+        }
+
+        [Test]
         [ManagedExceptionInPortableTests]
         public void DisposeInsideStructOnJobCompletion_DisposesAtEnd([Values] ScheduleType scheduleType)
         {
@@ -174,6 +183,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             protected override void OnUpdate()
             {
+            }
+
+            public bool DisposeNativeArray(NativeArray<int> testArray)
+            {
+                Entities
+                    .WithReadOnly(testArray)
+                    .WithDisposeOnCompletion(testArray)
+                    .ForEach((Entity entity) =>
+                    {
+                        var length = testArray.Length;
+                    })
+                    .Run();
+
+                return testArray.IsCreated;
             }
 
             public void DisposeOnCompletion(SupportsDisposeOnCompletion c, ScheduleType scheduleType)

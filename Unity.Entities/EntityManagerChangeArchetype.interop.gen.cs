@@ -22,8 +22,7 @@ namespace Unity.Entities
      unsafe partial struct StructuralChange
     {
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
-        static bool _initialized = false;
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
 
         [BurstDiscard]
         private static void CheckDelegate(ref bool useDelegate)
@@ -39,62 +38,68 @@ namespace Unity.Entities
             return result;
         }
 
-        private delegate void _dlg_AddComponentEntitiesBatch(EntityComponentStore* entityComponentStore, Unity.Collections.LowLevel.Unsafe.UnsafeList* entityBatchList, int typeIndex);
-        private static _dlg_AddComponentEntitiesBatch _bfp_AddComponentEntitiesBatch;
-        private delegate bool _dlg_AddComponentEntity(EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex);
-        private static _dlg_AddComponentEntity _bfp_AddComponentEntity;
-        private delegate void _dlg_AddComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex);
-        private static _dlg_AddComponentChunks _bfp_AddComponentChunks;
-        private delegate void _dlg_AddComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypes types);
-        private static _dlg_AddComponentsChunks _bfp_AddComponentsChunks;
-        private delegate bool _dlg_RemoveComponentEntity(EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex);
-        private static _dlg_RemoveComponentEntity _bfp_RemoveComponentEntity;
-        private delegate void _dlg_RemoveComponentEntitiesBatch(EntityComponentStore* entityComponentStore, Unity.Collections.LowLevel.Unsafe.UnsafeList* entityBatchList, int typeIndex);
-        private static _dlg_RemoveComponentEntitiesBatch _bfp_RemoveComponentEntitiesBatch;
-        private delegate void _dlg_RemoveComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex);
-        private static _dlg_RemoveComponentChunks _bfp_RemoveComponentChunks;
-        private delegate void _dlg_RemoveComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypes types);
-        private static _dlg_RemoveComponentsChunks _bfp_RemoveComponentsChunks;
-        private delegate void _dlg_AddSharedComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int componentTypeIndex, int sharedComponentIndex);
-        private static _dlg_AddSharedComponentChunks _bfp_AddSharedComponentChunks;
-        private delegate void _dlg_MoveEntityArchetype(EntityComponentStore* entityComponentStore, Entity* entity, void* dstArchetype);
-        private static _dlg_MoveEntityArchetype _bfp_MoveEntityArchetype;
-        private delegate void _dlg_SetChunkComponent(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, void* componentData, int componentTypeIndex);
-        private static _dlg_SetChunkComponent _bfp_SetChunkComponent;
-        private delegate void _dlg_CreateEntity(EntityComponentStore* entityComponentStore, void* archetype, Entity* outEntities, int count);
-        private static _dlg_CreateEntity _bfp_CreateEntity;
-        private delegate void _dlg_InstantiateEntities(EntityComponentStore* entityComponentStore, Entity* srcEntity, Entity* outputEntities, int instanceCount);
-        private static _dlg_InstantiateEntities _bfp_InstantiateEntities;
+        static class Managed
+        {
+            public static bool _initialized = false;
+
+            public delegate void _dlg_AddComponentEntitiesBatch(IntPtr entityComponentStore, IntPtr entityBatchList, int typeIndex);
+            public static _dlg_AddComponentEntitiesBatch _bfp_AddComponentEntitiesBatch;
+            public delegate bool _dlg_AddComponentEntity(IntPtr entityComponentStore, IntPtr entity, int typeIndex);
+            public static _dlg_AddComponentEntity _bfp_AddComponentEntity;
+            public delegate void _dlg_AddComponentChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, int typeIndex);
+            public static _dlg_AddComponentChunks _bfp_AddComponentChunks;
+            public delegate void _dlg_AddComponentsChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, ref ComponentTypes types);
+            public static _dlg_AddComponentsChunks _bfp_AddComponentsChunks;
+            public delegate bool _dlg_RemoveComponentEntity(IntPtr entityComponentStore, IntPtr entity, int typeIndex);
+            public static _dlg_RemoveComponentEntity _bfp_RemoveComponentEntity;
+            public delegate void _dlg_RemoveComponentEntitiesBatch(IntPtr entityComponentStore, IntPtr entityBatchList, int typeIndex);
+            public static _dlg_RemoveComponentEntitiesBatch _bfp_RemoveComponentEntitiesBatch;
+            public delegate void _dlg_RemoveComponentChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, int typeIndex);
+            public static _dlg_RemoveComponentChunks _bfp_RemoveComponentChunks;
+            public delegate void _dlg_RemoveComponentsChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, ref ComponentTypes types);
+            public static _dlg_RemoveComponentsChunks _bfp_RemoveComponentsChunks;
+            public delegate void _dlg_AddSharedComponentChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, int componentTypeIndex, int sharedComponentIndex);
+            public static _dlg_AddSharedComponentChunks _bfp_AddSharedComponentChunks;
+            public delegate void _dlg_MoveEntityArchetype(IntPtr entityComponentStore, IntPtr entity, IntPtr dstArchetype);
+            public static _dlg_MoveEntityArchetype _bfp_MoveEntityArchetype;
+            public delegate void _dlg_SetChunkComponent(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, IntPtr componentData, int componentTypeIndex);
+            public static _dlg_SetChunkComponent _bfp_SetChunkComponent;
+            public delegate void _dlg_CreateEntity(IntPtr entityComponentStore, IntPtr archetype, IntPtr outEntities, int count);
+            public static _dlg_CreateEntity _bfp_CreateEntity;
+            public delegate void _dlg_InstantiateEntities(IntPtr entityComponentStore, IntPtr srcEntity, IntPtr outputEntities, int instanceCount);
+            public static _dlg_InstantiateEntities _bfp_InstantiateEntities;
+        }
+
 
 #endif
 
         [NotBurstCompatible]
         internal static void Initialize()
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
-            if (_initialized)
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+            if (Managed._initialized)
                 return;
-            _initialized = true;
-            _bfp_AddComponentEntitiesBatch = BurstCompiler.CompileFunctionPointer<_dlg_AddComponentEntitiesBatch>(_mono_to_burst_AddComponentEntitiesBatch).Invoke;
-            _bfp_AddComponentEntity = BurstCompiler.CompileFunctionPointer<_dlg_AddComponentEntity>(_mono_to_burst_AddComponentEntity).Invoke;
-            _bfp_AddComponentChunks = BurstCompiler.CompileFunctionPointer<_dlg_AddComponentChunks>(_mono_to_burst_AddComponentChunks).Invoke;
-            _bfp_AddComponentsChunks = BurstCompiler.CompileFunctionPointer<_dlg_AddComponentsChunks>(_mono_to_burst_AddComponentsChunks).Invoke;
-            _bfp_RemoveComponentEntity = BurstCompiler.CompileFunctionPointer<_dlg_RemoveComponentEntity>(_mono_to_burst_RemoveComponentEntity).Invoke;
-            _bfp_RemoveComponentEntitiesBatch = BurstCompiler.CompileFunctionPointer<_dlg_RemoveComponentEntitiesBatch>(_mono_to_burst_RemoveComponentEntitiesBatch).Invoke;
-            _bfp_RemoveComponentChunks = BurstCompiler.CompileFunctionPointer<_dlg_RemoveComponentChunks>(_mono_to_burst_RemoveComponentChunks).Invoke;
-            _bfp_RemoveComponentsChunks = BurstCompiler.CompileFunctionPointer<_dlg_RemoveComponentsChunks>(_mono_to_burst_RemoveComponentsChunks).Invoke;
-            _bfp_AddSharedComponentChunks = BurstCompiler.CompileFunctionPointer<_dlg_AddSharedComponentChunks>(_mono_to_burst_AddSharedComponentChunks).Invoke;
-            _bfp_MoveEntityArchetype = BurstCompiler.CompileFunctionPointer<_dlg_MoveEntityArchetype>(_mono_to_burst_MoveEntityArchetype).Invoke;
-            _bfp_SetChunkComponent = BurstCompiler.CompileFunctionPointer<_dlg_SetChunkComponent>(_mono_to_burst_SetChunkComponent).Invoke;
-            _bfp_CreateEntity = BurstCompiler.CompileFunctionPointer<_dlg_CreateEntity>(_mono_to_burst_CreateEntity).Invoke;
-            _bfp_InstantiateEntities = BurstCompiler.CompileFunctionPointer<_dlg_InstantiateEntities>(_mono_to_burst_InstantiateEntities).Invoke;
+            Managed._initialized = true;
+            Managed._bfp_AddComponentEntitiesBatch = BurstCompiler.CompileFunctionPointer<Managed._dlg_AddComponentEntitiesBatch>(_mono_to_burst_AddComponentEntitiesBatch).Invoke;
+            Managed._bfp_AddComponentEntity = BurstCompiler.CompileFunctionPointer<Managed._dlg_AddComponentEntity>(_mono_to_burst_AddComponentEntity).Invoke;
+            Managed._bfp_AddComponentChunks = BurstCompiler.CompileFunctionPointer<Managed._dlg_AddComponentChunks>(_mono_to_burst_AddComponentChunks).Invoke;
+            Managed._bfp_AddComponentsChunks = BurstCompiler.CompileFunctionPointer<Managed._dlg_AddComponentsChunks>(_mono_to_burst_AddComponentsChunks).Invoke;
+            Managed._bfp_RemoveComponentEntity = BurstCompiler.CompileFunctionPointer<Managed._dlg_RemoveComponentEntity>(_mono_to_burst_RemoveComponentEntity).Invoke;
+            Managed._bfp_RemoveComponentEntitiesBatch = BurstCompiler.CompileFunctionPointer<Managed._dlg_RemoveComponentEntitiesBatch>(_mono_to_burst_RemoveComponentEntitiesBatch).Invoke;
+            Managed._bfp_RemoveComponentChunks = BurstCompiler.CompileFunctionPointer<Managed._dlg_RemoveComponentChunks>(_mono_to_burst_RemoveComponentChunks).Invoke;
+            Managed._bfp_RemoveComponentsChunks = BurstCompiler.CompileFunctionPointer<Managed._dlg_RemoveComponentsChunks>(_mono_to_burst_RemoveComponentsChunks).Invoke;
+            Managed._bfp_AddSharedComponentChunks = BurstCompiler.CompileFunctionPointer<Managed._dlg_AddSharedComponentChunks>(_mono_to_burst_AddSharedComponentChunks).Invoke;
+            Managed._bfp_MoveEntityArchetype = BurstCompiler.CompileFunctionPointer<Managed._dlg_MoveEntityArchetype>(_mono_to_burst_MoveEntityArchetype).Invoke;
+            Managed._bfp_SetChunkComponent = BurstCompiler.CompileFunctionPointer<Managed._dlg_SetChunkComponent>(_mono_to_burst_SetChunkComponent).Invoke;
+            Managed._bfp_CreateEntity = BurstCompiler.CompileFunctionPointer<Managed._dlg_CreateEntity>(_mono_to_burst_CreateEntity).Invoke;
+            Managed._bfp_InstantiateEntities = BurstCompiler.CompileFunctionPointer<Managed._dlg_InstantiateEntities>(_mono_to_burst_InstantiateEntities).Invoke;
 
 #endif
         }
 
         public  static void AddComponentEntitiesBatch (EntityComponentStore* entityComponentStore, Unity.Collections.LowLevel.Unsafe.UnsafeList* entityBatchList, int typeIndex)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_AddComponentEntitiesBatch(entityComponentStore, entityBatchList, typeIndex);
@@ -105,24 +110,24 @@ namespace Unity.Entities
             _AddComponentEntitiesBatch(entityComponentStore, entityBatchList, typeIndex);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_AddComponentEntitiesBatch))]
-        private static void _mono_to_burst_AddComponentEntitiesBatch(EntityComponentStore* entityComponentStore, Unity.Collections.LowLevel.Unsafe.UnsafeList* entityBatchList, int typeIndex)
+        [MonoPInvokeCallback(typeof(Managed._dlg_AddComponentEntitiesBatch))]
+        private static void _mono_to_burst_AddComponentEntitiesBatch(IntPtr entityComponentStore, IntPtr entityBatchList, int typeIndex)
         {
-            _AddComponentEntitiesBatch(entityComponentStore, entityBatchList, typeIndex);
+            _AddComponentEntitiesBatch((EntityComponentStore*)entityComponentStore, (Unity.Collections.LowLevel.Unsafe.UnsafeList*)entityBatchList, typeIndex);
         }
 
         [BurstDiscard]
         private static void _forward_mono_AddComponentEntitiesBatch(EntityComponentStore* entityComponentStore, Unity.Collections.LowLevel.Unsafe.UnsafeList* entityBatchList, int typeIndex)
         {
-            _bfp_AddComponentEntitiesBatch(entityComponentStore, entityBatchList, typeIndex);
+            Managed._bfp_AddComponentEntitiesBatch((IntPtr) entityComponentStore, (IntPtr) entityBatchList, typeIndex);
         }
 #endif
 
         public  static bool AddComponentEntity (EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 var _retval = default(bool);
@@ -134,24 +139,24 @@ namespace Unity.Entities
             return _AddComponentEntity(entityComponentStore, entity, typeIndex);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_AddComponentEntity))]
-        private static bool _mono_to_burst_AddComponentEntity(EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
+        [MonoPInvokeCallback(typeof(Managed._dlg_AddComponentEntity))]
+        private static bool _mono_to_burst_AddComponentEntity(IntPtr entityComponentStore, IntPtr entity, int typeIndex)
         {
-            return _AddComponentEntity(entityComponentStore, entity, typeIndex);
+            return _AddComponentEntity((EntityComponentStore*)entityComponentStore, (Entity*)entity, typeIndex);
         }
 
         [BurstDiscard]
         private static void _forward_mono_AddComponentEntity(ref bool _retval, EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
         {
-            _retval = _bfp_AddComponentEntity(entityComponentStore, entity, typeIndex);
+            _retval = Managed._bfp_AddComponentEntity((IntPtr) entityComponentStore, (IntPtr) entity, typeIndex);
         }
 #endif
 
         public  static void AddComponentChunks (EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_AddComponentChunks(entityComponentStore, chunks, chunkCount, typeIndex);
@@ -162,24 +167,24 @@ namespace Unity.Entities
             _AddComponentChunks(entityComponentStore, chunks, chunkCount, typeIndex);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_AddComponentChunks))]
-        private static void _mono_to_burst_AddComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex)
+        [MonoPInvokeCallback(typeof(Managed._dlg_AddComponentChunks))]
+        private static void _mono_to_burst_AddComponentChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, int typeIndex)
         {
-            _AddComponentChunks(entityComponentStore, chunks, chunkCount, typeIndex);
+            _AddComponentChunks((EntityComponentStore*)entityComponentStore, (ArchetypeChunk*)chunks, chunkCount, typeIndex);
         }
 
         [BurstDiscard]
         private static void _forward_mono_AddComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex)
         {
-            _bfp_AddComponentChunks(entityComponentStore, chunks, chunkCount, typeIndex);
+            Managed._bfp_AddComponentChunks((IntPtr) entityComponentStore, (IntPtr) chunks, chunkCount, typeIndex);
         }
 #endif
 
         public  static void AddComponentsChunks (EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypes types)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_AddComponentsChunks(entityComponentStore, chunks, chunkCount, ref types);
@@ -190,24 +195,24 @@ namespace Unity.Entities
             _AddComponentsChunks(entityComponentStore, chunks, chunkCount, ref types);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_AddComponentsChunks))]
-        private static void _mono_to_burst_AddComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypes types)
+        [MonoPInvokeCallback(typeof(Managed._dlg_AddComponentsChunks))]
+        private static void _mono_to_burst_AddComponentsChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, ref ComponentTypes types)
         {
-            _AddComponentsChunks(entityComponentStore, chunks, chunkCount, ref types);
+            _AddComponentsChunks((EntityComponentStore*)entityComponentStore, (ArchetypeChunk*)chunks, chunkCount, ref types);
         }
 
         [BurstDiscard]
         private static void _forward_mono_AddComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypes types)
         {
-            _bfp_AddComponentsChunks(entityComponentStore, chunks, chunkCount, ref types);
+            Managed._bfp_AddComponentsChunks((IntPtr) entityComponentStore, (IntPtr) chunks, chunkCount, ref types);
         }
 #endif
 
         public  static bool RemoveComponentEntity (EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 var _retval = default(bool);
@@ -219,24 +224,24 @@ namespace Unity.Entities
             return _RemoveComponentEntity(entityComponentStore, entity, typeIndex);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_RemoveComponentEntity))]
-        private static bool _mono_to_burst_RemoveComponentEntity(EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
+        [MonoPInvokeCallback(typeof(Managed._dlg_RemoveComponentEntity))]
+        private static bool _mono_to_burst_RemoveComponentEntity(IntPtr entityComponentStore, IntPtr entity, int typeIndex)
         {
-            return _RemoveComponentEntity(entityComponentStore, entity, typeIndex);
+            return _RemoveComponentEntity((EntityComponentStore*)entityComponentStore, (Entity*)entity, typeIndex);
         }
 
         [BurstDiscard]
         private static void _forward_mono_RemoveComponentEntity(ref bool _retval, EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
         {
-            _retval = _bfp_RemoveComponentEntity(entityComponentStore, entity, typeIndex);
+            _retval = Managed._bfp_RemoveComponentEntity((IntPtr) entityComponentStore, (IntPtr) entity, typeIndex);
         }
 #endif
 
         public  static void RemoveComponentEntitiesBatch (EntityComponentStore* entityComponentStore, Unity.Collections.LowLevel.Unsafe.UnsafeList* entityBatchList, int typeIndex)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_RemoveComponentEntitiesBatch(entityComponentStore, entityBatchList, typeIndex);
@@ -247,24 +252,24 @@ namespace Unity.Entities
             _RemoveComponentEntitiesBatch(entityComponentStore, entityBatchList, typeIndex);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_RemoveComponentEntitiesBatch))]
-        private static void _mono_to_burst_RemoveComponentEntitiesBatch(EntityComponentStore* entityComponentStore, Unity.Collections.LowLevel.Unsafe.UnsafeList* entityBatchList, int typeIndex)
+        [MonoPInvokeCallback(typeof(Managed._dlg_RemoveComponentEntitiesBatch))]
+        private static void _mono_to_burst_RemoveComponentEntitiesBatch(IntPtr entityComponentStore, IntPtr entityBatchList, int typeIndex)
         {
-            _RemoveComponentEntitiesBatch(entityComponentStore, entityBatchList, typeIndex);
+            _RemoveComponentEntitiesBatch((EntityComponentStore*)entityComponentStore, (Unity.Collections.LowLevel.Unsafe.UnsafeList*)entityBatchList, typeIndex);
         }
 
         [BurstDiscard]
         private static void _forward_mono_RemoveComponentEntitiesBatch(EntityComponentStore* entityComponentStore, Unity.Collections.LowLevel.Unsafe.UnsafeList* entityBatchList, int typeIndex)
         {
-            _bfp_RemoveComponentEntitiesBatch(entityComponentStore, entityBatchList, typeIndex);
+            Managed._bfp_RemoveComponentEntitiesBatch((IntPtr) entityComponentStore, (IntPtr) entityBatchList, typeIndex);
         }
 #endif
 
         public  static void RemoveComponentChunks (EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_RemoveComponentChunks(entityComponentStore, chunks, chunkCount, typeIndex);
@@ -275,24 +280,24 @@ namespace Unity.Entities
             _RemoveComponentChunks(entityComponentStore, chunks, chunkCount, typeIndex);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_RemoveComponentChunks))]
-        private static void _mono_to_burst_RemoveComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex)
+        [MonoPInvokeCallback(typeof(Managed._dlg_RemoveComponentChunks))]
+        private static void _mono_to_burst_RemoveComponentChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, int typeIndex)
         {
-            _RemoveComponentChunks(entityComponentStore, chunks, chunkCount, typeIndex);
+            _RemoveComponentChunks((EntityComponentStore*)entityComponentStore, (ArchetypeChunk*)chunks, chunkCount, typeIndex);
         }
 
         [BurstDiscard]
         private static void _forward_mono_RemoveComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int typeIndex)
         {
-            _bfp_RemoveComponentChunks(entityComponentStore, chunks, chunkCount, typeIndex);
+            Managed._bfp_RemoveComponentChunks((IntPtr) entityComponentStore, (IntPtr) chunks, chunkCount, typeIndex);
         }
 #endif
 
         public  static void RemoveComponentsChunks (EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypes types)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_RemoveComponentsChunks(entityComponentStore, chunks, chunkCount, ref types);
@@ -303,24 +308,24 @@ namespace Unity.Entities
             _RemoveComponentsChunks(entityComponentStore, chunks, chunkCount, ref types);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_RemoveComponentsChunks))]
-        private static void _mono_to_burst_RemoveComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypes types)
+        [MonoPInvokeCallback(typeof(Managed._dlg_RemoveComponentsChunks))]
+        private static void _mono_to_burst_RemoveComponentsChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, ref ComponentTypes types)
         {
-            _RemoveComponentsChunks(entityComponentStore, chunks, chunkCount, ref types);
+            _RemoveComponentsChunks((EntityComponentStore*)entityComponentStore, (ArchetypeChunk*)chunks, chunkCount, ref types);
         }
 
         [BurstDiscard]
         private static void _forward_mono_RemoveComponentsChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, ref ComponentTypes types)
         {
-            _bfp_RemoveComponentsChunks(entityComponentStore, chunks, chunkCount, ref types);
+            Managed._bfp_RemoveComponentsChunks((IntPtr) entityComponentStore, (IntPtr) chunks, chunkCount, ref types);
         }
 #endif
 
         public  static void AddSharedComponentChunks (EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int componentTypeIndex, int sharedComponentIndex)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_AddSharedComponentChunks(entityComponentStore, chunks, chunkCount, componentTypeIndex, sharedComponentIndex);
@@ -331,24 +336,24 @@ namespace Unity.Entities
             _AddSharedComponentChunks(entityComponentStore, chunks, chunkCount, componentTypeIndex, sharedComponentIndex);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_AddSharedComponentChunks))]
-        private static void _mono_to_burst_AddSharedComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int componentTypeIndex, int sharedComponentIndex)
+        [MonoPInvokeCallback(typeof(Managed._dlg_AddSharedComponentChunks))]
+        private static void _mono_to_burst_AddSharedComponentChunks(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, int componentTypeIndex, int sharedComponentIndex)
         {
-            _AddSharedComponentChunks(entityComponentStore, chunks, chunkCount, componentTypeIndex, sharedComponentIndex);
+            _AddSharedComponentChunks((EntityComponentStore*)entityComponentStore, (ArchetypeChunk*)chunks, chunkCount, componentTypeIndex, sharedComponentIndex);
         }
 
         [BurstDiscard]
         private static void _forward_mono_AddSharedComponentChunks(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, int componentTypeIndex, int sharedComponentIndex)
         {
-            _bfp_AddSharedComponentChunks(entityComponentStore, chunks, chunkCount, componentTypeIndex, sharedComponentIndex);
+            Managed._bfp_AddSharedComponentChunks((IntPtr) entityComponentStore, (IntPtr) chunks, chunkCount, componentTypeIndex, sharedComponentIndex);
         }
 #endif
 
         public  static void MoveEntityArchetype (EntityComponentStore* entityComponentStore, Entity* entity, void* dstArchetype)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_MoveEntityArchetype(entityComponentStore, entity, dstArchetype);
@@ -359,24 +364,24 @@ namespace Unity.Entities
             _MoveEntityArchetype(entityComponentStore, entity, dstArchetype);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_MoveEntityArchetype))]
-        private static void _mono_to_burst_MoveEntityArchetype(EntityComponentStore* entityComponentStore, Entity* entity, void* dstArchetype)
+        [MonoPInvokeCallback(typeof(Managed._dlg_MoveEntityArchetype))]
+        private static void _mono_to_burst_MoveEntityArchetype(IntPtr entityComponentStore, IntPtr entity, IntPtr dstArchetype)
         {
-            _MoveEntityArchetype(entityComponentStore, entity, dstArchetype);
+            _MoveEntityArchetype((EntityComponentStore*)entityComponentStore, (Entity*)entity, (void*)dstArchetype);
         }
 
         [BurstDiscard]
         private static void _forward_mono_MoveEntityArchetype(EntityComponentStore* entityComponentStore, Entity* entity, void* dstArchetype)
         {
-            _bfp_MoveEntityArchetype(entityComponentStore, entity, dstArchetype);
+            Managed._bfp_MoveEntityArchetype((IntPtr) entityComponentStore, (IntPtr) entity, (IntPtr) dstArchetype);
         }
 #endif
 
         public  static void SetChunkComponent (EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, void* componentData, int componentTypeIndex)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_SetChunkComponent(entityComponentStore, chunks, chunkCount, componentData, componentTypeIndex);
@@ -387,24 +392,24 @@ namespace Unity.Entities
             _SetChunkComponent(entityComponentStore, chunks, chunkCount, componentData, componentTypeIndex);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_SetChunkComponent))]
-        private static void _mono_to_burst_SetChunkComponent(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, void* componentData, int componentTypeIndex)
+        [MonoPInvokeCallback(typeof(Managed._dlg_SetChunkComponent))]
+        private static void _mono_to_burst_SetChunkComponent(IntPtr entityComponentStore, IntPtr chunks, int chunkCount, IntPtr componentData, int componentTypeIndex)
         {
-            _SetChunkComponent(entityComponentStore, chunks, chunkCount, componentData, componentTypeIndex);
+            _SetChunkComponent((EntityComponentStore*)entityComponentStore, (ArchetypeChunk*)chunks, chunkCount, (void*)componentData, componentTypeIndex);
         }
 
         [BurstDiscard]
         private static void _forward_mono_SetChunkComponent(EntityComponentStore* entityComponentStore, ArchetypeChunk* chunks, int chunkCount, void* componentData, int componentTypeIndex)
         {
-            _bfp_SetChunkComponent(entityComponentStore, chunks, chunkCount, componentData, componentTypeIndex);
+            Managed._bfp_SetChunkComponent((IntPtr) entityComponentStore, (IntPtr) chunks, chunkCount, (IntPtr) componentData, componentTypeIndex);
         }
 #endif
 
         public  static void CreateEntity (EntityComponentStore* entityComponentStore, void* archetype, Entity* outEntities, int count)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_CreateEntity(entityComponentStore, archetype, outEntities, count);
@@ -415,24 +420,24 @@ namespace Unity.Entities
             _CreateEntity(entityComponentStore, archetype, outEntities, count);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_CreateEntity))]
-        private static void _mono_to_burst_CreateEntity(EntityComponentStore* entityComponentStore, void* archetype, Entity* outEntities, int count)
+        [MonoPInvokeCallback(typeof(Managed._dlg_CreateEntity))]
+        private static void _mono_to_burst_CreateEntity(IntPtr entityComponentStore, IntPtr archetype, IntPtr outEntities, int count)
         {
-            _CreateEntity(entityComponentStore, archetype, outEntities, count);
+            _CreateEntity((EntityComponentStore*)entityComponentStore, (void*)archetype, (Entity*)outEntities, count);
         }
 
         [BurstDiscard]
         private static void _forward_mono_CreateEntity(EntityComponentStore* entityComponentStore, void* archetype, Entity* outEntities, int count)
         {
-            _bfp_CreateEntity(entityComponentStore, archetype, outEntities, count);
+            Managed._bfp_CreateEntity((IntPtr) entityComponentStore, (IntPtr) archetype, (IntPtr) outEntities, count);
         }
 #endif
 
         public  static void InstantiateEntities (EntityComponentStore* entityComponentStore, Entity* srcEntity, Entity* outputEntities, int instanceCount)
         {
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
             if (UseDelegate())
             {
                 _forward_mono_InstantiateEntities(entityComponentStore, srcEntity, outputEntities, instanceCount);
@@ -443,18 +448,18 @@ namespace Unity.Entities
             _InstantiateEntities(entityComponentStore, srcEntity, outputEntities, instanceCount);
         }
 
-#if !(UNITY_DOTSRUNTIME || (UNITY_2020_1_OR_NEWER && UNITY_IOS))
+#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
         [BurstCompile]
-        [MonoPInvokeCallback(typeof(_dlg_InstantiateEntities))]
-        private static void _mono_to_burst_InstantiateEntities(EntityComponentStore* entityComponentStore, Entity* srcEntity, Entity* outputEntities, int instanceCount)
+        [MonoPInvokeCallback(typeof(Managed._dlg_InstantiateEntities))]
+        private static void _mono_to_burst_InstantiateEntities(IntPtr entityComponentStore, IntPtr srcEntity, IntPtr outputEntities, int instanceCount)
         {
-            _InstantiateEntities(entityComponentStore, srcEntity, outputEntities, instanceCount);
+            _InstantiateEntities((EntityComponentStore*)entityComponentStore, (Entity*)srcEntity, (Entity*)outputEntities, instanceCount);
         }
 
         [BurstDiscard]
         private static void _forward_mono_InstantiateEntities(EntityComponentStore* entityComponentStore, Entity* srcEntity, Entity* outputEntities, int instanceCount)
         {
-            _bfp_InstantiateEntities(entityComponentStore, srcEntity, outputEntities, instanceCount);
+            Managed._bfp_InstantiateEntities((IntPtr) entityComponentStore, (IntPtr) srcEntity, (IntPtr) outputEntities, instanceCount);
         }
 #endif
 

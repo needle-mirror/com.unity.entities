@@ -350,11 +350,11 @@ namespace Unity.Entities.Tests
             var system = World.CreateSystem<SystemBaseEntitiesForEachComponentDataFromEntity>();
             system.RunScheduleParallel = runScheduleParallel;
 
-            var archetype = system.EntityManager.CreateArchetype(new ComponentType[] {typeof(EcsTestDataEntity), typeof(EcsTestData)});
+            var archetype = system.EntityManager.CreateArchetype(new ComponentType[] { typeof(EcsTestDataEntity), typeof(EcsTestData) });
             using (var createdEntities = system.EntityManager.CreateEntity(archetype, 100, Allocator.Persistent))
             {
                 for (int i = 0; i < createdEntities.Length; ++i)
-                    system.EntityManager.SetComponentData(createdEntities[i], new EcsTestDataEntity {value1 = createdEntities[(i + 1) % createdEntities.Length]});
+                    system.EntityManager.SetComponentData(createdEntities[i], new EcsTestDataEntity { value1 = createdEntities[(i + 1) % createdEntities.Length] });
 
                 if (runScheduleParallel)
                     Assert.Throws<InvalidOperationException>(() => { system.Update(); });

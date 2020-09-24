@@ -1,6 +1,8 @@
 #define ENABLE_ADD_REMOVE_TEST_100
-// #define ENABLE_ADD_REMOVE_TEST_1000
-// #define ENABLE_ADD_REMOVE_TEST_10000
+#define ENABLE_ADD_REMOVE_TEST_1000
+
+//WARNING: currently will fail due to exceeding 16MB ArchetypeChunkAllocator limit
+//#define ENABLE_ADD_REMOVE_TEST_10000
 
 using System;
 using NUnit.Framework;
@@ -215,8 +217,18 @@ namespace Unity.Entities.PerformanceTests
                 var archetype = m_Manager.CreateArchetype(types);
                 entities[i] = m_Manager.CreateEntity(archetype);
             }
-
             return entities;
+        }
+
+        public void CreateEntitiesWithMultipleArchetypes(int entitiesPerArchetype, int numArchetypes, EntityArchetype baseArchetype)
+        {
+            var archetypes = CreateUniqueArchetypes(numArchetypes, baseArchetype);
+            for (int i = 0; i < numArchetypes; i++)
+            {
+                var entities = m_Manager.CreateEntity(archetypes[i], entitiesPerArchetype, Allocator.Persistent);
+                entities.Dispose();
+            }
+            archetypes.Dispose();
         }
 
         NativeArray<Entity> CreateUniqueEntitiesWithSharedComponent(int size)
@@ -312,6 +324,32 @@ namespace Unity.Entities.PerformanceTests
             return archetypes;
         }
 
+        NativeArray<EntityArchetype> CreateUniqueArchetypes(int size, EntityArchetype baseArchetype)
+        {
+            var baseTypes = baseArchetype.GetComponentTypes(Allocator.TempJob);
+            var baseList = new List<ComponentType>(baseTypes);
+            baseTypes.Dispose();
+
+            var archetypes = new NativeArray<EntityArchetype>(size, Allocator.TempJob);
+
+            for (int i = 0; i < size; i++)
+            {
+                var typeCount = CollectionHelper.Log2Ceil(i);
+                var typeList = new List<ComponentType>(baseList);
+                for (int typeIndex = 0; typeIndex < typeCount; typeIndex++)
+                {
+                    if ((i & (1 << typeIndex)) != 0)
+                        typeList.Add(TagTypes[typeIndex]);
+                }
+
+                var types = typeList.ToArray();
+                archetypes[i] = m_Manager.CreateArchetype(types);
+            }
+
+            return archetypes;
+        }
+
+
         NativeArray<Entity> CreateSameEntities(int size)
         {
             var entities = new NativeArray<Entity>(size, Allocator.Persistent);
@@ -334,6 +372,36 @@ namespace Unity.Entities.PerformanceTests
                 .SetUp(CreateEntities)
                 .CleanUp(DestroyEntities)
                 .Run();
+        }
+
+        [Test, Performance]
+        public void AddComponentsWithGroup([Values(1, 10, 1000, 10000, 100000)] int entityCount,
+            [Values(1, 5, 10, 100, 1000, 10000)] int archetypeCount)
+        {
+            if (entityCount < archetypeCount)
+                return;
+
+            var baseArchetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            Measure.Method(() => { m_Manager.AddComponent(query, new ComponentTypes(
+                    typeof(EcsTestData4),
+                    typeof(EcsTestData5),
+                    typeof(EcsTestFloatData),
+                    typeof(EcsTestFloatData2),
+                    typeof(EcsTestFloatData3)
+                )); })
+                .SetUp(() =>
+                {
+                    CreateEntitiesWithMultipleArchetypes(entityCount / archetypeCount, archetypeCount, baseArchetype);
+                })
+                .MeasurementCount(100)
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(query);
+                })
+                .Run();
+            query.Dispose();
         }
 
         [Test, Performance]
@@ -374,6 +442,37 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .CleanUp(DestroyEntities)
                 .Run();
+        }
+
+        [Test, Performance]
+        public void RemoveComponentsWithGroup([Values(1, 10, 1000, 10000, 100000)] int entityCount,
+            [Values(1, 5, 10, 100, 1000, 10000)] int archetypeCount)
+        {
+            if (entityCount < archetypeCount)
+                return;
+
+            var baseArchetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData4), typeof(EcsTestFloatData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData4), typeof(EcsTestFloatData));
+            var destroyQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            Measure.Method(() => { m_Manager.RemoveComponent(query, new ComponentTypes(
+                    typeof(EcsTestData4),
+                    typeof(EcsTestData5),
+                    typeof(EcsTestFloatData),
+                    typeof(EcsTestFloatData2),
+                    typeof(EcsTestFloatData3)
+                )); })
+                .SetUp(() =>
+                {
+                    CreateEntitiesWithMultipleArchetypes(entityCount / archetypeCount, archetypeCount, baseArchetype);
+                })
+                .MeasurementCount(100)
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(destroyQuery);
+                })
+                .Run();
+            query.Dispose();
         }
 
         [Test, Performance]
@@ -1261,7 +1360,7 @@ namespace Unity.Entities.PerformanceTests
 #if ENABLE_ADD_REMOVE_TEST_10000
 
         [Test, Performance]
-        public void RemoveComponent1000(
+        public void RemoveComponent10000(
             [Values(10, 1000, 10000)] int batchSize, [Values(10000)] int entityCount,
             [Values(TestTypeVariation.Entity, TestTypeVariation.EntityArray, TestTypeVariation.Query)] TestTypeVariation testTypeVariation,
             [Values(TestComponentVariation.Component, TestComponentVariation.ComponentTag, TestComponentVariation.SharedComponent, TestComponentVariation.Buffer)] TestComponentVariation componentVariation,

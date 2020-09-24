@@ -1,8 +1,8 @@
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-
 using System;
 using System.Diagnostics;
 using UnityEngine;
+using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities
 {
@@ -14,6 +14,14 @@ namespace Unity.Entities
         public static void SetCompanionName(Entity entity, GameObject gameObject)
         {
             gameObject.name = $"Companion of {entity} (UID {s_CompanionNameUniqueId += 1})";
+        }
+
+        public static GameObject InstantiateCompanionObject(Entity entity, GameObject sourceGameObject)
+        {
+            var companion = UnityObject.Instantiate(sourceGameObject);
+            SetCompanionName(entity, companion);
+            companion.hideFlags = CompanionFlags;
+            return companion;
         }
 
         public const HideFlags CompanionFlags =

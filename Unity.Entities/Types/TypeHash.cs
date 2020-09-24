@@ -117,12 +117,14 @@ namespace Unity.Entities
             return hash;
         }
 
-        private static ulong HashVersionAttribute(Type type)
+        private static ulong HashVersionAttribute(Type type, IEnumerable<CustomAttributeData> customAttributes = null)
         {
             int version = 0;
-            if (type.CustomAttributes.Any())
+
+            customAttributes = customAttributes ?? type.CustomAttributes;
+            if (customAttributes.Any())
             {
-                var versionAttribute = type.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == "TypeVersionAttribute");
+                var versionAttribute = customAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType == typeof(TypeManager.TypeVersionAttribute));
                 if (versionAttribute != null)
                 {
                     version = (int)versionAttribute.ConstructorArguments
@@ -189,26 +191,30 @@ namespace Unity.Entities
         //          Unity.Entities.ComponentWithGeneric.GenericField`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]
         //      - System.Reflection and Mono.Cecil will provide different Type names (they use a different format).
         //        Generating hashes from System.Reflection and to match hashes using Mono.Cecil must account for this difference
-        public static ulong CalculateStableTypeHash(Type type)
+        public static ulong CalculateStableTypeHash(Type type, IEnumerable<CustomAttributeData> customAttributes = null)
         {
-            ulong versionHash = HashVersionAttribute(type);
+            ulong versionHash = HashVersionAttribute(type, customAttributes);
             ulong typeHash = HashType(type, new Dictionary<Type, ulong>());
 
             return CombineFNV1A64(versionHash, typeHash);
         }
 
-        public static ulong CalculateMemoryOrdering(Type type)
+        public static ulong CalculateMemoryOrdering(Type type, out bool hasCustomMemoryOrder)
         {
+            hasCustomMemoryOrder = false;
+
             if (type == null || type.FullName == "Unity.Entities.Entity")
             {
                 return 0;
             }
 
-            if (type.CustomAttributes.Any())
+            var customAttributes = type.CustomAttributes;
+            if (customAttributes.Any())
             {
-                var forcedMemoryOrderAttribute = type.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == "ForcedMemoryOrderingAttribute");
+                var forcedMemoryOrderAttribute = customAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType == typeof(TypeManager.ForcedMemoryOrderingAttribute));
                 if (forcedMemoryOrderAttribute != null)
                 {
+                    hasCustomMemoryOrder = true;
                     ulong memoryOrder = (ulong)forcedMemoryOrderAttribute.ConstructorArguments
                         .First(arg => arg.ArgumentType.Name == "UInt64" || arg.ArgumentType.Name == "ulong")
                         .Value;
@@ -217,7 +223,7 @@ namespace Unity.Entities
                 }
             }
 
-            return CalculateStableTypeHash(type);
+            return CalculateStableTypeHash(type, customAttributes);
         }
     }
 }

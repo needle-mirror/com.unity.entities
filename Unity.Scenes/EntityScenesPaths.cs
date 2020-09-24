@@ -16,14 +16,26 @@ namespace Unity.Scenes
     {
         public static Type SubSceneImporterType = null;
 
-#if !UNITY_DOTSRUNTIME
-        public static Hash128 BuiltinShadersBundleHash = new Hash128(0, 0, 0, 1);
-        internal static readonly string PersistentDataPath = Application.persistentDataPath;
-        internal static readonly string StreamingAssetsPath = Application.streamingAssetsPath;
+        internal static readonly string PersistentDataPath;
+        internal static readonly string StreamingAssetsPath;
+
+        static EntityScenesPaths()
+        {
+#if UNITY_DOTSRUNTIME
+            PersistentDataPath = "Data";
+            StreamingAssetsPath = "Data";
+#elif PLATFORM_SWITCH
+            // Temporary hack around using Application.persistentDataPath during static initialisation which fails on switch and crashes
+            // WHY does it fail on switch? Shouldn't this just silently fail on Switch?
+            // We need to find a way to not use PersistentDataPath during LiveLink. This means LiveLink doesn't work on Switch right now.
+            PersistentDataPath = "DOESNOTWORK";
+            StreamingAssetsPath = Application.streamingAssetsPath;
 #else
-        internal static readonly string PersistentDataPath = "Data";
-        internal static readonly string StreamingAssetsPath = "Data";
+            PersistentDataPath = Application.persistentDataPath;
+            StreamingAssetsPath = Application.streamingAssetsPath;
 #endif
+        }
+
         public enum PathType
         {
             EntitiesUnityObjectReferences,

@@ -161,7 +161,7 @@ namespace Unity.Scenes
         {
             var dstEntities = _DstWorld.EntityManager;
             var sceneSystem = _DstWorld.GetExistingSystem<SceneSystem>();
-            Entity sectionEntity;
+            Entity sectionEntity = Entity.Null;
             var sceneEntity = sceneSystem.GetLiveLinkedSceneEntity(changeSet.SceneGUID);
 
             //@TODO: Check if the scene or section is requested to be loaded
@@ -199,7 +199,11 @@ namespace Unity.Scenes
             }
             else
             {
-                sectionEntity = dstEntities.GetBuffer<ResolvedSectionEntity>(sceneEntity)[0].SectionEntity;
+                var resolvedSectionEntities = dstEntities.GetBuffer<ResolvedSectionEntity>(sceneEntity);
+                if (resolvedSectionEntities.Length > 0)
+                {
+                    sectionEntity = resolvedSectionEntities[0].SectionEntity;
+                }
             }
 
             // SceneTag.SceneEntity == Entity.Null is reserved for new entities added via live link.
@@ -213,7 +217,10 @@ namespace Unity.Scenes
 
             //liveLink.ConvertedShadowWorld.EntityManager.Debug.CheckInternalConsistency();
 
-            dstEntities.SetSharedComponentData(_AddedScenesQuery, new SceneTag { SceneEntity = sectionEntity });
+            if (sectionEntity != Entity.Null)
+            {
+                dstEntities.SetSharedComponentData(_AddedScenesQuery, new SceneTag {SceneEntity = sectionEntity});
+            }
 
             EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
         }

@@ -4,7 +4,7 @@ using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
-    class ECBChainPriorityQueueTests
+    class ECBChainPriorityQueueTests : ECSTestsCommonBase
     {
         unsafe public void PQHeapSort(int[] unsorted, int[] sorted)
         {

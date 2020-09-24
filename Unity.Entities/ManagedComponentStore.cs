@@ -580,7 +580,7 @@ namespace Unity.Entities
             for (int i = 0; i < numManagedComponents; ++i)
             {
                 int type = i + firstManagedComponent;
-                if (!hasHybridComponents || TypeManager.GetTypeInfo(types[type].TypeIndex).Category != TypeManager.TypeCategory.Class)
+                if (!hasHybridComponents || TypeManager.GetTypeInfo(types[type].TypeIndex).Category != TypeManager.TypeCategory.UnityEngineObject)
                 {
                     var a = (int*) ChunkDataUtility.GetComponentDataRO(chunk, 0, type);
                     for (int ei = 0; ei < entityCount; ++ei)
@@ -674,7 +674,7 @@ namespace Unity.Entities
                         var managedComponents = remapDst + remapDstSize;
 
                         PatchEntitiesForPrefab((int*)managedComponents, numManagedComponents, allocatedCount, remappingCount, (Entity*)remapSrc, (Entity*)remapDst);
-                        UnsafeUtility.Free(remapSrc, allocator);
+                        Memory.Unmanaged.Free(remapSrc, allocator);
                     }
                     break;
 

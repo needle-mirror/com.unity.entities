@@ -725,10 +725,13 @@ namespace Unity.Entities
                     return false;
             }
 
-            if (filter.Changed.Count == 0)
+            if (filter.Changed.Count == 0 && !filter.UseOrderFiltering)
                 return true;
 
+            var orderVersionFilterPassed = filter.UseOrderFiltering && ChangeVersionUtility.DidChange(chunks.GetOrderVersion(chunkIndex), filter.RequiredChangeVersion);
+
             // Must have AT LEAST ONE type have changed
+            var changedVersionFilterPassed = false;
             for (int i = 0; i < filter.Changed.Count; ++i)
             {
                 var indexInEntityQuery = filter.Changed.IndexInEntityQuery[i];
@@ -737,11 +740,10 @@ namespace Unity.Entities
 
                 var requiredVersion = filter.RequiredChangeVersion;
 
-                if (ChangeVersionUtility.DidChange(changeVersions[chunkIndex], requiredVersion))
-                    return true;
+                changedVersionFilterPassed |= ChangeVersionUtility.DidChange(changeVersions[chunkIndex], requiredVersion);
             }
 
-            return false;
+            return changedVersionFilterPassed || orderVersionFilterPassed;
         }
     }
 

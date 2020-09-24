@@ -24,6 +24,7 @@
   * [Component WriteGroups](ecs_write_groups.md)
   * [Versions and generations](version_numbers.md)
   * [C# Job System extensions](ecs_job_extensions.md)
+  * [Conversion Workflow](conversion.md)
 * [Creating gameplay](gp_overview.md)
   * [Transforms](transform_system.md)
   * [Rendering](gp_rendering.md)

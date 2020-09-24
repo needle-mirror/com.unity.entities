@@ -60,7 +60,7 @@ namespace Unity.Scenes
                 HashUnsafeUtilities.ComputeHash128(str, (ulong)(sizeof(char) * activeBuildTarget.Length), &hash);
             }
 
-            UnityEditor.Experimental.AssetDatabaseExperimental.RegisterCustomDependency(livelinkBuildTargetDependencyName, hash);
+            AssetDatabaseCompatibility.RegisterCustomDependency(livelinkBuildTargetDependencyName, hash);
         }
 
         static unsafe void WriteEditorLiveLinkCacheGUID()

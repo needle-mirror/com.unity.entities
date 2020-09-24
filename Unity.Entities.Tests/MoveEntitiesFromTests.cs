@@ -520,7 +520,7 @@ namespace Unity.Entities.Tests
             var chunkData = archetype.Archetype->Chunks;
             int sizeOfBuffer = sizeof(int) * chunkData.Count;
             var chunkDataCopy =
-                (int*)UnsafeUtility.Malloc(sizeOfBuffer, 64, Allocator.Temp);
+                (int*)Memory.Unmanaged.Allocate(sizeOfBuffer, 64, Allocator.Temp);
             UnsafeUtility.MemCpy(chunkDataCopy, chunkData.GetChunkEntityCountArray(), sizeOfBuffer);
 
             m_Manager.MoveEntitiesFrom(creationManager);

@@ -24,7 +24,7 @@ namespace Unity.Entities
         [NativeDisableUnsafePtrRestriction] internal EntityComponentStore* m_EntityComponentStore;
 
         [FieldOffset(16)] internal int m_BatchStartEntityIndex;
-        [FieldOffset(20)] internal int m_BatchEntityCount;
+        [FieldOffset(20)] internal int m_BatchEntityCount; // May equal kUseChunkCount, in which case the chunk is not sub-batched, and the entity count is given by m_Chunk->Count;
 
         private const int kUseChunkCount = 0;
 
@@ -36,10 +36,11 @@ namespace Unity.Entities
         /// <summary>
         /// If the ArchetypeChunk is sub-batched, returns the number of entities referenced by this batch.
         /// </summary>
-        public int BatchEntityCount => m_BatchEntityCount;
+        [Obsolete("Use the Count property instead. (RemovedAfter 2020-12-20). (UnityUpgradable) -> Count", false)]
+        public int BatchEntityCount => Count;
 
         /// <summary>
-        /// The number of entities currently stored in the chunk.
+        /// The number of entities currently stored in the chunk (ignoring any sub-batching)
         /// </summary>
         public int ChunkEntityCount => m_Chunk->Count;
 
@@ -64,17 +65,31 @@ namespace Unity.Entities
             startIndex = maxEntitiesInBatch * math.min(batchIndexInChunk, remainder) + minEntitiesInBatch * math.max(0, batchIndexInChunk - remainder);
         }
 
-        internal static ArchetypeChunk EntityBatchFromChunk(Chunk* chunk, int batchesPerChunk, int batchIndexInChunk, EntityComponentStore* entityComponentStore)
+        // Returns true if a valid batch can be created from the provided inputs.
+        // Otherwise, returns false and sets the output batch to ArchetypeChunk.Null.
+        internal static bool EntityBatchFromChunk(Chunk* chunk, int chunkEntityCount, int batchesPerChunk, int batchIndexInChunk,
+            EntityComponentStore* entityComponentStore, out ArchetypeChunk batch)
         {
-            CalculateBatchSizeAndStartIndex(chunk->Count, batchesPerChunk, batchIndexInChunk, out var batchCount, out var startIndex);
+            if (chunk == null)
+            {
+                batch = Null;
+                return false;
+            }
 
-            return new ArchetypeChunk
+            CalculateBatchSizeAndStartIndex(chunkEntityCount, batchesPerChunk, batchIndexInChunk, out var batchEntityCount, out var batchEntityStartIndex);
+            if (batchEntityCount == 0)
+            {
+                batch = Null;
+                return false;
+            }
+            batch = new ArchetypeChunk
             {
                 m_Chunk = chunk,
                 m_EntityComponentStore = entityComponentStore,
-                m_BatchStartEntityIndex = startIndex,
-                m_BatchEntityCount = batchCount
+                m_BatchStartEntityIndex = batchEntityStartIndex,
+                m_BatchEntityCount = batchEntityCount
             };
+            return true;
         }
 
         internal ArchetypeChunk(Chunk* chunk, EntityComponentStore* entityComponentStore)
@@ -184,19 +199,6 @@ namespace Unity.Entities
         public bool Invalid()
         {
             return m_Chunk->Archetype == null;
-        }
-
-        /// <summary>
-        /// Reports whether this ArchetypeChunk is locked.
-        /// </summary>
-        /// <seealso cref="EntityManager.LockChunk(ArchetypeChunk"/>
-        /// <seealso cref="EntityManager.UnlockChunk(ArchetypeChunk"/>
-        /// <returns>True, if locked.</returns>
-
-        [Obsolete("Locked has been deprecated, and is always false. (RemovedAfter 2020-06-05)")]
-        public bool Locked()
-        {
-            return false;
         }
 
         /// <summary>

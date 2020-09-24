@@ -9,6 +9,12 @@ namespace Unity.Entities.CodeGen
 {
     public static class MonoExtensions
     {
+        public static string FullNameLikeRuntime(this TypeReference tr)
+        {
+            // Cecil nested classes are separated by a "/", but System.Type names use "+"
+            return tr.FullName.Replace("/", "+");
+        }
+
         public static bool IsCppBasicType(this TypeDefinition type)
         {
             return type.MetadataType == MetadataType.Boolean || type.MetadataType == MetadataType.Void

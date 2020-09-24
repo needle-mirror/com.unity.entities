@@ -135,7 +135,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
 #if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
-        [Test, Ignore("DOTS-1422 - Currently fails, but this is an edge case")]
+        [Test]
         public void SubScene_WithNullAsset_ImportsAndLoads()
             => SubScene_WithAsset_ImportsAndLoads(null);
 

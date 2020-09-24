@@ -264,9 +264,22 @@ namespace Unity.Entities.Tests
         }
     }
 
+    public struct EcsTestDataEntity2 : IComponentData
+    {
+        public int value0;
+        public Entity value1;
+        public Entity value2;
+    }
+
     public struct EcsTestDataBlobAssetRef : IComponentData
     {
         public BlobAssetReference<int> value;
+    }
+
+    public struct EcsTestDataBlobAssetRef2 : IComponentData
+    {
+        public BlobAssetReference<int> value;
+        public BlobAssetReference<int> value2;
     }
 
     public struct EcsTestDataBlobAssetArray : IComponentData

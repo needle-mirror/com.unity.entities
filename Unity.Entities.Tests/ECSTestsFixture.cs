@@ -1,4 +1,5 @@
 using System;
+using JetBrains.Annotations;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
@@ -66,7 +67,26 @@ namespace Unity.Entities.Tests
 
 #endif
 
-    public abstract class ECSTestsFixture
+    public class ECSTestsCommonBase
+    {
+        [SetUp]
+        public virtual void Setup()
+        {
+#if UNITY_DOTSRUNTIME
+            Unity.Core.TempMemoryScope.EnterScope();
+#endif
+        }
+
+        [TearDown]
+        public virtual void TearDown()
+        {
+#if UNITY_DOTSRUNTIME
+            Unity.Core.TempMemoryScope.ExitScope();
+#endif
+        }
+    }
+
+    public abstract class ECSTestsFixture : ECSTestsCommonBase
     {
         protected World m_PreviousWorld;
         protected World World;
@@ -80,13 +100,16 @@ namespace Unity.Entities.Tests
         private bool JobsDebuggerWasEnabled;
 
         [SetUp]
-        public virtual void Setup()
+        public override void Setup()
         {
+            base.Setup();
+
 #if !UNITY_DOTSRUNTIME
             // unit tests preserve the current player loop to restore later, and start from a blank slate.
             m_PreviousPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
             PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
 #endif
+
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
             World = World.DefaultGameObjectInjectionWorld = new World("Test World");
             m_Manager = World.EntityManager;
@@ -99,7 +122,7 @@ namespace Unity.Entities.Tests
         }
 
         [TearDown]
-        public virtual void TearDown()
+        public override void TearDown()
         {
             if (World != null && World.IsCreated)
             {
@@ -125,6 +148,8 @@ namespace Unity.Entities.Tests
 #if !UNITY_DOTSRUNTIME
             PlayerLoop.SetPlayerLoop(m_PreviousPlayerLoop);
 #endif
+
+            base.TearDown();
         }
 
         public void AssertDoesNotExist(Entity entity)

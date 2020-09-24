@@ -35,6 +35,30 @@ namespace Unity.Entities.PerformanceTests
         }
 
         /// <summary>
+        /// Performance test for getting changes with referential equality.
+        /// </summary>
+        [Test, Performance]
+        [TestCase(1000)]
+        public void PerformanceTest_EntityDiffer_GetChanges_ReferentialEquality(int entityCount)
+        {
+            CreateEntitiesWithMockComponentData(SrcEntityManager, entityCount, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp), typeof(EcsTestDataEntity));
+
+            Measure.Method(() =>
+            {
+                using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+                {
+                    using (differ.GetChanges(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, Allocator.TempJob))
+                    {
+                    }
+                }
+            })
+                .SampleGroup("EntityDiffer")
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .Run();
+        }
+
+        /// <summary>
         /// Test to generate a forward change set for a given number of entities.
         /// </summary>
         /// <param name="entityCount"></param>

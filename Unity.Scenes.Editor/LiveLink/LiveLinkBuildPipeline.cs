@@ -129,7 +129,7 @@ namespace Unity.Scenes.Editor
 
             if (GUIDHelper.IsBuiltin(guid))
             {
-                var tempPath = $"Assets/TempAssetCache/{assetGUID}.txt";
+                var tempPath = $"{SceneWithBuildConfigurationGUIDs.k_SceneDependencyCachePath}/{assetGUID}.txt";
                 if (!File.Exists(tempPath))
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(tempPath));

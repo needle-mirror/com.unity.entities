@@ -284,6 +284,213 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, RefCount1);
         }
 
+        [Test]
+        [TestCase(EntityManagerDifferOptions.Default, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID) + "_Default")]
+        [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID) + "_ReferentialEquality")]
+        public void EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID(EntityManagerDifferOptions options)
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                // Setup two entities, entity1 and entity2, and have the entity2 refer to entity1.
+                var entity1 = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                var entity1Guid = CreateEntityGuid();
+                SrcEntityManager.SetComponentData(entity1, entity1Guid);
+
+                var entity2 = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestDataEntity));
+                SrcEntityManager.SetComponentData(entity2, CreateEntityGuid());
+                SrcEntityManager.SetComponentData(entity2, new EcsTestDataEntity
+                {
+                    value1 = entity1
+                });
+
+                // apply the first changes, that's not what we're testing
+                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+                // Destroy entity1 and recreate it.
+                SrcEntityManager.DestroyEntity(entity1);
+                entity1 = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                SrcEntityManager.SetComponentData(entity1, entity1Guid);
+
+                SrcEntityManager.SetComponentData(entity2, new EcsTestDataEntity
+                {
+                    value1 = entity1
+                });
+
+                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                {
+                    Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
+                    if ((options & EntityManagerDifferOptions.UseReferentialEquality) != 0)
+                    {
+                        // if we check for referential equivalence, there are no changes because the entity reference
+                        // points to an entity that has the same GUID
+                        Assert.IsFalse(changes.HasForwardChangeSet);
+                    }
+                    else
+                    {
+                        // otherwise, we detect that a component was changed, but interestingly enough do not register
+                        // that a new entity was created.
+                        Assert.IsTrue(changes.HasForwardChangeSet);
+                        Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
+                        Assert.AreEqual(1, changes.ForwardChangeSet.EntityReferenceChanges.Length);
+                    }
+                }
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsFalse(changes.HasForwardChangeSet);
+                }
+            }
+        }
+
+        [Test]
+        [TestCase(EntityManagerDifferOptions.Default, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_WithDynamicBuffer_DependsOnGUID) + "_Default")]
+        [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_WithDynamicBuffer_DependsOnGUID) + "_ReferentialEquality")]
+        public void EntityDiffer_GetChanges_EntityReferenceChange_WithDynamicBuffer_DependsOnGUID(EntityManagerDifferOptions options)
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                // Setup three entities, entity1a, entity1b and entity2, and have the entity2 refer to the other two.
+                var entity1a = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                SrcEntityManager.SetComponentData(entity1a, CreateEntityGuid());
+
+                var entity1b = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                var entity1bGuid = CreateEntityGuid();
+                SrcEntityManager.SetComponentData(entity1b, entity1bGuid);
+
+                var entity2 = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                SrcEntityManager.SetComponentData(entity2, CreateEntityGuid());
+                var buf = SrcEntityManager.AddBuffer<EcsComplexEntityRefElement>(entity2);
+                buf.Add(new EcsComplexEntityRefElement {Entity = entity1a});
+                buf.Add(new EcsComplexEntityRefElement {Entity = entity1b});
+
+                // apply the first changes, that's not what we're testing
+                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+                // Destroy entity1b and recreate it.
+                SrcEntityManager.DestroyEntity(entity1b);
+                entity1b = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                SrcEntityManager.SetComponentData(entity1b, entity1bGuid);
+                buf = SrcEntityManager.GetBuffer<EcsComplexEntityRefElement>(entity2);
+                buf[1] = new EcsComplexEntityRefElement {Entity = entity1b};
+
+                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                {
+                    Assert.AreEqual(0, changes.ForwardChangeSet.CreatedEntityCount);
+                    if ((options & EntityManagerDifferOptions.UseReferentialEquality) != 0)
+                    {
+                        // If we check for referential equivalence, there are no changes because the entity reference
+                        // points to an entity that has the same GUID
+                        Assert.IsFalse(changes.HasForwardChangeSet);
+                    }
+                    else
+                    {
+                        // Otherwise, we detect that a component was changed, but interestingly enough do not register
+                        // that a new entity was created. There are two reference changes because one change in the
+                        // buffer registers all elements as changed.
+                        Assert.IsTrue(changes.HasForwardChangeSet);
+                        Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
+                        Assert.AreEqual(2, changes.ForwardChangeSet.EntityReferenceChanges.Length);
+                    }
+                }
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsFalse(changes.HasForwardChangeSet);
+                }
+            }
+        }
+
+        [Test]
+        [TestCase(EntityManagerDifferOptions.Default, TestName = nameof(EntityDiffer_GetChanges_BlobAssetReferenceChange_DependsOnHash) + "_Default")]
+        [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_BlobAssetReferenceChange_DependsOnHash) + "_ReferentialEquality")]
+        public void EntityDiffer_GetChanges_BlobAssetReferenceChange_DependsOnHash(EntityManagerDifferOptions options)
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var blobAssetReference0 = BlobAssetReference<int>.Create(10))
+            using (var blobAssetReference1 = BlobAssetReference<int>.Create(10))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestDataBlobAssetRef));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetComponentData(entity, new EcsTestDataBlobAssetRef
+                {
+                    value = blobAssetReference0
+                });
+
+                // apply the first changes, that's not what we're testing
+                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+
+                SrcEntityManager.SetComponentData(entity, new EcsTestDataBlobAssetRef
+                {
+                    value = blobAssetReference1
+                });
+                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                {
+                    if ((options & EntityManagerDifferOptions.UseReferentialEquality) != 0)
+                    {
+                        // if we check for referential equivalence, there are no changes because the blob asset
+                        // reference points to a blob that is identical.
+                        Assert.IsFalse(changes.HasForwardChangeSet);
+                    }
+                    else
+                    {
+                        // otherwise, we detect that a component was changed
+                        Assert.IsTrue(changes.HasForwardChangeSet);
+                        Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
+                        Assert.AreEqual(1, changes.ForwardChangeSet.BlobAssetReferenceChanges.Length);
+                    }
+                }
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsFalse(changes.HasForwardChangeSet);
+                }
+            }
+        }
+
+        [Test]
+        [TestCase(EntityManagerDifferOptions.Default, TestName = nameof(EntityDiffer_GetChanges_BlobAssetReferenceChange_WithDynamicBuffer_DependsOnHash) + "_Default")]
+        [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_BlobAssetReferenceChange_WithDynamicBuffer_DependsOnHash) + "_ReferentialEquality")]
+        public void EntityDiffer_GetChanges_BlobAssetReferenceChange_WithDynamicBuffer_DependsOnHash(EntityManagerDifferOptions options)
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var blobAssetReference0 = BlobAssetReference<int>.Create(10))
+            using (var blobAssetReference1 = BlobAssetReference<int>.Create(10))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                var buf = SrcEntityManager.AddBuffer<EcsTestDataBlobAssetElement>(entity);
+                buf.Add(new EcsTestDataBlobAssetElement {blobElement = blobAssetReference0});
+                buf.Add(new EcsTestDataBlobAssetElement {blobElement = blobAssetReference1});
+
+                // apply the first changes, that's not what we're testing
+                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+
+                buf = SrcEntityManager.GetBuffer<EcsTestDataBlobAssetElement>(entity);
+                buf[1] = new EcsTestDataBlobAssetElement { blobElement = blobAssetReference0};
+                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                {
+                    if ((options & EntityManagerDifferOptions.UseReferentialEquality) != 0)
+                    {
+                        // if we check for referential equivalence, there are no changes because the blob asset
+                        // reference points to a blob that is identical.
+                        Assert.IsFalse(changes.HasForwardChangeSet);
+                    }
+                    else
+                    {
+                        // otherwise, we detect that a component was changed
+                        Assert.IsTrue(changes.HasForwardChangeSet);
+                        Assert.AreEqual(1, changes.ForwardChangeSet.SetComponents.Length);
+                        Assert.AreEqual(2, changes.ForwardChangeSet.BlobAssetReferenceChanges.Length);
+                    }
+                }
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsFalse(changes.HasForwardChangeSet);
+                }
+            }
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public unsafe void EntityDiffer_GetChanges_Clones_And_Disposes_ManagedComponents()

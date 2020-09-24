@@ -28,26 +28,20 @@ namespace Unity.Entities
     {
         private bool m_systemSortDirty = false;
 
-        /// <summary>
-        /// Controls if the legacy sort ordering is used.
-        /// </summary>
-        public bool UseLegacySortOrder { get; set; } = true;
-
         internal bool Created { get; private set; } = false;
 
-        protected List<ComponentSystemBase> m_systemsToUpdate = new List<ComponentSystemBase>();
+        internal List<ComponentSystemBase> m_systemsToUpdate = new List<ComponentSystemBase>();
         internal List<ComponentSystemBase> m_systemsToRemove = new List<ComponentSystemBase>();
 
         internal UnsafeList<UpdateIndex> m_MasterUpdateList;
         internal UnsafeList<SystemHandleUntyped> m_UnmanagedSystemsToUpdate;
         internal UnsafeList<SystemHandleUntyped> m_UnmanagedSystemsToRemove;
 
-#if !UNITY_DOTSRUNTIME
-        internal delegate bool UnmanagedUpdateSignature(SystemState* state, out SystemDependencySafetyUtility.SafetyErrorDetails errorDetails);
+        internal delegate bool UnmanagedUpdateSignature(IntPtr pSystemState, out SystemDependencySafetyUtility.SafetyErrorDetails errorDetails);
         static UnmanagedUpdateSignature s_UnmanagedUpdateFn = BurstCompiler.CompileFunctionPointer<UnmanagedUpdateSignature>(SystemBase.UnmanagedUpdate).Invoke;
-#endif
 
-        public virtual IEnumerable<ComponentSystemBase> Systems => m_systemsToUpdate;
+        public virtual IReadOnlyList<ComponentSystemBase> Systems => m_systemsToUpdate;
+        internal UnsafeList<SystemHandleUntyped> UnmanagedSystems => m_UnmanagedSystemsToUpdate;
 
         protected override void OnCreate()
         {
@@ -123,9 +117,6 @@ namespace Unity.Entities
                 return;
             }
 
-            if (UseLegacySortOrder)
-                throw new InvalidOperationException("ISystemBase systems are not compatible with legacy sort order. Set UseLegacySortOrder to false to use ISystemBase systems.");
-
             m_UnmanagedSystemsToUpdate.Add(sysHandle);
             m_systemSortDirty = true;
         }
@@ -152,57 +143,6 @@ namespace Unity.Entities
             }
         }
 
-        [Obsolete("Use SortSystems(). (RemovedAfter 2020-07-30)")]
-        public virtual void SortSystemUpdateList()
-        {
-            CheckCreated();
-
-            if (!UseLegacySortOrder)
-                throw new InvalidOperationException("UseLegacySortOrder must be true to use the SortSystemUpdateList() legacy API");
-
-            if (!m_systemSortDirty)
-                return;
-
-            m_systemSortDirty = false;
-
-            RemovePending();
-
-            foreach (var sys in m_systemsToUpdate)
-            {
-                if (TypeManager.IsSystemAGroup(sys.GetType()))
-                {
-                    RecurseUpdate((ComponentSystemGroup) sys);
-                }
-            }
-
-            var elems = new ComponentSystemSorter.SystemElement[m_systemsToUpdate.Count];
-            for (int i = 0; i < m_systemsToUpdate.Count; ++i)
-            {
-                elems[i] = new ComponentSystemSorter.SystemElement
-                {
-                    Type = m_systemsToUpdate[i].GetType(),
-                    Index = new UpdateIndex(i, true),
-                    OrderingBucket = 1,
-                    updateBefore = new List<Type>(),
-                    nAfter = 0,
-                };
-            }
-
-            ComponentSystemSorter.FindConstraints(GetType(), elems);
-
-            ComponentSystemSorter.Sort(elems);
-
-            var oldSystems = m_systemsToUpdate;
-            m_systemsToUpdate = new List<ComponentSystemBase>(oldSystems.Count);
-            m_MasterUpdateList.Clear();
-            for (int i = 0; i < elems.Length; ++i)
-            {
-                var index = elems[i].Index;
-                m_systemsToUpdate.Add(oldSystems[index.Index]);
-                m_MasterUpdateList.Add(new UpdateIndex(i, true));
-            }
-        }
-
         private void RemovePending()
         {
             if (m_systemsToRemove.Count > 0)
@@ -224,27 +164,10 @@ namespace Unity.Entities
             m_UnmanagedSystemsToRemove.Clear();
         }
 
-        private static void RecurseUpdate(ComponentSystemGroup group)
-        {
-            if (group.UseLegacySortOrder)
-            {
-#pragma warning disable 618
-                group.SortSystemUpdateList();
-#pragma warning restore 618
-            }
-            else
-            {
-                group.SortSystemUpdateList2();
-            }
-        }
-
-        private void SortSystemUpdateList2()
+        private void RecurseUpdate(ComponentSystemGroup group)
         {
             if (!m_systemSortDirty)
                 return;
-
-            if (UseLegacySortOrder)
-                throw new InvalidOperationException("UseLegacySortOrder must be false to use the updated sorting API");
 
             RemovePending();
 
@@ -450,19 +373,22 @@ namespace Unity.Entities
         ///
         /// The group is passed as the first parameter.
         /// </summary>
+        [Obsolete("To enable fixed-timestep functionality, use the group's FixedRateManager property. (RemovedAfter 2020-12-26)")]
         public Func<ComponentSystemGroup, bool> UpdateCallback;
+
+        public IFixedRateManager FixedRateManager { get; set; }
 
         protected override void OnUpdate()
         {
             CheckCreated();
 
-            if (UpdateCallback == null)
+            if (FixedRateManager == null)
             {
                 UpdateAllSystems();
             }
             else
             {
-                while (UpdateCallback(this))
+                while (FixedRateManager.ShouldGroupUpdate(this))
                 {
                     UpdateAllSystems();
                 }
@@ -491,11 +417,7 @@ namespace Unity.Entities
                         if (sys != null)
                         {
                             bool updateError = false;
-#if !UNITY_DOTSRUNTIME
-                            updateError = s_UnmanagedUpdateFn(sys, out var details);
-#else
-                            updateError = SystemBase.UnmanagedUpdate(sys, out var details);
-#endif
+                            updateError = s_UnmanagedUpdateFn((IntPtr) sys, out var details);
 
                             if (updateError)
                             {

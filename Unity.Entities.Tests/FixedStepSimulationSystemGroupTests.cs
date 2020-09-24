@@ -66,7 +66,7 @@ namespace Unity.Entities.Tests
             fixedSimGroup.SortSystems();
 
             fixedSimGroup.Timestep = 1.0f;
-            fixedSimGroup.MaximumDeltaTime = 10.0f;
+            World.MaximumDeltaTime = 10.0f;
             // Simulate a large elapsed time since the previous frame. (the deltaTime here is irrelevant)
             World.PushTime(new TimeData(8.5f, 0.01f));
             fixedSimGroup.Update();
@@ -95,7 +95,7 @@ namespace Unity.Entities.Tests
             fixedSimGroup.SortSystems();
 
             fixedSimGroup.Timestep = 1.0f;
-            fixedSimGroup.MaximumDeltaTime = 10.0f;
+            World.MaximumDeltaTime = 10.0f;
             // Simulate a large elapsed time since the previous frame. (the deltaTime here is irrelevant)
             World.PushTime(new TimeData(8.5f, 0.01f));
             fixedSimGroup.Update();
@@ -115,7 +115,7 @@ namespace Unity.Entities.Tests
             fixedSimGroup.SortSystems();
 
             fixedSimGroup.Timestep = 1.0f;
-            fixedSimGroup.MaximumDeltaTime = 10.0f;
+            World.MaximumDeltaTime = 10.0f;
             // Simulate a large elapsed time since the previous frame. (the deltaTime here is irrelevant)
             World.PushTime(new TimeData(8.5f, 0.01f));
             fixedSimGroup.Update();
@@ -145,7 +145,7 @@ namespace Unity.Entities.Tests
             fixedSimGroup.SortSystems();
 
             fixedSimGroup.Timestep = 1.0f;
-            fixedSimGroup.MaximumDeltaTime = 10.0f;
+            World.MaximumDeltaTime = 10.0f;
             // Simulate several seconds at 1 update per second
             World.PushTime(new TimeData(4.6f, 0.01f));
             fixedSimGroup.Update();
@@ -219,7 +219,7 @@ namespace Unity.Entities.Tests
             fixedSimGroup.SortSystems();
 
             fixedSimGroup.Timestep = 1.0f;
-            FixedRateUtils.DisableFixedRate(fixedSimGroup);
+            fixedSimGroup.FixedRateManager = null;
             // Simulate a large elapsed time since the previous frame
             World.PushTime(new TimeData(8.5f, 0.01f));
             fixedSimGroup.Update();
@@ -233,25 +233,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void FixedStepSimulationSystemGroup_ChangeMaximumDeltaTime_Works()
-        {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            fixedSimGroup.MaximumDeltaTime = 0.1f;
-            Assert.AreEqual(0.1f, fixedSimGroup.MaximumDeltaTime, 0.0001f);
-            fixedSimGroup.MaximumDeltaTime = 0.3f;
-            Assert.AreEqual(0.3f, fixedSimGroup.MaximumDeltaTime, 0.0001f);
-        }
-
-        [Test]
-        public void FixedStepSimulationSystemGroup_MaximumDeltaTimeTooLow_ClampedToTimestep()
-        {
-            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            fixedSimGroup.Timestep = 0.2f;
-            fixedSimGroup.MaximumDeltaTime = 0.1f;
-            Assert.AreEqual(0.2f, fixedSimGroup.MaximumDeltaTime, 0.0001f);
-        }
-
-        [Test]
         public void FixedStepSimulationSystemGroup_ElapsedTimeExceedsMaximumDeltaTime_GradualRecovery()
         {
             var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
@@ -261,7 +242,7 @@ namespace Unity.Entities.Tests
 
             float dt = 0.125f;
             fixedSimGroup.Timestep = dt;
-            fixedSimGroup.MaximumDeltaTime = 2*dt;
+            World.MaximumDeltaTime = 2*dt;
             // Simulate a frame spike
             // The recovery should be spread over several frames; instead of 8 ticks after the first Update(),
             // we should see at most two ticks per update until the group catches up to the elapsed time.
@@ -303,6 +284,81 @@ namespace Unity.Entities.Tests
                 });
             updateTimesSystem.Updates.Clear();
             World.PopTime();
+        }
+
+        [Test]
+        public void FixedStepSimulationSystemGroup_NullFixedRateManager_TimestepDoesntThrow()
+        {
+            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            fixedSimGroup.FixedRateManager = null;
+            Assert.DoesNotThrow(() => { fixedSimGroup.Timestep = 1.0f;});
+            Assert.AreEqual(0, fixedSimGroup.Timestep);
+        }
+
+        // Simple custom FixedRateManager that updates exactly once per frame. The timestep is ignored, but
+        // should be correct if queried.
+        class CustomFixedRateManager : IFixedRateManager
+        {
+            private bool m_UpdatedThisFrame;
+            public int UpdateCount { get; private set; }
+
+            public bool ShouldGroupUpdate(ComponentSystemGroup group)
+            {
+                // if this is true, means we're being called a second or later time in a loop
+                if (m_UpdatedThisFrame)
+                {
+                    m_UpdatedThisFrame = false;
+                    return false;
+                }
+
+                m_UpdatedThisFrame = true;
+                UpdateCount += 1;
+                return true;
+            }
+
+            public float Timestep { get; set; }
+        }
+
+        [Test]
+        public void FixedStepSimulationSystemGroup_CustomFixedRateManager_TimestepIsCorrect()
+        {
+            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            fixedSimGroup.FixedRateManager = new CustomFixedRateManager();
+            const float expectedTimestep = 0.125f;
+            fixedSimGroup.Timestep = expectedTimestep;
+            Assert.AreEqual(expectedTimestep, fixedSimGroup.Timestep);
+        }
+
+        [Test]
+        public void FixedStepSimulationSystemGroup_CustomFixedRateManager_UpdateLogicIsCorrect()
+        {
+            var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
+            var customFixedRateMgr = new CustomFixedRateManager();
+            fixedSimGroup.FixedRateManager = customFixedRateMgr;
+            fixedSimGroup.Timestep = 1.0f; // Ignored in this test, only the timestep in World.Time.DeltaTime matters
+            var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
+            fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
+            fixedSimGroup.SortSystems();
+
+            Assert.AreEqual(0, customFixedRateMgr.UpdateCount);
+            float deltaTime = 0.125f;
+            double elapsedTime = 0;
+            World.SetTime(new TimeData(elapsedTime, deltaTime));
+            fixedSimGroup.Update();
+            Assert.AreEqual(1, customFixedRateMgr.UpdateCount);
+
+            elapsedTime += deltaTime;
+            World.SetTime(new TimeData(elapsedTime, deltaTime));
+            fixedSimGroup.Update();
+            Assert.AreEqual(2, customFixedRateMgr.UpdateCount);
+
+            CollectionAssert.AreEqual(updateTimesSystem.Updates,
+                new[]
+                {
+                    new TimeData(0.0f, 0.125f),
+                    new TimeData(0.125f, 0.125f),
+                });
+
         }
     }
 }

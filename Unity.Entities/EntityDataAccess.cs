@@ -513,6 +513,11 @@ namespace Unity.Entities
             CreateEntity(archetype, (Entity*)entities.GetUnsafePtr(), entities.Length);
         }
 
+        public void CreateEntity(EntityArchetype archetype, int entityCount)
+        {
+            CreateEntity(archetype, null, entityCount);
+        }
+
         /// <summary>
         /// EntityManager.BeforeStructuralChange must be called before invoking this.
         /// ManagedComponentStore.Playback must be called after invoking this.
@@ -589,7 +594,7 @@ namespace Unity.Entities
                 //@TODO the fast path for a chunk that contains a single entity is only possible if the chunk doesn't have a Locked Entity Order
                 //but we should still be allowed to add zero sized components to chunks with a Locked Entity Order, even ones that only contain a single entity
 
-                EntityComponentStore->AddComponentWithValidation(archetypeList, filter, componentType, DependencyManager);
+                StructuralChange.AddComponentChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType.TypeIndex);
 
                 EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, EntityQueryManager);
                 EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
@@ -719,15 +724,15 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="archetypeList"></param>
         /// <param name="filter"></param>
-        /// <param name="componentType"></param>
+        /// <param name="componentTypes"></param>
         /// <exception cref="InvalidOperationException"></exception>
-        internal void RemoveMultipleComponentsDuringStructuralChange(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentTypes types)
+        internal void RemoveMultipleComponentsDuringStructuralChange(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentTypes componentTypes)
         {
             if (IsInExclusiveTransaction)
                 throw new InvalidOperationException("Must be called from the main thread");
 
             var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Allocator.TempJob, ref filter, DependencyManager);
-            StructuralChange.RemoveComponentsChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, ref types);
+            StructuralChange.RemoveComponentsChunks(EntityComponentStore, (ArchetypeChunk*)NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, ref componentTypes);
             chunks.Dispose();
         }
 
@@ -953,21 +958,15 @@ namespace Unity.Entities
             if (EntityComponentStore->ManagedChangesTracker.Empty)
                 return;
 
-#if !UNITY_DOTSRUNTIME
-            {
-                bool monoDitIt = false;
-                PlaybackManagedDirectly(ref monoDitIt);
-                if (monoDitIt)
-                    return;
-            }
+            bool monoDitIt = false;
+            PlaybackManagedDirectly(ref monoDitIt);
+            if (monoDitIt)
+                return;
 
             fixed (void* self = &this)
             {
                 new FunctionPointer<PlaybackManagedDelegate>(s_ManagedPlaybackTrampoline.Data).Invoke((IntPtr)self);
             }
-#else
-            PlaybackManagedChangesMono();
-#endif
         }
 
 

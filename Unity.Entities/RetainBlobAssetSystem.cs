@@ -35,7 +35,7 @@ namespace Unity.Entities
                 if (retain.FramesToRetainBlobAssets-- == 0)
                 {
                     retainPtr.BlobAsset->Invalidate();
-                    UnsafeUtility.Free(retainPtr.BlobAsset, Allocator.Persistent);
+                    Memory.Unmanaged.Free(retainPtr.BlobAsset, Allocator.Persistent);
                     EntityManager.RemoveComponent<RetainBlobAssets>(e);
                     EntityManager.RemoveComponent<RetainBlobAssetPtr>(e);
                 }
@@ -71,7 +71,7 @@ namespace Unity.Entities
                 if (retain.FramesToRetainBlobAssets-- == 0)
                 {
                     retainPtr.BlobAsset->Invalidate();
-                    UnsafeUtility.Free(retainPtr.BlobAsset, Allocator.Persistent);
+                    Memory.Unmanaged.Free(retainPtr.BlobAsset, Allocator.Persistent);
                     EntityManager.RemoveComponent<RetainBlobAssets>(e);
                     EntityManager.RemoveComponent<RetainBlobAssetPtr>(e);
                 }

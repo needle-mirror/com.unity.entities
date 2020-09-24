@@ -37,7 +37,7 @@ namespace Unity.Entities
             var type = obj.GetType();
             var typeInfo = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(type));
 
-            if (typeInfo.Category == TypeManager.TypeCategory.Class)
+            if (typeInfo.Category == TypeManager.TypeCategory.UnityEngineObject)
             {
                 throw new ArgumentException("Cannot remap hybrid components", nameof(obj));
             }

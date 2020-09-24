@@ -10,13 +10,13 @@ namespace Unity.Entities.Editor
 
     internal class EntityQueryListView : TreeView
     {
-        private static Dictionary<ComponentSystemBase, List<EntityQueryDesc>> queryDescsBySystem = new Dictionary<ComponentSystemBase, List<EntityQueryDesc>>();
+        private static Dictionary<SystemSelection, List<EntityQueryDesc>> queryDescsBySystem = new Dictionary<SystemSelection, List<EntityQueryDesc>>();
 
         private readonly Dictionary<int, EntityQuery> queriesById = new Dictionary<int, EntityQuery>();
         private readonly Dictionary<int, EntityQueryDesc> queryDescsById = new Dictionary<int, EntityQueryDesc>();
         private readonly Dictionary<int, EntityQueryGUIControl> controlsById = new Dictionary<int, EntityQueryGUIControl>();
 
-        public ComponentSystemBase SelectedSystem
+        public SystemSelection SelectedSystem
         {
             get { return selectedSystem; }
             set
@@ -28,14 +28,15 @@ namespace Unity.Entities.Editor
                 }
             }
         }
-        private ComponentSystemBase selectedSystem;
+        private SystemSelection selectedSystem;
 
         private readonly WorldSelectionGetter getWorldSelection;
         private readonly SetEntityListSelection entityListSelectionCallback;
 
-        private static TreeViewState GetStateForSystem(ComponentSystemBase system, List<TreeViewState> states, List<string> stateNames)
+        private unsafe static TreeViewState GetStateForSystem(SystemSelection system, List<TreeViewState> states, List<string> stateNames)
         {
-            if (system == null)
+            var ptr = system.StatePointer;
+            if (ptr == null)
                 return new TreeViewState();
 
             var currentSystemName = system.GetType().FullName;
@@ -45,21 +46,21 @@ namespace Unity.Entities.Editor
                 return stateForCurrentSystem;
 
             stateForCurrentSystem = new TreeViewState();
-            if (system.EntityQueries != null && system.EntityQueries.Length > 0)
+            if (ptr->EntityQueries.Length > 0)
                 stateForCurrentSystem.expandedIDs = new List<int> {1};
             states.Add(stateForCurrentSystem);
             stateNames.Add(currentSystemName);
             return stateForCurrentSystem;
         }
 
-        public static EntityQueryListView CreateList(ComponentSystemBase system, List<TreeViewState> states, List<string> stateNames,
+        public static EntityQueryListView CreateList(SystemSelection system, List<TreeViewState> states, List<string> stateNames,
             SetEntityListSelection entityQuerySelectionCallback, WorldSelectionGetter worldSelectionGetter)
         {
             var state = GetStateForSystem(system, states, stateNames);
             return new EntityQueryListView(state, system, entityQuerySelectionCallback, worldSelectionGetter);
         }
 
-        public EntityQueryListView(TreeViewState state, ComponentSystemBase system, SetEntityListSelection entityListSelectionCallback, WorldSelectionGetter worldSelectionGetter) : base(state)
+        public EntityQueryListView(TreeViewState state, SystemSelection system, SetEntityListSelection entityListSelectionCallback, WorldSelectionGetter worldSelectionGetter) : base(state)
         {
             this.getWorldSelection = worldSelectionGetter;
             this.entityListSelectionCallback = entityListSelectionCallback;
@@ -76,7 +77,7 @@ namespace Unity.Entities.Editor
             return controlsById.ContainsKey(item.id) ? controlsById[item.id].Height + 2 : rowHeight;
         }
 
-        private static List<EntityQueryDesc> GetQueryDescsForSystem(ComponentSystemBase system)
+        private static List<EntityQueryDesc> GetQueryDescsForSystem(SystemSelection system)
         {
             List<EntityQueryDesc> queryDescs;
             if (queryDescsBySystem.TryGetValue(system, out queryDescs))
@@ -100,7 +101,7 @@ namespace Unity.Entities.Editor
             return queryDescs;
         }
 
-        protected override TreeViewItem BuildRoot()
+        protected unsafe override TreeViewItem BuildRoot()
         {
             queriesById.Clear();
             queryDescsById.Clear();
@@ -129,10 +130,13 @@ namespace Unity.Entities.Editor
                     var groupItem = new TreeViewItem { id = currentId++ };
                     root.AddChild(groupItem);
                 }
-                if (SelectedSystem.EntityQueries != null)
+                var ptr = SelectedSystem.StatePointer;
+                if (ptr != null && ptr->EntityQueries.Length > 0)
                 {
-                    foreach (var query in SelectedSystem.EntityQueries)
+                    ref var queries = ref ptr->EntityQueries;
+                    for (int i = 0; i < queries.Length; ++i)
                     {
+                        var query = queries[i];
                         queriesById.Add(currentId, query);
 
                         var queryItem = new TreeViewItem { id = currentId++ };
@@ -219,12 +223,13 @@ namespace Unity.Entities.Editor
             {
                 EntityQuery entityQuery;
                 if (queriesById.TryGetValue(selectedIds[0], out entityQuery))
+                {
                     entityListSelectionCallback(new EntityListQuery(entityQuery));
+                    return;
+                }
             }
-            else
-            {
-                entityListSelectionCallback(null);
-            }
+
+            entityListSelectionCallback(null);
         }
 
         protected override bool CanMultiSelect(TreeViewItem item)
@@ -274,11 +279,12 @@ namespace Unity.Entities.Editor
             SetSelection(GetSelection(), TreeViewSelectionOptions.FireSelectionChanged);
         }
 
-        public bool NeedsReload
+        public unsafe bool NeedsReload
         {
             get
             {
-                var expectedGroupCount = SelectedSystem?.EntityQueries?.Length ?? 0;
+                var ptr = SelectedSystem.StatePointer;
+                var expectedGroupCount = ptr != null ? ptr->EntityQueries.Length : 0;
                 return expectedGroupCount != queriesById.Count;
             }
         }

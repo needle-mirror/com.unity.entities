@@ -64,6 +64,10 @@ namespace Unity.Scenes.Editor
                     UnityEngine.Debug.LogWarning($"ClassicCodeStrippingOptions are not compatible with LiveLink! LiveLink will always set ManagedStrippingLevel to {ManagedStrippingLevel.Disabled}. This component will be ignored.");
                 }
                 Context.SetComponent(new ClassicCodeStrippingOptions() { ManagedStrippingLevel = ManagedStrippingLevel.Disabled });
+
+#if PLATFORM_SWITCH
+                throw new InvalidOperationException("LiveLink is not yet supported on Switch.");
+#endif
             }
         }
     }

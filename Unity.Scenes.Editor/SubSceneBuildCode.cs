@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Unity.Build;
 using Unity.Build.Common;
 using Unity.Collections;
@@ -53,9 +54,11 @@ namespace Unity.Scenes.Editor
             var subSceneGuids = scenePathsForBuild.SelectMany(scenePath => SceneMetaDataImporter.GetSubSceneGuids(AssetDatabase.AssetPathToGUID(scenePath))).Distinct().ToList();
             var subScenePaths = new Dictionary<Hash128, string>();
             var dependencyInputData = new Dictionary<SceneSection, SectionDependencyInfo>();
+
             var refExt = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesUnityObjectReferences);
             var headerExt = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesHeader);
             var binaryExt = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesBinary);
+            string conversionLogExtension = EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesConversionLog);
 
             var group = BuildPipeline.GetBuildTargetGroup(target);
             var parameters = new BundleBuildParameters(target, @group, buildWorkingDirectory)
@@ -78,18 +81,28 @@ namespace Unity.Scenes.Editor
 
             for (int i = 0; i != sceneBuildConfigGuids.Length; i++)
             {
-
                 var sceneGuid = subSceneGuids[i];
                 var sceneBuildConfigGuid = sceneBuildConfigGuids[i];
                 var artifactHash = artifactHashes[i];
 
                 bool foundEntityHeader = false;
                 AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out var artifactPaths);
+
                 foreach (var artifactPath in artifactPaths)
                 {
                     //@TODO: This looks like a workaround. Whats going on here?
                     var ext = Path.GetExtension(artifactPath).Replace(".", "");
-                    if (ext == headerExt)
+
+                    if (ext == conversionLogExtension)
+                    {
+                        bool hasException = PrintConversionLogToUnityConsole(artifactPath);
+
+                        if (hasException)
+                        {
+                            throw new Exception("Building entity scenes failed. There were exceptions during the entity scene imports.");
+                        }
+                    }
+                    else if (ext == headerExt)
                     {
                         foundEntityHeader = true;
 
@@ -109,8 +122,7 @@ namespace Unity.Scenes.Editor
                         var destinationFile = EntityScenesPaths.RelativePathFolderFor(sceneGuid, EntityScenesPaths.PathType.EntitiesBinary, EntityScenesPaths.GetSectionIndexFromPath(artifactPath));
                         DoCopy(RegisterFileCopy, outputStreamingAssetsDirectory, artifactPath, destinationFile);
                     }
-
-                    if (ext == refExt)
+                    else if (ext == refExt)
                     {
                         content.CustomAssets.Add(new CustomContent
                         {
@@ -172,6 +184,88 @@ namespace Unity.Scenes.Editor
             if (!succeeded)
                 throw new InvalidOperationException($"BuildAssetBundles failed with status '{status}'.");
         }
+
+        private enum LogType
+        {
+            Exception,
+            Error,
+            Warning,
+            Assert,
+            Log,
+            Line
+        }
+
+        private static bool PrintConversionLogToUnityConsole(string conversionLogPath)
+        {
+            bool hasException = false;
+
+            foreach (var (type, content) in ParseConversionLog(conversionLogPath))
+            {
+                switch (type)
+                {
+                    case LogType.Warning:
+                        Debug.LogWarning(content);
+                        break;
+                    case LogType.Error:
+                        Debug.LogError(content);
+                        break;
+                    case LogType.Exception:
+                        Debug.LogError(content);
+                        hasException = true;
+                        break;
+                }
+            }
+            return hasException;
+        }
+
+        private static IEnumerable<(LogType Type, string Content)> ParseConversionLog(string conversionLogPath)
+        {
+            (LogType logType, string)[] allLogTypes =
+                Enum.GetValues(typeof(LogType)).Cast<LogType>().Select(logType => (logType, $"{logType.ToString()}:")).ToArray();
+
+            LogType GetLogType(string currentLine)
+            {
+                foreach (var (logType, logString) in allLogTypes)
+                {
+                    if (currentLine.StartsWith(logString))
+                    {
+                        return logType;
+                    }
+                }
+                return LogType.Line;
+            }
+
+            var conversionLogLines = File.ReadLines(conversionLogPath);
+
+            var currentLog = new StringBuilder();
+            LogType currentLogType = LogType.Line;
+
+            foreach (string line in conversionLogLines)
+            {
+                LogType logType = GetLogType(line);
+
+                if (logType == LogType.Line)
+                {
+                    currentLog.AppendLine(line);
+                }
+                else
+                {
+                    if (currentLog.Length > 0)
+                    {
+                        yield return (currentLogType, currentLog.ToString());
+                        currentLog.Clear();
+                    }
+                    currentLogType = logType;
+                    currentLog.AppendLine(line);
+                }
+            }
+
+            if (currentLog.Length > 0 && currentLogType != LogType.Line)
+            {
+                yield return (currentLogType, currentLog.ToString());
+            }
+        }
+
         public static Action<Dictionary<Hash128, Dictionary<SceneSection, List<Hash128>>>> PostBuildCallback;
 
         static void UpdateSceneMetaDataDependencies(ref BlobAssetReference<SceneMetaData> sceneMetaData, Dictionary<SceneSection, List<Hash128>> sceneDependencyData, string outPath)
@@ -179,7 +273,24 @@ namespace Unity.Scenes.Editor
             var blob = new BlobBuilder(Allocator.Temp);
             ref var root = ref blob.ConstructRoot<SceneMetaData>();
             blob.Construct(ref root.Sections, sceneMetaData.Value.Sections.ToArray());
-            blob.Construct(ref root.SceneSectionCustomMetadata, sceneMetaData.Value.SceneSectionCustomMetadata.ToArray());
+
+            // recursively copy scene section metadata
+            {
+                ref var sceneSectionCustomMetadata = ref sceneMetaData.Value.SceneSectionCustomMetadata;
+                var sceneMetaDataLength = sceneSectionCustomMetadata.Length;
+                var dstMetadataArray = blob.Allocate(ref root.SceneSectionCustomMetadata, sceneMetaDataLength);
+
+                for (int i = 0; i < sceneMetaDataLength; i++)
+                {
+                    var metaData = blob.Allocate(ref dstMetadataArray[i], sceneSectionCustomMetadata[i].Length);
+                    for (int j = 0; j < metaData.Length; j++)
+                    {
+                        metaData[j].StableTypeHash = sceneSectionCustomMetadata[i][j].StableTypeHash;
+                        blob.Construct(ref metaData[j].Data, sceneSectionCustomMetadata[i][j].Data.ToArray());
+                    }
+                }
+            }
+
             blob.AllocateString(ref root.SceneName, sceneMetaData.Value.SceneName.ToString());
             BlobBuilderArray<BlobArray<Hash128>> deps = blob.Allocate(ref root.Dependencies, sceneMetaData.Value.Sections.Length);
 

@@ -48,13 +48,13 @@ namespace Unity.Entities.CodeGen.Tests
             Assert.AreEqual(EntityQueryOptions.IncludePrefab, (EntityQueryOptions)icm[0].Arguments.Single());
         }
 
-        class WithForEachSystem : JobComponentSystem
+        class WithForEachSystem : SystemBase
         {
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
                 float dt = 2.34f;
 
-                return Entities
+                Entities
                     .WithEntityQueryOptions(EntityQueryOptions.IncludePrefab)
                     .WithBurst(synchronousCompilation: true)
                     .WithNone<Boid>()
@@ -65,7 +65,7 @@ namespace Unity.Entities.CodeGen.Tests
                         {
                             translation.Value += velocity.Value * dt;
                         })
-                    .Schedule(inputDeps);
+                    .Schedule();
             }
         }
 
@@ -97,18 +97,18 @@ namespace Unity.Entities.CodeGen.Tests
             Assert.AreEqual("MyJobName", icm[1].Arguments[0]);
         }
 
-        class SingleJobTestSystem : JobComponentSystem
+        class SingleJobTestSystem : SystemBase
         {
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
-                return Job
+                Job
                     .WithBurst(synchronousCompilation: true)
                     .WithName("MyJobName")
                     .WithCode(()
                         =>
                         {
                         })
-                    .Schedule(inputDeps);
+                    .Schedule();
             }
         }
 
@@ -139,7 +139,7 @@ namespace Unity.Entities.CodeGen.Tests
             Assert.AreEqual("MyJobName", icm[1].Arguments[0]);
         }
 
-        class JobChunkTestSystem : JobComponentSystem
+        class JobChunkTestSystem : SystemBase
         {
             protected override JobHandle OnUpdate(JobHandle inputDeps)
             {
@@ -164,13 +164,13 @@ namespace Unity.Entities.CodeGen.Tests
             }, icm.Select(i => i.MethodName));
         }
 
-        class WithCodeThatDoesNotCaptureSystem : JobComponentSystem
+        class WithCodeThatDoesNotCaptureSystem : SystemBase
         {
-            protected override JobHandle OnUpdate(JobHandle inputDependency)
+            protected override void OnUpdate()
             {
-                return Entities
+                Entities
                     .ForEach((ref Velocity e1) => { e1.Value += 1f;})
-                    .Schedule(inputDependency);
+                    .Schedule();
             }
         }
 
@@ -183,7 +183,7 @@ namespace Unity.Entities.CodeGen.Tests
             Assert.IsInstanceOf<FieldDefinition>(withReadOnly.Arguments.Single());
         }
 
-        class WithReadOnlyCapturedVariable : TestJobComponentSystem
+        class WithReadOnlyCapturedVariable : TestSystemBase
         {
             void Test()
             {
@@ -192,7 +192,7 @@ namespace Unity.Entities.CodeGen.Tests
                 Entities
                     .WithReadOnly(myarray)
                     .ForEach((ref Translation translation) => translation.Value += myarray[0])
-                    .Schedule(default);
+                    .Schedule();
             }
         }
 
@@ -208,7 +208,7 @@ namespace Unity.Entities.CodeGen.Tests
                 Assert.IsInstanceOf<FieldDefinition>(withReadOnly.Arguments.Single());
         }
 
-        class WithReadOnlyCapturedVariableFromTwoScopes : TestJobComponentSystem
+        class WithReadOnlyCapturedVariableFromTwoScopes : TestSystemBase
         {
             void Test()
             {
@@ -219,7 +219,7 @@ namespace Unity.Entities.CodeGen.Tests
                         .WithReadOnly(outerScopeArray)
                         .WithReadOnly(innerScopeArray)
                         .ForEach((ref Translation translation) => translation.Value += outerScopeArray[0] + innerScopeArray[0])
-                        .Schedule(default);
+                        .Schedule();
                 }
             }
         }
@@ -232,9 +232,9 @@ namespace Unity.Entities.CodeGen.Tests
             LambdaJobDescriptionConstruction.FindIn(methodToAnalyze).Single();
         }
 
-        public class RunInsideLoopCapturingLoopCondition : JobComponentSystem
+        public class RunInsideLoopCapturingLoopCondition : SystemBase
         {
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
                 int variable = 10;
                 for (int i = 0; i != variable; i++)
@@ -243,8 +243,6 @@ namespace Unity.Entities.CodeGen.Tests
                         .ForEach((ref Translation e1) => { e1.Value += variable; })
                         .Run();
                 }
-
-                return default;
             }
         }
     }

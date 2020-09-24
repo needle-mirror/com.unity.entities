@@ -163,6 +163,14 @@ namespace Unity.Entities
     internal struct WorldUnmanagedImpl
     {
         public TimeData CurrentTime;
+        /// <summary>
+        /// The maximum DeltaTime that will be applied to a World in a single call to Update().
+        /// If the actual elapsed time since the previous frame exceeds this value, it will be clamped.
+        /// This helps maintain a minimum frame rate after a large frame time spike, by spreading out the recovery over
+        /// multiple frames.
+        /// The value is expressed in seconds. The default value is 1/3rd seconds. Recommended values are 1/10th and 1/3rd seconds.
+        /// </summary>
+        public float MaximumDeltaTime;
     }
 
     public unsafe struct WorldUnmanaged
@@ -174,9 +182,17 @@ namespace Unity.Entities
 #endif
         public ref TimeData CurrentTime => ref GetImpl()->CurrentTime;
 
+        public float MaximumDeltaTime
+        {
+            get => GetImpl()->MaximumDeltaTime;
+            set => GetImpl()->MaximumDeltaTime = value;
+        }
+
         internal void Create()
         {
-            m_Impl = (WorldUnmanagedImpl*) UnsafeUtility.Malloc(sizeof(WorldUnmanagedImpl), 16, Allocator.Persistent);
+            m_Impl = (WorldUnmanagedImpl*) Memory.Unmanaged.Allocate(sizeof(WorldUnmanagedImpl), 16, Allocator.Persistent);
+            *m_Impl = new WorldUnmanagedImpl();
+            m_Impl->MaximumDeltaTime = 1.0f / 3.0f;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Safety = AtomicSafetyHandle.Create();
@@ -189,7 +205,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckDeallocateAndThrow(m_Safety);
             AtomicSafetyHandle.Release (m_Safety);
 #endif
-            UnsafeUtility.Free(m_Impl, Allocator.Persistent);
+            Memory.Unmanaged.Free(m_Impl, Allocator.Persistent);
             m_Impl = null;
         }
 
@@ -235,7 +251,7 @@ namespace Unity.Entities
                 m_FreeBits = ~0ul;
 
                 int allocSize = sizeof(StateAllocLevel1) * 64;
-                var l1 = m_Level1 = (StateAllocLevel1*)UnsafeUtility.Malloc(allocSize, 16, Allocator.Persistent);
+                var l1 = m_Level1 = (StateAllocLevel1*)Memory.Unmanaged.Allocate(allocSize, 16, Allocator.Persistent);
                 UnsafeUtility.MemClear(l1, allocSize);
 
                 for (int i = 0; i < 64; ++i)
@@ -252,11 +268,11 @@ namespace Unity.Entities
                 {
                     if (l1[i].States != null)
                     {
-                        UnsafeUtility.Free(l1[i].States, Allocator.Persistent);
+                        Memory.Unmanaged.Free(l1[i].States, Allocator.Persistent);
                     }
                 }
 
-                UnsafeUtility.Free(l1, Allocator.Persistent);
+                Memory.Unmanaged.Free(l1, Allocator.Persistent);
                 m_Level1 = null;
 
                 this = default;
@@ -299,7 +315,7 @@ namespace Unity.Entities
 
                 if (leaf.States == null)
                 {
-                    leaf.States = (SystemState*)UnsafeUtility.Malloc(64 * sizeof(SystemState), 16, Allocator.Persistent);
+                    leaf.States = (SystemState*)Memory.Unmanaged.Allocate(64 * sizeof(SystemState), 16, Allocator.Persistent);
                 }
 
                 leaf.FreeBits &= ~(1ul << subIndex);
@@ -446,6 +462,12 @@ namespace Unity.Entities
         public ulong SequenceNumber => m_SequenceNumber;
 
         public ref TimeData Time => ref m_Unmanaged.CurrentTime;
+
+        public float MaximumDeltaTime
+        {
+            get => m_Unmanaged.MaximumDeltaTime;
+            set => m_Unmanaged.MaximumDeltaTime = value;
+        }
 
         private EntityQuery m_TimeSingletonQuery;
 
@@ -964,7 +986,7 @@ namespace Unity.Entities
         private ushort AllocSlot(int structSize, long typeHash, out SystemState* statePtr, out void* systemPtr, out ushort version)
         {
             var metaIndex = SystemBaseRegistry.GetSystemTypeMetaIndex(typeHash);
-            systemPtr = UnsafeUtility.Malloc(structSize, 16, Allocator.Persistent);
+            systemPtr = Memory.Unmanaged.Allocate(structSize, 16, Allocator.Persistent);
             UnsafeUtility.MemClear(systemPtr, structSize);
 
             statePtr = m_StateMemory.Alloc(out var handle, out version, systemPtr, typeHash);
@@ -986,6 +1008,7 @@ namespace Unity.Entities
             {
                 try
                 {
+                    SystemBaseRegistry.CallOnStopRunning(statePtr);
                     SystemBaseRegistry.CallOnDestroy(statePtr);
                 }
                 catch (Exception ex)
@@ -1008,6 +1031,13 @@ namespace Unity.Entities
 
         internal SystemRef<T> InternalCreateUnmanagedSystem<T>() where T : struct, ISystemBase
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (!UnsafeUtility.IsUnmanaged<T>())
+            {
+                throw new ArgumentException($"type {typeof(T)} cannot contain managed systems");
+            }
+#endif
+
             long typeHash = BurstRuntime.GetHashCode64<T>();
             void* systemPtr = null;
             ushort handle = AllocSlot(UnsafeUtility.SizeOf<T>(), typeHash, out var statePtr, out systemPtr, out var version);
@@ -1031,6 +1061,12 @@ namespace Unity.Entities
 #if !UNITY_DOTSRUNTIME
         internal SystemHandleUntyped InternalCreateUnmanagedSystem(Type t, long typeHash)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (!UnsafeUtility.IsUnmanaged(t))
+            {
+                throw new ArgumentException($"type {t} cannot contain managed systems");
+            }
+#endif
             void* systemPtr = null;
             ushort handle = AllocSlot(UnsafeUtility.SizeOf(t), typeHash, out var statePtr, out systemPtr, out var version);
 
@@ -1173,7 +1209,7 @@ namespace Unity.Entities
             return self.GetOrCreateUnmanagedSystem<T>();
         }
 
-#if !UNITY_DOTSRUNTIME
+#if !NET_DOTS
         internal static SystemHandleUntyped GetOrCreateUnmanagedSystem(this World self, Type unmanagedType)
         {
             return self.GetOrCreateUnmanagedSystem(unmanagedType);

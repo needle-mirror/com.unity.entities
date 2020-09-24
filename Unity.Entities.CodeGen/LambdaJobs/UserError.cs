@@ -377,7 +377,7 @@ namespace Unity.Entities.CodeGen
 
         public static DiagnosticMessage DC0055(TypeReference lambdaParameterComponentType, MethodDefinition method, Instruction instruction)
         {
-            return MakeWarning(nameof(DC0055), $"Entities.ForEach passes {lambdaParameterComponentType.Name} by value.  Any changes made will not be stored to the underlying component.  Pass with `in` or `ref` instead.", method, instruction);
+            return MakeWarning(nameof(DC0055), $"Entities.ForEach passes {lambdaParameterComponentType.Name} by value.  Any changes made will not be stored to the underlying component.  Please specify the access you require. Use 'in' for read-only access or `ref` for read-write access.", method, instruction);
         }
 
         public static DiagnosticMessage DC0056(string conflictingType1, string conflictingType2, TypeReference componentType, MethodDefinition method, Instruction instruction)

@@ -48,7 +48,7 @@ namespace Unity.Entities
             long newSizeInBytes = (long)newCapacity * typeSize;
 
             byte* oldData = GetElementPointer(header);
-            byte* newData = (newCapacity <= internalCapacity) ? (byte*)(header + 1) : (byte*)UnsafeUtility.Malloc(newSizeInBytes, alignment, Allocator.Persistent);
+            byte* newData = (newCapacity <= internalCapacity) ? (byte*)(header + 1) : (byte*)Memory.Unmanaged.Allocate(newSizeInBytes, alignment, Allocator.Persistent);
 
             if (oldData != newData) // if at least one of them isn't the internal pointer...
             {
@@ -78,7 +78,7 @@ namespace Unity.Entities
                 // Note we're freeing the old buffer only if it was not using the internal capacity. Don't change this to 'oldData', because that would be a bug.
                 if (header->Pointer != null)
                 {
-                    UnsafeUtility.Free(header->Pointer, Allocator.Persistent);
+                    Memory.Unmanaged.Free(header->Pointer, Allocator.Persistent);
                 }
             }
 
@@ -109,7 +109,7 @@ namespace Unity.Entities
         {
             if (header->Pointer != null)
             {
-                UnsafeUtility.Free(header->Pointer, Allocator.Persistent);
+                Memory.Unmanaged.Free(header->Pointer, Allocator.Persistent);
             }
 
             Initialize(header, 0);
@@ -136,7 +136,7 @@ namespace Unity.Entities
                         BufferHeader newHeader = *header;
                         long bytesToAllocate = (long)header->Capacity * ti.ElementSize;
                         long bytesToCopy = (long)header->Length * ti.ElementSize;
-                        newHeader.Pointer = (byte*)UnsafeUtility.Malloc(bytesToAllocate, TypeManager.MaximumSupportedAlignment, Allocator.Persistent);
+                        newHeader.Pointer = (byte*)Memory.Unmanaged.Allocate(bytesToAllocate, TypeManager.MaximumSupportedAlignment, Allocator.Persistent);
                         UnsafeUtility.MemCpy(newHeader.Pointer, header->Pointer, bytesToCopy);
                         *header = newHeader;
                     }

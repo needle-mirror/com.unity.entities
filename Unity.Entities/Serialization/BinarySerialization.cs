@@ -86,7 +86,7 @@ namespace Unity.Entities.Serialization
 
         public static void ReadArray<T>(this BinaryReader reader, NativeArray<T> elements, int count) where T: struct
         {
-            reader.ReadBytes((byte*)elements.GetUnsafePtr(), count * UnsafeUtility.SizeOf<T>());
+            reader.ReadBytes((byte*)elements.GetUnsafeReadOnlyPtr(), count * UnsafeUtility.SizeOf<T>());
         }
     }
 

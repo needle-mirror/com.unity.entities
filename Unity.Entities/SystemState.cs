@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
@@ -13,7 +14,7 @@ namespace Unity.Entities
     /// <summary>
     /// Contains raw entity system state. Used by unmanaged systems (ISystemBase) as well as managed systems behind the scenes.
     /// </summary>
-    [BurstCompatible(RequiredUnityDefine = "UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME")]
+    [BurstCompatible(RequiredUnityDefine = "UNITY_2020_2_OR_NEWER || UNITY_DOTSRUNTIME")]
     public unsafe struct SystemState
     {
         // For unmanaged systems, points to user struct that was allocated to front this system state
@@ -73,6 +74,13 @@ namespace Unity.Entities
     #endif
 
         internal int                        m_SystemID;
+
+#if UNITY_ENTITIES_RUNTIME_TOOLING
+        internal long m_NewStartTime;
+        internal long m_LastSystemStartTime;
+        internal long m_LastSystemEndTime;
+        internal bool m_RanLastUpdate;
+#endif
 
         /// <summary>
         /// Controls whether this system executes when its OnUpdate function is called.
@@ -142,14 +150,14 @@ namespace Unity.Entities
         // Unmanaged systems use a separate allocator optimized for speed, found in World.cs
         internal static SystemState* Allocate()
         {
-            void* result = UnsafeUtility.Malloc(sizeof(SystemState), 16, Allocator.Persistent);
+            void* result = Memory.Unmanaged.Allocate(sizeof(SystemState), 16, Allocator.Persistent);
             UnsafeUtility.MemClear(result, sizeof(SystemState));
             return (SystemState*)result;
         }
 
         internal static void Deallocate(SystemState* state)
         {
-            UnsafeUtility.Free(state, Allocator.Persistent);
+            Memory.Unmanaged.Free(state, Allocator.Persistent);
         }
 
         // Managed systems call this function to initialize their backing system state
@@ -333,6 +341,35 @@ namespace Unity.Entities
             {
                 qs[i].SetChangedFilterRequiredVersion(m_LastSystemVersion);
             }
+        }
+
+        [Conditional("UNITY_ENTITIES_RUNTIME_TOOLING")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void BeforeUpdateResetRunTracker()
+        {
+#if UNITY_ENTITIES_RUNTIME_TOOLING
+            m_RanLastUpdate = false; // until proven otherwise, by calling BeforeUpdateRecordTiming
+#endif
+        }
+
+        [Conditional("UNITY_ENTITIES_RUNTIME_TOOLING")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void BeforeUpdateRecordTiming()
+        {
+#if UNITY_ENTITIES_RUNTIME_TOOLING
+            m_RanLastUpdate = true;
+            m_NewStartTime = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
+        }
+
+        [Conditional("UNITY_ENTITIES_RUNTIME_TOOLING")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void AfterUpdateRecordTiming()
+        {
+#if UNITY_ENTITIES_RUNTIME_TOOLING
+            m_LastSystemStartTime = m_NewStartTime;
+            m_LastSystemEndTime = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
         }
 
         internal void BeforeOnUpdate()
@@ -570,7 +607,7 @@ namespace Unity.Entities
         [NotBurstCompatible]
         public EntityQuery GetEntityQuery(params EntityQueryDesc[] queryDesc)
         {
-            return GetEntityQuery(queryDesc);
+            return GetEntityQueryInternal(queryDesc);
         }
 
         /// <summary>

@@ -98,18 +98,29 @@ namespace Unity.Scenes.Hybrid.Tests
                 Assert.AreNotEqual(Entity.Null, section10Entity);
                 Assert.AreNotEqual(Entity.Null, section20Entity);
 
+                Assert.IsFalse(sceneSystem.IsSectionLoaded(section0Entity));
+                Assert.IsFalse(sceneSystem.IsSectionLoaded(section10Entity));
+                Assert.IsFalse(sceneSystem.IsSectionLoaded(section20Entity));
+
                 manager.AddComponentData(section0Entity,
                     new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
 
                 world.Update();
 
+                Assert.IsTrue(sceneSystem.IsSectionLoaded(section0Entity));
+                Assert.IsFalse(sceneSystem.IsSectionLoaded(section10Entity));
+                Assert.IsFalse(sceneSystem.IsSectionLoaded(section20Entity));
+
                 Assert.AreEqual(1, subSceneSectionTestDataQuery.CalculateEntityCount());
                 Assert.AreEqual(42, subSceneSectionTestDataQuery.GetSingleton<SubSceneSectionTestData>().Value);
-
 
                 manager.AddComponentData(section20Entity,
                     new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
                 world.Update();
+
+                Assert.IsTrue(sceneSystem.IsSectionLoaded(section0Entity));
+                Assert.IsFalse(sceneSystem.IsSectionLoaded(section10Entity));
+                Assert.IsTrue(sceneSystem.IsSectionLoaded(section20Entity));
 
                 Assert.AreEqual(2, subSceneSectionTestDataQuery.CalculateEntityCount());
                 EntitiesAssert.Contains(manager,
@@ -120,6 +131,10 @@ namespace Unity.Scenes.Hybrid.Tests
                 manager.AddComponentData(section10Entity,
                     new RequestSceneLoaded {LoadFlags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn});
                 world.Update();
+
+                Assert.IsTrue(sceneSystem.IsSectionLoaded(section0Entity));
+                Assert.IsTrue(sceneSystem.IsSectionLoaded(section10Entity));
+                Assert.IsTrue(sceneSystem.IsSectionLoaded(section20Entity));
 
                 Assert.AreEqual(3, subSceneSectionTestDataQuery.CalculateEntityCount());
                 EntitiesAssert.Contains(manager,

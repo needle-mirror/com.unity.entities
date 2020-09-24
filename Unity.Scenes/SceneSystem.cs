@@ -55,6 +55,7 @@ namespace Unity.Scenes
 
         protected EntityArchetype sceneLoadRequestArchetype;
         protected EntityQuery sceneLoadRequestQuery;
+        private EntityQuery _unloadSceneQuery;
         BlobAssetReference<ResourceCatalogData> catalogData;
 
 #if UNITY_DOTSRUNTIME
@@ -68,6 +69,11 @@ namespace Unity.Scenes
         {
             sceneLoadRequestArchetype = EntityManager.CreateArchetype(typeof(SceneLoadRequest));
             sceneLoadRequestQuery = GetEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadWrite<SceneLoadRequest>() } });
+            _unloadSceneQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] {ComponentType.ReadWrite<SceneSectionStreamingSystem.StreamingState>()},
+                None = new[] { ComponentType.ReadOnly<SceneEntityReference>() }
+            });
             var sceneInfoPath = GetSceneInfoPath();
 
 #if !UNITY_DOTSRUNTIME
@@ -130,17 +136,25 @@ namespace Unity.Scenes
 
             foreach (var s in resolvedSectionEntities)
             {
-                if (!EntityManager.HasComponent<SceneSectionStreamingSystem.StreamingState>(s.SectionEntity))
-                    return false;
-
-                var streamingState =
-                    EntityManager.GetComponentData<SceneSectionStreamingSystem.StreamingState>(s.SectionEntity);
-
-                if (streamingState.Status != SceneSectionStreamingSystem.StreamingStatus.Loaded)
+                if (!IsSectionLoaded(s.SectionEntity))
                     return false;
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Check if a section of a subscene is loaded.
+        /// </summary>
+        /// <param name="sectionEntity">The section entity representing the scene section. The section entities can be found in the ResolvedSectionEntity buffer on the scene entity.</param>
+        /// <returns>True if the scene section is loaded.</returns>
+        public bool IsSectionLoaded(Entity sectionEntity)
+        {
+            if (!EntityManager.HasComponent<SceneSectionStreamingSystem.StreamingState>(sectionEntity))
+                return false;
+
+            return (SceneSectionStreamingSystem.StreamingStatus.Loaded ==
+                    EntityManager.GetComponentData<SceneSectionStreamingSystem.StreamingState>(sectionEntity).Status);
         }
 
         public Hash128 BuildConfigurationGUID { get; set; }
@@ -351,38 +365,44 @@ namespace Unity.Scenes
 
         protected override void OnUpdate()
         {
-            var streamingSystem = World.GetExistingSystem<SceneSectionStreamingSystem>();
-
             // Cleanup all Scenes that were destroyed explicitly
-            Entities.WithNone<SceneEntityReference>().ForEach((Entity sectionEntity, ref SceneSectionStreamingSystem.StreamingState streamingState) =>
+            if (!_unloadSceneQuery.IsEmptyIgnoreFilter)
             {
-                streamingSystem.UnloadSectionImmediate(sectionEntity);
-            });
+                var streamingSystem = World.GetExistingSystem<SceneSectionStreamingSystem>();
+                Entities.With(_unloadSceneQuery).ForEach((Entity sectionEntity) =>
+                {
+                    streamingSystem.UnloadSectionImmediate(sectionEntity);
+                });
+            }
 
 #if !UNITY_DOTSRUNTIME // Used by LiveLink -- enable once supported
-            var assetResolver = LiveLinkPlayerAssetRefreshSystem.GlobalAssetObjectResolver;
-            Entities.With(sceneLoadRequestQuery).ForEach((Entity entity, ref SceneLoadRequest req) =>
+            if (!sceneLoadRequestQuery.IsEmptyIgnoreFilter)
             {
-                if (!req.loadedScene.IsValid())
+                var assetResolver = LiveLinkPlayerAssetRefreshSystem.GlobalAssetObjectResolver;
+                Entities.With(sceneLoadRequestQuery).ForEach((Entity entity, ref SceneLoadRequest req) =>
                 {
-                    if (!EntityManager.Exists(req.dependency))
+                    if (!req.loadedScene.IsValid())
                     {
-                        req.dependency = EntityManager.CreateEntity(typeof(ResourceGUID));
-                        EntityManager.SetComponentData(req.dependency, new ResourceGUID() { Guid = req.sceneGUID });
-                    }
-                    if (assetResolver.HasAsset(req.sceneGUID))
-                    {
-                        var firstBundle = assetResolver.GetAssetBundle(req.sceneGUID);
-                        var scenePath = firstBundle.GetAllScenePaths()[0];
-                        LiveLinkMsg.LogInfo($"Loading GameObject Scene with path {scenePath}.");
-                        var sceneLoadOperation = SceneManager.LoadSceneAsync(scenePath, req.loadParameters);
-                        sceneLoadOperation.allowSceneActivation = req.activateOnLoad;
-                        sceneLoadOperation.priority = req.priority;
+                        if (!EntityManager.Exists(req.dependency))
+                        {
+                            req.dependency = EntityManager.CreateEntity(typeof(ResourceGUID));
+                            EntityManager.SetComponentData(req.dependency, new ResourceGUID() {Guid = req.sceneGUID});
+                        }
 
-                        req.loadedScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+                        if (assetResolver.HasAsset(req.sceneGUID))
+                        {
+                            var firstBundle = assetResolver.GetAssetBundle(req.sceneGUID);
+                            var scenePath = firstBundle.GetAllScenePaths()[0];
+                            LiveLinkMsg.LogInfo($"Loading GameObject Scene with path {scenePath}.");
+                            var sceneLoadOperation = SceneManager.LoadSceneAsync(scenePath, req.loadParameters);
+                            sceneLoadOperation.allowSceneActivation = req.activateOnLoad;
+                            sceneLoadOperation.priority = req.priority;
+
+                            req.loadedScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+                        }
                     }
-                }
-            });
+                });
+            }
 #endif
         }
 

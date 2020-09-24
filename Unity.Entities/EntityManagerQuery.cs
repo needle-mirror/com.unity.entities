@@ -57,13 +57,6 @@ namespace Unity.Entities
             return access->m_UniversalQuery.CreateArchetypeChunkArray(allocator);
         }
 
-        internal NativeArray<ArchetypeChunk> GetAllChunksImmediate(Allocator allocator)
-        {
-            var access = GetCheckedEntityDataAccess();
-            access->BeforeStructuralChange();
-            return access->m_UniversalQuery.CreateArchetypeChunkArrayImmediate(allocator);
-        }
-
         /// <summary>
         /// Gets all the archetypes.
         /// </summary>

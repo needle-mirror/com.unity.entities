@@ -218,9 +218,9 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
 #endif
 
-        class MyTestSystem : JobComponentSystem
+        class MyTestSystem : SystemBase
         {
-            protected override JobHandle OnUpdate(JobHandle inputDeps) => inputDeps;
+            protected override void OnUpdate() { }
 
             public void AddComponentData_IsNotIteratedOver()
             {

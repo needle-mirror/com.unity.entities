@@ -10,7 +10,7 @@ namespace Unity.Entities.Editor.Tests
     class EntityDebuggerTests : ECSTestsFixture
     {
         private EntityDebugger m_Window;
-        private ComponentSystem m_System;
+        private SystemSelection m_System;
         private EntityQuery entityQuery;
         private Entity m_Entity;
 
@@ -47,7 +47,7 @@ namespace Unity.Entities.Editor.Tests
             m_Window = EditorWindow.GetWindow<EntityDebugger>();
 
             m_System = World.GetOrCreateSystem<SingleGroupSystem>();
-            World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_System);
+            World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_System.Managed);
 
             ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(World);
 
@@ -56,7 +56,7 @@ namespace Unity.Entities.Editor.Tests
             World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(emptySys);
             World.GetOrCreateSystem<SimulationSystemGroup>().SortSystems();
 
-            entityQuery = m_System.EntityQueries[0];
+            entityQuery = m_System.Managed.EntityQueries[0];
 
             m_Entity = m_Manager.CreateEntity(typeof(EcsTestData));
         }
@@ -122,7 +122,7 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDebugger_SetAllSelections()
         {
             var entityListQuery = new EntityListQuery(entityQuery);
-            EntityDebugger.SetAllSelections(World, m_System, entityListQuery, m_Entity);
+            EntityDebugger.SetAllSelections(World, m_System.Managed, entityListQuery, m_Entity);
 
             Assert.AreEqual(World, m_Window.WorldSelection);
             Assert.AreEqual(m_System, m_Window.SystemSelection);
@@ -134,7 +134,7 @@ namespace Unity.Entities.Editor.Tests
         public void EntityDebugger_RememberSelections()
         {
             var entityListQuery = new EntityListQuery(entityQuery);
-            EntityDebugger.SetAllSelections(World, m_System, entityListQuery, m_Entity);
+            EntityDebugger.SetAllSelections(World, m_System.Managed, entityListQuery, m_Entity);
 
             m_Window.SetWorldSelection(null, true);
 

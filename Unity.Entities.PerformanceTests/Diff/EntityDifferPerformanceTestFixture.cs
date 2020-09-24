@@ -13,9 +13,9 @@ namespace Unity.Entities.PerformanceTests
         Dictionary<ComponentType, Action<EntityManager, Entity, int>> m_ComponentDataInitializer;
 
         [SetUp]
-        public override void SetUp()
+        public override void Setup()
         {
-            base.SetUp();
+            base.Setup();
 
             m_ComponentDataInitializer = new Dictionary<ComponentType, Action<EntityManager, Entity, int>>
             {
@@ -24,6 +24,9 @@ namespace Unity.Entities.PerformanceTests
                 },
                 {
                     typeof(EcsTestData2), (manager, entity, index) => { manager.SetComponentData(entity, new EcsTestData2 {value0 = index, value1 = index * 2}); }
+                },
+                {
+                    typeof(EcsTestDataEntity), (manager, entity, index) => { manager.SetComponentData(entity, new EcsTestDataEntity(index, Entity.Null));}
                 },
                 {
                     typeof(EcsTestSharedComp), (manager, entity, index) => { manager.SetSharedComponentData(entity, new EcsTestSharedComp {value = index / 31}); }

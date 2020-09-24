@@ -3,6 +3,7 @@
     "references": [
         "Unity.Jobs",
         "Unity.Entities",
+        "Unity.Entities.Hybrid",
         "Unity.Burst",
         "Unity.Mathematics",
         "Unity.Collections",

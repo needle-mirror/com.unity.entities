@@ -1,6 +1,6 @@
 using JetBrains.Annotations;
 using NiceIO;
-using Unity.BuildSystem.NativeProgramSupport;
+using Bee.NativeProgramSupport;
 
 [UsedImplicitly]
 class CustomizerForEntitiesTests : DotsRuntimeCSharpProgramCustomizer

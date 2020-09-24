@@ -371,7 +371,7 @@ namespace Unity.Entities
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
 
-            ecs->AssertCanRemoveComponent(entities, componentType);
+            ecs->AssertCanRemoveComponent(componentType);
 
             BeforeStructuralChange();
             var archetypeChanges = ecs->BeginArchetypeChangeTracking();
@@ -506,7 +506,7 @@ namespace Unity.Entities
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
 
-            ecs->AssertCanRemoveComponents(entity, componentTypes);
+            ecs->AssertCanRemoveComponents(componentTypes);
 
             access->BeforeStructuralChange();
             var archetypeChanges = ecs->BeginArchetypeChangeTracking();
@@ -544,8 +544,9 @@ namespace Unity.Entities
             if (queryImpl->IsEmptyIgnoreFilter)
                 return;
 
+            ecs->AssertCanRemoveComponent(componentType);
 
-            RemoveComponent(queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, componentType);
+            access->RemoveComponent(queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, componentType);
         }
 
         /// <summary>
@@ -569,17 +570,21 @@ namespace Unity.Entities
             var ecs = access->EntityComponentStore;
 
             Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, ecs);
+            var queryImpl = entityQuery._GetImpl();
 
-            if (entityQuery.IsEmptyIgnoreFilter)
+            if (queryImpl->IsEmptyIgnoreFilter)
                 return;
 
-            if (entityQuery.CalculateEntityCount() == 0)
-                return;
+            ecs->AssertCanRemoveComponents(types);
 
+            BeforeStructuralChange();
+            var archetypeChanges = ecs->BeginArchetypeChangeTracking();
 
-            // @TODO: Opportunity to do all components in batch on a per chunk basis.
-            for (int i = 0; i != types.Length; i++)
-                RemoveComponent(entityQuery, types.GetComponentType(i));
+            access->RemoveMultipleComponentsDuringStructuralChange(queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, types);
+
+            ecs->EndArchetypeChangeTracking(archetypeChanges, access->EntityQueryManager);
+            ecs->InvalidateChunkListCacheForChangedArchetypes();
+            access->PlaybackManagedChanges();
         }
 
         /// <summary>
@@ -1033,12 +1038,6 @@ namespace Unity.Entities
         // ----------------------------------------------------------------------------------------------------------
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
-
-        void RemoveComponent(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter, ComponentType componentType)
-        {
-            var access = GetCheckedEntityDataAccess();
-            access->RemoveComponent(archetypeList, filter, componentType);
-        }
 
         // these are used by tiny, do not remove
         [UsedImplicitly]

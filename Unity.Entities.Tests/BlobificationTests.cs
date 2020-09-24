@@ -553,6 +553,8 @@ public class BlobTests : ECSTestsFixture
         }
     }
 #else
+
+    #if !UNITY_WEBGL // https://unity3d.atlassian.net/browse/DOTSR-2030
     [Test]
     public unsafe void BlobAssetReferenceTryRead()
     {
@@ -582,6 +584,7 @@ public class BlobTests : ECSTestsFixture
         correctBlobResult.Dispose();
         op.Dispose();
     }
+    #endif
 #endif
 
     public struct Node

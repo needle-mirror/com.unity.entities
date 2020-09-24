@@ -18,4 +18,13 @@ namespace Unity.Entities
         void OnDestroy(ref SystemState state);
         void OnUpdate(ref SystemState state);
     }
+
+    /// <summary>
+    /// Optional interface for start/stop notifications on systems.
+    /// </summary>
+    internal interface ISystemBaseStartStop
+    {
+        void OnStartRunning(ref SystemState state);
+        void OnStopRunning(ref SystemState state);
+    }
 }

@@ -1,5 +1,5 @@
 using Unity.Core;
-using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine.Scripting;
 
 namespace Unity.Entities
@@ -8,12 +8,17 @@ namespace Unity.Entities
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public class UpdateWorldTimeSystem : ComponentSystem
     {
+        private bool hasTickedOnce = false;
+
         protected override void OnUpdate()
         {
+            var currentElapsedTime = Time.ElapsedTime;
+            var deltaTime = math.min(UnityEngine.Time.deltaTime, World.MaximumDeltaTime);
             World.SetTime(new TimeData(
-                elapsedTime: UnityEngine.Time.time,
-                deltaTime: UnityEngine.Time.deltaTime
+                elapsedTime: hasTickedOnce ? (currentElapsedTime + deltaTime) : currentElapsedTime,
+                deltaTime: deltaTime
             ));
+            hasTickedOnce = true;
         }
     }
 }

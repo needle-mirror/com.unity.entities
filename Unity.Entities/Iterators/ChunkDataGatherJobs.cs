@@ -7,7 +7,7 @@ using Unity.Jobs;
 namespace Unity.Entities
 {
     [BurstCompile]
-    unsafe struct GatherChunks : IJobParallelForBurstSchedulable
+    unsafe struct GatherChunksJob : IJobParallelForBurstSchedulable
     {
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
@@ -71,7 +71,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    internal unsafe struct GatherChunksWithFiltering : IJobParallelForBurstSchedulable
+    internal unsafe struct GatherChunksWithFilteringJob : IJobParallelForBurstSchedulable
     {
         [NativeDisableUnsafePtrRestriction] public EntityComponentStore* entityComponentStore;
         [NativeDisableUnsafePtrRestriction] public MatchingArchetype** MatchingArchetypes;
@@ -203,7 +203,7 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    unsafe struct CopyComponentArrayToChunks : IJobChunk
+    unsafe struct CopyComponentArrayToChunksJob : IJobChunk
     {
         [NativeDisableUnsafePtrRestriction] public byte* ComponentData;
         public int TypeIndex;

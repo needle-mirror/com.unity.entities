@@ -22,7 +22,7 @@ namespace Unity.Scenes
         static HashSet<Hash128> s_BuildConfigurationCreated = new HashSet<Hash128>();
         private static ulong s_AssetRefreshCounter = 0;
 
-        const string k_SceneDependencyCachePath = "Assets/SceneDependencyCache";
+        internal const string k_SceneDependencyCachePath = "Assets/SceneDependencyCache";
 
         internal static void ClearBuildSettingsCache()
         {

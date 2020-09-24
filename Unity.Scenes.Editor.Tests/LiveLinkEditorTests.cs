@@ -903,5 +903,70 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.AreEqual(42, testTagQuery.GetSingleton<TestComponentAuthoring.UnmanagedTestComponent>().IntValue, "Expected a component value to change after unloading and loading subscene");
             }
         }
+        [UnityTest]
+        public IEnumerator LiveLinkRunsWithSectionsNotYetLoaded_Edit() => LiveLinkRunsWithSectionsNotYetLoaded(false);
+
+        [UnityTest, Explicit]
+        public IEnumerator LiveLinkRunsWithSectionsNotYetLoaded_Play([Values] EnteringPlayMode useDomainReload) => LiveLinkConvertsSubScenes(true, useDomainReload);
+
+        IEnumerator LiveLinkRunsWithSectionsNotYetLoaded(bool usePlayMode, EnteringPlayMode useDomainReload = EnteringPlayMode.WithoutDomainReload)
+        {
+            {
+                SetDomainReload(useDomainReload);
+                CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    var go = new GameObject("TestGameObject");
+                    var authoringComponent = go.AddComponent<TestComponentAuthoring>();
+                    authoringComponent.IntValue = 42;
+                    return new List<GameObject> { go };
+                });
+            }
+
+            yield return GetEnterPlayMode(usePlayMode);
+            {
+                var w = GetLiveLinkWorld(usePlayMode);
+                var manager = w.EntityManager;
+
+                var sceneSystem = w.GetExistingSystem<SceneSystem>();
+                var subScene = Object.FindObjectOfType<SubScene>();
+
+                var sceneEntity = sceneSystem.GetSceneEntity(subScene.SceneGUID);
+                Assert.AreNotEqual(Entity.Null, sceneEntity);
+
+                var sceneInstance = sceneSystem.LoadSceneAsync(subScene.SceneGUID,
+                    new SceneSystem.LoadParameters
+                    {
+                        Flags = SceneLoadFlags.NewInstance | SceneLoadFlags.BlockOnStreamIn |
+                                SceneLoadFlags.BlockOnImport
+                    });
+
+                w.Update();
+
+                var sectionInstance = manager.GetBuffer<ResolvedSectionEntity>(sceneInstance)[0].SectionEntity;
+
+                var instanceQuery = w.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<TestComponentAuthoring.UnmanagedTestComponent>(), ComponentType.ReadWrite<SceneTag>());
+                instanceQuery.SetSharedComponentFilter(new SceneTag {SceneEntity = sectionInstance});
+
+                Assert.AreEqual(42, instanceQuery.GetSingleton<TestComponentAuthoring.UnmanagedTestComponent>().IntValue);
+
+                //Clear resolved scene sections and ensure the patcher doesn't error
+                //this emulates an async scene not yet fully loaded
+                manager.GetBuffer<ResolvedSectionEntity>(sceneInstance).Clear();
+
+                var authoring = Object.FindObjectOfType<TestComponentAuthoring>();
+
+                //Change the authoring component value in order to force the LiveLink patcher to run
+                //Expect no errors
+                Undo.RecordObject(authoring, "Change component value");
+                authoring.IntValue = 117;
+                Undo.FlushUndoRecordObjects();
+
+                w.Update();
+
+                //Clean up scene instance
+                w.EntityManager.DestroyEntity(sceneInstance);
+                w.Update();
+            }
+        }
     }
 }

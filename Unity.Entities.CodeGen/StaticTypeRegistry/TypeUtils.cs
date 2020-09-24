@@ -456,6 +456,41 @@ namespace Unity.Entities.CodeGen
             return offset;
         }
 
+        public static int GetFieldOffset(string fieldName, TypeReference typeRefToLookIn, int archBits)
+        {
+            int in_type_offset = 0;
+            var typeResolver = TypeResolver.For(typeRefToLookIn);
+            var typeDefToLookIn = typeRefToLookIn.Resolve();
+            foreach (var f in typeDefToLookIn.Fields)
+            {
+                if (f.IsStatic)
+                    continue;
+
+                uint alignUp(uint a, uint align) => (a + ((align - a) % align));
+                int valueOr1(int v) => Math.Max(v, 1);
+
+                TypeUtils.AlignAndSize resize(TypeUtils.AlignAndSize s) => new TypeUtils.AlignAndSize(
+                    valueOr1(s.align),
+                    valueOr1(s.size));
+
+                var fieldReference = typeResolver.Resolve(f);
+                var fieldType = typeResolver.Resolve(f.FieldType);
+
+                var tinfo = resize(TypeUtils.AlignAndSizeOfType(fieldType, archBits));
+                if (f.Offset != -1)
+                    in_type_offset = f.Offset;
+                else
+                    in_type_offset = (int)alignUp((uint)in_type_offset, (uint)tinfo.align);
+
+                if (fieldName == f.Name)
+                    break;
+
+                in_type_offset += tinfo.size;
+            }
+
+            return in_type_offset;
+        }
+
         public static List<int> GetEntityFieldOffsets(TypeReference type, int archBits)
         {
             return GetFieldOffsetsOf("Unity.Entities.Entity", type, archBits);

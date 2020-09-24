@@ -1,3 +1,6 @@
+#if UNITY_DOTSRUNTIME
+using System;
+#endif
 using NUnit.Framework;
 
 namespace Unity.Entities.Tests.Types
@@ -71,6 +74,20 @@ namespace Unity.Entities.Tests.Types
             var result = t1 != t2;
 
             Assert.IsTrue(result);
+        }
+
+        [Test]
+        public void DisallowDuplicateTypes()
+        {
+            #if UNITY_DOTSRUNTIME
+                    Assert.Throws<ArgumentException>(() => new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)));
+                    Assert.Throws<ArgumentException>(() => new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)));
+            #else
+                    Assert.That(() => new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)), Throws.ArgumentException
+                        .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurence of \"EcsTestData\""));
+                    Assert.That(() => new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)), Throws.ArgumentException
+                        .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurence of \"EcsTestData\""));
+            #endif
         }
     }
 }

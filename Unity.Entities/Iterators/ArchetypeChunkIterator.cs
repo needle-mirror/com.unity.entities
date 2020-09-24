@@ -36,13 +36,20 @@ namespace Unity.Entities
 
         public bool RequiresMatchesFilter
         {
-            get { return Shared.Count != 0 || Changed.Count != 0; }
+            get { return Shared.Count != 0 || Changed.Count != 0 || _UseOrderFiltering != 0; }
+        }
+
+        private uint _UseOrderFiltering;
+        public bool UseOrderFiltering
+        {
+            get { return _UseOrderFiltering != 0; }
+            internal set { _UseOrderFiltering = value ? 1u : 0u; }
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public void AssertValid()
         {
-            Assert.IsTrue((Shared.Count <= SharedComponentData.Capacity && Shared.Count > 0) || (Changed.Count <= ChangedFilter.Capacity && Changed.Count > 0));
+            Assert.IsTrue((Shared.Count <= SharedComponentData.Capacity && Shared.Count > 0) || (Changed.Count <= ChangedFilter.Capacity && Changed.Count > 0) || UseOrderFiltering);
         }
 
 #endif

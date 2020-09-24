@@ -26,6 +26,37 @@ namespace Unity.Entities.Tests
             }
         }
 
+        private unsafe struct MyUnmanagedSystemWithStartStop : ISystemBase, ISystemBaseStartStop
+        {
+            public int* Ptr;
+            public int createdFlag;
+
+            public void OnCreate(ref SystemState state)
+            {
+                createdFlag = 16;
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+                *Ptr |= 1 | createdFlag;
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                *Ptr |= 2;
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
+                *Ptr |= 4;
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                *Ptr |= 8;
+            }
+        }
+
         [BurstCompile]
         private struct MyUnmanagedSystem2WithBurst : ISystemBase
         {
@@ -49,7 +80,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Need to initialize SystemBaseRegistry on startup
         public void UnmanagedSystemLifetime()
         {
             SystemHandle<MyUnmanagedSystem2> sysHandle = default;
@@ -70,7 +100,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Need to initialize SystemBaseRegistry on startup
         public void UnmanagedSystemLookup()
         {
             var s1 = World.AddSystem<MyUnmanagedSystem2>();
@@ -92,7 +121,28 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Need to initialize SystemBaseRegistry on startup
+        public unsafe void UnmanagedSystemStartStop()
+        {
+            int bits = 0;
+
+            using (var w = new World("Fisk"))
+            {
+                var group = w.GetOrCreateSystem<SimulationSystemGroup>();
+
+                var s1 = w.AddSystem<MyUnmanagedSystemWithStartStop>();
+                s1.Struct.Ptr = &bits;
+
+                group.AddSystemToUpdateList(s1.Handle);
+                w.Update();
+
+                w.DestroySystem(s1.Handle);
+                w.Update();
+            }
+
+            Assert.AreEqual(31, bits);
+        }
+
+        [Test]
         public unsafe void RegistryCallManagedToManaged()
         {
             var sysRef = World.AddSystem<MyUnmanagedSystem2>();
@@ -103,7 +153,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Need to initialize SystemBaseRegistry on startup
         public unsafe void RegistryCallManagedToBurst()
         {
             var sysId = World.AddSystem<MyUnmanagedSystem2WithBurst>();
@@ -113,20 +162,24 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, sys.UpdateCount);
         }
 
-        internal unsafe delegate void DispatchDelegate(SystemState* state);
+        internal unsafe delegate void DispatchDelegate(IntPtr state);
 
         [BurstCompile(CompileSynchronously = true)]
-        private unsafe static void DispatchUpdate(SystemState* state)
+#if UNITY_DOTSRUNTIME
+        // We intend to burst compile this function, so DOTS Runtime currently requires
+        // these functions to have MonoPInvokeCallback attribute added to them explicitly
+        [Jobs.MonoPInvokeCallback]
+#endif
+        private unsafe static void DispatchUpdate(IntPtr state)
         {
             SystemBase.UnmanagedUpdate(state, out _);
         }
 
-#if !UNITY_DOTSRUNTIME
         [Test]
         public unsafe void RegistryCallBurstToManaged()
         {
             var sysRef = World.AddSystem<MyUnmanagedSystem2>();
-            var statePtr = World.ResolveSystemState(sysRef.Handle);
+            var statePtr = (IntPtr) World.ResolveSystemState(sysRef.Handle);
             BurstCompiler.CompileFunctionPointer<DispatchDelegate>(DispatchUpdate).Invoke(statePtr);
             ref var sys = ref World.ResolveSystem(sysRef.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
@@ -136,13 +189,11 @@ namespace Unity.Entities.Tests
         public unsafe void RegistryCallBurstToBurst()
         {
             var sysRef = World.AddSystem<MyUnmanagedSystem2WithBurst>();
-            var statePtr = World.ResolveSystemState(sysRef.Handle);
+            var statePtr = (IntPtr) World.ResolveSystemState(sysRef.Handle);
             BurstCompiler.CompileFunctionPointer<DispatchDelegate>(DispatchUpdate).Invoke(statePtr);
             ref var sys = ref World.ResolveSystem(sysRef.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
-
-#endif
 
         private class SnoopGroup : ComponentSystemGroup
         {
@@ -170,7 +221,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Need to initialize SystemBaseRegistry on startup
         public void UnmanagedSystemUpdate()
         {
             SnoopSystemBase.Flags = 0;

@@ -251,7 +251,7 @@ namespace Unity.Entities.CodeGen
                 if (hasJobHandleParam)
                     return type.Methods.Any(m => m.Name == nameof(IDisposable.Dispose) && m.Parameters.Count() == 1 &&
                         m.Parameters[0].ParameterType.Name == nameof(JobHandle) && m.ReturnType.Name == nameof(JobHandle));
-                return type.Methods.Any(m => m.Name == nameof(IDisposable.Dispose) && !m.Parameters.Any() && m.ReturnType == TypeSystem.Void);
+                return type.Methods.Any(m => m.Name == nameof(IDisposable.Dispose) && !m.Parameters.Any() && m.ReturnType.TypeReferenceEquals(TypeSystem.Void));
             }
 
             void RecurseFieldAndEmitILToDispose(FieldDefinition fieldDefinition, FieldDefinition[] parentFields)
@@ -515,8 +515,8 @@ namespace Unity.Entities.CodeGen
             }
 
             (ClonedMethods, CapturedVariables) =
-                CecilHelpers.CloneClosureExecuteMethodAndItsLocalFunctions(displayClassExecuteMethodAndItsLocalMethods, TypeDefinition, "OriginalLambdaBody",
-                    PermittedCapturingInstructionsGenerator);
+                CecilHelpers.CloneClosureExecuteMethodAndItsLocalFunctions(displayClassExecuteMethodAndItsLocalMethods, TypeDefinition,
+                    "OriginalLambdaBody", LambdaJobDescriptionConstruction.UsesBurst, PermittedCapturingInstructionsGenerator);
 
             // Stub out original cloned method to just throw an exception if run.  We do this for two reasons:
             // 1. We might need to do patching that might make the original method IL invalid.
@@ -546,6 +546,18 @@ namespace Unity.Entities.CodeGen
                 typeof(LambdaForEachDescriptionConstructionMethods).GetMethod(
                     nameof(LambdaForEachDescriptionConstructionMethods.ThrowCodeGenInvalidMethodCalledException), BindingFlags.Public | BindingFlags.Static));
             method.Body.Instructions.Add(Instruction.Create(OpCodes.Call, invalidMethodCalledExceptionMethod));
+
+            // If we have a non-void return type, insert IL to return a dummy local variable of that type (so not as to generate invalid IL for IL2CPP)
+            if (!method.ReturnType.TypeReferenceEquals(TypeSystem.Void))
+            {
+                var returnVariable = new VariableDefinition(method.ReturnType);
+                method.Body.Variables.Add(returnVariable);
+                if (method.ReturnType.IsValueType && method.ReturnType.IsByReference)
+                    method.Body.Instructions.Add(Instruction.Create(OpCodes.Ldloca, returnVariable));
+                else
+                    method.Body.Instructions.Add(Instruction.Create(OpCodes.Ldloc, returnVariable));
+            }
+
             method.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
         }
 
@@ -1016,9 +1028,7 @@ namespace Unity.Entities.CodeGen
 
             TypeDefinition.CustomAttributes.Add(burstCompileAttribute);
             RunWithoutJobSystemMethod?.CustomAttributes.Add(burstCompileAttribute);
-#if !UNITY_DOTSRUNTIME
             RunWithoutJobSystemMethod?.CustomAttributes.Add(monoPInvokeCallbackAttribute);
-#endif
 
             // Need to make sure Burst knows the jobs struct doesn't alias with any pointer fields.
             if (LambdaJobDescriptionConstruction.UsesNoAlias)

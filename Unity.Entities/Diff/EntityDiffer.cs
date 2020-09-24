@@ -112,6 +112,18 @@ namespace Unity.Entities
         ValidateUniqueEntityGuid = 1 << 5,
 
         /// <summary>
+        /// If set, components are not compared bit-wise. Bit-wise comparison implies that two components that
+        /// have references to entities that have the same GUID but different indices/versions are different.
+        /// Similarly blob asset references to blob assets that have the same hash but live at different addresses
+        /// will be considered different as well. This is often not desirable. For these cases, it is more apt to
+        /// check that GUIDs and hashes match.
+        /// </summary>
+        /// /// <remarks>
+        /// This makes comparing components potentially more expensive.
+        /// </remarks>
+        UseReferentialEquality = 1 << 6,
+
+        /// <summary>
         /// The default set of options used by the <see cref="EntityDiffer"/>
         /// </summary>
         Default = IncludeForwardChangeSet |
@@ -250,6 +262,7 @@ namespace Unity.Entities
 
                                 forwardComponentChanges = GetComponentChanges(
                                     forwardEntityChanges,
+                                    (options & EntityManagerDifferOptions.UseReferentialEquality) != 0,
                                     default,
                                     blobAssetCache.BlobAssetRemap,
                                     Allocator.TempJob,
@@ -278,6 +291,7 @@ namespace Unity.Entities
 
                                 reverseComponentChanges = GetComponentChanges(
                                     reverseEntityChanges,
+                                    (options & EntityManagerDifferOptions.UseReferentialEquality) != 0,
                                     blobAssetCache.BlobAssetRemap,
                                     default,
                                     Allocator.TempJob,

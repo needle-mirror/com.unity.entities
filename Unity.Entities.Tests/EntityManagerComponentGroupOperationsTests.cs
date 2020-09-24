@@ -213,6 +213,33 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(archetype3, m_Manager.GetChunk(entity3).Archetype);
         }
 
+        [Test]
+        public void AddMultipleComponentsWithQuery_SharedComponentValuesPreserved()
+        {
+            // test for entities of different chunks getting their correct shared values
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+
+            m_Manager.SetSharedComponentData(entity1, new EcsTestSharedComp() {value = 5});
+            m_Manager.SetSharedComponentData(entity2, new EcsTestSharedComp() {value = 9});
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData2));
+            m_Manager.AddComponent(query, new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData4)));
+
+            m_ManagerDebug.CheckInternalConsistency();
+
+            Assert.AreEqual(5, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity1).value);
+            Assert.AreEqual(9, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity2).value);
+
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData4), typeof(EcsTestSharedComp));
+            Assert.AreEqual(archetype, m_Manager.GetChunk(entity1).Archetype);
+            Assert.AreEqual(archetype, m_Manager.GetChunk(entity2).Archetype);
+        }
+
+// We want these types registered with in DOTS Runtime by default
+#if !UNITY_DOTSRUNTIME
+        [DisableAutoTypeRegistration]
+#endif
         private struct EcsTestDataHuge : IComponentData
         {
             public FixedString4096 value0;
@@ -230,9 +257,13 @@ namespace Unity.Entities.Tests
         [Test]
         public void AddMultipleComponentsWithQuery_ExceedChunkCapacityThrows()
         {
+// TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
+#if !UNITY_DOTSRUNTIME
+            TypeManager.AddNewComponentTypes(new[]{typeof(EcsTestDataHuge)});
+#endif
             var componentTypes = new ComponentTypes(typeof(EcsTestDataHuge)); // add really big component(s)
 
-            Assert.AreEqual(16064, Chunk.GetChunkBufferSize());   // if chunk size changes, need to update this test
+            Assert.AreEqual(16320, Chunk.GetChunkBufferSize());   // if chunk size changes, need to update this test
 
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -259,7 +290,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("Changes this test was introduced with were reverted due to a bug")]
         public void RemoveMultipleComponentsWithQuery()
         {
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsTestData), typeof(EcsTestData4), ComponentType.ChunkComponent<EcsTestData4>(), typeof(EcsTestSharedComp) );
@@ -278,6 +308,29 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(archetype1, m_Manager.GetChunk(entity1).Archetype);
             Assert.AreEqual(archetype2, m_Manager.GetChunk(entity2).Archetype);
             Assert.AreEqual(archetype3, m_Manager.GetChunk(entity3).Archetype);
+        }
+
+        [Test]
+        public void RemoveMultipleComponentsWithQuery_SharedComponentValuesPreserved()
+        {
+            // test for entities of different chunks getting their correct shared values
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+
+            m_Manager.SetSharedComponentData(entity1, new EcsTestSharedComp() {value = 5});
+            m_Manager.SetSharedComponentData(entity2, new EcsTestSharedComp() {value = 9});
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData2));
+            m_Manager.RemoveComponent(query, new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData4)));
+
+            m_ManagerDebug.CheckInternalConsistency();
+
+            Assert.AreEqual(5, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity1).value);
+            Assert.AreEqual(9, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity2).value);
+
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            Assert.AreEqual(archetype, m_Manager.GetChunk(entity1).Archetype);
+            Assert.AreEqual(archetype, m_Manager.GetChunk(entity2).Archetype);
         }
 
         [Test]

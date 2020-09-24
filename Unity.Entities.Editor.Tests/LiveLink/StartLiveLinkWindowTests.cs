@@ -159,14 +159,12 @@ namespace Unity.Entities.Editor.Tests
         [HideInInspector]
         class MockClassicBuildProfile : IBuildPipelineComponent
         {
-            public bool SetupEnvironment()
-            {
-                return false;
-            }
+            public bool SetupEnvironment() => false;
             public BuildPipelineBase Pipeline { get; set; } = new MockClassicNonIncrementalPipeline();
             public int SortingIndex { get; }
         }
 
+        [HideInInspector]
         class MockPlatform : Platform
         {
             public override bool HasPosix { get; }
@@ -176,18 +174,11 @@ namespace Unity.Entities.Editor.Tests
         // It's used when running tests, to compensate for missing platform packages.
         class MockClassicNonIncrementalPipeline : ClassicNonIncrementalPipelineBase
         {
-            private Platform m_Platform;
-            protected override RunResult OnRun(RunContext context)
-            {
-                throw new NotImplementedException();
-            }
+            readonly Platform m_Platform;
 
+            protected override RunResult OnRun(RunContext context) => throw new NotImplementedException();
             protected override BuildTarget BuildTarget { get; } = BuildTarget.NoTarget;
-
-            public override Platform Platform
-            {
-                get => m_Platform;
-            }
+            public override Platform Platform => m_Platform;
 
             public MockClassicNonIncrementalPipeline()
             {

@@ -6,7 +6,7 @@ using System;
 
 namespace Unity.Scenes
 {
-    struct LiveLinkSceneMsg
+    struct LiveLinkSceneMsg : IDisposable
     {
         public NativeArray<Hash128> LoadedScenes;
         public NativeArray<Hash128> RemovedScenes;

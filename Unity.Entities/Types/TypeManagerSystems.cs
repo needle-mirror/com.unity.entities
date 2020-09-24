@@ -152,6 +152,11 @@ namespace Unity.Entities
             return systemFlags;
         }
 
+        public static bool IsSystemType(Type t)
+        {
+            return GetSystemTypeIndexNoThrow(t) != -1;
+        }
+
         public static string GetSystemName(Type t)
         {
 #if !UNITY_DOTSRUNTIME
@@ -160,12 +165,11 @@ namespace Unity.Entities
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
 
             int index = GetSystemTypeIndex(t);
-            if (index < 0 || index >= s_SystemTypeNames.Count) return "null";
             return s_SystemTypeNames[index];
 #endif
         }
 
-        internal static int GetSystemTypeIndex(Type t)
+        internal static int GetSystemTypeIndexNoThrow(Type t)
         {
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
 
@@ -173,7 +177,15 @@ namespace Unity.Entities
             {
                 if (t == s_SystemTypes[i]) return i;
             }
-            throw new ArgumentException($"Could not find a matching system type for passed in type.");
+            return -1;
+        }
+
+        internal static int GetSystemTypeIndex(Type t)
+        {
+            int index = GetSystemTypeIndexNoThrow(t);
+            if (index == -1)
+                throw new ArgumentException($"The passed-in Type is not a type that derives from SystemBase or ISystemBase");
+            return index;
         }
 
         public static bool IsSystemAGroup(Type t)

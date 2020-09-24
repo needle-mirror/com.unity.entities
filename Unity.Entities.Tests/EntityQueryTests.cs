@@ -72,7 +72,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_FiltersSharedComponents([Values] bool immediate)
+        public void CreateArchetypeChunkArray_FiltersSharedComponents()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData2), typeof(EcsTestSharedComp));
@@ -86,13 +86,11 @@ namespace Unity.Entities.Tests
 
             group.SetSharedComponentFilter(new EcsTestSharedComp(1));
 
-            var queriedChunks1 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             group.SetSharedComponentFilter(new EcsTestSharedComp(2));
 
-            var queriedChunks2 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1);
             CollectionAssert.AreEquivalent(createdChunks3.Concat(createdChunks4), queriedChunks2);
@@ -109,7 +107,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_FiltersTwoSharedComponents([Values] bool immediate)
+        public void CreateArchetypeChunkArray_FiltersTwoSharedComponents()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData2), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
@@ -126,20 +124,16 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
 
             group.SetSharedComponentFilter(new EcsTestSharedComp(1), new EcsTestSharedComp2(7));
-            var queriedChunks1 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             group.SetSharedComponentFilter(new EcsTestSharedComp(2), new EcsTestSharedComp2(7));
-            var queriedChunks2 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             group.SetSharedComponentFilter(new EcsTestSharedComp(1), new EcsTestSharedComp2(8));
-            var queriedChunks3 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             group.SetSharedComponentFilter(new EcsTestSharedComp(2), new EcsTestSharedComp2(8));
-            var queriedChunks4 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1);
@@ -160,7 +154,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_FiltersChangeVersions([Values] bool immediate)
+        public void CreateArchetypeChunkArray_FiltersChangeVersions()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -178,20 +172,16 @@ namespace Unity.Entities.Tests
             group.SetChangedVersionFilter(typeof(EcsTestData));
 
             group.SetChangedFilterRequiredVersion(10);
-            var queriedChunks1 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             group.SetChangedFilterRequiredVersion(20);
-            var queriedChunks2 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             group.SetChangedFilterRequiredVersion(30);
-            var queriedChunks3 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             group.SetChangedFilterRequiredVersion(40);
-            var queriedChunks4 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2).Concat(createdChunks3), queriedChunks1);
             CollectionAssert.AreEquivalent(createdChunks2.Concat(createdChunks3), queriedChunks2);
@@ -213,7 +203,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_FiltersTwoChangeVersions([Values] bool immediate)
+        public void CreateArchetypeChunkArray_FiltersTwoChangeVersions()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
@@ -235,8 +225,7 @@ namespace Unity.Entities.Tests
             var testType1 = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
             var testType2 = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
 
-            var queriedChunks1 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             foreach (var chunk in createdChunks1)
             {
@@ -244,8 +233,7 @@ namespace Unity.Entities.Tests
                 array[0] = new EcsTestData(7);
             }
 
-            var queriedChunks2 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
             foreach (var chunk in createdChunks2)
             {
@@ -253,8 +241,7 @@ namespace Unity.Entities.Tests
                 array[0] = new EcsTestData2(7);
             }
 
-            var queriedChunks3 = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
 
 
             CollectionAssert.AreEquivalent(createdChunks3, queriedChunks1);
@@ -266,6 +253,93 @@ namespace Unity.Entities.Tests
             queriedChunks3.Dispose();
         }
 
+        [Test]
+        public void CreateArchetypeChunkArray_FiltersOrderVersions()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            var archetype3 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3));
+
+            m_ManagerDebug.SetGlobalSystemVersion(20);
+            var createdChunks1 = CreateEntitiesAndReturnChunks(archetype1, 5000, e => SetData(e, 1));
+            m_ManagerDebug.SetGlobalSystemVersion(30);
+            var createdChunks2 = CreateEntitiesAndReturnChunks(archetype2, 5000, e => SetData(e, 2));
+            m_ManagerDebug.SetGlobalSystemVersion(40);
+            var createdChunks3 = CreateEntitiesAndReturnChunks(archetype3, 5000, e => SetData(e, 3));
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            group.SetOrderVersionFilter();
+
+            group.SetChangedFilterRequiredVersion(10);
+            var queriedChunks1 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            group.SetChangedFilterRequiredVersion(20);
+            var queriedChunks2 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            group.SetChangedFilterRequiredVersion(30);
+            var queriedChunks3 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            group.SetChangedFilterRequiredVersion(40);
+            var queriedChunks4 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2).Concat(createdChunks3), queriedChunks1);
+            CollectionAssert.AreEquivalent(createdChunks2.Concat(createdChunks3), queriedChunks2);
+            CollectionAssert.AreEquivalent(createdChunks3, queriedChunks3);
+
+            Assert.AreEqual(0, queriedChunks4.Length);
+
+            group.Dispose();
+            queriedChunks1.Dispose();
+            queriedChunks2.Dispose();
+            queriedChunks3.Dispose();
+            queriedChunks4.Dispose();
+        }
+
+        [Test]
+        public void CreateArchetypeChunkArray_FiltersOrderAndChangedVersions()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            var archetype3 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData3));
+
+            m_ManagerDebug.SetGlobalSystemVersion(20);
+            var createdChunks1 = CreateEntitiesAndReturnChunks(archetype1, 5000, e => SetData(e, 1));
+            m_ManagerDebug.SetGlobalSystemVersion(30);
+            var createdChunks2 = CreateEntitiesAndReturnChunks(archetype2, 5000, e => SetData(e, 2));
+            m_ManagerDebug.SetGlobalSystemVersion(40);
+            var createdChunks3 = CreateEntitiesAndReturnChunks(archetype3, 5000, e => SetData(e, 3));
+
+            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            group.SetOrderVersionFilter();
+            group.SetChangedVersionFilter(typeof(EcsTestData));
+
+            group.SetChangedFilterRequiredVersion(10);
+            var queriedChunks1 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            group.SetChangedFilterRequiredVersion(20);
+            var queriedChunks2 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            group.SetChangedFilterRequiredVersion(30);
+            var queriedChunks3 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            group.SetChangedFilterRequiredVersion(40);
+            var queriedChunks4 =  group.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2).Concat(createdChunks3), queriedChunks1);
+            CollectionAssert.AreEquivalent(createdChunks2.Concat(createdChunks3), queriedChunks2);
+            CollectionAssert.AreEquivalent(createdChunks3, queriedChunks3);
+
+            Assert.AreEqual(0, queriedChunks4.Length);
+
+            group.Dispose();
+            queriedChunks1.Dispose();
+            queriedChunks2.Dispose();
+            queriedChunks3.Dispose();
+            queriedChunks4.Dispose();
+        }
+
         void SetDataAndShared(Entity e, int data, int shared)
         {
             SetData(e, data);
@@ -273,7 +347,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_FiltersOneSharedOneChangeVersion([Values] bool immediate)
+        public void CreateArchetypeChunkArray_FiltersOneSharedOneChangeVersion()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -293,12 +367,10 @@ namespace Unity.Entities.Tests
             query.AddChangedVersionFilter(typeof(EcsTestData));
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
 
-            var queriedChunks1 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob) :
-            query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob) :
-            query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             // bumps the version number for TestData1 for createdChunks1
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -307,8 +379,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                 array[0] = new EcsTestData {value = 10};
             }
-            var queriedChunks3 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob) :
-            query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             // bumps the version number for TestData2
             query.SetChangedFilterRequiredVersion(20);
@@ -318,8 +389,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
-            var queriedChunks4 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob) :
-            query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1); // query 1 = created 1,2
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
@@ -334,7 +404,52 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_FiltersOneSharedTwoChangeVersion([Values] bool immediate)
+        public void CreateArchetypeChunkArray_FiltersOneSharedOrderVersion()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
+            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            // 9 chunks
+            // 3 of archetype1 with 1 shared value
+            // 3 of archetype2 with 1 shared value
+            // 3 of archetype1 with 2 shared value
+            m_ManagerDebug.SetGlobalSystemVersion(10);
+            var createdChunks1 = CreateEntitiesAndReturnChunks(archetype1, archetype1.ChunkCapacity * 3, e => SetDataAndShared(e, 1, 1));
+            var createdChunks2 = CreateEntitiesAndReturnChunks(archetype2, archetype2.ChunkCapacity * 3, e => SetDataAndShared(e, 2, 1));
+            var createdChunks3 = CreateEntitiesAndReturnChunks(archetype1, archetype1.ChunkCapacity * 3, e => SetDataAndShared(e, 3, 2));
+
+            // query matches all three
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            query.AddOrderVersionFilter();
+            query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
+
+            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            query.SetChangedFilterRequiredVersion(10);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            // bumps the order version number for createdChunks1
+            m_ManagerDebug.SetGlobalSystemVersion(20);
+            for (int i = 0; i < createdChunks1.Length; ++i)
+            {
+                var array = createdChunks1[i].GetNativeArray(EmptySystem.GetEntityTypeHandle());
+                m_Manager.AddComponent(array, typeof(EcsTestTag));
+            }
+            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+
+            CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1); // query 1 = created 1,2
+            Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
+            Assert.AreEqual(createdChunks1.Length, queriedChunks3.Length); // query 3 = created 1 (version # was bumped) (not collection equivalent because it is a new archetype so the chunk *has* changed)
+
+            query.Dispose();
+            queriedChunks1.Dispose();
+            queriedChunks2.Dispose();
+            queriedChunks3.Dispose();
+        }
+
+        [Test]
+        public void CreateArchetypeChunkArray_FiltersOneSharedTwoChangeVersion()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedComp));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));
@@ -355,12 +470,10 @@ namespace Unity.Entities.Tests
             query.AddChangedVersionFilter(typeof(EcsTestData2));
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
 
-            var queriedChunks1 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             // bumps the version number for TestData1 for createdChunks1
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -369,8 +482,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                 array[0] = new EcsTestData {value = 10};
             }
-            var queriedChunks3 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             // bumps the version number for TestData2
             query.SetChangedFilterRequiredVersion(20);
@@ -380,8 +492,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
-            var queriedChunks4 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1); // query 1 = created 1,2
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
@@ -402,7 +513,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_FiltersTwoSharedOneChangeVersion([Values] bool immediate)
+        public void CreateArchetypeChunkArray_FiltersTwoSharedOneChangeVersion()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
@@ -423,12 +534,10 @@ namespace Unity.Entities.Tests
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
             query.AddSharedComponentFilter(new EcsTestSharedComp2 {value0 = 3, value1 = 3});
 
-            var queriedChunks1 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             // bumps the version number for TestData1 for createdChunks1 and createdChunks2
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -443,8 +552,7 @@ namespace Unity.Entities.Tests
                     array[0] = new EcsTestData {value = 10};
                 }
             }
-            var queriedChunks3 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             // bumps the version number for TestData2 for createdChunks1
             query.SetChangedFilterRequiredVersion(20);
@@ -454,8 +562,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
-            var queriedChunks4 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             CollectionAssert.AreEquivalent(createdChunks1, queriedChunks1); // query 1 = created 1
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
@@ -470,7 +577,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CreateArchetypeChunkArray_FiltersTwoSharedTwoChangeVersion([Values] bool immediate)
+        public void CreateArchetypeChunkArray_FiltersTwoSharedTwoChangeVersion()
         {
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
             var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
@@ -492,12 +599,10 @@ namespace Unity.Entities.Tests
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
             query.AddSharedComponentFilter(new EcsTestSharedComp2 {value0 = 3, value1 = 3});
 
-            var queriedChunks1 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             // bumps the version number for TestData1 for createdChunks1 and createdChunks2
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -512,8 +617,7 @@ namespace Unity.Entities.Tests
                     array[0] = new EcsTestData {value = 10};
                 }
             }
-            var queriedChunks3 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             // bumps the version number for TestData2 for createdChunks1
             query.SetChangedFilterRequiredVersion(20);
@@ -523,8 +627,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
-            var queriedChunks4 = immediate ? query.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-            : query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
 
             CollectionAssert.AreEquivalent(createdChunks1, queriedChunks1); // query 1 = created 1
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
@@ -536,6 +639,66 @@ namespace Unity.Entities.Tests
             queriedChunks2.Dispose();
             queriedChunks3.Dispose();
             queriedChunks4.Dispose();
+        }
+
+        [Test]
+        public void FiltersOrderVersion()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+
+            m_ManagerDebug.SetGlobalSystemVersion(10);
+            var entities = m_Manager.CreateEntity(archetype, archetype.ChunkCapacity, Allocator.Temp);
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            Assert.AreEqual(1, query.CalculateChunkCount());
+
+            query.SetChangedFilterRequiredVersion(10);
+            query.SetOrderVersionFilter();
+
+            Assert.AreEqual(0, query.CalculateChunkCount());
+
+            // "Other System runs"
+            m_ManagerDebug.SetGlobalSystemVersion(11);
+            for (int i = 0; i < archetype.ChunkCapacity; i += 2)
+            {
+                m_Manager.AddComponent(entities[i], typeof(EcsTestTag));
+            }
+
+            Assert.AreEqual(2, query.CalculateChunkCount());
+
+            query.Dispose();
+        }
+
+        [Test]
+        public void ChangeVersionFollowsEntity()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            query.SetChangedVersionFilter(typeof(EcsTestData));
+            query.SetChangedFilterRequiredVersion(10);
+
+            // "Entity is created"
+            m_ManagerDebug.SetGlobalSystemVersion(10);
+            var entity = m_Manager.CreateEntity(archetype);
+
+            Assert.AreEqual(0, query.CalculateEntityCount());
+
+            // "System runs"
+            m_ManagerDebug.SetGlobalSystemVersion(11);
+            m_Manager.SetComponentData(entity, new EcsTestData {value = 50});
+
+            Assert.AreEqual(1, query.CalculateEntityCount());
+
+            // "System runs"
+            m_ManagerDebug.SetGlobalSystemVersion(12);
+            m_Manager.SetComponentData(entity, new EcsTestData {value = 50});
+            m_Manager.AddComponent(entity, typeof(EcsTestData2));
+
+            Assert.AreEqual(1, query.CalculateEntityCount());
+
+            query.Dispose();
         }
 
         // https://github.com/Unity-Technologies/dots/issues/1098
@@ -578,7 +741,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public unsafe void CreateArchetypeChunkArray_SyncsChangeFilterTypes([Values] bool immediate)
+        public unsafe void CreateArchetypeChunkArray_SyncsChangeFilterTypes()
         {
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             group.SetChangedVersionFilter(typeof(EcsTestData));
@@ -587,8 +750,7 @@ namespace Unity.Entities.Tests
             var safetyHandle = m_Manager.GetCheckedEntityDataAccess()->DependencyManager->Safety.GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
 
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
-            var chunks = immediate ? group.CreateArchetypeChunkArrayImmediate(Allocator.TempJob)
-                : group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks =  group.CreateArchetypeChunkArray(Allocator.TempJob);
             AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle);
 
             chunks.Dispose();
@@ -688,6 +850,30 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, chunkCountBeforeFilter);
             Assert.AreEqual(1, chunkCountAfterSetFilter);
             Assert.AreEqual(2, chunkCountUnfilteredAfterSetFilter);
+        }
+
+        [Test]
+        public void IsEmpty()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var entities = m_Manager.CreateEntity(archetype, archetype.ChunkCapacity, Allocator.Temp);
+            for (int i = 0; i < entities.Length; i += 2)
+            {
+                m_Manager.SetSharedComponentData(entities[i], new EcsTestSharedComp {value = 10});
+            }
+
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            Assert.IsFalse(query.IsEmpty);
+            Assert.IsFalse(query.IsEmptyIgnoreFilter);
+
+            query.SetSharedComponentFilter(new EcsTestSharedComp {value = 10});
+            Assert.IsFalse(query.IsEmpty);
+            Assert.IsFalse(query.IsEmptyIgnoreFilter);
+
+            query.SetSharedComponentFilter(new EcsTestSharedComp {value = 50});
+            Assert.IsTrue(query.IsEmpty);
+            Assert.IsFalse(query.IsEmptyIgnoreFilter);
         }
 
         private struct TestTag0 : IComponentData {}

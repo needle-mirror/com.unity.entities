@@ -32,6 +32,16 @@ namespace Unity.Entities.CodeGen
             return module.ImportReference(attributeType.GetConstructors().Single(c => !c.GetParameters().Any()));
         }
 
+        private static TypeReference LaunderTypeRef(TypeReference r, ModuleDefinition mod)
+        {
+            TypeReference laundered = new TypeReference(r.Namespace, r.Name, mod, r.Scope, r.Resolve().IsValueType);
+            if (r.DeclaringType != null)
+            {
+                laundered.DeclaringType = LaunderTypeRef(r.DeclaringType, mod);
+            }
+            return mod.ImportReference(laundered);
+        }
+
         protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
             var assemblyDefinition = AssemblyDefinition;
@@ -77,7 +87,7 @@ namespace Unity.Entities.CodeGen
 
                 foreach (var ga in ((GenericInstanceType)openTypeRef).GenericArguments)
                 {
-                    ((GenericInstanceType)result).GenericArguments.Add(assemblyDefinition.MainModule.ImportReference(ga));
+                    ((GenericInstanceType)result).GenericArguments.Add(LaunderTypeRef(ga, assemblyDefinition.MainModule));
                 }
 
                 genericJobs.Add(result);

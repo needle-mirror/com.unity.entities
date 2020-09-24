@@ -192,6 +192,8 @@ namespace Unity.Entities
             item.Exported = true;
             item.ExportFileInfo.Directory.Create();
 
+            UnityEngine.Debug.Log("Exported Asset: " + item.Guid.ToString() + " = " + item.AssetPath);
+
             return item.ExportFileInfo.Create();
         }
     }

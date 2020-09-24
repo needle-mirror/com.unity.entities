@@ -35,8 +35,8 @@ namespace Unity.Scenes.Editor.Tests
 
         static TestWithTempAssets s_Assets = default;
 
-        [OneTimeSetUp]
-        public static void SetUpOnce()
+        [SetUp]
+        public static void SetUp()
         {
             s_Assets.SetUp();
 
@@ -101,11 +101,6 @@ namespace Unity.Scenes.Editor.Tests
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             s_TempAssetGuids = assetGuids.ToArray();
-        }
-
-        [SetUp]
-        public static void SetUp()
-        {
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
             s_Connection = new LiveLinkTestConnection();
             EditorSceneLiveLinkToPlayerSendSystem.instance.SetConnection(s_Connection);
@@ -118,11 +113,7 @@ namespace Unity.Scenes.Editor.Tests
             var connections = s_Connection.OpenConnections.ToArray();
             foreach (var connectedPlayer in connections)
                 s_Connection.PostDisconnect(connectedPlayer);
-        }
 
-        [OneTimeTearDown]
-        public static void TearDownOnce()
-        {
             s_Assets.TearDown();
             LiveLinkEditorEventSystem.InitializeLiveLinkSystems();
             SceneWithBuildConfigurationGUIDs.ClearBuildSettingsCache();

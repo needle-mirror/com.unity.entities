@@ -256,7 +256,7 @@ namespace Unity.Entities
         /// of chunks. This function finds the unique shared components existing across chunks and archetype and
         /// fills a list with copies of those components.
         /// </remarks>
-        /// <param name="sharedComponentValues">A List^lt;T&gt; object to receive the unique instances of the
+        /// <param name="sharedComponentValues">A List&lt;T&gt; object to receive the unique instances of the
         /// shared component of type T.</param>
         /// <typeparam name="T">The type of shared component.</typeparam>
         [NotBurstCompatible]

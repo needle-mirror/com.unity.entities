@@ -34,7 +34,6 @@ namespace Unity.Scenes.Editor
         public BuildAssemblyCache BuildAssemblyCache;
         public string OutputPath;
         public Codec Codec;
-        public ConversionJournalData JournalData;
 #pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
     }
 
@@ -81,7 +80,7 @@ namespace Unity.Scenes.Editor
             return ctx.GetResultPath(prefix + EntityScenesPaths.GetExtension(type));
         }
 
-        static string GetSceneWritePath(EntityScenesPaths.PathType type, string subsectionName, Hash128 sceneGUID, string outputPath)
+        internal static string GetSceneWritePath(EntityScenesPaths.PathType type, string subsectionName, Hash128 sceneGUID, string outputPath)
         {
             var prefix = string.IsNullOrEmpty(subsectionName) ? "" : subsectionName + ".";
             return Path.Combine(outputPath, sceneGUID + "." + prefix + EntityScenesPaths.GetExtension(type));
@@ -159,6 +158,7 @@ namespace Unity.Scenes.Editor
             }
         }
 
+        //TODO: We should deprecate this method, it is unused internally
         public static SceneSectionData[] ConvertAndWriteEntityScene(Scene scene, GameObjectConversionSettings settings, List<ReferencedUnityObjects> sectionRefObjs = null)
         {
             return ConvertAndWriteEntitySceneInternal(scene, settings, sectionRefObjs, new WriteEntitySceneSettings());
@@ -186,8 +186,7 @@ namespace Unity.Scenes.Editor
                 // Optimizing and writing the scene is done here to include potential log messages in the conversion log.
                 EntitySceneOptimization.Optimize(world);
                 int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(settings.BuildConfiguration);
-                writeEntitySettings.JournalData = mappingSystem.JournalData;
-                sections = WriteEntitySceneInternal(world.EntityManager, settings.SceneGUID, scene.name, settings.AssetImportContext, framesToRetainBlobAssets, sectionRefObjs, writeEntitySettings);
+                sections = WriteEntitySceneInternal(world.EntityManager, settings.SceneGUID, scene.name, settings.AssetImportContext, framesToRetainBlobAssets, sectionRefObjs, writeEntitySettings, ref mappingSystem.JournalData);
 
                 if (writeEntitySettings.IsDotsRuntime && sectionRefObjs.Count != 0)
                     mappingSystem.JournalData.RecordExceptionEvent(null, new ArgumentException("We are serializing a world that contains UnityEngine.Object references which are not supported in Dots Runtime."));
@@ -209,32 +208,44 @@ namespace Unity.Scenes.Editor
             return sections;
         }
 
+        //TODO: We should deprecate this method, it is unused internally
         public static SceneSectionData[] WriteEntityScene(EntityManager entityManager, Hash128 sceneGUID,
             string sceneName, AssetImportContext importContext, int framesToRetainBlobAssets = 0,
             List<ReferencedUnityObjects> sectionRefObjs = null)
         {
-            return WriteEntitySceneInternal(entityManager, sceneGUID, sceneName, importContext, framesToRetainBlobAssets, sectionRefObjs, new WriteEntitySceneSettings());
+            ConversionJournalData journalData = new ConversionJournalData();
+            return WriteEntitySceneInternal(entityManager, sceneGUID, sceneName, importContext, framesToRetainBlobAssets, sectionRefObjs, new WriteEntitySceneSettings(), ref journalData);
         }
 
-        static void AddExportedTypesToJournalData(WriteEntitySceneSettings writeEntitySceneSettings, NativeArray<ComponentType> typeInfos)
+        internal static void CheckExportedTypes(WriteEntitySceneSettings writeEntitySceneSettings, bool record, IEnumerable<TypeManager.TypeInfo> typeInfos, ref ConversionJournalData journalData)
         {
             if (!writeEntitySceneSettings.IsDotsRuntime)
                 return;
 
-            if (typeInfos.Length > 0)
+            if (typeInfos.Any())
             {
-                writeEntitySceneSettings.JournalData.RecordLogEvent(null, LogType.Log, "::Exported Types (by stable hash)::");
-                foreach (var componentType in typeInfos)
+                if(record)
+                    journalData.RecordLogEvent(null, LogType.Log, "::Exported Types (by stable hash)::");
+                foreach (var typeInfo in typeInfos)
                 {
-                    var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
-                    writeEntitySceneSettings.JournalData.RecordLogEvent(null, LogType.Log, $"0x{typeInfo.StableTypeHash:x16} - {typeInfo.StableTypeHash,22} - {typeInfo.Type.FullName}");
+                    // TODO: We need to define what the assembly cache should look like for hybrid. Right now BuildAssemblyCache is defined from a root assembly and a build target and has only being used by DotsRuntime
+                    if (writeEntitySceneSettings.BuildAssemblyCache != null)
+                    {
+                        var type =typeInfo.Type;
+                        if (!writeEntitySceneSettings.BuildAssemblyCache.HasType(type))
+                            journalData.RecordExceptionEvent(null, new ArgumentException($"The {type.Name} component is defined in the {type.Assembly.GetName().Name} assembly, but that assembly is not referenced by the current build configuration. Either add it as a reference, or ensure that the conversion process that is adding that component does not run."));
+                    }
+
+                    // Record exported types in the conversion log file for debug purposes
+                    if(record)
+                        journalData.RecordLogEvent(null, LogType.Log, $"0x{typeInfo.StableTypeHash:x16} - {typeInfo.StableTypeHash,22} - {typeInfo.Type.FullName}");
                 }
             }
         }
 
         internal static SceneSectionData[] WriteEntitySceneInternal(EntityManager entityManager, Hash128 sceneGUID,
             string sceneName, AssetImportContext importContext, int framesToRetainBlobAssets,
-            List<ReferencedUnityObjects> sectionRefObjs, WriteEntitySceneSettings writeEntitySceneSettings)
+            List<ReferencedUnityObjects> sectionRefObjs, WriteEntitySceneSettings writeEntitySceneSettings, ref ConversionJournalData journalData)
         {
             using (var allTypes = new NativeHashMap<ComponentType, int>(100, Allocator.Temp))
             using (var archetypes = new NativeList<EntityArchetype>(Allocator.Temp))
@@ -253,13 +264,6 @@ namespace Unity.Scenes.Editor
                         foreach (var componentType in componentTypes)
                             if (allTypes.TryAdd(componentType, 0))
                             {
-                                // TODO: We need to define what the assembly cache should look like for hybrid. Right now BuildAssemblyCache is defined from a root assembly and a build target and has only being used by DotsRuntime
-                                if (writeEntitySceneSettings.IsDotsRuntime && writeEntitySceneSettings.BuildAssemblyCache != null)
-                                {
-                                    var type = TypeManager.GetTypeInfo(componentType.TypeIndex).Type;
-                                    if (!writeEntitySceneSettings.BuildAssemblyCache.HasType(type))
-                                        writeEntitySceneSettings.JournalData.RecordExceptionEvent(null, new ArgumentException($"The {type.Name} component is defined in the {type.Assembly.GetName().Name} assembly, but that assembly is not referenced by the current build configuration. Either add it as a reference, or ensure that the conversion process that is adding that component does not run."));
-                                }
                                 if(importContext != null)
                                     TypeDependencyCache.AddDependency(importContext, componentType);
                             }
@@ -267,7 +271,7 @@ namespace Unity.Scenes.Editor
                 //Add exported types and assets to the journal data
                 using (var types = allTypes.GetKeyArray(Allocator.Temp))
                 {
-                    AddExportedTypesToJournalData(writeEntitySceneSettings, types);
+                    CheckExportedTypes(writeEntitySceneSettings, true, types.Select(t => TypeManager.GetTypeInfo(t.TypeIndex)), ref journalData);
                 }
             }
             if (importContext != null)
@@ -663,7 +667,7 @@ namespace Unity.Scenes.Editor
                     compressedSize = CodecService.Compress(writeEntitySceneSettings.Codec, entitiesWriter.Data, entitiesWriter.Length,
                         out var compressedData, allocatorType);
                     writer.WriteBytes(compressedData, compressedSize);
-                    UnsafeUtility.Free(compressedData, allocatorType);
+                    Memory.Unmanaged.Free(compressedData, allocatorType);
                 }
                 else
                 {
@@ -746,7 +750,7 @@ namespace Unity.Scenes.Editor
             types.Dispose();
         }
 
-        static void WriteConversionLog(Hash128 sceneGUID, List<(int objectInstanceId, LogEventData eventData)> journalData, AssetImportContext ctx, string outputPath)
+        internal static void WriteConversionLog(Hash128 sceneGUID, List<(int objectInstanceId, LogEventData eventData)> journalData, AssetImportContext ctx, string outputPath)
         {
             if (journalData.Count == 0)
                 return;
@@ -763,18 +767,18 @@ namespace Unity.Scenes.Editor
                 {
                     foreach (var(objectInstanceId, eventData) in journalData)
                     {
-                        if (eventData.Type != LogType.Exception)
-                            writer.Write($"{eventData.Type}: {eventData.Message}");
-                        else
-                            writer.Write($"{eventData.Message}");
+                        writer.Write($"{eventData.Type}: {eventData.Message}");
+                        if (eventData.Type == LogType.Exception && eventData.Stacktrace != null)
+                        {
+                            writer.Write($"\n{eventData.Stacktrace}");
+                        }
 
                         if (objectInstanceId != 0)
                         {
                             var unityObject = EditorUtility.InstanceIDToObject(objectInstanceId);
-                            if (unityObject != null)
-                                writer.WriteLine($" from {unityObject.name}");
-                            else
-                                writer.WriteLine($" from unknown object with instance Id {objectInstanceId}");
+                            writer.WriteLine(unityObject != null
+                                ? $" from {unityObject.name}"
+                                : $" from unknown object with instance Id {objectInstanceId}");
                         }
                         else
                             writer.WriteLine();

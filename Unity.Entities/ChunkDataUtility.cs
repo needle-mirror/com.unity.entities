@@ -992,7 +992,7 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    if (hasHybridComponents && TypeManager.GetTypeInfo(srcType.TypeIndex).Category == TypeManager.TypeCategory.Class)
+                    if (hasHybridComponents && TypeManager.GetTypeInfo(srcType.TypeIndex).Category == TypeManager.TypeCategory.UnityEngineObject)
                     {
                         //Hybrid component, put at end of array
                         var index = componentCount - nonNullHybridComponents - 1;

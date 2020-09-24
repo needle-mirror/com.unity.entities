@@ -123,6 +123,19 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Creates a set of entities of the specified archetype.
+        /// </summary>
+        /// <remarks>Unlike the other overloads, this does not create an array of Entity values. You don't always need the Entity value of a newly created entity because maybe you only need to access the entity through queries.</remarks>
+        /// <param name="archetype">The archetype defining the structure for the new entities.</param>
+        /// <param name="entityCount">The number of entities to create with the specified archetype.</param>
+        [StructuralChangeMethod]
+        public void CreateEntity(EntityArchetype archetype, int entityCount)
+        {
+            archetype.CheckValidEntityArchetype();
+            GetCheckedEntityDataAccess()->CreateEntity(archetype, entityCount);
+        }
+
+        /// <summary>
         /// Destroy all entities having a common set of component types.
         /// </summary>
         /// <remarks>Since entities in the same chunk share the same component structure, this function effectively destroys

@@ -17,12 +17,13 @@ namespace Unity.Entities.Hybrid
             GameObjectConversionSystem _)
         {
             DynamicBuffer<TBufferElementData> dynamicBuffer = destinationManager.AddBuffer<TBufferElementData>(entity);
-            dynamicBuffer.ResizeUninitialized(Values.Length);
 
-            if (Values.Length == 0)
+            if (Values == null || Values.Length == 0)
             {
+                return;
             }
 
+            dynamicBuffer.ResizeUninitialized(Values.Length);
             fixed(void* sourcePtr = &Values[0])
             {
                 UnsafeUtility.MemCpy(

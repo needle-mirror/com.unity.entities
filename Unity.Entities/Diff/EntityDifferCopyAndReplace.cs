@@ -177,7 +177,7 @@ namespace Unity.Entities
                 {
                     // We consider hybrid components as always different, there's no reason to clone those at this point
                     var typeCategory = TypeManager.GetTypeInfo(dstChunk->Archetype->Types[indexInArchetype].TypeIndex).Category;
-                    if (typeCategory == TypeManager.TypeCategory.Class)
+                    if (typeCategory == TypeManager.TypeCategory.UnityEngineObject)
                         continue;
                 }
 

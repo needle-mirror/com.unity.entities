@@ -6,6 +6,12 @@ using UnityEditor;
 using UnityEditor.Experimental;
 using Hash128 = UnityEngine.Hash128;
 
+#if UNITY_2020_2_OR_NEWER
+using AssetDatabaseExp = UnityEditor.AssetDatabase;
+#else
+using AssetDatabaseExp = UnityEditor.Experimental.AssetDatabaseExperimental;
+#endif
+
 namespace Unity.Scenes
 {
     enum ImportMode
@@ -17,6 +23,10 @@ namespace Unity.Scenes
 
     static class AssetDatabaseCompatibility
     {
+        internal static bool IsAssetImportWorkerProcess() => AssetDatabaseExp.IsAssetImportWorkerProcess();
+        internal static void UnregisterCustomDependencyPrefixFilter(string prefixFilter) => AssetDatabaseExp.UnregisterCustomDependencyPrefixFilter(prefixFilter);
+        internal static void RegisterCustomDependency(string dependency, Hash128 hashOfValue) => AssetDatabaseExp.RegisterCustomDependency(dependency, hashOfValue);
+
         internal static string GuidToPath(GUID guid)
         {
 #if UNITY_2020_2_OR_NEWER
@@ -86,8 +96,7 @@ namespace Unity.Scenes
                     .value;
 #else
             for (int i = 0; i != guids.Length; i++)
-                artifacts[i] =
-            AssetDatabaseExperimental.GetArtifactHash(guids[i].ToString(), assetImportType, AssetDatabaseExperimental.ImportSyncMode.Block);
+                artifacts[i] = AssetDatabaseExperimental.GetArtifactHash(guids[i].ToString(), assetImportType);
 #endif
         }
 
@@ -168,10 +177,12 @@ namespace Unity.Scenes
 
         internal static ulong GetArtifactProcessedVersion()
         {
-            //@TODO: AssetDatabase.GlobalArtifactProcessedVersion doesn't work correctly, it doesn't get bumped when out of process assets complete.
-            //       This is fixed in trunk since May 15th. So once this has been released in an alpha build we should remove this workaround
+#if UNITY_2020_2_OR_NEWER
+            return AssetDatabase.GlobalArtifactProcessedVersion;
+#else
             var globalArtifactProcessedVersion = (ulong)AssetDatabaseExperimental.counters.import.importedOutOfProcess.total + (ulong)AssetDatabaseExperimental.counters.cacheServer.artifactsDownloaded.total;
             return globalArtifactProcessedVersion;
+#endif
         }
     }
 

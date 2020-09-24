@@ -27,7 +27,6 @@ namespace Unity.Scenes.Hybrid.Tests
 }
 
 [DisallowMultipleComponent]
-[RequiresEntityConversion]
 public class AuthoringWithMaterial : MonoBehaviour, IConvertGameObjectToEntity
 {
     public Material material;

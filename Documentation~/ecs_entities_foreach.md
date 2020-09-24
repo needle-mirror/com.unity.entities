@@ -26,7 +26,7 @@ In this example, only the Destination and Source components can be accessed insi
 
 ### Accessing the EntityQuery object 
 
-To access the [EntityQuery] object created by [Entities.ForEach], use [WithStoreEntityQueryInField(ref query)] with the ref parameter modifier. This function assigns a reference to the query to the field you provide. 
+To access the [EntityQuery] object that [Entities.ForEach] creates, use [WithStoreEntityQueryInField(ref query)] with the ref parameter modifier. This function assigns a reference to the query to the field you provide. **Note:** The EntityQuery is created in OnCreate. This method gives a copy of that query that can be used at any time (even before the Entities.ForEach is invoked). Also, this EntityQuery does not have any of the filters that the Entities.ForEach invocation sets up.
 
 The following example illustrates how to access the EntityQuery object implicitly created for an [Entities.ForEach] construction. In this case, the example uses the EntityQuery object to invoke the [CalculateEntityCount()] method. The example uses this count to create a native array with enough space to store one value per entity selected by the query:
 

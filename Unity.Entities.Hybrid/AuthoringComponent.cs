@@ -1,5 +1,3 @@
-using System;
-using Unity.Entities;
 using UnityEditor;
 using UnityEngine;
 
@@ -17,8 +15,13 @@ namespace Unity.Entities.Hybrid
             {
                 var assignedValue = EditorGUI.ObjectField(position, label, property.objectReferenceValue, ((RestrictAuthoringInputToAttribute)this.attribute).Type, true);
 
-                if (assignedValue is UnityEngine.Component c && changeScope.changed)
-                    property.objectReferenceValue = c.gameObject;
+                if (changeScope.changed)
+                {
+                    if (assignedValue is Component c)
+                        property.objectReferenceValue = c.gameObject;
+                    else if (assignedValue == null)
+                        property.objectReferenceValue = null;
+                }
             }
 
             EditorGUI.EndProperty();

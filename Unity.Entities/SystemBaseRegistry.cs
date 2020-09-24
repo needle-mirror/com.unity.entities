@@ -12,17 +12,19 @@ namespace Unity.Entities
     internal unsafe struct UnmanagedComponentSystemDelegates
     {
         // The function to call from a burst context to create/update/destroy.
-        internal fixed ulong BurstFunctions[3];
+        internal fixed ulong BurstFunctions[5];
 
         // The function to call from a managed context to create/update/destroy.
-        internal fixed ulong ManagedFunctions[3];
+        internal fixed ulong ManagedFunctions[5];
 
         // Maintain a reference to any burst->managed delegate wrapper so they are not collected
-        internal fixed ulong GCDefeat1[3];
+        internal fixed ulong GCDefeat1[5];
+
+        internal int PresentFunctionBits;
 
         internal unsafe void Dispose()
         {
-            for (int i = 2; i >= 0; --i)
+            for (int i = 4; i >= 0; --i)
             {
                 if (ManagedFunctions[i] != 0)
                 {
@@ -109,15 +111,23 @@ namespace Unity.Entities
         }
     }
 
+    [BurstCompatible]
     public static class SystemBaseRegistry
     {
+        class Managed
+        {
+            public static List<Type> s_StructTypes = null;
+            public static List<RegistrationEntry> s_PendingRegistrations;
+    #if !UNITY_DOTSRUNTIME
+            public static bool s_DisposeRegistered = false;
+    #endif
+        }
+
         struct Dummy
         {
         }
 
         internal readonly static SharedStatic<UnmanagedSystemTypeRegistryData> s_Data = SharedStatic<UnmanagedSystemTypeRegistryData>.GetOrCreate<Dummy>();
-
-        private static List<Type> s_StructTypes = null;
 
         // TODO: Need to dispose this thing when domain reload happens.
         public delegate void ForwardingFunc(IntPtr systemPtr, IntPtr state);
@@ -153,144 +163,136 @@ namespace Unity.Entities
         {
             public Type m_Type;
             public long m_TypeHash;
-            public ForwardingFunc m_OnCreate;
-            public ForwardingFunc m_OnUpdate;
-            public ForwardingFunc m_OnDestroy;
+            public ForwardingFunc[] m_Functions;
             public string m_DebugName;
             public int m_BurstCompileBits;
         }
 
-        private static List<RegistrationEntry> s_PendingRegistrations;
-#if !UNITY_DOTSRUNTIME
-        private static bool s_DisposeRegistered = false;
-#endif
-
-        public static unsafe void AddUnmanagedSystemType(Type type, long typeHash, ForwardingFunc onCreate, ForwardingFunc onUpdate, ForwardingFunc onDestroy, string debugName, int burstCompileBits)
+        [NotBurstCompatible]
+        public static unsafe void AddUnmanagedSystemType(Type type, long typeHash, ForwardingFunc onCreate, ForwardingFunc onUpdate, ForwardingFunc onDestroy, ForwardingFunc onStartRunning, ForwardingFunc onStopRunning, string debugName, int burstCompileBits)
         {
             //Debug.Log($"Adding unmanaged system type {debugName}, bcb={burstCompileBits}");
 
             // Lazily create list to hold pending work items as needed. This will be called from early initialization code and we need to defer burst compilation.
-            if (s_PendingRegistrations == null)
+            if (Managed.s_PendingRegistrations == null)
             {
-                s_PendingRegistrations = new List<RegistrationEntry>();
-                s_StructTypes = new List<Type>();
+                Managed.s_PendingRegistrations = new List<RegistrationEntry>();
+                Managed.s_StructTypes = new List<Type>();
 
                 ref var data = ref s_Data.Data;
                 data.Construct();
 
                 // Arrange for domain unloads to wipe the pending registration list, which works around multiple domain reloads in sequence
 #if !UNITY_DOTSRUNTIME
-                if (!s_DisposeRegistered)
+                if (!Managed.s_DisposeRegistered)
                 {
-                    s_DisposeRegistered = true;
+                    Managed.s_DisposeRegistered = true;
                     AppDomain.CurrentDomain.DomainUnload += (_, __) =>
                     {
                         s_Data.Data.Dispose();
-                        s_PendingRegistrations = null;
+                        Managed.s_PendingRegistrations = null;
                     };
                 }
 #endif
             }
 
             // Buffer the data
-            s_PendingRegistrations.Add(new RegistrationEntry
+            Managed.s_PendingRegistrations.Add(new RegistrationEntry
             {
                 m_Type = type,
                 m_TypeHash = typeHash,
-                m_OnCreate = onCreate,
-                m_OnUpdate = onUpdate,
-                m_OnDestroy = onDestroy,
+                m_Functions = new ForwardingFunc[] { onCreate, onUpdate, onDestroy, onStartRunning, onStopRunning },
                 m_DebugName = debugName,
                 m_BurstCompileBits = burstCompileBits
             });
         }
 
+        [NotBurstCompatible]
+        static void SelectManagedFn(out ulong result, ulong burstFn, ForwardingFunc managedFn)
+        {
+            if (burstFn != 0)
+            {
+                result = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(new FunctionPointer<ForwardingFunc>((IntPtr)burstFn).Invoke));
+            }
+            else
+            {
+                result = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(managedFn));
+            }
+        }
+
+        [NotBurstCompatible]
+        static void SelectBurstFn(out ulong result, out ulong defeatGc, ulong burstFn, ForwardingFunc managedFn)
+        {
+            if (burstFn != default)
+            {
+                result = burstFn;
+                defeatGc = default;
+            }
+            else
+            {
+#if UNITY_DOTSRUNTIME_IL2CPP
+                // Tiny IL2CPP does not handle reverse pinvoke wrapping for lambda functions
+                // and since try/catch isn't supported in Tiny IL2CPP either, there is no need
+                // to wrap the managedFn here.
+                defeatGc = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(managedFn));
+                result = (ulong)Marshal.GetFunctionPointerForDelegate(managedFn);
+#else
+                ForwardingFunc wrapper = (IntPtr system, IntPtr state) =>
+                {
+                    try
+                    {
+                        managedFn(system, state);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogException(ex);
+                    }
+                };
+
+                defeatGc = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(wrapper));
+                result = (ulong)Marshal.GetFunctionPointerForDelegate(wrapper);
+#endif
+            }
+        }
+
+        [NotBurstCompatible]
         public unsafe static void InitializePendingTypes()
         {
-            if (s_PendingRegistrations == null)
+            if (Managed.s_PendingRegistrations == null)
                 return;
 
-            foreach (var r in s_PendingRegistrations)
+            foreach (var r in Managed.s_PendingRegistrations)
             {
                 var debugName = r.m_DebugName;
-                var onCreate = r.m_OnCreate;
-                var onUpdate = r.m_OnUpdate;
-                var onDestroy = r.m_OnDestroy;
                 var burstCompileBits = r.m_BurstCompileBits;
 
                 FixedString64 debugNameFixed = new FixedString64(debugName);
-
                 var delegates = default(UnmanagedComponentSystemDelegates);
 
-                ulong* burstCompiledFunctions = stackalloc ulong[3];
-
-#if !UNITY_DOTSRUNTIME
-                burstCompiledFunctions[0] = (burstCompileBits & 1) != 0 ? (ulong)BurstCompiler.CompileFunctionPointer<ForwardingFunc>(onCreate).Value : 0;
-                burstCompiledFunctions[1] = (burstCompileBits & 2) != 0 ? (ulong)BurstCompiler.CompileFunctionPointer<ForwardingFunc>(onUpdate).Value : 0;
-                burstCompiledFunctions[2] = (burstCompileBits & 4) != 0 ? (ulong)BurstCompiler.CompileFunctionPointer<ForwardingFunc>(onDestroy).Value : 0;
-#else
-                burstCompiledFunctions[0] = 0;
-                burstCompiledFunctions[1] = 0;
-                burstCompiledFunctions[2] = 0;
-#endif
-
-                void SelectManagedFn(out ulong result, ulong burstFn, ForwardingFunc managedFn)
+                int functionBit = 1;
+                for (int i = 0; i < r.m_Functions.Length; ++i, functionBit <<= 1)
                 {
-#if !UNITY_DOTSRUNTIME
-                    if (burstFn != 0)
+                    var dlg = r.m_Functions[i];
+
+                    if (dlg != null)
                     {
-                        result = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(new FunctionPointer<ForwardingFunc>((IntPtr)burstFn).Invoke));
-                    }
-                    else
-#endif
-                    {
-                        result = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(managedFn));
+                        ulong burstFunc = (burstCompileBits & functionBit) != 0 ? (ulong)BurstCompiler.CompileFunctionPointer(dlg).Value : 0;
+
+                        // Select what to call when calling into a system from managed code.
+                        SelectManagedFn(out delegates.ManagedFunctions[i], burstFunc, dlg);
+
+                        // Select what to call when calling into a system from Burst code.
+                        SelectBurstFn(out delegates.BurstFunctions[i], out delegates.GCDefeat1[i], burstFunc, dlg);
+
+                        delegates.PresentFunctionBits |= functionBit;
                     }
                 }
 
-                // Select what to call when calling into a system from managed code.
-                SelectManagedFn(out delegates.ManagedFunctions[0], burstCompiledFunctions[0], onCreate);
-                SelectManagedFn(out delegates.ManagedFunctions[1], burstCompiledFunctions[1], onUpdate);
-                SelectManagedFn(out delegates.ManagedFunctions[2], burstCompiledFunctions[2], onDestroy);
-
-                void SelectBurstFn(out ulong result, out ulong defeatGc, ulong burstFn, ForwardingFunc managedFn)
-                {
-#if !UNITY_DOTSRUNTIME
-                    if (burstFn != default)
-                    {
-                        result = burstFn;
-                        defeatGc = default;
-                    }
-                    else
-#endif
-                    {
-                        ForwardingFunc wrapper = (IntPtr system, IntPtr state) =>
-                        {
-                            try
-                            {
-                                managedFn(system, state);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.LogException(ex);
-                            }
-                        };
-
-                        defeatGc = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(wrapper));
-                        result = (ulong)Marshal.GetFunctionPointerForDelegate(wrapper);
-                    }
-                }
-
-                // Select what to call when calling into a system from Burst code.
-                SelectBurstFn(out delegates.BurstFunctions[0], out delegates.GCDefeat1[0], burstCompiledFunctions[0], onCreate);
-                SelectBurstFn(out delegates.BurstFunctions[1], out delegates.GCDefeat1[1], burstCompiledFunctions[1], onUpdate);
-                SelectBurstFn(out delegates.BurstFunctions[2], out delegates.GCDefeat1[2], burstCompiledFunctions[2], onDestroy);
-
-                s_StructTypes.Add(r.m_Type);
+                Managed.s_StructTypes.Add(r.m_Type);
                 s_Data.Data.AddSystemType(r.m_TypeHash, debugNameFixed, delegates);
             }
 
-            s_PendingRegistrations = null;
+            Managed.s_PendingRegistrations = null;
         }
 
         [BurstDiscard]
@@ -300,7 +302,7 @@ namespace Unity.Entities
         }
 
         [BurstCompatible]
-        internal static unsafe void CallForwardingFunction(SystemState* systemState, int index)
+        private static unsafe void CallForwardingFunction(SystemState* systemState, int functionIndex)
         {
             var metaIndex = systemState->UnmanagedMetaIndex;
             var systemPointer = systemState->m_SystemPtr;
@@ -308,19 +310,20 @@ namespace Unity.Entities
             bool isBurst = true;
             CheckBurst(ref isBurst);
 
-#if !UNITY_DOTSRUNTIME
-            if (isBurst)
+            if (0 != (delegates.PresentFunctionBits & (1 << functionIndex)))
             {
-                // Burst: we're calling either directly into Burst code, or we are calling into a managed wrapper.
-                // In any case, creating the function pointer from the IntPtr is free.
-                new FunctionPointer<ForwardingFunc>((IntPtr)delegates.BurstFunctions[index]).Invoke((IntPtr)systemPointer, (IntPtr)systemState);
-            }
-            else
-#endif
-            {
-                // We're in managed land. We may be calling into either a managed routine, or into Burst code.
-                // We have a managed delegate GCHandle ready to go.
-                ForwardToManaged((IntPtr)delegates.ManagedFunctions[index], systemState, systemPointer);
+                if (isBurst)
+                {
+                    // Burst: we're calling either directly into Burst code, or we are calling into a managed wrapper.
+                    // In any case, creating the function pointer from the IntPtr is free.
+                    new FunctionPointer<ForwardingFunc>((IntPtr)delegates.BurstFunctions[functionIndex]).Invoke((IntPtr)systemPointer, (IntPtr)systemState);
+                }
+                else
+                {
+                    // We're in managed land. We may be calling into either a managed routine, or into Burst code.
+                    // We have a managed delegate GCHandle ready to go.
+                    ForwardToManaged((IntPtr)delegates.ManagedFunctions[functionIndex], systemState, systemPointer);
+                }
             }
         }
 
@@ -350,14 +353,27 @@ namespace Unity.Entities
         }
 
         [BurstCompatible]
+        internal static unsafe void CallOnStartRunning(SystemState* systemState)
+        {
+            CallForwardingFunction(systemState, 3);
+        }
+
+        [BurstCompatible]
+        internal static unsafe void CallOnStopRunning(SystemState* systemState)
+        {
+            CallForwardingFunction(systemState, 4);
+        }
+
+        [BurstCompatible]
         internal static FixedString64 GetDebugName(int metaIndex)
         {
             return s_Data.Data.GetSystemDebugName(metaIndex);
         }
 
+        [NotBurstCompatible]
         internal static Type GetStructType(int metaIndex)
         {
-            return s_StructTypes[metaIndex];
+            return Managed.s_StructTypes[metaIndex];
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -131,13 +132,6 @@ namespace Unity.Scenes.Tests
             return new GUID(AssetDatabase.AssetPathToGUID(path));
         }
 
-        static void WaitForCompletion(string path)
-        {
-            var res = AssetDatabaseCompatibility.GetArtifactHash(AssetDatabase.AssetPathToGUID(path), typeof(TestImporter), ImportMode.Synchronous);
-            Assert.IsTrue(res.isValid);
-        }
-
-
         [Test]
         public void TestSyncAssetModifiedDuringImport()
         {
@@ -155,10 +149,8 @@ namespace Unity.Scenes.Tests
             }
         }
 
-        [Test]
-        // Unstable on Windows: https://unity3d.atlassian.net/browse/DOTS-2090
-        [UnityPlatform(exclude = new[] {RuntimePlatform.WindowsEditor})]
-        public void AsyncChangeIsDetected()
+        [UnityTest]
+        public IEnumerator AsyncChangeIsDetected()
         {
             var path = _Temp.GetNextPath();
 
@@ -169,25 +161,24 @@ namespace Unity.Scenes.Tests
 
                 test.Add(guid, 1, true);
 
-                var processedVersionBefore = AssetDatabaseCompatibility.GetArtifactProcessedVersion();
-
-                // No gurantee that it completes immediately or not. But we should definitely only get one change event back
+                // There is no guarantee on when the change will be detected we have to just wait for it. We should eventually get exactly one change.
                 test.GetCompleted(list);
-                WaitForCompletion(path);
-
-                var processedVersionAfter = AssetDatabaseCompatibility.GetArtifactProcessedVersion();
-                // If the test fails here it proves that the instability of this test is caused by a bug in GetArtifactProcessedVersion
-                Assert.AreNotEqual(processedVersionBefore, processedVersionAfter);
-
-                test.AddCompleted(list);
+                while (list.IsEmpty)
+                {
+                    yield return null;
+                    test.AddCompleted(list);
+                }
 
                 AssertOne(list, guid, 1, "a");
                 var hash0 = list[0].ArtifactID;
 
                 WriteFileAndRefresh(path, "b");
                 test.GetCompleted(list);
-                WaitForCompletion(path);
-                test.AddCompleted(list);
+                while (list.IsEmpty)
+                {
+                    yield return null;
+                    test.AddCompleted(list);
+                }
 
                 AssertOne(list, guid, 1, "b");
                 var hash1 = list[0].ArtifactID;
@@ -196,8 +187,8 @@ namespace Unity.Scenes.Tests
             }
         }
 
-        [Test]
-        public void AsyncRemoveIsDetected()
+        [UnityTest]
+        public IEnumerator AsyncRemoveIsDetected()
         {
             var path = _Temp.GetNextPath();
 
@@ -207,8 +198,12 @@ namespace Unity.Scenes.Tests
                 var guid = WriteFileAndRefresh(path, "Boings");
                 test.Add(guid, 1, true);
 
-                WaitForCompletion(path);
                 test.GetCompleted(list);
+                while (list.IsEmpty)
+                {
+                    yield return null;
+                    test.AddCompleted(list);
+                }
                 AssertOne(list, guid, 1, "Boings");
 
                 File.Delete(path);

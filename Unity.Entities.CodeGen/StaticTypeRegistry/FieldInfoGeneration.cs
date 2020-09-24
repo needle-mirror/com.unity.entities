@@ -1,10 +1,12 @@
-using System.Linq;
 #if UNITY_DOTSRUNTIME
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
-using System;
-using System.Collections.Generic;
+using Unity.Cecil.Awesome.Comparers;
+using Unity.Cecil.Awesome;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
 using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
@@ -14,12 +16,38 @@ namespace Unity.Entities.CodeGen
 {
     internal partial class StaticTypeRegistryPostProcessor : EntitiesILPostProcessor
     {
+        // Unique list of field types and names
+        HashSet<TypeReference> m_FieldTypes = new HashSet<TypeReference>(new Cecil.Awesome.Comparers.TypeReferenceEqualityComparer());
+        HashSet<string> m_FieldNames = new HashSet<string>();
+
+        // List of field info used for injecting FieldInfo information in a TypeRegistry
+        List<FieldGenInfo> m_FieldGenInfos = new List<FieldGenInfo>();
+        // Mapping for TypeReference to FieldInfo in the m_FieldGenInfos list
+        Dictionary<TypeReference, FieldInfoLookUp> m_FieldInfoMap = new Dictionary<TypeReference, FieldInfoLookUp>(new Unity.Cecil.Awesome.Comparers.TypeReferenceEqualityComparer());
+
+        struct FieldInfoLookUp
+        {
+            public int Index;
+            public int Count;
+        }
+
+        internal struct FieldGenInfo
+        {
+            public int Offset;
+            public TypeReference FieldType;
+            public string FieldName;
+            public int FieldTypeIndex;
+            public int FieldNameIndex;
+        }
+
         class FieldInfoData
         {
+#pragma warning disable 0649
             public TypeReference BaseType;
             public string FieldPath;
             public TypeReference FieldType;
             public int FieldOffset;
+#pragma warning restore 0649
         }
 
         class FieldInfoDataComparer : IEqualityComparer<FieldInfoData>
@@ -35,131 +63,101 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        bool InjectFieldInfo()
+        void GenerateFieldInfoForRegisteredComponents()
         {
-            var getFieldInfoFn = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager).GetMethod("GetFieldInfo"));
-            var getFieldInfoFnGenericName = getFieldInfoFn.Resolve().FullName;
+            var componentsToGen = AssemblyDefinition.CustomAttributes
+                .Where(ca => ca.AttributeType.Name == nameof(GenerateComponentFieldInfoAttribute))
+                .Select(ca => ca.ConstructorArguments.First().Value as TypeReference)
+                .Distinct();
 
-            var fieldNameInstructionMap = new Dictionary<FieldInfoData, List<(ILProcessor, Instruction)>>(new FieldInfoDataComparer());
-
-            // scan the assembly for calls to FieldInfo's constructor/implicit constructor and
-            // replace the call with our own
-            foreach (var type in AssemblyDefinition.MainModule.GetAllTypes())
+            foreach (var component in componentsToGen)
             {
-                bool shouldScan = type.CustomAttributes.Any(ca => ca.AttributeType.Name == nameof(GenerateFieldInfoAttribute) && ca.AttributeType.Namespace == "Unity.Entities");
-                foreach (var method in type.GetMethods())
+                var componentDef = component.Resolve();
+                // UnityEngineObject category is returned if the component is not an ECS component type
+                if (componentDef == null || FindTypeCategoryForType(componentDef) == TypeManager.TypeCategory.UnityEngineObject)
+                    throw new ArgumentException($"Type '{component.FullName}' was registered for [GenerateComponentFieldInfo], however only value type ECS components are allowed. Please remove this type or change the type to be a value type.");
+
+                GenerateFieldInfos(component);
+            }
+        }
+
+        FieldInfoLookUp GenerateFieldInfos(TypeReference typeRef)
+        {
+            var lookup = new FieldInfoLookUp()
+            {
+                Index = m_FieldGenInfos.Count(),
+                Count = 0
+            };
+
+            if (!m_FieldInfoMap.ContainsKey(typeRef))
+            {
+                var resolver = TypeResolver.For(typeRef);
+                var typeDef = typeRef.Resolve();
+
+                // Push the component into the fieldInfoTypeList
+                m_FieldTypes.Add(typeRef);
+                foreach (var field in typeDef.Fields)
                 {
-                    if (method.Body == null)
+                    if (field.IsStatic)
                         continue;
 
-                    if (!shouldScan)
-                        shouldScan = method.CustomAttributes.Any(ca => ca.AttributeType.Name == nameof(GenerateFieldInfoAttribute) && ca.AttributeType.Namespace == "Unity.Entities");
+                    var fieldType = resolver.ResolveFieldType(field);
+                    var sanitizedFieldName = SanitizeFieldName(field.Name);
 
-                    if (!shouldScan)
-                        continue;
-
-                    foreach (var instruction in method.Body.Instructions)
+                    var fieldInfo = new FieldGenInfo
                     {
-                        if (instruction.OpCode == OpCodes.Call)
-                        {
-                            var methodFn = instruction.Operand as MethodReference;
-                            if (methodFn.Resolve()?.FullName == getFieldInfoFnGenericName)
-                            {
-                                // We know this call only takes a ldstr op as a parameter, if it isn't then error
-                                var ldStringOp = instruction.Previous;
-                                if (ldStringOp.OpCode != OpCodes.Ldstr)
-                                    throw new ArgumentException($"{method.FullName} is constructing a {typeof(TypeManager.FieldInfo).FullName} but has not provided a string literal as the constructor argument.");
+                        Offset = TypeUtils.GetFieldOffset(field.Name, typeRef, ArchBits),
+                        FieldName = sanitizedFieldName,
+                        FieldType = fieldType
+                    };
 
-                                var fieldInfoData = new FieldInfoData();
-                                fieldInfoData.BaseType = (methodFn as GenericInstanceMethod).GenericArguments[0];
-                                fieldInfoData.FieldPath = ldStringOp.Operand as string;
-                                if (!fieldNameInstructionMap.ContainsKey(fieldInfoData))
-                                    fieldNameInstructionMap.Add(fieldInfoData, new List<(ILProcessor, Instruction)>());
-
-                                // Fetch the ilprocessor, and cache the ldstr instruction and ilprocessor -- we will
-                                // use them later to replace the ldstr and call ops with a load to a generated FieldInfo
-                                var processor = method.Body.GetILProcessor();
-                                fieldNameInstructionMap[fieldInfoData].Add((processor, ldStringOp));
-                            }
-                        }
-                    }
+                    m_FieldGenInfos.Add(fieldInfo);
+                    m_FieldTypes.Add(fieldType);
+                    m_FieldNames.Add(sanitizedFieldName);
+                    lookup.Count++;
                 }
-            }
+                m_FieldInfoMap.Add(typeRef, lookup);
 
-            if (fieldNameInstructionMap.Count == 0)
-                return false;
-
-            var fieldInfoRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager.FieldInfo));
-            var fieldInfoBaseTypeFieldRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager.FieldInfo).GetField(nameof(TypeManager.FieldInfo.BaseType)));
-            var fieldInfoFieldTypeFieldRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager.FieldInfo).GetField(nameof(TypeManager.FieldInfo.FieldType)));
-            var fieldInfoFieldOffsetFieldRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager.FieldInfo).GetField(nameof(TypeManager.FieldInfo.FieldOffset)));
-
-            // Adds "static public class CodeGeneratedFieldInfoRegistry" type
-            var fieldInfoRegistry = new TypeDefinition("Unity.Entities.CodeGeneratedRegistry", "FieldInfoRegistry", TypeAttributes.Class | TypeAttributes.Public, AssemblyDefinition.MainModule.ImportReference(typeof(object)));
-            AssemblyDefinition.MainModule.Types.Add(fieldInfoRegistry);
-
-            // Declares: "static CodeGeneratedFieldInfoRegistry() { }" (i.e. the static ctor / .cctor)
-            var fieldInfoRegistryCctorDef = new MethodDefinition(".cctor", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName, AssemblyDefinition.MainModule.ImportReference(typeof(void)));
-            fieldInfoRegistry.Methods.Add(fieldInfoRegistryCctorDef);
-            fieldInfoRegistry.IsBeforeFieldInit = true;
-            fieldInfoRegistryCctorDef.Body.InitLocals = true;
-            var scratchFieldInfo = new VariableDefinition(fieldInfoRef);
-            fieldInfoRegistryCctorDef.Body.Variables.Add(scratchFieldInfo);
-
-            // We now know what fields we need to provide FieldInfo for, and where we need to inject
-            // so now lets produce the FieldInfo for the given strings, generate a static FieldInfo for each unique
-            // FieldInfo and then replace the ldstr+call instructions with a nop+ldsfld to our new static Field info
-            int i = 0;
-            var il = fieldInfoRegistryCctorDef.Body.GetILProcessor();
-            foreach (var fieldInfoData in fieldNameInstructionMap.Keys)
-            {
-                // Determine field offset, field type etc...
-                fieldInfoData.FieldOffset = TypeUtils.GetFieldOffsetByFieldPath(fieldInfoData.FieldPath, fieldInfoData.BaseType, ArchBits, out fieldInfoData.FieldType);
-
-                if (fieldInfoData.FieldType == null)
-                    throw new ArgumentException($"Could not find the field '{fieldInfoData.FieldPath}' within the type '{fieldInfoData.BaseType.FullName}'. Please double check your TypeManager.GetFieldInfo() field path argument");
-
-                // Create a new FieldInfo field in our registry
-                var fieldInfoField = new FieldDefinition("FieldInfo" + i++, Mono.Cecil.FieldAttributes.Static | Mono.Cecil.FieldAttributes.Public | Mono.Cecil.FieldAttributes.InitOnly, fieldInfoRef);
-                fieldInfoRegistry.Fields.Add(fieldInfoField);
-
-                // Initialize the new field in our cctor
-
-                // BaseType = typeof(fieldInfoData.BaseType)
-                il.Emit(OpCodes.Ldloca, scratchFieldInfo);
-                il.Emit(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference(fieldInfoData.BaseType));
-                il.Emit(OpCodes.Call, m_GetTypeFromHandleFnRef);
-                il.Emit(OpCodes.Stfld, fieldInfoBaseTypeFieldRef);
-
-                // FieldType = typeof(fieldInfoData.FieldType)
-                il.Emit(OpCodes.Ldloca, scratchFieldInfo);
-                il.Emit(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference(fieldInfoData.FieldType));
-                il.Emit(OpCodes.Call, m_GetTypeFromHandleFnRef);
-                il.Emit(OpCodes.Stfld, fieldInfoFieldTypeFieldRef);
-
-                // FieldOffset = fieldInfoData.FieldOffset
-                il.Emit(OpCodes.Ldloca, scratchFieldInfo);
-                il.Emit(OpCodes.Ldc_I4, fieldInfoData.FieldOffset);
-                il.Emit(OpCodes.Stfld, fieldInfoFieldOffsetFieldRef);
-
-                // Store top of stack to static field
-                il.Emit(OpCodes.Ldloc, scratchFieldInfo);
-                il.Emit(OpCodes.Stsfld, fieldInfoField);
-
-                // Now replace ldstr with a nop and call to a load from our new field
-                foreach (var(methodProcessor, ldstrOp) in fieldNameInstructionMap[fieldInfoData])
+                // Now that we have added info for the top-level, recurse until all nested fields have fieldInfo
+                foreach (var field in typeDef.Fields)
                 {
-                    var module = methodProcessor.Body.Method.Module;
-                    var callOp = ldstrOp.Next;
+                    if (field.IsStatic)
+                        continue;
 
-                    methodProcessor.Replace(callOp, Instruction.Create(OpCodes.Nop));
-                    methodProcessor.Replace(ldstrOp, Instruction.Create(OpCodes.Ldsfld, module.ImportReference(fieldInfoField)));
+                    var fieldType = resolver.ResolveFieldType(field);
+                    GenerateFieldInfos(fieldType);
                 }
             }
 
-            il.Emit(OpCodes.Ret);
+            return lookup;
+        }
 
-            return true;
+        // It's pretty common for a component to have members that are the same type as other components, so collapse duplicate fieldinfo
+        // so we refer to only a single name and field type that needs to be emitted
+        void ReduceFieldInfos()
+        {
+            var fieldTypes = m_FieldTypes.ToList();
+            var fieldNames = m_FieldNames.ToList();
+            var trComparer = new TypeReferenceEqualityComparer();
+            for (int i = 0; i < m_FieldGenInfos.Count; ++i)
+            {
+                var fieldInfo = m_FieldGenInfos[i];
+
+                fieldInfo.FieldNameIndex = fieldNames.IndexOf(fieldInfo.FieldName);
+                fieldInfo.FieldTypeIndex = fieldTypes.FindIndex(ft => trComparer.Equals(ft, fieldInfo.FieldType));
+
+                m_FieldGenInfos[i] = fieldInfo;
+            }
+        }
+
+        string SanitizeFieldName(string fieldName)
+        {
+            int indexLt = fieldName.IndexOf('<');
+            int indexGt = fieldName.IndexOf('>');
+            if (indexLt < 0 || indexGt < 0)
+                return fieldName;
+
+            return fieldName.Substring(indexLt + 1, indexGt - 1);
         }
 
         protected override bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes)

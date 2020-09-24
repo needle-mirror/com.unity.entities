@@ -16,6 +16,7 @@ namespace Unity.Entities
     }
 
     [AttributeUsage(AttributeTargets.Class)]
+    [Obsolete("Not used anymore. You can safely remove this. (RemovedAfter 2020-11-22)")]
     public class RequiresEntityConversionAttribute : Attribute {}
 }
 

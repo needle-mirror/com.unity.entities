@@ -234,6 +234,93 @@ namespace Unity.Entities.Tests
             }
         }
 
+        [Test]
+        public void TestAlignUlong_Align0ToPow2()
+        {
+            Assert.AreEqual(0ul, CollectionHelper.Align(0ul, 1ul));
+            Assert.AreEqual(0ul, CollectionHelper.Align(0ul, 2ul));
+            Assert.AreEqual(0ul, CollectionHelper.Align(0ul, 4ul));
+            Assert.AreEqual(0ul, CollectionHelper.Align(0ul, 8ul));
+            Assert.AreEqual(0ul, CollectionHelper.Align(0ul, 16ul));
+            Assert.AreEqual(0ul, CollectionHelper.Align(0ul, 32ul));
+            Assert.AreEqual(0ul, CollectionHelper.Align(0ul, 64ul));
+            Assert.AreEqual(0ul, CollectionHelper.Align(0ul, 128ul));
+        }
+
+        [Test]
+        public void TestAlignUlong_AlignMultipleOfAlignment()
+        {
+            Assert.AreEqual(2ul, CollectionHelper.Align(2ul, 1ul));
+            Assert.AreEqual(4ul, CollectionHelper.Align(4ul, 2ul));
+            Assert.AreEqual(8ul, CollectionHelper.Align(8ul, 4ul));
+            Assert.AreEqual(16ul, CollectionHelper.Align(16ul, 8ul));
+            Assert.AreEqual(32ul, CollectionHelper.Align(32ul, 16ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(64ul, 32ul));
+            Assert.AreEqual(128ul, CollectionHelper.Align(128ul, 64ul));
+            Assert.AreEqual(256ul, CollectionHelper.Align(256ul, 128ul));
+        }
+
+        [Test]
+        public void TestAlignUlong_Align1ToPow2()
+        {
+            Assert.AreEqual(1ul, CollectionHelper.Align(1ul, 1ul));
+            Assert.AreEqual(2ul, CollectionHelper.Align(1ul, 2ul));
+            Assert.AreEqual(4ul, CollectionHelper.Align(1ul, 4ul));
+            Assert.AreEqual(8ul, CollectionHelper.Align(1ul, 8ul));
+            Assert.AreEqual(16ul, CollectionHelper.Align(1ul, 16ul));
+            Assert.AreEqual(32ul, CollectionHelper.Align(1ul, 32ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(1ul, 64ul));
+            Assert.AreEqual(128ul, CollectionHelper.Align(1ul, 128ul));
+        }
+
+        [Test]
+        public void TestAlignUlong_Align3ToPow2()
+        {
+            Assert.AreEqual(3ul, CollectionHelper.Align(3ul, 1ul));
+            Assert.AreEqual(4ul, CollectionHelper.Align(3ul, 2ul));
+            Assert.AreEqual(4ul, CollectionHelper.Align(3ul, 4ul));
+            Assert.AreEqual(8ul, CollectionHelper.Align(3ul, 8ul));
+            Assert.AreEqual(16ul, CollectionHelper.Align(3ul, 16ul));
+            Assert.AreEqual(32ul, CollectionHelper.Align(3ul, 32ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(3ul, 64ul));
+            Assert.AreEqual(128ul, CollectionHelper.Align(3ul, 128ul));
+        }
+
+        [Test]
+        public void TestAlignUlong_Align15ToPow2()
+        {
+            Assert.AreEqual(15ul, CollectionHelper.Align(15ul, 1ul));
+            Assert.AreEqual(16ul, CollectionHelper.Align(15ul, 2ul));
+            Assert.AreEqual(16ul, CollectionHelper.Align(15ul, 4ul));
+            Assert.AreEqual(16ul, CollectionHelper.Align(15ul, 8ul));
+            Assert.AreEqual(16ul, CollectionHelper.Align(15ul, 16ul));
+            Assert.AreEqual(32ul, CollectionHelper.Align(15ul, 32ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(15ul, 64ul));
+            Assert.AreEqual(128ul, CollectionHelper.Align(15ul, 128ul));
+        }
+
+        [Test]
+        public void TestAlignUlong_Align63ToPow2()
+        {
+            Assert.AreEqual(63ul, CollectionHelper.Align(63ul, 1ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(63ul, 2ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(63ul, 4ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(63ul, 8ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(63ul, 16ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(63ul, 32ul));
+            Assert.AreEqual(64ul, CollectionHelper.Align(63ul, 64ul));
+            Assert.AreEqual(128ul, CollectionHelper.Align(63ul, 128ul));
+        }
+
+        [Test]
+        public void TestAlignUlong_ZeroAlignment()
+        {
+            for (ulong value = 0; value < 512ul; ++value)
+            {
+                Assert.AreEqual(value, CollectionHelper.Align(value, 0ul));
+            }
+        }
+
         [UpdateBefore(typeof(PresentationSystemGroup))]
         [UpdateAfter(typeof(InitializationSystemGroup))]
         class TestComponentSystem : SystemBase
@@ -271,11 +358,7 @@ namespace Unity.Entities.Tests
         [Conditional("DEBUG")]
         public void TestGetSystemName()
         {
-#if UNITY_DOTSRUNTIME
-            Assert.AreEqual("Unity.Entities.Tests.TypeManagerTests/TestComponentSystem", TypeManager.GetSystemName(typeof(TestComponentSystem)));
-#else
             Assert.AreEqual("Unity.Entities.Tests.TypeManagerTests+TestComponentSystem", TypeManager.GetSystemName(typeof(TestComponentSystem)));
-#endif
         }
 
         [Test]
@@ -304,7 +387,7 @@ namespace Unity.Entities.Tests
         [ExecuteAlways]
         class ExecuteAlwaysFilteredSystem : SystemBase { protected override void OnUpdate() { } }
 
-        int ValidateFilterFlags(NativeHashMap<int, WorldSystemFilterFlags> allTypesMap, WorldSystemFilterFlags expectedFilterFlags, WorldSystemFilterFlags requiredFlags = WorldSystemFilterFlags.Default)
+        int ValidateFilterFlags(WorldSystemFilterFlags expectedFilterFlags, WorldSystemFilterFlags requiredFlags = WorldSystemFilterFlags.Default)
         {
             Assert.IsTrue(expectedFilterFlags != WorldSystemFilterFlags.All);
 
@@ -323,17 +406,13 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetSystemsWorldSystemFilterFlags()
         {
-            var allTypes = TypeManager.GetSystems(WorldSystemFilterFlags.All);
-            var allTypesMap = new NativeHashMap<int, WorldSystemFilterFlags>(allTypes.Count, Allocator.Temp);
-            foreach (var t in allTypes)
-                allTypesMap.Add(t.GetHashCode(), TypeManager.GetSystemFilterFlags(t));
+            var allTypesCount = TypeManager.GetSystems(WorldSystemFilterFlags.All).Count;
 
-            var numDefaultSystems = ValidateFilterFlags(allTypesMap, WorldSystemFilterFlags.Default, WorldSystemFilterFlags.Default);
-            var numProcessAfterLoadSystems = ValidateFilterFlags(allTypesMap, WorldSystemFilterFlags.ProcessAfterLoad, WorldSystemFilterFlags.ProcessAfterLoad);
-            var numCombinedSystems = ValidateFilterFlags(allTypesMap, WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ProcessAfterLoad);
+            var numDefaultSystems = ValidateFilterFlags(WorldSystemFilterFlags.Default, WorldSystemFilterFlags.Default);
+            var numProcessAfterLoadSystems = ValidateFilterFlags(WorldSystemFilterFlags.ProcessAfterLoad, WorldSystemFilterFlags.ProcessAfterLoad);
+            var numCombinedSystems = ValidateFilterFlags(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ProcessAfterLoad);
             Assert.AreEqual(numCombinedSystems, numDefaultSystems + numProcessAfterLoadSystems);
-            Assert.IsTrue(numCombinedSystems <= allTypes.Count);
-            allTypesMap.Dispose();
+            Assert.IsTrue(numCombinedSystems <= allTypesCount);
         }
 
 #if !UNITY_DOTSRUNTIME // No reflection support in TypeManager in DOTS Runtime even without TinyBCL; no UnityEngine in DOTS Runtime
@@ -479,6 +558,30 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(IComponentData).Assembly));
             Assert.IsTrue(TypeManager.IsAssemblyReferencingEntities(typeof(EcsTestData).Assembly));
+        }
+
+        [Test]
+        public void IsAssemblyReferencingEntitiesOrUnityEngine()
+        {
+            TypeManager.IsAssemblyReferencingEntitiesOrUnityEngine(typeof(UnityEngine.GameObject).Assembly, out var gameObjectAsmRefersToEntities, out var gameObjectAsmRefersToUnityEngine);
+            Assert.IsFalse(gameObjectAsmRefersToEntities);
+            Assert.IsTrue(gameObjectAsmRefersToUnityEngine);
+
+            TypeManager.IsAssemblyReferencingEntitiesOrUnityEngine(typeof(System.Collections.Generic.List<>).Assembly, out var listAsmRefersToEntities, out var listAsmRefersToUnityEngine);
+            Assert.IsFalse(listAsmRefersToEntities);
+            Assert.IsFalse(listAsmRefersToUnityEngine);
+
+            TypeManager.IsAssemblyReferencingEntitiesOrUnityEngine(typeof(Collections.NativeList<>).Assembly, out var nativeListAsmRefersToEntities, out var nativeListAsmRefersToUnityEngine);
+            Assert.IsFalse(nativeListAsmRefersToEntities);
+            Assert.IsTrue(nativeListAsmRefersToUnityEngine);
+
+            TypeManager.IsAssemblyReferencingEntitiesOrUnityEngine(typeof(IComponentData).Assembly, out var icomponentAsmRefersToEntities, out var icomponentAsmRefersToUnityEngine);
+            Assert.IsTrue(icomponentAsmRefersToEntities);
+            Assert.IsTrue(icomponentAsmRefersToUnityEngine);
+
+            TypeManager.IsAssemblyReferencingEntitiesOrUnityEngine(typeof(EcsTestData).Assembly, out var ecsTestDataAsmRefersToEntities, out var ecsTestDataAsmRefersToUnityEngine);
+            Assert.IsTrue(ecsTestDataAsmRefersToEntities);
+            Assert.IsTrue(ecsTestDataAsmRefersToUnityEngine);
         }
 
         class TestSystem : ComponentSystem
@@ -638,12 +741,35 @@ namespace Unity.Entities.Tests
                 Assert.DoesNotThrow(() => w.Update());
                 Assert.DoesNotThrow(() => w.EntityManager.CreateEntity(typeof(Translation), typeToAdd));
                 Assert.DoesNotThrow(() => TypeManager.GetTypeIndex(typeToAdd));
-
-                // We do not allow anyone to re-add the same type so ensure we throw
-                Assert.Throws<ArgumentException>(() => TypeManager.AddNewComponentTypes(new Type[] { typeToAdd }));
             }
         }
 
+        [Test]
+        public unsafe void TypeInfo_EntityReferenceOffsets_AreSortedAndCorrect()
+        {
+            var typeInfo = TypeManager.GetTypeInfo<EcsTestDataEntity2>();
+            Assert.IsTrue(typeInfo.HasEntities);
+            Assert.AreEqual(2, typeInfo.EntityOffsetCount);
+            var offsets = TypeManager.GetEntityOffsets(typeInfo);
+            int offsetA = offsets[0].Offset;
+            int offsetB = offsets[1].Offset;
+            Assert.Less(offsetA, offsetB, "Entity offsets are assumed to be sorted.");
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataEntity2).GetField(nameof(EcsTestDataEntity2.value1))), offsetA);
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataEntity2).GetField(nameof(EcsTestDataEntity2.value2))), offsetB);
+        }
+
+        [Test]
+        public unsafe void TypeInfo_BlobAssetReferenceOffsets_AreSortedAndCorrect()
+        {
+            var typeInfo = TypeManager.GetTypeInfo<EcsTestDataBlobAssetRef2>();
+            Assert.AreEqual(2, typeInfo.BlobAssetRefOffsetCount);
+            var offsets = TypeManager.GetBlobAssetRefOffsets(typeInfo);
+            int offsetA = offsets[0].Offset;
+            int offsetB = offsets[1].Offset;
+            Assert.Less(offsetA, offsetB, "BlobAssetOffsets offsets are assumed to be sorted.");
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataBlobAssetRef2).GetField(nameof(EcsTestDataBlobAssetRef2.value))), offsetA);
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataBlobAssetRef2).GetField(nameof(EcsTestDataBlobAssetRef2.value2))), offsetB);
+        }
 #endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

@@ -17,8 +17,6 @@ namespace Unity.Entities
         [Preserve]
         public InitializationSystemGroup()
         {
-            UseLegacySortOrder = false;
-
         }
     }
 
@@ -46,44 +44,34 @@ namespace Unity.Entities
     [UpdateAfter(typeof(BeginSimulationEntityCommandBufferSystem))]
     public class FixedStepSimulationSystemGroup : ComponentSystemGroup
     {
-        private FixedRateUtils.FixedRateCatchUpManager _fixedRateManager;
-
         /// <summary>
         /// Set the timestep use by this group, in seconds. The default value is 1/60 seconds.
         /// This value will be clamped to the range [0.0001f ... 10.0f].
         /// </summary>
         public float Timestep
         {
-            get => _fixedRateManager.Timestep;
-            set => _fixedRateManager.Timestep = value;
+            get => FixedRateManager != null ? FixedRateManager.Timestep : 0;
+            set
+            {
+                if (FixedRateManager != null)
+                    FixedRateManager.Timestep = value;
+            }
         }
 
-        /// <summary>
-        /// Set the maximum DeltaTime that will be processed by this group in a single call to Update().
-        /// If the actual DeltaTime is larger, the remaining time will be processed during the group's next Update.
-        /// This helps maintain a minimum frame rate after a large frame time spike, by spreading out the recovery over
-        /// multiple frames.
-        /// The value is expressed in seconds. The default value is 1/3rd seconds. Recommended values are 1/10th and 1/3rd seconds.
-        /// This value can never be lower than the current Timestep value.
-        /// </summary>
+        [Obsolete("MaximumDeltaTime is now specified at the World level as World.MaximumDeltaTime (RemovedAfter 2020-012-26)")]
         public float MaximumDeltaTime
         {
-            get => _fixedRateManager.MaximumDeltaTime;
-            set => _fixedRateManager.MaximumDeltaTime = value;
+            get => World.MaximumDeltaTime;
+            set => World.MaximumDeltaTime = value;
         }
 
         [Preserve]
         public FixedStepSimulationSystemGroup()
         {
-            UseLegacySortOrder = false;
-
             float defaultFixedTimestep = 1.0f / 60.0f;
-            _fixedRateManager = new FixedRateUtils.FixedRateCatchUpManager(defaultFixedTimestep);
-            UpdateCallback = _fixedRateManager.UpdateCallback;
+            FixedRateManager = new FixedRateUtils.FixedRateCatchUpManager(defaultFixedTimestep);
         }
     }
-
-
 
     [UnityEngine.ExecuteAlways]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
@@ -103,7 +91,6 @@ namespace Unity.Entities
         [Preserve]
         public SimulationSystemGroup()
         {
-            UseLegacySortOrder = false;
         }
     }
 
@@ -116,7 +103,6 @@ namespace Unity.Entities
         [Preserve]
         public PresentationSystemGroup()
         {
-            UseLegacySortOrder = false;
         }
     }
 }

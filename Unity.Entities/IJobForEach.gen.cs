@@ -2708,7 +2708,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_C<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_C<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -2806,7 +2806,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -2905,7 +2905,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_B<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_B<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3013,7 +3013,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3122,7 +3122,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_CC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3224,7 +3224,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_ECC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3327,7 +3327,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3439,7 +3439,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3552,7 +3552,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3666,7 +3666,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3781,7 +3781,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_CCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3887,7 +3887,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_ECCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -3994,7 +3994,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -4110,7 +4110,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -4227,7 +4227,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -4345,7 +4345,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -4464,7 +4464,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -4584,7 +4584,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -4705,7 +4705,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_CCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -4815,7 +4815,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_ECCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -4926,7 +4926,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -5046,7 +5046,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -5167,7 +5167,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -5289,7 +5289,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -5412,7 +5412,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -5536,7 +5536,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -5661,7 +5661,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -5787,7 +5787,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -5914,7 +5914,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_CCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -6028,7 +6028,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_ECCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -6143,7 +6143,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -6267,7 +6267,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -6392,7 +6392,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -6518,7 +6518,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -6645,7 +6645,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -6773,7 +6773,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -6902,7 +6902,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -7032,7 +7032,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -7163,7 +7163,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -7295,7 +7295,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -7428,7 +7428,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_CCCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_CCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -7546,7 +7546,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_ECCCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_ECCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -7665,7 +7665,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BCCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -7793,7 +7793,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBCCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBCCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -7922,7 +7922,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -8052,7 +8052,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBCCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBCCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -8183,7 +8183,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -8315,7 +8315,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBCCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBCCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -8448,7 +8448,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -8582,7 +8582,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBCC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBBCC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -8717,7 +8717,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -8853,7 +8853,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBBC<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBBBC<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -8990,7 +8990,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_BBBBBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_BBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 
@@ -9128,7 +9128,7 @@ namespace Unity.Entities
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_EBBBBBB<T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
             return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_EBBBBBB<T>.Cache, deferredCountData, prefilterHandle, mode);
         }
 

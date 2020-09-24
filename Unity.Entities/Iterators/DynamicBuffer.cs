@@ -293,7 +293,7 @@ namespace Unity.Entities
             }
             else
             {
-                newPtr = (byte*)UnsafeUtility.Malloc((long)elemSize * length, elemAlign, Allocator.Persistent);
+                newPtr = (byte*)Memory.Unmanaged.Allocate((long)elemSize * length, elemAlign, Allocator.Persistent);
                 isInternal = false;
             }
 
@@ -302,7 +302,7 @@ namespace Unity.Entities
             m_Buffer->Capacity = Math.Max(length, m_InternalCapacity);
             m_Buffer->Pointer = isInternal ? null : newPtr;
 
-            UnsafeUtility.Free(oldPtr, Allocator.Persistent);
+            Memory.Unmanaged.Free(oldPtr, Allocator.Persistent);
         }
 
         /// <summary>

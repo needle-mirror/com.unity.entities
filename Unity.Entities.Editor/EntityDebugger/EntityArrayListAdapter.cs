@@ -12,6 +12,7 @@ namespace Unity.Entities.Editor
 
         private NativeArray<ArchetypeChunk> chunkArray;
 
+        private World world;
         private EntityManager entityManager;
 
         private ChunkFilter chunkFilter;
@@ -36,6 +37,7 @@ namespace Unity.Entities.Editor
                 }
             }
             entityManager = newEntityManager;
+            world = newEntityManager.World;
             indexIterator = new Enumerator(this);
         }
 
@@ -55,6 +57,9 @@ namespace Unity.Entities.Editor
 
             private void UpdateIndexInChunk()
             {
+                if (currentChunk >= adapter.chunkArray.Length)
+                    return;
+
                 while (adapter.chunkArray[currentChunk].Count <= currentIndexInChunk)
                     currentIndexInChunk -= adapter.chunkArray[currentChunk++].Count;
             }
@@ -108,14 +113,18 @@ namespace Unity.Entities.Editor
             {
                 get
                 {
-                    var entityArray = adapter.chunkArray[currentChunk].GetNativeArray(adapter.entityManager.GetEntityTypeHandle());
-                    var entity = entityArray[currentIndexInChunk];
+                    // Need to check if entity manager is still a thing here, because leaving playmode will destroy it
+                    if (adapter.world.IsCreated)
+                    {
+                        var entityArray = adapter.chunkArray[currentChunk].GetNativeArray(adapter.entityManager.GetEntityTypeHandle());
+                        var entity = entityArray[currentIndexInChunk];
 
-                    adapter.currentItem.id = entity.Index;
-                    var name = adapter.entityManager.GetName(entity);
-                    if (string.IsNullOrEmpty(name))
-                        name = $"Entity {entity.Index}";
-                    adapter.currentItem.displayName = name;
+                        adapter.currentItem.id = entity.Index;
+                        var name = adapter.entityManager.GetName(entity);
+                        if (string.IsNullOrEmpty(name))
+                            name = $"Entity {entity.Index}";
+                        adapter.currentItem.displayName = name;
+                    }
                     return adapter.currentItem;
                 }
             }

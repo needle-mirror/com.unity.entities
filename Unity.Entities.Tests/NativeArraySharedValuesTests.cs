@@ -4,7 +4,7 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
-    public class NativeArraySharedValuesTests
+    public class NativeArraySharedValuesTests : ECSTestsCommonBase
     {
         NativeArray<int> Source;
         NativeArraySharedInt SharedValues;

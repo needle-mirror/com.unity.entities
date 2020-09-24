@@ -20,14 +20,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             using (var myArray = new NativeArray<int>(10, Allocator.Persistent))
             {
-                TestSystem.TestMe(myArray).Complete();
+                TestSystem.TestMe(myArray);
                 Assert.AreEqual(12, myArray[5]);
             }
         }
 
-        public class SimpleJobSystem : JobComponentSystem
+        public class SimpleJobSystem : SystemBase
         {
-            protected override JobHandle OnUpdate(JobHandle inputDeps) => default;
+            protected override void OnUpdate() {}
 
             static void SetValues(NativeArray<int> myArray, int value)
             {
@@ -37,13 +37,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }
             }
 
-            public JobHandle TestMe(NativeArray<int> myArray)
+            public void TestMe(NativeArray<int> myArray)
             {
                 int capturedValue = 12;
-                return Job.WithCode(() =>
+                Job.WithCode(() =>
                 {
                     SetValues(myArray, capturedValue);
-                }).Schedule(default);
+                }).Schedule();
+                Dependency.Complete();
             }
         }
     }

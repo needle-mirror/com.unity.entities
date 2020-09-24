@@ -214,19 +214,9 @@ namespace Unity.Entities
 
     public static class InternalCompilerInterface
     {
-        public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) =>
-#if !NET_DOTS
-            BurstCompiler.CompileFunctionPointer(d).Invoke;
-#else
-            d;
-#endif
+        public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
+        public static JobChunkRunWithoutJobSystemDelegate BurstCompile(JobChunkRunWithoutJobSystemDelegate d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
 
-        public static JobChunkRunWithoutJobSystemDelegate BurstCompile(JobChunkRunWithoutJobSystemDelegate d) =>
-#if !NET_DOTS
-            BurstCompiler.CompileFunctionPointer(d).Invoke;
-#else
-            d;
-#endif
 
         public unsafe delegate void JobChunkRunWithoutJobSystemDelegate(ArchetypeChunkIterator* iterator, void* job);
         public unsafe delegate void JobRunWithoutJobSystemDelegate(void* job);
@@ -291,6 +281,8 @@ namespace Unity.Entities
                 byte* dst = (byte*)alignedUnmanagedJobData;
                 byte* src = (byte*)jobStructDataPtr;
                 var marshalToBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalToBurstFn();
+
+                UnsafeUtility.EnterTempScope();
                 UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
 
                 // In the case of JobStruct we know the jobwrapper doesn't add
@@ -300,6 +292,8 @@ namespace Unity.Entities
                 // Since Run can capture locals for write back, we must write back the marshalled jobData after the job executes
                 var marshalFromBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalFromBurstFn();
                 UnsafeUtility.CallFunctionPtr_pp(marshalFromBurstFnPtr.ToPointer(), src, dst);
+                UnsafeUtility.ExitTempScope();
+
                 jobData = jobStructData.JobData;
             }
             else
@@ -333,6 +327,8 @@ namespace Unity.Entities
                     byte* dst = (byte*)alignedUnmanagedJobData;
                     byte* src = (byte*)jobChunkDataPtr;
                     var marshalToBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalToBurstFn();
+
+                    UnsafeUtility.EnterTempScope();
                     UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
 
                     // Since we are running inline, normally the outer job scheduling code would
@@ -349,6 +345,8 @@ namespace Unity.Entities
                     // Since Run can capture locals for write back, we must write back the marshalled jobData after the job executes
                     var marshalFromBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalFromBurstFn();
                     UnsafeUtility.CallFunctionPtr_pp(marshalFromBurstFnPtr.ToPointer(), src, dst);
+                    UnsafeUtility.ExitTempScope();
+
                     jobData = jobChunkWrapper.JobData;
                 }
                 else

@@ -957,7 +957,9 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-        [Test, Ignore("Leaks string allocs in Burst")] // TODO: Can be re-enabled when DOTS-1963 is closed
+#if  UNITY_2020_2_OR_NEWER
+// 2020.2 no longer leaks strings when using Burst Abort
+        [Test]
         public void AddComponentToEntityQuery_OnDifferentEntityManager_Throws()
         {
             using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
@@ -977,7 +979,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test, Ignore("Leaks string allocs in Burst")] // TODO: Can be re-enabled when DOTS-1963 is closed
+        [Test]
         public void AddComponentsToEntityQuery_OnDifferentEntityManager_Throws()
         {
             using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
@@ -991,11 +993,12 @@ namespace Unity.Entities.Tests
                 cmds.AddComponent(entityQuery, new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData3)));
 
                 // ... and playback on a different manager
-                Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager2));
+                Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager2));
 
                 entityQuery.Dispose();
             }
         }
+#endif
 
         [Test]
         public void RemoveComponentFromEntityQuery()
@@ -1529,7 +1532,9 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.Exists(e));
         }
 
-        [Test, Ignore("Leaks string allocs in Burst")] // TODO: Can be re-enabled when DOTS-1963 is closed
+#if UNITY_2020_2_OR_NEWER
+// 2020.2 no longer leaks strings when using Burst Abort
+        [Test]
         public void DestroyInvalidEntity()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -1554,6 +1559,7 @@ namespace Unity.Entities.Tests
 
             cmds2.Dispose();
         }
+#endif
 
         [Test]
         public void TestShouldPlaybackFalse()
@@ -2066,7 +2072,9 @@ namespace Unity.Entities.Tests
             cmds.Dispose();
         }
 
-        [Test, Ignore("Leaks string allocs in Burst")] // TODO: Can be re-enabled when DOTS-1963 is closed
+#if UNITY_2020_2_OR_NEWER
+// 2020.2 no longer leaks strings when using Burst Abort
+        [Test]
         public void AddBuffer_OnEntityFromOtherWorld_Fails()
         {
             var e = m_Manager.CreateEntity();
@@ -2083,6 +2091,7 @@ namespace Unity.Entities.Tests
                 }
             }
         }
+#endif
 
         [Test]
         public void AddBuffer_AfterDispose_WithoutPlayback_Throws()
@@ -2301,8 +2310,9 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        [Test, Ignore("Leaks string allocs in Burst")] // TODO: Can be re-enabled when DOTS-1963 is closed
+#if ENABLE_UNITY_COLLECTIONS_CHECKS && UNITY_2020_2_OR_NEWER
+// 2020.2 no longer leaks strings when using Burst Abort
+        [Test]
         public void EntityCommandBufferSystemPlaybackExceptionIsolation()
         {
             var entityCommandBufferSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
@@ -3273,7 +3283,9 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.Exists(e));
         }
 
-        [Test, Ignore("Leaks string allocs in Burst")] // TODO: Can be re-enabled when DOTS-1963 is closed
+#if UNITY_2020_2_OR_NEWER
+// 2020.2 no longer leaks strings when using Burst Abort
+        [Test]
         public void DestroyInvalidEntity_ManagedComponents()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -3298,6 +3310,7 @@ namespace Unity.Entities.Tests
 
             cmds2.Dispose();
         }
+#endif
 
         [Test]
         public void PlaybackWithExclusiveEntityTransactionInJob_ManagedComponents()

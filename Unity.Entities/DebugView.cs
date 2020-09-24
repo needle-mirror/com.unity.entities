@@ -22,13 +22,7 @@ namespace Unity.Entities
             {
                 var result = new ArchetypeChunk[m_ChunkData.Count];
                 for (var i = 0; i < result.Length; ++i)
-                    result[i] = new ArchetypeChunk
-                    {
-                        m_Chunk = m_ChunkData[i],
-                        m_BatchStartEntityIndex = 0,
-                        m_BatchEntityCount = 0,
-                        m_EntityComponentStore = null
-                    };
+                    result[i] = new ArchetypeChunk(m_ChunkData[i], null);
                 return result;
             }
         }
@@ -159,7 +153,7 @@ namespace Unity.Entities
         {
             get
             {
-                var entities = m_target.GetAllEntitiesImmediate();
+                var entities = m_target.GetAllEntities();
                 entities.Sort(new Comparer());
                 using (entities)
                 {

@@ -1,7 +1,11 @@
 using System;
 using NUnit.Framework;
 using Unity.Collections;
-
+using UnityEngine;
+using UnityEngine.TestTools;
+#if !NET_DOTS
+using System.Text.RegularExpressions;
+#endif
 
 namespace Unity.Entities.Tests
 {
@@ -332,6 +336,56 @@ namespace Unity.Entities.Tests
                 }
             }
         }
+
+        struct WriteToArray : IJobChunk
+        {
+            public NativeArray<int> MyArray;
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                for (int i = 0; i < MyArray.Length; i++)
+                {
+                    MyArray[i] = chunkIndex + firstEntityIndex;
+                }
+            }
+        }
+
+#if !NET_DOTS // DOTS Runtimes does not support regex
+        [Test]
+        public void ParallelArrayWriteTriggersSafetySystem()
+        {
+            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entitiesA = new NativeArray<Entity>(archetypeA.ChunkCapacity, Allocator.Temp);
+            m_Manager.CreateEntity(archetypeA, entitiesA);
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            using (var local = new NativeArray<int>(archetypeA.ChunkCapacity * 2, Allocator.TempJob))
+            {
+                LogAssert.Expect(LogType.Exception, new Regex("IndexOutOfRangeException: *"));
+
+                new WriteToArray
+                {
+                    MyArray = local
+                }.ScheduleParallel(query).Complete();
+            }
+        }
+
+        [Test]
+        public void SingleArrayWriteDoesNotTriggerSafetySystem()
+        {
+            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entitiesA = new NativeArray<Entity>(archetypeA.ChunkCapacity, Allocator.Temp);
+            m_Manager.CreateEntity(archetypeA, entitiesA);
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            using (var local = new NativeArray<int>(archetypeA.ChunkCapacity * 2, Allocator.TempJob))
+            {
+                new WriteToArray
+                {
+                    MyArray = local
+                }.ScheduleSingle(query).Complete();
+            }
+        }
+#endif
 
 #if !UNITY_DOTSRUNTIME // IJobForEach is deprecated
 #pragma warning disable 618

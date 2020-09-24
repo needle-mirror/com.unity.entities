@@ -305,7 +305,7 @@ namespace Unity.Entities
                 sortedPatches[i] = new SortedIndex {p = (byte*)m_patches[i].offsetPtr, index = i};
             sortedPatches.Sort();
 
-            byte* buffer = (byte*)UnsafeUtility.Malloc(sizeof(BlobAssetHeader) + dataSize, 16, allocator);
+            byte* buffer = (byte*)Memory.Unmanaged.Allocate(sizeof(BlobAssetHeader) + dataSize, 16, allocator);
             byte* data = buffer + sizeof(BlobAssetHeader);
 
             for (int i = 0; i < m_allocations.Length; ++i)
@@ -385,7 +385,7 @@ namespace Unity.Entities
             {
                 size = CollectionHelper.Align(size, 16);
                 var allocIndex = m_allocations.Length;
-                var mem = (byte*)UnsafeUtility.Malloc(size, alignment, m_allocator);
+                var mem = (byte*)Memory.Unmanaged.Allocate(size, alignment, m_allocator);
                 UnsafeUtility.MemClear(mem, size);
                 m_allocations.Add(new BlobAllocation {p = mem, size = size});
                 return new BlobDataRef {allocIndex = allocIndex, offset = 0};
@@ -411,7 +411,7 @@ namespace Unity.Entities
             }
 
             m_currentChunkIndex = m_allocations.Length;
-            var alloc = new BlobAllocation {p = (byte*)UnsafeUtility.Malloc(m_chunkSize, 16, m_allocator), size = 0};
+            var alloc = new BlobAllocation {p = (byte*)Memory.Unmanaged.Allocate(m_chunkSize, 16, m_allocator), size = 0};
             m_allocations.Add(alloc);
             return alloc;
         }
@@ -460,7 +460,7 @@ namespace Unity.Entities
         public void Dispose()
         {
             for (int i = 0; i < m_allocations.Length; ++i)
-                UnsafeUtility.Free(m_allocations[i].p, m_allocator);
+                Memory.Unmanaged.Free(m_allocations[i].p, m_allocator);
             m_allocations.Dispose();
             m_patches.Dispose();
         }

@@ -273,6 +273,21 @@ namespace Unity.Entities
                 elements[i] = sortedElements[i];
         }
 
+        static string SysName(Type stype)
+        {
+            if (!TypeManager.IsSystemType(stype))
+            {
+#if !NET_DOTS
+                // in the editor or with full .NET, return the full name to make it easy to find types
+                return stype.FullName;
+#else
+                return "[NOT A SYSTEM TYPE]";
+#endif
+            }
+
+            return TypeManager.GetSystemName(stype);
+        }
+
         internal static void FindConstraints(Type parentType, SystemElement[] sysElems)
         {
             lookupDictionary = null;
@@ -294,9 +309,9 @@ namespace Unity.Entities
                     if (depIndex < 0)
                     {
                         Debug.LogWarning(
-                            $"Ignoring invalid [UpdateBefore] attribute on {systemType} targeting {dep.SystemType}.\n"
+                            $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} targeting {SysName(dep.SystemType)}.\n"
                             + $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n"
-                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({parentType})],\n"
+                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({SysName(parentType)})],\n"
                             + $"or by manually adding both systems to the same group's update list.");
                         continue;
                     }
@@ -316,9 +331,9 @@ namespace Unity.Entities
                     if (depIndex < 0)
                     {
                         Debug.LogWarning(
-                            $"Ignoring invalid [UpdateAfter] attribute on {systemType} targeting {dep.SystemType}.\n"
+                            $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} targeting {SysName(dep.SystemType)}.\n"
                             + $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n"
-                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({parentType})],\n"
+                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({SysName(parentType)})],\n"
                             + $"or by manually adding both systems to the same group's update list.");
                         continue;
                     }
@@ -334,16 +349,16 @@ namespace Unity.Entities
             if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateBefore] attribute on {systemType} because {dep.SystemType} is not a subclass of {nameof(ComponentSystemBase)}.\n"
-                    + $"Set the target parameter of [UpdateBefore] to a system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                    $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)}.\n"
+                    + $"Set the target parameter of [UpdateBefore] to a system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
 
             if (dep.SystemType == systemType)
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateBefore] attribute on {systemType} because a system cannot be updated before itself.\n"
-                    + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                    $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} because a system cannot be updated before itself.\n"
+                    + $"Set the target parameter of [UpdateBefore] to a different system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
 
@@ -357,7 +372,7 @@ namespace Unity.Entities
             if (depBucket < systemBucket)
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateBefore({dep.SystemType})] attribute on {systemType} because OrderFirst/OrderLast has higher precedence.");
+                    $"Ignoring invalid [UpdateBefore({SysName(dep.SystemType)})] attribute on {SysName(systemType)} because OrderFirst/OrderLast has higher precedence.");
                 return true;
             }
 
@@ -369,16 +384,16 @@ namespace Unity.Entities
             if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateAfter] attribute on {systemType} because {dep.SystemType} is not a subclass of {nameof(ComponentSystemBase)}.\n"
-                    + $"Set the target parameter of [UpdateAfter] to a system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                    $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)}.\n"
+                    + $"Set the target parameter of [UpdateAfter] to a system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
 
             if (dep.SystemType == systemType)
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateAfter] attribute on {systemType} because a system cannot be updated after itself.\n"
-                    + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {systemType}.");
+                    $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} because a system cannot be updated after itself.\n"
+                    + $"Set the target parameter of [UpdateAfter] to a different system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
 
@@ -392,7 +407,7 @@ namespace Unity.Entities
             if (depBucket > systemBucket)
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateAfter({dep.SystemType})] attribute on {systemType} because OrderFirst/OrderLast has higher precedence.");
+                    $"Ignoring invalid [UpdateAfter({SysName(dep.SystemType)})] attribute on {SysName(systemType)} because OrderFirst/OrderLast has higher precedence.");
                 return true;
             }
 

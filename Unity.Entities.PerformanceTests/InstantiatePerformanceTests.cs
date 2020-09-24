@@ -56,7 +56,8 @@ namespace Unity.Entities.PerformanceTests
 
         [Test, Performance]
         [Category("Performance")] // bug: this redundant category here required because our current test runner ignores Category on a fixture for generated test methods
-        public void InstantiateBatch_100k([Values(1, 10, 100, 1000)] int batchSize, [Values] EntityType entityType)
+        // TODO(henrik.kjellander): Re-enable the 1000 case when DOTS-2591 is resolved.
+        public void InstantiateBatch_100k([Values(1, 10, 100)] int batchSize, [Values] EntityType entityType)
         {
             Entity srcEntity = default(Entity);
 
@@ -99,7 +100,7 @@ namespace Unity.Entities.PerformanceTests
             if (entityType == EntityType.Hierarchy_10)
                 totalCount /= 10;
 
-            var entities = new NativeArray<Entity>(totalCount, Allocator.Temp);
+            var entities = new NativeArray<Entity>(totalCount, Allocator.TempJob);
 
             srcEntity = CreateEntity(entityType);
 

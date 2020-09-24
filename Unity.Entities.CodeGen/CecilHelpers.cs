@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -36,7 +37,7 @@ namespace Unity.Entities.CodeGen
                     return Instruction.Create(opcode, o);
                 case TypeReference o:
                     return Instruction.Create(opcode, o);
-                case CallSite o:
+                case Mono.Cecil.CallSite o:
                     return Instruction.Create(opcode, o);
                 case int o:
                     return Instruction.Create(opcode, o);
@@ -106,7 +107,7 @@ namespace Unity.Entities.CodeGen
         }
 
         public static (MethodDefinition[], Dictionary<FieldReference, CapturedVariableDescription> capturedVariables) CloneClosureExecuteMethodAndItsLocalFunctions(
-            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName,
+            IEnumerable<MethodDefinition> methodsToClone, TypeDefinition targetType, string newMethodName, bool aggressivelyInlineExecuteMethod,
             Func<IEnumerable<MethodDefinition>, IEnumerable<Instruction>> permittedCapturingInstructionsGenerator)
         {
             Dictionary<FieldReference, CapturedVariableDescription> capturedVariables = new Dictionary<FieldReference, CapturedVariableDescription>();
@@ -179,14 +180,14 @@ namespace Unity.Entities.CodeGen
                 throw new ArgumentException();
 
             var clonedMethods = methodsToClone.ToDictionary(m => m, m =>
-            {
-                var clonedMethod = new MethodDefinition(m == executeMethod ? newMethodName : m.Name, m.Attributes, m.ReturnType)
-                {HasThis = m.HasThis, DeclaringType = targetType};
-                clonedMethod.DebugInformation.Scope = m.DebugInformation.Scope;
-
-                targetType.Methods.Add(clonedMethod);
-                return clonedMethod;
-            }
+                {
+                    bool isExecuteMethod = m == executeMethod;
+                    var clonedMethod = new MethodDefinition(isExecuteMethod ? newMethodName : m.Name, m.Attributes, m.ReturnType)
+                    {HasThis = m.HasThis, DeclaringType = targetType, AggressiveInlining = isExecuteMethod && aggressivelyInlineExecuteMethod};
+                    clonedMethod.DebugInformation.Scope = m.DebugInformation.Scope;
+                    targetType.Methods.Add(clonedMethod);
+                    return clonedMethod;
+                }
             );
 
             foreach (var methodToClone in methodsToClone)

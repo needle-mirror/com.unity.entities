@@ -136,7 +136,7 @@ namespace Unity.Entities.Serialization
             public int ComponentSize;
         }
 
-        public static int CurrentFileFormatVersion = 48;
+        public static int CurrentFileFormatVersion = 50;
 
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjects = null)
         {
@@ -168,7 +168,7 @@ namespace Unity.Entities.Serialization
             var blobAssetOwner = default(BlobAssetOwner);
             if (totalBlobAssetSize != 0)
             {
-                allBlobAssetData = (byte*)UnsafeUtility.Malloc((long)totalBlobAssetSize, 16, Allocator.Persistent);
+                allBlobAssetData = (byte*)Memory.Unmanaged.Allocate((long)totalBlobAssetSize, 16, Allocator.Persistent);
                 if (totalBlobAssetSize > int.MaxValue)
                     throw new System.ArgumentException("Blobs larger than 2GB are currently not supported");
 
@@ -250,7 +250,7 @@ namespace Unity.Entities.Serialization
                         var target = (BufferHeader*)OffsetFromPointer(chunk->Buffer, bufferPatches[pi].ChunkOffset);
 
                         // TODO: Alignment
-                        target->Pointer = (byte*)UnsafeUtility.Malloc(bufferPatches[pi].AllocSizeBytes, 8, Allocator.Persistent);
+                        target->Pointer = (byte*)Memory.Unmanaged.Allocate(bufferPatches[pi].AllocSizeBytes, 8, Allocator.Persistent);
 
                         reader.ReadBytes(target->Pointer, bufferPatches[pi].AllocSizeBytes);
                     }

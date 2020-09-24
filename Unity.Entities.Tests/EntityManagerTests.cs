@@ -307,6 +307,10 @@ namespace Unity.Entities.Tests
             hash.Dispose();
         }
 
+// We want these types registered with in DOTS Runtime by default
+#if !UNITY_DOTSRUNTIME
+        [DisableAutoTypeRegistration]
+#endif
         [TypeManager.ForcedMemoryOrderingAttribute(1)]
         struct BigComponentWithAlign1 : IComponentData
         {
@@ -338,6 +342,10 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(EcsTestTag))]
         public unsafe void ChunkComponentRunIsAligned(Type maxCapacityTagType)
         {
+        // TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
+#if !UNITY_DOTSRUNTIME
+            TypeManager.AddNewComponentTypes(new []{typeof(BigComponentWithAlign1)});
+#endif
             // Create an entity
             var archetype = m_Manager.CreateArchetype(typeof(BigComponentWithAlign1), typeof(ComponentWithAlign8), maxCapacityTagType);
             var entity = m_Manager.CreateEntity(archetype);
@@ -355,6 +363,10 @@ namespace Unity.Entities.Tests
 
 #endif
 
+// We want these types registered with in DOTS Runtime by default
+#if !UNITY_DOTSRUNTIME
+        [DisableAutoTypeRegistration]
+#endif
         struct WillFitWithAlign : IComponentData
         {
             // sizeof(T) is not a constant
@@ -368,15 +380,25 @@ namespace Unity.Entities.Tests
             unsafe fixed byte val[kWillFitSize];
         }
 
+// We want these types registered with in DOTS Runtime by default
+#if !UNITY_DOTSRUNTIME
+        [DisableAutoTypeRegistration]
+#endif
         struct WontFitWithAlign : IComponentData
         {
             // Make component one byte larger than would fit in chunk
             unsafe fixed byte val[WillFitWithAlign.kWillFitSize + 1];
         }
 
+
         [Test]
         public unsafe void CreatingArchetypeWithToLargeEntityThrows()
         {
+// TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
+#if !UNITY_DOTSRUNTIME
+            TypeManager.AddNewComponentTypes(new []{typeof(WillFitWithAlign), typeof(WontFitWithAlign), typeof(BigComponentWithAlign1)});
+#endif
+
             Assert.DoesNotThrow(() => m_Manager.CreateArchetype(typeof(BigComponentWithAlign1), typeof(WillFitWithAlign)));
             Assert.Throws<ArgumentException>(() => m_Manager.CreateArchetype(typeof(BigComponentWithAlign1), typeof(WontFitWithAlign)));
         }
@@ -591,6 +613,30 @@ namespace Unity.Entities.Tests
 
             entities.Dispose();
             entitiesToRemoveData.Dispose();
+        }
+
+        [Test]
+        public void BatchAddComponents([Values(1,5,10,100,1000)] int count)
+        {
+            var entities = new NativeArray<Entity>(count, Allocator.Persistent);
+            var entitiesToAddData = new NativeArray<Entity>((count+1) / 2, Allocator.Persistent);
+
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            m_Manager.CreateEntity(archetype, entities);
+
+            for (int i = 0; i < entitiesToAddData.Length; i++)
+                entitiesToAddData[i] = entities[i*2];
+
+            m_Manager.AddComponent(entitiesToAddData, typeof(EcsTestData2));
+
+            for (int i = 0; i < count; ++i)
+            {
+                // even-numbered entities should have the component, odds shouldn't
+                Assert.AreEqual((i % 2) == 0, m_Manager.HasComponent<EcsTestData2>(entities[i]));
+            }
+
+            entitiesToAddData.Dispose();
+            entities.Dispose();
         }
 
         [Test]
@@ -1084,6 +1130,19 @@ namespace Unity.Entities.Tests
             foreach (var ent in entities)
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(ent));
             entities.Dispose();
+        }
+
+        [Test]
+        public void GetEntityInfo_InvalidEntity_ReturnsEntityInvalid()
+        {
+            var invalidEntity = new Entity {Index = m_Manager.EntityCapacity + 1, Version = 1};
+            var info = m_Manager.Debug.GetEntityInfo(invalidEntity);
+            Assert.AreEqual(info, "Entity.Invalid","Entity with Large Index failed test");
+
+            var invalidEntity2 = new Entity {Index = -1, Version = 1};
+            info = m_Manager.Debug.GetEntityInfo(invalidEntity2);
+            Assert.AreEqual(info, "Entity.Invalid", "Entity with Negative Index failed test");
+
         }
 
 #endif // UNITY_PORTABLE_TEST_RUNNER

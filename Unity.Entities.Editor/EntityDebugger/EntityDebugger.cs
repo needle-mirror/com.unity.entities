@@ -118,7 +118,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        public ComponentSystemBase SystemSelection { get; private set; }
+        public SystemSelection SystemSelection { get; private set; }
 
         public World SystemSelectionWorld
         {
@@ -126,18 +126,19 @@ namespace Unity.Entities.Editor
             private set { systemSelectionWorld = value; }
         }
 
-        public void SetSystemSelection(ComponentSystemBase manager, World world, bool updateList, bool propagate)
+        public void SetSystemSelection(SystemSelection sel, World world, bool updateList, bool propagate)
         {
-            if (manager != null && world == null)
+            if (sel.Managed != null && world == null)
                 throw new ArgumentNullException("System cannot have null world");
-            SystemSelection = manager;
+
+            SystemSelection = sel;
             SystemSelectionWorld = world;
             if (updateList)
-                systemListView.SetSystemSelection(manager, world);
+                systemListView.SetSystemSelection(sel);
             CreateEntityQueryListView();
             if (propagate)
             {
-                if (SystemSelection is ComponentSystemBase)
+                if (SystemSelection.Valid)
                     entityQueryListView.TouchSelection();
                 else
                     ApplyAllEntitiesFilter();
@@ -164,7 +165,7 @@ namespace Unity.Entities.Editor
             if (updateList)
                 entityListView.SetEntitySelection(newSelection);
 
-            var world = WorldSelection ?? (SystemSelection as ComponentSystemBase)?.World;
+            var world = WorldSelection ?? SystemSelection.World;
             if (world != null && newSelection != Entity.Null)
             {
                 selectionProxy.SetEntity(world, newSelection);
@@ -277,7 +278,7 @@ namespace Unity.Entities.Editor
 
         private void CreateEntityQueryListView()
         {
-            entityQueryListView = EntityQueryListView.CreateList(SystemSelection as ComponentSystemBase, entityQueryListStates, entityQueryListStateNames, x => SetEntityListSelection(x, false, true), () => SystemSelectionWorld);
+            entityQueryListView = EntityQueryListView.CreateList(SystemSelection, entityQueryListStates, entityQueryListStateNames, x => SetEntityListSelection(x, false, true), () => SystemSelectionWorld);
         }
 
         [SerializeField] private bool ShowInactiveSystems;
@@ -471,7 +472,7 @@ namespace Unity.Entities.Editor
                     GUILayout.Label("All Entities", Styles.ToolbarLabelStyle);
                 else
                 {
-                    var type = SystemSelection.GetType();
+                    var type = SystemSelection.GetSystemType();
                     var typeDisplayName = Properties.Editor.TypeUtility.GetTypeDisplayName(type);
                     if (!string.IsNullOrEmpty(type.Namespace))
                         GUILayout.Label($"{type.Namespace}.{typeDisplayName}", Styles.ToolbarLabelStyle);

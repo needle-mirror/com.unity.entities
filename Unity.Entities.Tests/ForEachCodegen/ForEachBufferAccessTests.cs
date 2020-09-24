@@ -261,7 +261,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void GetBuffer_GetsValueFromBuffer([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType)
+        public void GetBuffer_GetsValueFromBuffer([Values(ScheduleType.Schedule, ScheduleType.Run)] ScheduleType scheduleType)
         {
             TestSystem.GetBufffer_GetsValueFromBuffer(TestEntity2, scheduleType);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);

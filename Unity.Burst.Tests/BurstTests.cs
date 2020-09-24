@@ -82,8 +82,8 @@ public class BurstTests
     {
         unsafe public void Execute()
         {
-            void* allocated = UnsafeUtility.Malloc(UnsafeUtility.SizeOf<int>() * 100, 4, Allocator.Persistent);
-            UnsafeUtility.Free(allocated, Allocator.Persistent);
+            void* allocated = Memory.Unmanaged.Allocate(UnsafeUtility.SizeOf<int>() * 100, 4, Allocator.Persistent);
+            Memory.Unmanaged.Free(allocated, Allocator.Persistent);
         }
     }
 

@@ -3,20 +3,22 @@ using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
-    public class EntityRemapUtilityTests
+    public class EntityRemapUtilityTests : ECSTestsCommonBase
     {
         NativeArray<EntityRemapUtility.EntityRemapInfo> m_Remapping;
 
         [SetUp]
-        public void Setup()
+        public override void Setup()
         {
+            base.Setup();
             m_Remapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(100, Allocator.Persistent);
         }
 
         [TearDown]
-        public void TearDown()
+        public override void TearDown()
         {
             m_Remapping.Dispose();
+            base.TearDown();
         }
 
         [Test]

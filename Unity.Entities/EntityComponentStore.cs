@@ -141,7 +141,7 @@ namespace Unity.Entities
             var remapDstSize = UnsafeUtility.SizeOf<Entity>() * remappingCount * allocatedCount;
             var managedComponentSize = totalComponentCount * sizeof(int);
 
-            var remapSrcCopy = (byte*)UnsafeUtility.Malloc(remapSrcSize + remapDstSize + managedComponentSize, 16, Allocator.Temp);
+            var remapSrcCopy = (byte*)Memory.Unmanaged.Allocate(remapSrcSize + remapDstSize + managedComponentSize, 16, Allocator.Temp);
             var remapDstCopy = remapSrcCopy + remapSrcSize;
             var managedComponents = (int*)(remapDstCopy + remapDstSize);
 
@@ -156,7 +156,7 @@ namespace Unity.Entities
             {
                 int type = i + firstManagedComponent;
 
-                if (hasHybridComponents && TypeManager.GetTypeInfo(types[type].TypeIndex).Category == TypeManager.TypeCategory.Class)
+                if (hasHybridComponents && TypeManager.GetTypeInfo(types[type].TypeIndex).Category == TypeManager.TypeCategory.UnityEngineObject)
                 {
                     for (int ei = 0; ei < allocatedCount; ++ei)
                     {
@@ -261,6 +261,8 @@ namespace Unity.Entities
         }
     }
 
+    [BurstCompile]
+    [GenerateBurstMonoInterop("EntityComponentStore")]
     internal unsafe partial struct EntityComponentStore
     {
         [NativeDisableUnsafePtrRestriction]
@@ -277,7 +279,6 @@ namespace Unity.Entities
 
         BlockAllocator m_ArchetypeChunkAllocator;
 
-        internal UnsafeChunkPtrList m_EmptyChunks;
         internal UnsafeArchetypePtrList m_Archetypes;
 
         ArchetypeListMap m_TypeLookup;
@@ -295,6 +296,7 @@ namespace Unity.Entities
         int  m_NextFreeEntityIndex;
         uint m_GlobalSystemVersion;
         int  m_EntitiesCapacity;
+        int  m_IntentionallyInconsistent;
         uint m_ArchetypeTrackingVersion;
 
         int m_LinkedGroupType;
@@ -347,51 +349,42 @@ namespace Unity.Entities
             EnsureCapacity(m_EntitiesCapacity * 2);
         }
 
+        internal bool IsIntentionallyInconsistent => m_IntentionallyInconsistent == 1;
+        internal const long k_MaximumEntitiesPerWorld = 128L * 1024L * 1024L; // roughly 128 million Entities per World, maximum
+
+        void ResizeUnmanagedArrays(long oldValue, long newValue)
+        {
+            m_VersionByEntity = Memory.Unmanaged.Array.Resize(m_VersionByEntity, oldValue, newValue, Allocator.Persistent);
+            IntPtr* temp = (IntPtr*) m_ArchetypeByEntity;
+            m_ArchetypeByEntity = (Archetype**) Memory.Unmanaged.Array.Resize(temp, oldValue, newValue, Allocator.Persistent);
+            m_EntityInChunkByEntity = Memory.Unmanaged.Array.Resize(m_EntityInChunkByEntity, oldValue, newValue, Allocator.Persistent);
+#if UNITY_EDITOR
+            m_NameByEntity = Memory.Unmanaged.Array.Resize(m_NameByEntity, oldValue, newValue, Allocator.Persistent);
+#endif
+        }
+
+        void ThrowIfEntitiesPerWorldIsTooHigh(long newValue)
+        {
+            if (newValue > math.ceilpow2(k_MaximumEntitiesPerWorld))
+            {
+                m_IntentionallyInconsistent = 1;
+                throw new InvalidOperationException(
+                    $"Maximum Entities in World is {k_MaximumEntitiesPerWorld}. Attempted to allocate {newValue}.");
+            }
+        }
         internal void EnsureCapacity(int value)
         {
+            long oldValue = m_EntitiesCapacity;
+            long newValue = value;
             // Capacity can never be decreased since entity lookups would start failing as a result
-            if (value <= m_EntitiesCapacity)
+            if (newValue <= oldValue)
                 return;
-
-            var versionBytes = (value * sizeof(int) + 63) & ~63;
-            var archetypeBytes = (value * sizeof(Archetype*) + 63) & ~63;
-            var chunkDataBytes = (value * sizeof(EntityInChunk) + 63) & ~63;
-            var bytesToAllocate = versionBytes + archetypeBytes + chunkDataBytes;
-#if UNITY_EDITOR
-            var nameBytes = (value * sizeof(NumberedWords) + 63) & ~63;
-            bytesToAllocate += nameBytes;
-#endif
-
-            var bytes = (byte*)UnsafeUtility.Malloc(bytesToAllocate, 64, Allocator.Persistent);
-
-            var version = (int*)(bytes);
-            var archetype = (Archetype**)(bytes + versionBytes);
-            var chunkData = (EntityInChunk*)(bytes + versionBytes + archetypeBytes);
-#if UNITY_EDITOR
-            var name = (NumberedWords*)(bytes + versionBytes + archetypeBytes + chunkDataBytes);
-#endif
-
+            ThrowIfEntitiesPerWorldIsTooHigh(newValue);
+            ResizeUnmanagedArrays(oldValue, newValue);
             var startNdx = 0;
-            if (m_EntitiesCapacity > 0)
-            {
-                UnsafeUtility.MemCpy(version, m_VersionByEntity, m_EntitiesCapacity * sizeof(int));
-                UnsafeUtility.MemCpy(archetype, m_ArchetypeByEntity, m_EntitiesCapacity * sizeof(Archetype*));
-                UnsafeUtility.MemCpy(chunkData, m_EntityInChunkByEntity, m_EntitiesCapacity * sizeof(EntityInChunk));
-#if UNITY_EDITOR
-                UnsafeUtility.MemCpy(name, m_NameByEntity, m_EntitiesCapacity * sizeof(NumberedWords));
-#endif
-                UnsafeUtility.Free(m_VersionByEntity, Allocator.Persistent);
+            if(m_EntitiesCapacity > 0)
                 startNdx = m_EntitiesCapacity - 1;
-            }
-
-            m_VersionByEntity = version;
-            m_ArchetypeByEntity = archetype;
-            m_EntityInChunkByEntity = chunkData;
-#if UNITY_EDITOR
-            m_NameByEntity = name;
-#endif
-
-            m_EntitiesCapacity = value;
+            m_EntitiesCapacity = (int)newValue;
             InitializeAdditionalCapacity(startNdx);
         }
 
@@ -423,16 +416,13 @@ namespace Unity.Entities
             entities->EnsureCapacity(newCapacity);
             entities->m_GlobalSystemVersion = ChangeVersionUtility.InitialGlobalSystemVersion;
 
-            const int componentTypeOrderVersionSize = sizeof(int) * TypeManager.MaximumTypesCount;
-            entities->m_ComponentTypeOrderVersion = (int*)UnsafeUtility.Malloc(componentTypeOrderVersionSize,
-                UnsafeUtility.AlignOf<int>(), Allocator.Persistent);
-            UnsafeUtility.MemClear(entities->m_ComponentTypeOrderVersion, componentTypeOrderVersionSize);
+            entities->m_ComponentTypeOrderVersion = Memory.Unmanaged.Array.Allocate<int>(TypeManager.MaximumTypesCount, Allocator.Persistent);
+            Memory.Array.Clear(entities->m_ComponentTypeOrderVersion, TypeManager.MaximumTypesCount);
 
             entities->m_ArchetypeChunkAllocator = new BlockAllocator(AllocatorManager.Persistent, 16 * 1024 * 1024); // 16MB should be enough
             entities->m_TypeLookup = new ArchetypeListMap();
             entities->m_TypeLookup.Init(16);
             entities->m_NextChunkSequenceNumber = startChunkSequenceNumber;
-            entities->m_EmptyChunks = new UnsafeChunkPtrList(0, Allocator.Persistent);
             entities->m_Archetypes = new UnsafeArchetypePtrList(0, Allocator.Persistent);
             entities->ManagedChangesTracker = new ManagedDeferredCommands();
             entities->ManagedChangesTracker.Init();
@@ -506,7 +496,7 @@ namespace Unity.Entities
         {
             if (m_EntitiesCapacity > 0)
             {
-                UnsafeUtility.Free(m_VersionByEntity, Allocator.Persistent);
+                ResizeUnmanagedArrays(m_EntitiesCapacity, 0);
 
                 m_VersionByEntity = null;
                 m_ArchetypeByEntity = null;
@@ -520,7 +510,7 @@ namespace Unity.Entities
 
             if (m_ComponentTypeOrderVersion != null)
             {
-                UnsafeUtility.Free(m_ComponentTypeOrderVersion, Allocator.Persistent);
+                Memory.Unmanaged.Free(m_ComponentTypeOrderVersion, Allocator.Persistent);
                 m_ComponentTypeOrderVersion = null;
             }
 
@@ -534,7 +524,7 @@ namespace Unity.Entities
                     var chunk = archetype->Chunks[c];
 
                     ChunkDataUtility.DeallocateBuffers(chunk);
-                    s_chunkStore.Data.FreeChunk(archetype->Chunks[c]);
+                    s_chunkStore.Data.FreeContiguousChunks(archetype->Chunks[c], 1);
                 }
 
                 archetype->Chunks.Dispose();
@@ -544,16 +534,6 @@ namespace Unity.Entities
             }
 
             m_Archetypes.Dispose();
-
-            // And all pooled chunks
-            for (var i = 0; i != m_EmptyChunks.Length; ++i)
-            {
-                var chunk = m_EmptyChunks.Ptr[i];
-                s_chunkStore.Data.FreeChunk(chunk);
-            }
-
-
-            m_EmptyChunks.Dispose();
 
             m_TypeLookup.Dispose();
             m_ArchetypeChunkAllocator.Dispose();
@@ -927,114 +907,146 @@ namespace Unity.Entities
             RemoveComponent
         }
 
-        [BurstCompile]
-        internal struct EntityBatchFromEntityChunkDataShared : IJobBurstSchedulable
+        internal bool CreateEntityBatchListForAddComponent(NativeArray<Entity> entities,
+            ComponentType componentType,
+            out NativeList<EntityBatchInChunk> entityBatchList)
         {
-            [ReadOnly] public NativeArray<EntityInChunk> EntityChunkData;
-            public NativeList<EntityBatchInChunk> EntityBatchList;
+            return CreateEntityBatchList(m_EntityInChunkByEntity, entities, ComponentOperation.AddComponent,
+                componentType, out entityBatchList);
+        }
 
-            public ComponentOperation Operation;
-            public ComponentType ComponentType;
-            [NativeDisableUnsafePtrRestriction] public int* FoundError;
+        internal bool CreateEntityBatchListForRemoveComponent(NativeArray<Entity> entities,
+            ComponentType componentType,
+            out NativeList<EntityBatchInChunk> entityBatchList)
+        {
+            return CreateEntityBatchList(m_EntityInChunkByEntity, entities, ComponentOperation.RemoveComponent,
+                componentType, out entityBatchList);
+        }
 
-            void TryAddBatch(EntityBatchInChunk entityBatch)
+        [BurstMonoInteropMethod(MakePublic = false)]
+        private static void _EntityBatchFromEntityChunkDataShared(in EntityInChunk* chunkData,
+            int chunkCount,
+            EntityBatchInChunk* entityBatchList, int* currentbatchIndex,
+            ComponentOperation operation, ref ComponentType componentType, int* foundError)
+        {
+
+            *foundError = 0;
+
+            var entityIndex = 0;
+            var entityBatch = new EntityBatchInChunk
             {
-                // Deleted Entity (not an error)
-                if (entityBatch.Chunk == null)
-                    return;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS // dots-runtime tests do not have enabled. Tests rely on appropriate error.
-#endif
-                if (Operation == ComponentOperation.AddComponent)
+                Chunk = chunkData[entityIndex].Chunk,
+                StartIndex = chunkData[entityIndex].IndexInChunk,
+                Count = 1
+            };
+            entityIndex++;
+            while (entityIndex < chunkCount)
+            {
+                // Skip this entity if it's a duplicate.  Checking previous entityIndex is sufficient
+                // since arrays are sorted.
+                if (chunkData[entityIndex].Equals(chunkData[entityIndex - 1]))
                 {
-                    if (ComponentType.IsSharedComponent &&
-                        (entityBatch.Chunk->Archetype->NumSharedComponents == kMaxSharedComponentCount))
+                    entityIndex++;
+                    continue;
+                }
+
+                var chunk = chunkData[entityIndex].Chunk;
+                var indexInChunk = chunkData[entityIndex].IndexInChunk;
+                var chunkBreak = (chunk != entityBatch.Chunk);
+                var indexBreak = (indexInChunk != (entityBatch.StartIndex + entityBatch.Count));
+                var runBreak = chunkBreak || indexBreak;
+                if (runBreak && entityBatch.Chunk != null)
+                {
+
+                    if (operation == ComponentOperation.AddComponent)
                     {
-                        *FoundError = 1;
+                        if (componentType.IsSharedComponent &&
+                            (entityBatch.Chunk->Archetype->NumSharedComponents == kMaxSharedComponentCount))
+                        {
+                            *foundError = 1;
+                            return;
+                        }
+                    }
+
+                    entityBatchList[*currentbatchIndex] = entityBatch;
+                    *currentbatchIndex = *currentbatchIndex + 1;
+                    //just to make sure we do not overflow our entityBatchList buffer
+                    if (*currentbatchIndex > chunkCount)
+                    {
+                        *foundError = 1;
                         return;
                     }
+
+                    entityBatch = new EntityBatchInChunk
+                    {
+                        Chunk = chunk,
+                        StartIndex = indexInChunk,
+                        Count = 1
+                    };
+                }
+                else
+                {
+                    entityBatch = new EntityBatchInChunk
+                    {
+                        Chunk = entityBatch.Chunk,
+                        StartIndex = entityBatch.StartIndex,
+                        Count = entityBatch.Count + 1
+                    };
                 }
 
-                EntityBatchList.Add(entityBatch);
-            }
-
-            public void Execute()
-            {
-                *FoundError = 0;
-
-                var entityIndex = 0;
-                var entityBatch = new EntityBatchInChunk
-                {
-                    Chunk = EntityChunkData[entityIndex].Chunk,
-                    StartIndex = EntityChunkData[entityIndex].IndexInChunk,
-                    Count = 1
-                };
                 entityIndex++;
-                while (entityIndex < EntityChunkData.Length)
-                {
-                    // Skip this entity if it's a duplicate.  Checking previous entityIndex is sufficient
-                    // since arrays are sorted.
-                    if (EntityChunkData[entityIndex].Equals(EntityChunkData[entityIndex - 1]))
-                    {
-                        entityIndex++;
-                        continue;
-                    }
-
-                    var chunk = EntityChunkData[entityIndex].Chunk;
-                    var indexInChunk = EntityChunkData[entityIndex].IndexInChunk;
-                    var chunkBreak = (chunk != entityBatch.Chunk);
-                    var indexBreak = (indexInChunk != (entityBatch.StartIndex + entityBatch.Count));
-                    var runBreak = chunkBreak || indexBreak;
-                    if (runBreak)
-                    {
-                        TryAddBatch(entityBatch);
-
-                        entityBatch = new EntityBatchInChunk
-                        {
-                            Chunk = chunk,
-                            StartIndex = indexInChunk,
-                            Count = 1
-                        };
-                    }
-                    else
-                    {
-                        entityBatch = new EntityBatchInChunk
-                        {
-                            Chunk = entityBatch.Chunk,
-                            StartIndex = entityBatch.StartIndex,
-                            Count = entityBatch.Count + 1
-                        };
-                    }
-                    entityIndex++;
-                }
-
-                TryAddBatch(entityBatch);
             }
-        }
 
-        public bool CreateEntityBatchListForAddComponent(NativeArray<Entity> entities, ComponentType componentType,
-            out NativeList<EntityBatchInChunk> entityBatchList)
-        {
-            return CreateEntityBatchList(entities, ComponentOperation.AddComponent, componentType, out entityBatchList);
-        }
+            if (entityBatch.Chunk == null)
+                return;
 
-        public bool CreateEntityBatchListForRemoveComponent(NativeArray<Entity> entities, ComponentType componentType,
-            out NativeList<EntityBatchInChunk> entityBatchList)
-        {
-            return CreateEntityBatchList(entities, ComponentOperation.RemoveComponent, componentType, out entityBatchList);
-        }
-
-        [BurstCompile]
-        internal struct SortEntityInChunk : IJobBurstSchedulable
-        {
-            public NativeArray<EntityInChunk> EntityInChunks;
-            public void Execute()
+            // Deleted Entity (not an error)
+            if (operation == ComponentOperation.AddComponent)
             {
-                EntityInChunks.Sort();
+                if (componentType.IsSharedComponent &&
+                    (entityBatch.Chunk->Archetype->NumSharedComponents == kMaxSharedComponentCount))
+                {
+                    *foundError = 1;
+                    return;
+                }
+            }
+
+            entityBatchList[*currentbatchIndex] = entityBatch;
+            *currentbatchIndex = *currentbatchIndex + 1;
+            //just to make sure we do not overflow our entityBatchList buffer
+            if (*currentbatchIndex > chunkCount)
+            {
+                *foundError = 1;
             }
         }
 
-        public bool CreateEntityBatchList(NativeArray<Entity> entities, ComponentOperation componentOperation, ComponentType componentType, out NativeList<EntityBatchInChunk> entityBatchList)
+
+
+        [BurstMonoInteropMethod(MakePublic = false)]
+        private static void _SortEntityInChunk(EntityInChunk* entityInChunks, int count)
+        {
+            NativeSortExtension.Sort(entityInChunks,count);
+        }
+
+        [BurstMonoInteropMethod(MakePublic = false)]
+        private static void _GatherEntityInChunkForEntities(Entity* Entities,
+            EntityInChunk* globalEntityInChunk,
+            EntityInChunk* EntityChunkData, int numEntities)
+        {
+            for (int index = 0; index < numEntities; ++index)
+            {
+                var entity = Entities[index];
+                EntityChunkData[index] = new EntityInChunk
+                {
+                    Chunk = globalEntityInChunk[entity.Index].Chunk,
+                    IndexInChunk = globalEntityInChunk[entity.Index].IndexInChunk
+                };
+            }
+        }
+
+        private static bool CreateEntityBatchList(EntityInChunk* entityInChunk, NativeArray<Entity> entities,
+            ComponentOperation componentOperation, ComponentType componentType,
+            out NativeList<EntityBatchInChunk> entityBatchList)
         {
             if (entities.Length == 0)
             {
@@ -1042,38 +1054,27 @@ namespace Unity.Entities
                 return false;
             }
 
-            var entityChunkData = new NativeArray<EntityInChunk>(entities.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            var gatherEntityInChunkForEntitiesJob = new GatherEntityInChunkForEntities
-            {
-                // The entities array passed in here could be using Allocator.Temp, which can't be passed to jobs.
-                // Since we know the job will complete before this function returns, pass the data to the job as an unsafe
-                // pointer instead.
-                Entities = (Entity*)entities.GetUnsafeReadOnlyPtr(),
-                globalEntityInChunk = m_EntityInChunkByEntity,
-                EntityChunkData = entityChunkData
-            };
-            var gatherEntityInChunkForEntitiesJobHandle =
-                gatherEntityInChunkForEntitiesJob.Schedule(entities.Length, 32);
+            var entityChunkData = new NativeArray<EntityInChunk>(entities.Length, Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
 
-            var entityChunkDataSortJob = new SortEntityInChunk
-            {
-                EntityInChunks = entityChunkData
-            };
-            var entityChunkDataSortJobHandle = entityChunkDataSortJob.Schedule(gatherEntityInChunkForEntitiesJobHandle);
+            GatherEntityInChunkForEntities((Entity*) entities.GetUnsafeReadOnlyPtr(),
+                entityInChunk, (EntityInChunk*) entityChunkData.GetUnsafePtr(),entities.Length);
 
-            entityBatchList = new NativeList<EntityBatchInChunk>(Allocator.Persistent);
+
+            SortEntityInChunk((EntityInChunk*)entityChunkData.GetUnsafePtr(), entityChunkData.Length);
+
+
+            entityBatchList = new NativeList<EntityBatchInChunk>(entityChunkData.Length, Allocator.Persistent);
+            entityBatchList.Length = entityChunkData.Length;
+
             int foundError = 0;
+            int finalBatchSize = 0;
 
-            var entityBatchFromEntityInChunksSharedJob = new EntityBatchFromEntityChunkDataShared
-            {
-                EntityChunkData = entityChunkData,
-                EntityBatchList = entityBatchList,
-                FoundError = &foundError,
-                Operation = componentOperation,
-                ComponentType = componentType
-            };
-            var entityBatchFromEntityInChunksSharedJobHandle = entityBatchFromEntityInChunksSharedJob.Schedule(entityChunkDataSortJobHandle);
-            entityBatchFromEntityInChunksSharedJobHandle.Complete();
+            EntityBatchFromEntityChunkDataShared((EntityInChunk*)entityChunkData.GetUnsafePtr(),
+                entityChunkData.Length, (EntityBatchInChunk*)entityBatchList.GetUnsafePtr(),&finalBatchSize,
+                componentOperation,ref componentType,&foundError);
+
+            entityBatchList.Length = finalBatchSize;
 
             entityChunkData.Dispose();
             if (foundError != 0)
@@ -1086,27 +1087,6 @@ namespace Unity.Entities
             return true;
         }
 
-        [BurstCompile]
-        internal struct GatherEntityInChunkForEntities : IJobParallelForBurstSchedulable
-        {
-            [ReadOnly][NativeDisableUnsafePtrRestriction]
-            public Entity* Entities;
-
-            [ReadOnly][NativeDisableUnsafePtrRestriction]
-            public EntityInChunk* globalEntityInChunk;
-
-            public NativeArray<EntityInChunk> EntityChunkData;
-
-            public void Execute(int index)
-            {
-                var entity = Entities[index];
-                EntityChunkData[index] = new EntityInChunk
-                {
-                    Chunk = globalEntityInChunk[entity.Index].Chunk,
-                    IndexInChunk = globalEntityInChunk[entity.Index].IndexInChunk
-                };
-            }
-        }
 
         public ulong AssignSequenceNumber(Chunk* chunk)
         {
@@ -1217,12 +1197,12 @@ namespace Unity.Entities
             public long PageSizeInBytes => m_chunkAddressSpace.PageSizeInBytes;
 #endif
 
-            int AllocationFailed(int megachunkIndex, int bit)
+            int AllocationFailed(int megachunkIndex, int offset, int count)
             {
                 fixed(Ulong16384* b = &m_chunkInUse)
                 {
                     long* chunkInUse = (long*)b;
-                    long mask = 1L << bit;
+                    long mask = 1L << offset;
                     while (true) // back out our change to the bitmask
                     {
                         long originalValue = Interlocked.Read(ref chunkInUse[megachunkIndex]); // get a mask word.
@@ -1284,35 +1264,64 @@ namespace Unity.Entities
                 }
             }
 
-            public int AllocateChunk(out Chunk* value)
+            void longestConsecutiveOnes(long value, out int offset, out int count)
             {
+                count = 0;
+                var newvalue = value;
+                while(newvalue != 0)
+                {
+                    value = newvalue;
+                    newvalue = value & (long)((ulong)value >> 1);
+                    ++count;
+                }
+                offset = math.tzcnt(value);
+            }
+            void longestConsecutiveZeroes(long value, out int offset, out int count)
+            {
+                longestConsecutiveOnes(~value, out offset, out count);
+            }
+
+            bool foundAtLeastThisManyConsecutiveZeroes(long value, int minimum, out int offset, out int count)
+            {
+                longestConsecutiveZeroes(value, out offset, out count);
+                return count >= minimum;
+            }
+
+            public int AllocateContiguousChunks(out Chunk* value, int requestedCount, out int actualCount)
+            {
+                actualCount = math.min(64, requestedCount); // literally can't service requests for more
                 value = null;
                 fixed(Ulong16384* a = &m_megachunk)
                 fixed(Ulong16384* b = &m_chunkInUse)
                 {
                     long* megachunk = (long*)a;
                     long* chunkInUse = (long*)b;
-                    for (int megachunkIndex = 0; megachunkIndex < megachunks; ++megachunkIndex)
+                    while (actualCount > 0)
                     {
-                        long originalValue = Interlocked.Read(ref chunkInUse[megachunkIndex]); // get a word.
-                        while (originalValue != ~0L) // while this word isn't totally full...
+                        for (int megachunkIndex = 0; megachunkIndex < megachunks; ++megachunkIndex)
                         {
-                            int bit = math.tzcnt(~originalValue); // find the index of its first empty bit
-                            long mask = 1L << bit;
-                            long newValue = originalValue | mask;
-                            if (originalValue == Interlocked.CompareExchange(ref chunkInUse[megachunkIndex], newValue, originalValue)) // try to set that bit...
+                            long originalValue = Interlocked.Read(ref chunkInUse[megachunkIndex]); // get a word.
+                            while (foundAtLeastThisManyConsecutiveZeroes(originalValue, actualCount, out int offset,out int _)) // while this word has room for my request...
                             {
-                                if (newValue == 1) // we are the one who allocates this megachunk! we set the first bit in the mask
+                                long mask = ((1L << actualCount) - 1) << offset; // make a mask for me
+                                long newValue = originalValue | mask; // and mask me into the word
+                                if (originalValue == Interlocked.CompareExchange(ref chunkInUse[megachunkIndex],
+                                    newValue, originalValue)) // try to set my bits...
                                 {
+                                    if (originalValue == 0) // we are the one who allocates this megachunk! we set the first bit in the mask
+                                    {
 #if USE_VIRTUAL_MEMORY
                                     BaselibErrorState errorState = default;
 
-                                    IntPtr allocationPtr = (IntPtr)((long)m_chunkAddressSpace.ptr + megachunkIndex * MegachunkSizeInBytes);
-                                    VMRange allocationRange = new VMRange { ptr = allocationPtr, log2PageSize = m_chunkAddressSpace.log2PageSize, pageCount = m_MegachunkSizeInPages };
+                                    IntPtr allocationPtr =
+ (IntPtr)((long)m_chunkAddressSpace.ptr + megachunkIndex * MegachunkSizeInBytes);
+                                    VMRange allocationRange = new VMRange { ptr = allocationPtr, log2PageSize =
+ m_chunkAddressSpace.log2PageSize, pageCount = m_MegachunkSizeInPages };
 
                                     if (m_pagesCommitted + m_MegachunkSizeInPages > m_chunkAddressSpace.pageCount)
                                     {
-                                        FixedString512 error = "You have committed all virtual memory reserved for Chunks (";
+                                        FixedString512 error =
+ "You have committed all virtual memory reserved for Chunks (";
                                         error.Append(CommittedBytes);
                                         FixedString128 e2 = " bytes). To allocate more than ";
                                         error.Append(e2);
@@ -1338,40 +1347,46 @@ namespace Unity.Entities
 
                                     Interlocked.Add(ref m_pagesCommitted, m_MegachunkSizeInPages);
 #else
-                                    long allocated = (long)UnsafeUtility.Malloc(MegachunkSizeInBytes, CollectionHelper.CacheLineSize, Allocator.Persistent);
+                                        long allocated = (long) Memory.Unmanaged.Allocate(MegachunkSizeInBytes,
+                                            CollectionHelper.CacheLineSize, Allocator.Persistent);
 #endif
-                                    if (allocated == 0) // if the allocation failed...
-                                        return AllocationFailed(megachunkIndex, bit);
-                                    while (0L != Interlocked.CompareExchange(ref megachunk[megachunkIndex], allocated, 0L))
-                                    {
-                                        // FreeChunk might have set bitmask to 0, without setting pointer to zero yet. wait for FreeChunk to proceed.
-                                        // This will deadlock if we'd otherwise leak memory, which is by design.
+                                        if (allocated == 0) // if the allocation failed...
+                                            return AllocationFailed(megachunkIndex, offset, actualCount);
+                                        while (0L != Interlocked.CompareExchange(ref megachunk[megachunkIndex],
+                                            allocated, 0L))
+                                        {
+                                            // FreeChunk might have set bitmask to 0, without setting pointer to zero yet. wait for FreeChunk to proceed.
+                                            // This will deadlock if we'd otherwise leak memory, which is by design.
+                                        }
                                     }
-                                }
-                                else
-                                {
-                                    while (Interlocked.Read(ref megachunk[megachunkIndex]) == 0L)
+                                    else
                                     {
-                                        // we didn't get to set bit 0, so we're not responsible for allocating. but the pointer is still zero so the guy
-                                        // we expect to allocate on our behalf either isn't done, or failed and gave up.
-                                        if ((Interlocked.Read(ref chunkInUse[megachunkIndex]) & 1) == 0) // did my leader fail and give up?
-                                            return AllocationFailed(megachunkIndex, bit);
-                                        // AllocateChunk might have set bitmask to non-0, without writing allocated pointer yet. wait for AllocateChunk to proceed.
-                                        // This will deadlock if we'd otherwise dereference a null pointer, which is by design.
+                                        while (Interlocked.Read(ref megachunk[megachunkIndex]) == 0L)
+                                        {
+                                            // we didn't get to set bit 0, so we're not responsible for allocating. but the pointer is still zero so the guy
+                                            // we expect to allocate on our behalf either isn't done, or failed and gave up.
+                                            if ((Interlocked.Read(ref chunkInUse[megachunkIndex]) & 1) == 0) // did my leader fail and give up?
+                                                return AllocationFailed(megachunkIndex, offset, actualCount);
+                                            // AllocateChunk might have set bitmask to non-0, without writing allocated pointer yet. wait for AllocateChunk to proceed.
+                                            // This will deadlock if we'd otherwise dereference a null pointer, which is by design.
+                                        }
                                     }
+
+                                    value = (Chunk*) ((byte*) megachunk[megachunkIndex] + (offset << Log2ChunkSizeInBytesRoundedUpToPow2));
+                                    return kErrorNone;
                                 }
-                                value = (Chunk*)((byte*)megachunk[megachunkIndex] + (bit << Log2ChunkSizeInBytesRoundedUpToPow2));
-                                return kErrorNone;
+
+                                originalValue = Interlocked.Read(ref chunkInUse[megachunkIndex]);
+                                // failed to set bit! read the word again and try again...
                             }
-                            originalValue = Interlocked.Read(ref chunkInUse[megachunkIndex]);
-                            // failed to set bit! read the word again and try again...
                         }
+                        actualCount >>= 1; // we tried to get what was asked for, but couldn't find space. halve request and try again.
                     }
                     return kErrorNoChunksAvailable;
                 }
             }
 
-            public int FreeChunk(Chunk* value)
+            public int FreeContiguousChunks(Chunk* value, int count)
             {
                 fixed (Ulong16384* a = &m_megachunk)
                 fixed (Ulong16384* b = &m_chunkInUse)
@@ -1385,7 +1400,7 @@ namespace Unity.Entities
                         if (value >= begin && value < end) // we found our chunk! nobody's allowed to compete with us for freeing it.
                         {
                             int bit = (int)((byte*)value - begin) >> Log2ChunkSizeInBytesRoundedUpToPow2;
-                            long mask = 1L << bit;
+                            long mask = ((1L << count) - 1) << bit;
                             while (true)
                             {
                                 long originalValue = Interlocked.Read(ref chunkInUse[megachunkIndex]);
@@ -1412,7 +1427,7 @@ namespace Unity.Entities
 
                                         Interlocked.Add(ref m_pagesCommitted, -m_MegachunkSizeInPages);
 #else
-                                        UnsafeUtility.Free((void*)allocated, Allocator.Persistent); // no need to hurry, nobody depends on this finishing
+                                        Memory.Unmanaged.Free((void*)allocated, Allocator.Persistent); // no need to hurry, nobody depends on this finishing
 #endif
                                     }
                                     return kErrorNone;
@@ -1447,47 +1462,22 @@ namespace Unity.Entities
         public Chunk* AllocateChunk()
         {
             Chunk* newChunk;
-            // Try empty chunk pool
-            if (m_EmptyChunks.Length == 0)
-            {
-                // Allocate new chunk
-                var success = s_chunkStore.Data.AllocateChunk(out newChunk);
-                Assert.IsTrue(success == 0);
-                Assert.IsTrue(newChunk != null);
+            // Allocate new chunk
+            var success = s_chunkStore.Data.AllocateContiguousChunks(out newChunk, 1, out _);
+            Assert.IsTrue(success == 0);
+            Assert.IsTrue(newChunk != null);
 
-                if (useMemoryInitPattern != 0)
-                {
-                    UnsafeUtility.MemSet(newChunk, memoryInitPattern, Chunk.kChunkSize);
-                }
-            }
-            else
+            if (useMemoryInitPattern != 0)
             {
-                Assert.IsTrue(m_EmptyChunks.Length > 0);
-                var lastIdx = m_EmptyChunks.Length - 1;
-                newChunk = m_EmptyChunks.Ptr[lastIdx];
-                m_EmptyChunks.RemoveAtSwapBack(lastIdx);
-                m_EmptyChunks.TrimExcess();
+                UnsafeUtility.MemSet(newChunk, memoryInitPattern, Chunk.kChunkSize);
             }
-
             return newChunk;
         }
 
         public void FreeChunk(Chunk* chunk)
         {
-            if (m_EmptyChunks.Length == kMaximumEmptyChunksInPool)
-            {
-                var success = s_chunkStore.Data.FreeChunk(chunk);
-                Assert.IsTrue(success == 0);
-            }
-            else
-            {
-                if (useMemoryInitPattern != 0)
-                {
-                    UnsafeUtility.MemSet(chunk, memoryInitPattern, Chunk.kChunkSize);
-                }
-                m_EmptyChunks.Add(chunk);
-                chunk->Count = 0;
-            }
+            var success = s_chunkStore.Data.FreeContiguousChunks(chunk, 1);
+            Assert.IsTrue(success == 0);
         }
 
         public Archetype* GetExistingArchetype(ComponentTypeInArchetype* typesSorted, int count)
@@ -1573,7 +1563,7 @@ namespace Unity.Entities
             ChunkAllocate<EntityRemapUtility.ManagedEntityPatchInfo>(&dstArchetype->ManagedEntityPatches, managedEntityPatchCount);
 
             dstArchetype->TypesCount = count;
-            UnsafeUtility.MemCpy(dstArchetype->Types, types, sizeof(ComponentTypeInArchetype) * count);
+            Memory.Array.Copy(dstArchetype->Types, types, count);
             dstArchetype->EntityCount = 0;
             dstArchetype->Chunks = new ArchetypeChunkData(count, numSharedComponents);
             dstArchetype->ChunksWithEmptySlots = new UnsafeChunkPtrList(0, Allocator.Persistent);
@@ -1616,7 +1606,7 @@ namespace Unity.Entities
                     dstArchetype->Flags |= ArchetypeFlags.HasChunkHeader;
                 if (typeInfo.BlobAssetRefOffsetCount > 0)
                     dstArchetype->Flags |= ArchetypeFlags.ContainsBlobAssetRefs;
-                if (!types[i].IsChunkComponent && types[i].IsManagedComponent && typeInfo.Category == TypeManager.TypeCategory.Class)
+                if (!types[i].IsChunkComponent && types[i].IsManagedComponent && typeInfo.Category == TypeManager.TypeCategory.UnityEngineObject)
                     dstArchetype->Flags |= ArchetypeFlags.HasHybridComponents;
             }
 

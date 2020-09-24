@@ -10,7 +10,6 @@ using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
-using Unity.Entities.CodeGen;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen")]
 namespace Unity.Entities.CodeGen
@@ -40,56 +39,71 @@ namespace Unity.Entities.CodeGen
             if (!WillProcess(compiledAssembly))
                 return null;
 
-            bool madeAnyChange = false;
-            Defines = compiledAssembly.Defines;
-            var assemblyDefinition = AssemblyDefinitionFor(compiledAssembly);
-            var postProcessors = FindAllEntitiesILPostProcessors();
-
-            var componentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where(TypeDefinitionExtensions.IsComponentSystem).ToArray();
-            foreach (var systemType in componentSystemTypes)
+            using (var marker = new EntitiesILPostProcessorProfileMarker(compiledAssembly.Name))
             {
-                InjectOnCreateForCompiler(systemType);
-                madeAnyChange = true;
-            }
+                bool madeAnyChange = false;
+                Defines = compiledAssembly.Defines;
+                var assemblyDefinition = AssemblyDefinitionFor(compiledAssembly);
+                var postProcessors = FindAllEntitiesILPostProcessors();
 
-            var diagnostics = new List<DiagnosticMessage>();
-            foreach (var postProcessor in postProcessors)
-            {
-                postProcessor.Defines = Defines;
-                diagnostics.AddRange(postProcessor.PostProcess(assemblyDefinition, componentSystemTypes, out var madeChange));
-                madeAnyChange |= madeChange;
-            }
+                TypeDefinition[] componentSystemTypes;
+                using (marker.CreateChildMarker("GetAllComponentTypes"))
+                    componentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where(TypeDefinitionExtensions.IsComponentSystem).ToArray();
 
-            var unmanagedComponentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where((x) => x.TypeImplements(typeof(ISystemBase))).ToArray();
-            foreach (var postProcessor in postProcessors)
-            {
-                diagnostics.AddRange(postProcessor.PostProcessUnmanaged(assemblyDefinition, unmanagedComponentSystemTypes, out var madeChange));
-                madeAnyChange |= madeChange;
-            }
-
-            // Hack to remove Entities => Entities circular references
-            var selfName = assemblyDefinition.Name.FullName;
-            foreach (var referenceName in assemblyDefinition.MainModule.AssemblyReferences)
-            {
-                if (referenceName.FullName == selfName)
+                using (marker.CreateChildMarker("InjectOnCreateForCompiler"))
                 {
-                    assemblyDefinition.MainModule.AssemblyReferences.Remove(referenceName);
-                    break;
+                    foreach (var systemType in componentSystemTypes)
+                    {
+                        InjectOnCreateForCompiler(systemType);
+                        madeAnyChange = true;
+                    }
+                }
+
+                var diagnostics = new List<DiagnosticMessage>();
+                foreach (var postProcessor in postProcessors)
+                {
+                    postProcessor.Defines = Defines;
+                    using (marker.CreateChildMarker(postProcessor.GetType().Name))
+                    {
+                        diagnostics.AddRange(postProcessor.PostProcess(assemblyDefinition, componentSystemTypes, out var madeChange));
+                        madeAnyChange |= madeChange;
+                    }
+                }
+
+                var unmanagedComponentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where((x) => x.TypeImplements(typeof(ISystemBase))).ToArray();
+                foreach (var postProcessor in postProcessors)
+                {
+                    diagnostics.AddRange(postProcessor.PostProcessUnmanaged(assemblyDefinition, unmanagedComponentSystemTypes, out var madeChange));
+                    madeAnyChange |= madeChange;
+                }
+
+                // Hack to remove Entities => Entities circular references
+                var selfName = assemblyDefinition.Name.FullName;
+                foreach (var referenceName in assemblyDefinition.MainModule.AssemblyReferences)
+                {
+                    if (referenceName.FullName == selfName)
+                    {
+                        assemblyDefinition.MainModule.AssemblyReferences.Remove(referenceName);
+                        break;
+                    }
+                }
+
+                if (!madeAnyChange || diagnostics.Any(d => d.DiagnosticType == DiagnosticType.Error))
+                    return new ILPostProcessResult(null, diagnostics);
+
+                using (marker.CreateChildMarker("WriteAssembly"))
+                {
+                    var pe = new MemoryStream();
+                    var pdb = new MemoryStream();
+                    var writerParameters = new WriterParameters
+                    {
+                        SymbolWriterProvider = new PortablePdbWriterProvider(), SymbolStream = pdb, WriteSymbols = true
+                    };
+
+                    assemblyDefinition.Write(pe, writerParameters);
+                    return new ILPostProcessResult(new InMemoryAssembly(pe.ToArray(), pdb.ToArray()), diagnostics);
                 }
             }
-
-            if (!madeAnyChange || diagnostics.Any(d => d.DiagnosticType == DiagnosticType.Error))
-                return new ILPostProcessResult(null, diagnostics);
-
-            var pe = new MemoryStream();
-            var pdb = new MemoryStream();
-            var writerParameters = new WriterParameters
-            {
-                SymbolWriterProvider = new PortablePdbWriterProvider(), SymbolStream = pdb, WriteSymbols = true
-            };
-
-            assemblyDefinition.Write(pe, writerParameters);
-            return new ILPostProcessResult(new InMemoryAssembly(pe.ToArray(), pdb.ToArray()), diagnostics);
         }
 
         static void InjectOnCreateForCompiler(TypeDefinition typeDefinition)

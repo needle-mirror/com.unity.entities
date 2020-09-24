@@ -50,33 +50,12 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="allocator">The type of allocation for creating the NativeArray to hold the Entity objects.</param>
         /// <returns>An array of Entity objects referring to all the entities in the World.</returns>
-        public NativeArray<Entity> GetAllEntities(Allocator allocator = Allocator.Temp)
+
+        public  NativeArray<Entity> GetAllEntities(Allocator allocator = Allocator.Temp)
         {
             BeforeStructuralChange();
 
-            var chunks = GetAllChunks();
-            var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
-            var array = new NativeArray<Entity>(count, allocator);
-            var entityType = GetEntityTypeHandle();
-            var offset = 0;
-
-            for (int i = 0; i < chunks.Length; i++)
-            {
-                var chunk = chunks[i];
-                var entities = chunk.GetNativeArray(entityType);
-                array.Slice(offset, entities.Length).CopyFrom(entities);
-                offset += entities.Length;
-            }
-
-            chunks.Dispose();
-            return array;
-        }
-
-        internal NativeArray<Entity> GetAllEntitiesImmediate(Allocator allocator = Allocator.Temp)
-        {
-            BeforeStructuralChange();
-
-            var chunks = GetAllChunksImmediate(Allocator.TempJob);
+            var chunks = GetAllChunks(Allocator.TempJob);
             var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
             var array = new NativeArray<Entity>(count, allocator);
             var entityType = GetEntityTypeHandle();
@@ -188,7 +167,16 @@ namespace Unity.Entities
 
             public string GetEntityInfo(Entity entity)
             {
-                var archetype = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->GetArchetype(entity);
+
+
+                var entityComponentStore = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+                if (entity.Index < 0 || entity.Index > entityComponentStore->EntitiesCapacity)
+                {
+                    return "Entity.Invalid";
+                }
+
+                var archetype = entityComponentStore->GetArchetype(entity);
 #if !NET_DOTS
                 var str = new System.Text.StringBuilder();
                 str.Append(entity.ToString());
@@ -250,7 +238,7 @@ namespace Unity.Entities
                 {
                     return m_Manager.GetSharedComponentData(entity, type.TypeIndex);
                 }
-                else if (typeInfo.Category == TypeManager.TypeCategory.Class)
+                else if (typeInfo.Category == TypeManager.TypeCategory.UnityEngineObject)
                 {
                     return m_Manager.GetComponentObject<object>(entity, type);
                 }
@@ -301,7 +289,8 @@ namespace Unity.Entities
                 var mcs = eda->ManagedComponentStore;
 
                 //@TODO: Validate from perspective of chunkquery...
-                eda->EntityComponentStore->CheckInternalConsistency(mcs.m_ManagedComponentData);
+                if (false == eda->EntityComponentStore->IsIntentionallyInconsistent)
+                    eda->EntityComponentStore->CheckInternalConsistency(mcs.m_ManagedComponentData);
 
                 Assert.IsTrue(mcs.AllSharedComponentReferencesAreFromChunks(eda->EntityComponentStore));
                 mcs.CheckInternalConsistency();

@@ -126,8 +126,9 @@ namespace Unity.Entities
                 m_EntityComponentStore->AssertEntityHasComponent(entity, m_TypeIndex);
 #endif
 
-                // TODO(dep): We don't really have a way to mark the native array as read only.
-                BufferHeader* header = (BufferHeader*)m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
+                var header = (m_IsReadOnly)?
+                    (BufferHeader*)m_EntityComponentStore->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache) :
+                    (BufferHeader*)m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 return new DynamicBuffer<T>(header, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly, false, 0, m_InternalCapacity);

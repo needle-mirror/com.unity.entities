@@ -52,6 +52,8 @@ namespace Unity.Entities
 
         void BeforeOnUpdate()
         {
+            CheckedState()->BeforeUpdateRecordTiming();
+
             BeforeUpdateVersioning();
             CompleteDependencyInternal();
 
@@ -79,6 +81,8 @@ namespace Unity.Entities
             m_DeferredEntities.Playback(EntityManager);
         #endif
             m_DeferredEntities.Dispose();
+
+            CheckedState()->AfterUpdateRecordTiming();
         }
 
         public sealed override void Update()
@@ -89,6 +93,8 @@ namespace Unity.Entities
 #endif
 
             {
+                state->BeforeUpdateResetRunTracker();
+
                 if (Enabled && ShouldRunSystem())
                 {
                     if (!state->m_PreviouslyEnabled)

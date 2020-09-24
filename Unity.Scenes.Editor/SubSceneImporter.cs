@@ -18,7 +18,7 @@ using UnityEditor.Experimental.AssetImporters;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(84, "extDontMatter")]
+    [ScriptedImporter(86, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {
@@ -57,7 +57,7 @@ namespace Unity.Scenes.Editor
                         guids.Add(assetGUID);
                     }
                 }
-                else
+                else if(!assetGUID.Empty())
                 {
                     guids.Add(assetGUID);
                 }
@@ -135,20 +135,18 @@ namespace Unity.Scenes.Editor
                     WriteEntitySceneSettings writeEntitySettings = new WriteEntitySceneSettings();
                     if (config != null && config.TryGetComponent<DotsRuntimeBuildProfile>(out var profile))
                     {
-                        if (profile.UseNewPipeline)
+                        if (config.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
                         {
-                            if (config.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
+                            ctx.DependsOnSourceAsset(AssetDatabase.GetAssetPath(rootAssembly.RootAssembly.asset));
+                            EditorSceneManager.SetActiveScene(scene);
+                            writeEntitySettings.Codec = Codec.LZ4;
+                            writeEntitySettings.IsDotsRuntime = true;
+                            writeEntitySettings.BuildAssemblyCache = new BuildAssemblyCache()
                             {
-                                EditorSceneManager.SetActiveScene(scene);
-                                writeEntitySettings.Codec = Codec.LZ4;
-                                writeEntitySettings.IsDotsRuntime = true;
-                                writeEntitySettings.BuildAssemblyCache = new BuildAssemblyCache()
-                                {
-                                    BaseAssemblies = rootAssembly.RootAssembly.asset,
-                                    PlatformName = profile.Target.UnityPlatformName
-                                };
-                                settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
-                            }
+                                BaseAssemblies = rootAssembly.RootAssembly.asset,
+                                PlatformName = profile.Target.UnityPlatformName
+                            };
+                            settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
                         }
                     }
 
