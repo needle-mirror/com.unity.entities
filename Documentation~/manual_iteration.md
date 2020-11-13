@@ -1,3 +1,6 @@
+---
+uid: ecs-manual-iteration
+---
 # Manual iteration
 
 You can request all of the chunks explicitly in a NativeArray and process them with a job such as `IJobParallelFor`. You should use this method if you need to manage chunks in a way that is not appropriate for the simplified model of  iterating over all of the chunks in an EntityQuery. The following is an example of this:

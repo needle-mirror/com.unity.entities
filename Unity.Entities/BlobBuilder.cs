@@ -78,7 +78,7 @@ namespace Unity.Entities
     /// A blob asset is an immutable data structure stored in unmanaged memory.
     /// Blob assets can contain primitive types, strings, structs, arrays, and arrays of arrays. Arrays and structs
     /// must only contain blittable types. Strings must be of type <see cref="BlobString"/> (or a specialized unmanaged
-    /// string type such as <see cref="NativeString64"/>).
+    /// string type such as <see cref="NativeString"/>).
     ///
     /// To use a BlobBuilder object to create a blob asset:
     /// 1. Declare the structure of the blob asset as a struct.

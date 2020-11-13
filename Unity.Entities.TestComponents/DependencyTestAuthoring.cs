@@ -14,14 +14,10 @@ namespace Unity.Entities.Tests
 
         public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
         {
-            if (Asset != null)
-                conversionSystem.DeclareAssetDependency(gameObject, Asset);
-            if (Texture != null)
-                conversionSystem.DeclareAssetDependency(gameObject, Texture);
-            if (Material != null)
-                conversionSystem.DeclareAssetDependency(gameObject, Material);
-            if (GameObject != null)
-                conversionSystem.DeclareDependency(gameObject, GameObject);
+            conversionSystem.DeclareAssetDependency(gameObject, Asset);
+            conversionSystem.DeclareAssetDependency(gameObject, Texture);
+            conversionSystem.DeclareAssetDependency(gameObject, Material);
+            conversionSystem.DeclareDependency(gameObject, GameObject);
             dstManager.AddComponentData(entity, new ConversionDependencyData
             {
                 MaterialColor = Material != null ? Material.color : default,

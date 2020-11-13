@@ -13,3 +13,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.DOTS.Editor")]
 [assembly: InternalsVisibleTo("Unity.DOTS.Editor.Tests")]
 [assembly: InternalsVisibleTo("Unity.Tiny.UnityInstance")]
+[assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build.Tests")]
+[assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]

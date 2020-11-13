@@ -1,4 +1,3 @@
-using Bee.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -177,14 +176,8 @@ namespace Unity.Entities.Editor
                 m_ConfigurationsListView.itemsSource = m_FilteredBuildConfigurationViewModels;
                 m_ConfigurationsListView.selectionType = SelectionType.Single;
 
-
-#if UNITY_2020_1_OR_NEWER
                 m_ConfigurationsListView.onSelectionChange += OnConfigurationListViewSelectionChange;
                 m_ConfigurationsListView.onItemsChosen += chosenConfigurations => EditBuildConfiguration((BuildConfigurationViewModel)chosenConfigurations.First());
-#else
-                m_ConfigurationsListView.onSelectionChanged += OnConfigurationListViewSelectionChanged;
-                m_ConfigurationsListView.onItemChosen += chosenConfiguration => EditBuildConfiguration((BuildConfigurationViewModel)chosenConfiguration);
-#endif
 
                 m_BuildMessage = m_Root.Q<VisualElement>(kNamePrefix + "build-message");
                 m_BuildMessage.Hide();
@@ -271,11 +264,7 @@ namespace Unity.Entities.Editor
                 UpdateActionButtonsState();
             }
 
-#if UNITY_2020_1_OR_NEWER
             void OnConfigurationListViewSelectionChange(IEnumerable<object> obj)
-#else
-            void OnConfigurationListViewSelectionChanged(List<object> obj)
-#endif
             {
                 if (m_DiscardSelectionChanged)
                     return;
@@ -369,35 +358,33 @@ namespace Unity.Entities.Editor
 
             static string GetUssClass(Platform platform)
             {
-                switch (platform)
+                switch (platform?.Name)
                 {
-                    case null:
-                        return "start-live-link__item-template__icon-noTarget";
-                    case WindowsPlatform _:
-                    case UniversalWindowsPlatform _:
+                    case KnownPlatforms.Windows.Name:
+                    case KnownPlatforms.UniversalWindowsPlatform.Name:
                         return "start-live-link__item-template__icon-windows";
-                    case LinuxPlatform _:
-                    case MacOSXPlatform _:
+                    case KnownPlatforms.Linux.Name:
+                    case KnownPlatforms.macOS.Name:
                         return "start-live-link__item-template__icon-standalone";
-                    case XboxOnePlatform _:
+                    case KnownPlatforms.XboxOne.Name:
                         return "start-live-link__item-template__icon-xboxOne";
-                    case IosPlatform _:
+                    case KnownPlatforms.iOS.Name:
                         return "start-live-link__item-template__icon-iOS";
-                    case AndroidPlatform _:
+                    case KnownPlatforms.Android.Name:
                         return "start-live-link__item-template__icon-android";
-                    case WebGLPlatform _:
+                    case KnownPlatforms.WebGL.Name:
                         return "start-live-link__item-template__icon-webGL";
-                    case PS4Platform _:
+                    case KnownPlatforms.PlayStation4.Name:
                         return "start-live-link__item-template__icon-ps4";
-                    case TvosPlatform _:
+                    case KnownPlatforms.tvOS.Name:
                         return "start-live-link__item-template__icon-tvOS";
-                    case SwitchPlatform _:
+                    case KnownPlatforms.Switch.Name:
                         return "start-live-link__item-template__icon-switch";
-                    case LuminPlatform _:
+                    case KnownPlatforms.Lumin.Name:
                         return "start-live-link__item-template__icon-lumin";
+					default:
+						return "start-live-link__item-template__icon-noTarget";
                 }
-
-                return null;
             }
 
             static string StripAnyHtmlTag(string input) => Regex.Replace(input, "<.*?>", string.Empty);

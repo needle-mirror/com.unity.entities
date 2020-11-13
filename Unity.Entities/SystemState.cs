@@ -58,15 +58,19 @@ namespace Unity.Entities
         internal EntityManager m_EntityManager;
         internal EntityComponentStore* m_EntityComponentStore;
         internal ComponentDependencyManager* m_DependencyManager;
-        internal GCHandle m_World;
         internal WorldUnmanaged m_WorldUnmanaged;
 
-        internal bool m_AlwaysUpdateSystem;
-        internal bool m_Enabled;
-        internal bool m_PreviouslyEnabled;
+        // a handle to this system state that can be used as a stable, safe reference but must be resolved via the
+        // associated world.
+        internal SystemHandleUntyped m_Handle;
 
-        // SystemBase stuff
-        internal bool      m_GetDependencyFromSafetyManager;
+        private const uint kEnabledMask = 0x1;
+        private const uint kAlwaysUpdateSystemMask = 0x2;
+        private const uint kPreviouslyEnabledMask = 0x4;
+        private const uint kNeedToGetDependencyFromSafetyManagerMask = 0x8;
+        private uint m_Flags;
+        private void SetFlag(uint mask, bool value) => m_Flags = value ? m_Flags | mask : m_Flags & ~mask;
+
         internal JobHandle m_JobHandle;
 
     #if ENABLE_PROFILER
@@ -83,13 +87,26 @@ namespace Unity.Entities
 #endif
 
         /// <summary>
+        /// Return the unmanaged type index of the system (>= 0 for ISystemBase-type systems), or -1 for managed systems.
+        /// </summary>
+        public int UnmanagedMetaIndex { get; private set; }
+
+        internal GCHandle m_World;
+        // used by managed systems to store a reference to the actual system
+        internal GCHandle m_ManagedSystem;
+
+        /// <summary>
         /// Controls whether this system executes when its OnUpdate function is called.
         /// </summary>
         /// <value>True, if the system is enabled.</value>
         /// <remarks>The Enabled property is intended for debugging so that you can easily turn on and off systems
         /// from the Entity Debugger window. A system with Enabled set to false will not update, even if its
         /// <see cref="ShouldRunSystem"/> function returns true.</remarks>
-        public bool Enabled { get => m_Enabled; set => m_Enabled = value; }
+        public bool Enabled { get => (m_Flags & kEnabledMask) != 0; set => SetFlag(kEnabledMask, value); }
+
+        private bool AlwaysUpdateSystem { get => (m_Flags & kAlwaysUpdateSystemMask) != 0; set => SetFlag(kAlwaysUpdateSystemMask, value); }
+        internal bool PreviouslyEnabled { get => (m_Flags & kPreviouslyEnabledMask) != 0; set => SetFlag(kPreviouslyEnabledMask, value); }
+        private bool NeedToGetDependencyFromSafetyManager { get => (m_Flags & kNeedToGetDependencyFromSafetyManagerMask) != 0; set => SetFlag(kNeedToGetDependencyFromSafetyManagerMask, value); }
 
         /// <summary>
         /// The current change version number in this <see cref="World"/>.
@@ -146,36 +163,26 @@ namespace Unity.Entities
         /// </summary>
         public ref readonly TimeData Time => ref WorldUnmanaged.CurrentTime;
 
-        // Used by managed systems to heap allocate a system state when they are created.
-        // Unmanaged systems use a separate allocator optimized for speed, found in World.cs
-        internal static SystemState* Allocate()
-        {
-            void* result = Memory.Unmanaged.Allocate(sizeof(SystemState), 16, Allocator.Persistent);
-            UnsafeUtility.MemClear(result, sizeof(SystemState));
-            return (SystemState*)result;
-        }
-
-        internal static void Deallocate(SystemState* state)
-        {
-            Memory.Unmanaged.Free(state, Allocator.Persistent);
-        }
+        [NotBurstCompatible]
+        internal ComponentSystemBase ManagedSystem => m_ManagedSystem.IsAllocated ? m_ManagedSystem.Target as ComponentSystemBase : null;
 
         // Managed systems call this function to initialize their backing system state
         [NotBurstCompatible] // Because world
-        internal void InitManaged(World world, Type managedType)
+        internal void InitManaged(World world, SystemHandleUntyped handle, Type managedType, ComponentSystemBase system)
         {
             UnmanagedMetaIndex = -1;
+            m_ManagedSystem = GCHandle.Alloc(system, GCHandleType.Normal);
 
-            CommonInit(world);
+            CommonInit(world, handle);
 
             if (managedType != null)
             {
-#if !UNITY_DOTSRUNTIME
-                m_AlwaysUpdateSystem = Attribute.IsDefined(managedType, typeof(AlwaysUpdateSystemAttribute), true);
+#if !NET_DOTS
+                AlwaysUpdateSystem = Attribute.IsDefined(managedType, typeof(AlwaysUpdateSystemAttribute), true);
 #else
                 var attrs = TypeManager.GetSystemAttributes(managedType, typeof(AlwaysUpdateSystemAttribute));
                 if (attrs.Length > 0)
-                    m_AlwaysUpdateSystem = true;
+                    AlwaysUpdateSystem = true;
 #endif
             }
 
@@ -184,16 +191,19 @@ namespace Unity.Entities
 #endif
         }
 
+        static int ms_SystemIDAllocator = 0;
+
         // Initialization common to managed and unmanaged systems
-        private void CommonInit(World world)
+        private void CommonInit(World world, SystemHandleUntyped handle)
         {
-            m_Enabled = true;
-            m_SystemID = World.AllocateSystemID();
+            Enabled = true;
+            m_SystemID = ++ms_SystemIDAllocator;
             m_World = GCHandle.Alloc(world);
             m_WorldUnmanaged = world.Unmanaged;
             m_EntityManager = world.EntityManager;
             m_EntityComponentStore = m_EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
             m_DependencyManager = m_EntityManager.GetCheckedEntityDataAccess()->DependencyManager;
+            m_Handle = handle;
 
             EntityQueries = new UnsafeList<EntityQuery>(0, Allocator.Persistent);
             RequiredEntityQueries = new UnsafeList<EntityQuery>(0, Allocator.Persistent);
@@ -201,18 +211,18 @@ namespace Unity.Entities
             m_JobDependencyForReadingSystems = new UnsafeIntList(0, Allocator.Persistent);
             m_JobDependencyForWritingSystems = new UnsafeIntList(0, Allocator.Persistent);
 
-            m_AlwaysUpdateSystem = false;
+            AlwaysUpdateSystem = false;
         }
 
         // Unmanaged systems call this function to initialize their backing system state
         [NotBurstCompatible]
-        internal void InitUnmanaged(World world, int unmanagedMetaIndex, void* systemptr)
+        internal void InitUnmanaged(World world, SystemHandleUntyped handle, int unmanagedMetaIndex, void* systemptr)
         {
-            m_Enabled = true;
+            Enabled = true;
             UnmanagedMetaIndex = unmanagedMetaIndex;
             m_SystemPtr = systemptr;
 
-            CommonInit(world);
+            CommonInit(world, handle);
 
 #if ENABLE_PROFILER
             m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {SystemBaseRegistry.GetDebugName(UnmanagedMetaIndex)}");
@@ -236,6 +246,11 @@ namespace Unity.Entities
             if (m_World.IsAllocated)
             {
                 m_World.Free();
+            }
+
+            if (m_ManagedSystem.IsAllocated)
+            {
+                m_ManagedSystem.Free();
             }
 
             m_JobDependencyForReadingSystems.Dispose();
@@ -262,7 +277,7 @@ namespace Unity.Entities
         /// The ECS-related data dependencies of the system.
         /// </summary>
         /// <remarks>
-        /// Before <see cref="ISystemState.OnUpdate"/>, the Dependency property represents the combined job handles of any job that
+        /// Before <see cref="SystemBase.OnUpdate"/>, the Dependency property represents the combined job handles of any job that
         /// writes to the same components that the current system reads -- or reads the same components that the current
         /// system writes to. When you use [Entities.ForEach] or [Job.WithCode], the system uses the Dependency property
         /// to specify a job’s dependencies when scheduling it. The system also combines the new job's [JobHandle]
@@ -290,10 +305,10 @@ namespace Unity.Entities
         {
             get
             {
-                if (m_GetDependencyFromSafetyManager)
+                if (NeedToGetDependencyFromSafetyManager)
                 {
                     var depMgr = m_DependencyManager;
-                    m_GetDependencyFromSafetyManager = false;
+                    NeedToGetDependencyFromSafetyManager = false;
                     m_JobHandle = depMgr->GetDependency(m_JobDependencyForReadingSystems.Ptr,
                         m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
                         m_JobDependencyForWritingSystems.Length);
@@ -303,15 +318,10 @@ namespace Unity.Entities
             }
             set
             {
-                m_GetDependencyFromSafetyManager = false;
+                NeedToGetDependencyFromSafetyManager = false;
                 m_JobHandle = value;
             }
         }
-
-        /// <summary>
-        /// Return the unmanaged type index of the system (>= 0 for ISystemBase-type systems), or -1 for managed systems.
-        /// </summary>
-        public int UnmanagedMetaIndex { get; private set; }
 
         public void CompleteDependency()
         {
@@ -319,9 +329,9 @@ namespace Unity.Entities
             m_JobHandle.Complete();
 
             // We need to get more job handles from other systems
-            if (m_GetDependencyFromSafetyManager)
+            if (NeedToGetDependencyFromSafetyManager)
             {
-                m_GetDependencyFromSafetyManager = false;
+                NeedToGetDependencyFromSafetyManager = false;
                 CompleteDependencyInternal();
             }
         }
@@ -379,7 +389,7 @@ namespace Unity.Entities
             // We need to wait on all previous frame dependencies, otherwise it is possible that we create infinitely long dependency chains
             // without anyone ever waiting on it
             m_JobHandle.Complete();
-            m_GetDependencyFromSafetyManager = true;
+            NeedToGetDependencyFromSafetyManager = true;
         }
 
 #pragma warning disable 649
@@ -393,9 +403,6 @@ namespace Unity.Entities
         internal void AfterOnUpdate()
         {
             AfterUpdateVersioning();
-
-            var depMgr = m_DependencyManager;
-
             // If outputJob says no relevant jobs were scheduled,
             // then no need to batch them up or register them.
             // This is a big optimization if we only Run methods on main thread...
@@ -403,7 +410,7 @@ namespace Unity.Entities
             if (((JobHandleData*)&outputJob)->jobGroup != null)
             {
                 JobHandle.ScheduleBatchedJobs();
-                m_JobHandle = depMgr->AddDependency(m_JobDependencyForReadingSystems.Ptr,
+                m_JobHandle = m_DependencyManager->AddDependency(m_JobDependencyForReadingSystems.Ptr,
                     m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
                     m_JobDependencyForWritingSystems.Length, outputJob);
             }
@@ -436,7 +443,7 @@ namespace Unity.Entities
 
         internal bool ShouldRunSystem()
         {
-            if (m_AlwaysUpdateSystem)
+            if (AlwaysUpdateSystem)
                 return true;
 
             ref var required = ref RequiredEntityQueries;
@@ -673,6 +680,17 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Gets the run-time type information required to access a shared component data in a chunk.
+        /// </summary>
+        /// <param name="componentType">The component type to get access to.</param>
+        /// <returns>An object representing the type information required to safely access shared component data stored in a
+        /// chunk.</returns>
+        public DynamicSharedComponentTypeHandle GetDynamicSharedComponentTypeHandle(ComponentType componentType)
+        {
+            return EntityManager.GetDynamicSharedComponentTypeHandle(componentType);
+        }
+
+        /// <summary>
         /// Gets the run-time type information required to access the array of <see cref="Entity"/> objects in a chunk.
         /// </summary>
         /// <returns>An object representing the type information required to safely access Entity instances stored in a
@@ -681,5 +699,165 @@ namespace Unity.Entities
         {
             return EntityManager.GetEntityTypeHandle();
         }
+
+        /// <summary>
+        /// Gets an dictionary-like container containing all components of type T, keyed by Entity.
+        /// </summary>
+        /// <param name="isReadOnly">Whether the data is only read, not written. Access data as
+        /// read-only whenever possible.</param>
+        /// <typeparam name="T">A struct that implements <see cref="IComponentData"/>.</typeparam>
+        /// <returns>All component data of type T.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
+            where T : struct, IComponentData
+        {
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+            return EntityManager.GetComponentDataFromEntity<T>(isReadOnly);
+        }
+
+        /// <summary>
+        /// Gets a BufferFromEntity&lt;T&gt; object that can access a <seealso cref="DynamicBuffer{T}"/>.
+        /// </summary>
+        /// <remarks>Assign the returned object to a field of your Job struct so that you can access the
+        /// contents of the buffer in a Job.</remarks>
+        /// <param name="isReadOnly">Whether the buffer data is only read or is also written. Access data in
+        /// a read-only fashion whenever possible.</param>
+        /// <typeparam name="T">The type of <see cref="IBufferElementData"/> stored in the buffer.</typeparam>
+        /// <returns>An array-like object that provides access to buffers, indexed by <see cref="Entity"/>.</returns>
+        /// <seealso cref="ComponentDataFromEntity{T}"/>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
+        public BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
+        {
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+            return EntityManager.GetBufferFromEntity<T>(isReadOnly);
+        }
+
+        /// <summary>
+        /// Adds a query that must return entities for the system to run. You can add multiple required queries to a
+        /// system; all of them must match at least one entity for the system to run.
+        /// </summary>
+        /// <param name="query">A query that must match entities this frame in order for this system to run.</param>
+        /// <remarks>Any queries added through RequireforUpdate override all other queries cached by this system.
+        /// In other words, if any required query does not find matching entities, the update is skipped even
+        /// if another query created for the system (either explicitly or implicitly) does match entities and
+        /// vice versa.</remarks>
+        public void RequireForUpdate(EntityQuery query)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (AlwaysUpdateSystem)
+                throw new InvalidOperationException($"Cannot require {nameof(EntityQuery)} for update on a system with {nameof(AlwaysUpdateSystemAttribute)}");
+#endif
+
+            RequiredEntityQueries.Add(query);
+        }
+
+        /// <summary>
+        /// Require that a specific singleton component exist for this system to run.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        [NotBurstCompatible] // We need to fix up EntityQueryManager
+        public void RequireSingletonForUpdate<T>()
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = GetSingletonEntityQueryInternal(type);
+            RequireForUpdate(query);
+        }
+
+        /// <summary>
+        /// Checks whether a singelton component of the specified type exists.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
+        [NotBurstCompatible] // We need to fix up EntityQueryManager
+        public bool HasSingleton<T>()
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = GetSingletonEntityQueryInternal(type);
+            return query.CalculateEntityCount() == 1;
+        }
+
+        /// <summary>
+        /// Gets the value of a singleton component.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <returns>The component.</returns>
+        /// <seealso cref="EntityQuery.GetSingleton{T}"/>
+        [NotBurstCompatible] // We need to fix up EntityQueryManager
+        public T GetSingleton<T>()
+            where T : struct, IComponentData
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = GetSingletonEntityQueryInternal(type);
+            return query.GetSingleton<T>();
+        }
+
+        /// <summary>
+        /// Gets the value of a singleton component, and returns whether or not a singleton component of the specified type exists in the <see cref="World"/>.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <typeparam name="value">The component. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</typeparam>
+        /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+        [NotBurstCompatible] // We need to fix up EntityQueryManager
+        public bool TryGetSingleton<T>(out T value)
+            where T : struct, IComponentData
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = GetSingletonEntityQueryInternal(type);
+
+            var hasSingleton = query.CalculateEntityCount() == 1;
+
+            value = hasSingleton ? query.GetSingleton<T>() : default;
+
+            return hasSingleton;
+        }
+
+        /// <summary>
+        /// Sets the value of a singleton component.
+        /// </summary>
+        /// <param name="value">A component containing the value to assign to the singleton.</param>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <seealso cref="EntityQuery.SetSingleton{T}"/>
+        [NotBurstCompatible] // We need to fix up EntityQueryManager
+        public void SetSingleton<T>(T value)
+            where T : struct, IComponentData
+        {
+            var type = ComponentType.ReadWrite<T>();
+            var query = GetSingletonEntityQueryInternal(type);
+            query.SetSingleton(value);
+        }
+
+        /// <summary>
+        /// Gets the Entity instance for a singleton.
+        /// </summary>
+        /// <typeparam name="T">The Type of the singleton component.</typeparam>
+        /// <returns>The entity associated with the specified singleton component.</returns>
+        /// <seealso cref="EntityQuery.GetSingletonEntity"/>
+        [NotBurstCompatible] // We need to fix up EntityQueryManager
+        public Entity GetSingletonEntity<T>()
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = GetSingletonEntityQueryInternal(type);
+            return query.GetSingletonEntity();
+        }
+
+        /// <summary>
+        /// Gets the singleton Entity, and returns whether or not a singleton <see cref="Entity"/> of the specified type exists in the <see cref="World"/>.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <typeparam name="value">The <see cref="Entity"/> associated with the specified singleton component.
+        ///  If a singleton of the specified types does not exist in the current <see cref="World"/>, this is set to Entity.Null</typeparam>
+        /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+        [NotBurstCompatible] // We need to fix up EntityQueryManager
+        public bool TryGetSingletonEntity<T>(out Entity value)
+        {
+            var type = ComponentType.ReadOnly<T>();
+            var query = GetSingletonEntityQueryInternal(type);
+            var hasSingleton = query.CalculateEntityCount() == 1;
+
+            value = hasSingleton ? query.GetSingletonEntity() : Entity.Null;
+
+            return hasSingleton;
+        }
+
     }
 }

@@ -4,10 +4,11 @@ using Unity.Collections;
 namespace Doc.CodeSamples.Tests
 {
     #region add-in-job
+
     using Unity.Entities;
     using Unity.Jobs;
 
-    public class CreateEntitiesWithBuffers : SystemBase
+    public partial class CreateEntitiesWithBuffers : SystemBase
     {
         // A command buffer system executes command buffers in its own OnUpdate
         public EntityCommandBufferSystem CommandBufferSystem;
@@ -95,7 +96,7 @@ namespace Doc.CodeSamples.Tests
         public int ElementCount;
     }
 
-    public class AddBufferSnippets : SystemBase
+    public partial class AddBufferSnippets : SystemBase
     {
         protected override void OnCreate()
         {
@@ -161,7 +162,7 @@ namespace Doc.CodeSamples.Tests
 
     #region access-buffer-system
 
-    public class DynamicBufferSystem : SystemBase
+    public partial class DynamicBufferSystem : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -183,7 +184,7 @@ namespace Doc.CodeSamples.Tests
 
     #region access-ijfe
 
-    public class DynamicBufferForEachSystem : SystemBase
+    public partial class DynamicBufferForEachSystem : SystemBase
     {
         private EntityQuery query;
 
@@ -252,7 +253,7 @@ namespace Doc.CodeSamples.Tests
 
     #region access-chunk-job
 
-    public class DynamicBufferJobSystem : SystemBase
+    public partial class DynamicBufferJobSystem : SystemBase
     {
         private EntityQuery query;
 
@@ -265,7 +266,7 @@ namespace Doc.CodeSamples.Tests
             query = GetEntityQuery(queryDescription);
         }
 
-        public struct BuffersInChunks : IJobChunk
+        public struct BuffersInChunks : IJobEntityBatch
         {
             //The data type and safety object
             public BufferTypeHandle<MyBufferElement> BufferTypeHandle;
@@ -273,21 +274,19 @@ namespace Doc.CodeSamples.Tests
             //An array to hold the output, intermediate sums
             public NativeArray<int> sums;
 
-            public void Execute(ArchetypeChunk chunk,
-                int chunkIndex,
-                int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
                 //A buffer accessor is a list of all the buffers in the chunk
                 BufferAccessor<MyBufferElement> buffers
-                    = chunk.GetBufferAccessor(BufferTypeHandle);
+                    = batchInChunk.GetBufferAccessor(BufferTypeHandle);
 
-                for (int c = 0; c < chunk.Count; c++)
+                for (int c = 0; c < batchInChunk.Count; c++)
                 {
                     //An individual dynamic buffer for a specific entity
                     DynamicBuffer<MyBufferElement> buffer = buffers[c];
                     for(int i = 0; i < buffer.Length; i++)
                     {
-                        sums[chunkIndex] += buffer[i].Value;
+                        sums[batchIndex] += buffer[i].Value;
                     }
                 }
             }
@@ -318,7 +317,7 @@ namespace Doc.CodeSamples.Tests
             BuffersInChunks bufferJob = new BuffersInChunks();
             bufferJob.BufferTypeHandle = GetBufferTypeHandle<MyBufferElement>();
             bufferJob.sums = intermediateSums;
-            this.Dependency = bufferJob.ScheduleParallel(query, this.Dependency);
+            this.Dependency = bufferJob.ScheduleParallel(query, 1, this.Dependency);
 
             //Schedule the second job, which depends on the first
             SumResult finalSumJob = new SumResult();
@@ -527,7 +526,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
-    public class ReinterpretExample : SystemBase
+    public partial class ReinterpretExample : SystemBase
     {
         protected override void OnUpdate()
         {

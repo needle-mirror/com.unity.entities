@@ -16,6 +16,8 @@ namespace Unity.Entities.CodeGen
 {
     internal class EntitiesILPostProcessors : ILPostProcessor
     {
+        bool _ReferencesEntities;
+        bool _ReferencesJobs;
         public static string[] Defines { get; internal set; }
 
         static EntitiesILPostProcessor[] FindAllEntitiesILPostProcessors()
@@ -41,28 +43,39 @@ namespace Unity.Entities.CodeGen
 
             using (var marker = new EntitiesILPostProcessorProfileMarker(compiledAssembly.Name))
             {
+                var diagnostics = new List<DiagnosticMessage>();
                 bool madeAnyChange = false;
                 Defines = compiledAssembly.Defines;
                 var assemblyDefinition = AssemblyDefinitionFor(compiledAssembly);
                 var postProcessors = FindAllEntitiesILPostProcessors();
 
                 TypeDefinition[] componentSystemTypes;
-                using (marker.CreateChildMarker("GetAllComponentTypes"))
-                    componentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where(TypeDefinitionExtensions.IsComponentSystem).ToArray();
-
-                using (marker.CreateChildMarker("InjectOnCreateForCompiler"))
+                try
                 {
-                    foreach (var systemType in componentSystemTypes)
+                    using (marker.CreateChildMarker("GetAllComponentTypes"))
+                        componentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where(type => type.IsComponentSystem()).ToArray();
+
+                    using (marker.CreateChildMarker("InjectOnCreateForCompiler"))
                     {
-                        InjectOnCreateForCompiler(systemType);
-                        madeAnyChange = true;
+                        foreach (var systemType in componentSystemTypes)
+                        {
+                            InjectOnCreateForCompiler(systemType);
+                            madeAnyChange = true;
+                        }
                     }
                 }
+                catch (FoundErrorInUserCodeException e)
+                {
+                    diagnostics.AddRange(e.DiagnosticMessages);
+                    return null;
+                }
 
-                var diagnostics = new List<DiagnosticMessage>();
                 foreach (var postProcessor in postProcessors)
                 {
-                    postProcessor.Defines = Defines;
+                    postProcessor.Initialize(Defines, _ReferencesEntities, _ReferencesJobs);
+                    if (!postProcessor.WillProcess())
+                        continue;
+
                     using (marker.CreateChildMarker(postProcessor.GetType().Name))
                     {
                         diagnostics.AddRange(postProcessor.PostProcess(assemblyDefinition, componentSystemTypes, out var madeChange));
@@ -125,8 +138,12 @@ namespace Unity.Entities.CodeGen
 
             var onCreateForCompilerName = EntitiesILHelpers.GetOnCreateForCompilerName();
             var preExistingMethod = typeDefinition.Methods.FirstOrDefault(m => m.Name == onCreateForCompilerName);
+
+            // Disable for now to allow for source generated onCreateForCompilerName methods
+#if !ROSLYN_SOURCEGEN_ENABLED
             if (preExistingMethod != null)
                 UserError.DC0026($"It's not allowed to implement {onCreateForCompilerName}'", preExistingMethod).Throw();
+#endif
 
             EntitiesILHelpers.GetOrMakeOnCreateForCompilerMethodFor(typeDefinition);
         }
@@ -136,17 +153,47 @@ namespace Unity.Entities.CodeGen
             return this;
         }
 
+        // Today there is no mechanism for sorting which ILPostProcessor runs relative to another
+        // As such a sort order mechanism was added to this ILPP via running "EntitiesILPostProcessor"s
+        // and sorting by `SortWeight`. However, some "EntitiesILPostProcessor"s need to run even if an assembly
+        // doesn't references Entities.dll, so we extend the WillProcess implementation here to be inclusive
+        // to other assemblies until the CompilationPipeline.ILPostProcessing API is extended
         public override bool WillProcess(ICompiledAssembly compiledAssembly)
         {
             if (compiledAssembly.Name == "Unity.Entities")
+            {
+                _ReferencesEntities = true;
+                _ReferencesJobs = true;
                 return true;
-            return compiledAssembly.References.Any(f => Path.GetFileName(f) == "Unity.Entities.dll") &&
-                !compiledAssembly.Name.Contains("CodeGen.Tests");
+            }
+            if (compiledAssembly.Name == "Unity.Jobs")
+            {
+                _ReferencesEntities = false;
+                _ReferencesJobs = true;
+                return true;
+            }
+
+            if (compiledAssembly.Name.EndsWith("CodeGen.Tests"))
+                return false;
+
+            for (int i = 0;
+                (!_ReferencesEntities || !_ReferencesJobs) // If we found both we can stop searching
+                && i < compiledAssembly.References.Length; ++i)
+            {
+                var fileName = Path.GetFileNameWithoutExtension(compiledAssembly.References[i]);
+                if (fileName == "Unity.Entities")
+                    _ReferencesEntities = true;
+                else if (fileName == "Unity.Jobs")
+                    _ReferencesJobs = true;
+            }
+
+            return _ReferencesEntities || _ReferencesJobs;
         }
 
         class PostProcessorAssemblyResolver : IAssemblyResolver
         {
-            private readonly string[] _references;
+            private readonly string[] _referenceDirectories;
+            private Dictionary<string, HashSet<string>> _referenceToPathMap;
             Dictionary<string, AssemblyDefinition> _cache = new Dictionary<string, AssemblyDefinition>();
             private ICompiledAssembly _compiledAssembly;
             private AssemblyDefinition _selfAssembly;
@@ -154,7 +201,19 @@ namespace Unity.Entities.CodeGen
             public PostProcessorAssemblyResolver(ICompiledAssembly compiledAssembly)
             {
                 _compiledAssembly = compiledAssembly;
-                _references = compiledAssembly.References;
+                _referenceToPathMap = new Dictionary<string, HashSet<string>>();
+                foreach (var reference in compiledAssembly.References)
+                {
+                    var assemblyName = Path.GetFileNameWithoutExtension(reference);
+                    if (!_referenceToPathMap.TryGetValue(assemblyName, out var fileList))
+                    {
+                        fileList = new HashSet<string>();
+                        _referenceToPathMap.Add(assemblyName, fileList);
+                    }
+                    fileList.Add(reference);
+                }
+
+                _referenceDirectories = _referenceToPathMap.Values.SelectMany(pathSet => pathSet.Select(Path.GetDirectoryName)).Distinct().ToArray();
             }
 
             public void Dispose()
@@ -168,7 +227,9 @@ namespace Unity.Entities.CodeGen
 
             public AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters)
             {
+#if !UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
                 lock (_cache)
+#endif
                 {
                     if (name.Name == _compiledAssembly.Name)
                         return _selfAssembly;
@@ -177,9 +238,11 @@ namespace Unity.Entities.CodeGen
                     if (fileName == null)
                         return null;
 
+                    var cacheKey = fileName;
+#if !UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
                     var lastWriteTime = File.GetLastWriteTime(fileName);
-
-                    var cacheKey = fileName + lastWriteTime.ToString();
+                    cacheKey += lastWriteTime.ToString();
+#endif
 
                     if (_cache.TryGetValue(cacheKey, out var result))
                         return result;
@@ -200,27 +263,43 @@ namespace Unity.Entities.CodeGen
 
             private string FindFile(AssemblyNameReference name)
             {
-                var fileName = _references.FirstOrDefault(r => Path.GetFileName(r) == name.Name + ".dll");
-                if (fileName != null)
-                    return fileName;
+                if (_referenceToPathMap.TryGetValue(name.Name, out var paths))
+                {
+                    if(paths.Count == 1)
+                        return paths.First();
 
-                // perhaps the type comes from an exe instead
-                fileName = _references.FirstOrDefault(r => Path.GetFileName(r) == name.Name + ".exe");
-                if (fileName != null)
-                    return fileName;
+                    // If we have more than one assembly with the same name loaded we now need to figure out which one
+                    // is being requested based on the AssemblyNameReference
+                    foreach (var path in paths)
+                    {
+                        var onDiskAssemblyName = AssemblyName.GetAssemblyName(path);
+                        if (onDiskAssemblyName.FullName == name.FullName)
+                            return path;
+                    }
+                    throw new ArgumentException($"Tried to resolve a reference in assembly '{name.FullName}' however the assembly could not be found. Known references which did not match: \n{string.Join("\n",paths)}");
+                }
 
-                //Unfortunately the current ICompiledAssembly API only provides direct references.
-                //It is very much possible that a postprocessor ends up investigating a type in a directly
-                //referenced assembly, that contains a field that is not in a directly referenced assembly.
-                //if we don't do anything special for that situation, it will fail to resolve.  We should fix this
-                //in the ILPostProcessing api. As a workaround, we rely on the fact here that the indirect references
-                //are always located next to direct references, so we search in all directories of direct references we
-                //got passed, and if we find the file in there, we resolve to it.
-                foreach (var parentDir in _references.Select(Path.GetDirectoryName).Distinct())
+                // Unfortunately the current ICompiledAssembly API only provides direct references.
+                // It is very much possible that a postprocessor ends up investigating a type in a directly
+                // referenced assembly, that contains a field that is not in a directly referenced assembly.
+                // if we don't do anything special for that situation, it will fail to resolve.  We should fix this
+                // in the ILPostProcessing api. As a workaround, we rely on the fact here that the indirect references
+                // are always located next to direct references, so we search in all directories of direct references we
+                // got passed, and if we find the file in there, we resolve to it.
+                foreach (var parentDir in _referenceDirectories)
                 {
                     var candidate = Path.Combine(parentDir, name.Name + ".dll");
                     if (File.Exists(candidate))
+                    {
+                        if (!_referenceToPathMap.TryGetValue(candidate, out var referencePaths))
+                        {
+                            referencePaths = new HashSet<string>();
+                            _referenceToPathMap.Add(candidate, referencePaths);
+                        }
+                        referencePaths.Add(candidate);
+
                         return candidate;
+                    }
                 }
 
                 return null;
@@ -318,10 +397,18 @@ namespace Unity.Entities.CodeGen
 
     abstract class EntitiesILPostProcessor : IComparable<EntitiesILPostProcessor>
     {
-        protected AssemblyDefinition AssemblyDefinition;
-        public string[] Defines { get; set; }
-
         public virtual int SortWeight => 0;
+        public string[] Defines { get; private set; }
+        public bool ReferencesEntities { get; private set; }
+        public bool ReferencesJobs { get; private set; }
+        protected AssemblyDefinition AssemblyDefinition;
+
+        internal void Initialize(string[] compilationDefines, bool referencesEntities, bool referencesJobs)
+        {
+            Defines = compilationDefines;
+            ReferencesEntities = referencesEntities;
+            ReferencesJobs = referencesJobs;
+        }
 
         protected List<DiagnosticMessage> _diagnosticMessages = new List<DiagnosticMessage>();
 
@@ -339,6 +426,11 @@ namespace Unity.Entities.CodeGen
             }
 
             return _diagnosticMessages;
+        }
+
+        public virtual bool WillProcess()
+        {
+            return ReferencesEntities;
         }
 
         protected abstract bool PostProcessImpl(TypeDefinition[] componentSystemTypes);

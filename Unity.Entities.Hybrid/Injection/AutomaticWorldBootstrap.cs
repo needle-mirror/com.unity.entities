@@ -2,6 +2,7 @@
 #define UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_RUNTIME_WORLD
 #endif
 
+using Unity.Scenes;
 using UnityEngine;
 
 namespace Unity.Entities
@@ -13,6 +14,7 @@ namespace Unity.Entities
         static void Initialize()
         {
             DefaultWorldInitialization.Initialize("Default World", false);
+            GameObjectSceneUtility.AddGameObjectSceneReferences();
         }
     }
 #endif

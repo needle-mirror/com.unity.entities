@@ -20,24 +20,24 @@ namespace Unity.Transforms
 
     public abstract class WorldToLocalSystem : JobComponentSystem
     {
-        private EntityQuery m_Group;
+        private EntityQuery m_Query;
 
         [BurstCompile]
-        struct ToWorldToLocal : IJobChunk
+        struct ToWorldToLocal : IJobEntityBatch
         {
             [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandle;
             public ComponentTypeHandle<WorldToLocal> WorldToLocalTypeHandle;
             public uint LastSystemVersion;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                if (!chunk.DidChange(LocalToWorldTypeHandle, LastSystemVersion))
+                if (!batchInChunk.DidChange(LocalToWorldTypeHandle, LastSystemVersion))
                     return;
 
-                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
-                var chunkWorldToLocal = chunk.GetNativeArray(WorldToLocalTypeHandle);
+                var chunkLocalToWorld = batchInChunk.GetNativeArray(LocalToWorldTypeHandle);
+                var chunkWorldToLocal = batchInChunk.GetNativeArray(WorldToLocalTypeHandle);
 
-                for (int i = 0; i < chunk.Count; i++)
+                for (int i = 0; i < batchInChunk.Count; i++)
                 {
                     var localToWorld = chunkLocalToWorld[i].Value;
                     chunkWorldToLocal[i] = new WorldToLocal {Value = math.inverse(localToWorld)};
@@ -47,7 +47,7 @@ namespace Unity.Transforms
 
         protected override void OnCreate()
         {
-            m_Group = GetEntityQuery(new EntityQueryDesc
+            m_Query = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -66,7 +66,7 @@ namespace Unity.Transforms
                 WorldToLocalTypeHandle = GetComponentTypeHandle<WorldToLocal>(),
                 LastSystemVersion = LastSystemVersion
             };
-            var toWorldToLocalJobHandle = toWorldToLocalJob.Schedule(m_Group, inputDeps);
+            var toWorldToLocalJobHandle = toWorldToLocalJob.ScheduleParallel(m_Query, 1, inputDeps);
             return toWorldToLocalJobHandle;
         }
     }

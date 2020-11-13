@@ -22,10 +22,21 @@ namespace Unity.Entities
         EntityManager EntityManager { get; }
         Entity Entity { get; }
 
-        BufferHeader* Header => (BufferHeader*) EntityManager.GetComponentDataRawRO(Entity, TypeIndex);
+        bool Exists() => EntityContainer.Exists();
+
+        BufferHeader* Header
+        {
+            get
+            {
+                if (Exists())
+                    return (BufferHeader*) EntityManager.GetComponentDataRawRO(Entity, TypeIndex);
+                return null;
+            }
+        }
+
         void* ReadOnlyBuffer => EntityManager.GetBufferRawRO(Entity, TypeIndex);
         void* ReadWriteBuffer => EntityManager.GetBufferRawRW(Entity, TypeIndex);
-        public int Count => Header->Length;
+        public int Count => null != Header ? Header->Length : 0;
 
         public DynamicBufferContainer(EntityContainer entityContainer, int typeIndex, bool readOnly = true)
         {

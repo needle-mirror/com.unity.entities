@@ -86,6 +86,24 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void ManagedObjectClone_ClassWithBlobAssetReference()
+        {
+            using (var blobAssetReference = BlobAssetReference<int>.Create(13))
+            {
+                var src = new ClassWithBlobAssetReference
+                {
+                    BlobAssetReference = blobAssetReference
+                };
+                
+                var dst = new ManagedObjectClone().Clone(src) as ClassWithBlobAssetReference;
+
+                Assert.That(dst, Is.Not.Null);
+                Assert.That(dst, Is.Not.SameAs(src));
+                Assert.That(dst.BlobAssetReference.Value, Is.EqualTo(13));
+            }
+        }
+
+        [Test]
         public void ManagedObjectEquals_Null()
         {
             var managedObjectEquals = new ManagedObjectEqual();

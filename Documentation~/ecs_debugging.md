@@ -32,7 +32,8 @@ Use the System Display control drop down at the top of the list to control what 
 
 Select a system to view its details.
 
-**Note:** If you select the EntityManager entry in the System list, then you have different options on the System details section.
+> [!NOTE]
+> If you select the EntityManager entry in the System list, then you have different options on the System details section.
 
 <a name="system_details"></a>
 ### System details

@@ -1,4 +1,4 @@
-#if !UNITY_WEBGL && (UNITY_2020_1_OR_NEWER || UNITY_DOTSRUNTIME)
+#if !UNITY_WEBGL
 #define USE_VIRTUAL_MEMORY
 #endif
 using System;

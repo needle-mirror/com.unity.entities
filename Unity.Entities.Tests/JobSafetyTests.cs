@@ -7,7 +7,7 @@ using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
-    class JobSafetyTests : ECSTestsFixture
+    partial class JobSafetyTests : ECSTestsFixture
     {
         struct TestIncrementJob : IJob
         {
@@ -57,7 +57,7 @@ namespace Unity.Entities.Tests
         // These tests require:
         // - JobsDebugger support for static safety IDs (added in 2020.1)
         // - Asserting throws
-#if UNITY_2020_1_OR_NEWER && !UNITY_DOTSRUNTIME
+#if !UNITY_DOTSRUNTIME
         struct UseComponentDataFromEntity : IJob
         {
             public ComponentDataFromEntity<EcsTestData> data;
@@ -618,7 +618,7 @@ namespace Unity.Entities.Tests
         }
 #endif // !UNITY_DOTSRUNTIME
 
-        public class DynamicBufferReadOnlySystem : SystemBase
+        public partial class DynamicBufferReadOnlySystem : SystemBase
         {
             protected override void OnUpdate()
             {

@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [TestFixture]
-    class TransformTests : ECSTestsFixture
+    partial class TransformTests : ECSTestsFixture
     {
         const float k_Tolerance = 0.01f;
 
@@ -258,6 +258,34 @@ namespace Unity.Entities.Tests
                 CreateInternal(bodyArchetype, rootArchetype, 2.0f);
             }
 
+            public Entity CreateWithWriteGroupChildren()
+            {
+                var rootArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Translation), typeof(Rotation), typeof(Scale), typeof(Child));
+                var childArchetypeWithWriteGroup = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToParent), typeof(Translation), typeof(Rotation), typeof(Scale),  typeof(Parent), typeof(Child), typeof(TestWriteGroupComponent));
+                var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(LocalToParent), typeof(Translation), typeof(Rotation), typeof(Scale), typeof(Parent));
+
+                var root = m_Manager.CreateEntity(rootArchetype);
+                var child = m_Manager.CreateEntity(childArchetypeWithWriteGroup);
+                var childChild = m_Manager.CreateEntity(childArchetype);
+
+                m_Manager.SetComponentData(root, new Translation{Value = 0});
+                m_Manager.SetComponentData(root, new Rotation{Value = quaternion.identity});
+                m_Manager.SetComponentData(root, new Scale{Value = 1});
+
+                m_Manager.SetComponentData(child, new Translation{Value = 0});
+                m_Manager.SetComponentData(child, new Rotation{Value = quaternion.identity});
+                m_Manager.SetComponentData(child, new Scale{Value = 1});
+                m_Manager.SetComponentData(child, new TestWriteGroupComponent{Value = 42});
+                m_Manager.SetComponentData(child, new Parent { Value = root });
+
+                m_Manager.SetComponentData(childChild, new Translation{Value = 0});
+                m_Manager.SetComponentData(childChild, new Rotation{Value = quaternion.identity});
+                m_Manager.SetComponentData(childChild, new Scale{Value = 1});
+                m_Manager.SetComponentData(childChild, new Parent { Value = child });
+
+                return childChild;
+            }
+
             public void Update()
             {
                 World.GetOrCreateSystem<EndFrameParentSystem>().Update();
@@ -273,7 +301,7 @@ namespace Unity.Entities.Tests
                 m_Manager.CompleteAllJobs();
             }
 
-            unsafe bool AssertCloseEnough(float4x4 a, float4x4 b)
+            internal static unsafe bool AssertCloseEnough(float4x4 a, float4x4 b)
             {
                 float* ap = (float*)&a.c0.x;
                 float* bp = (float*)&b.c0.x;
@@ -756,6 +784,44 @@ namespace Unity.Entities.Tests
             testHierarchy.Update();
             children.Dispose();
             testHierarchy.Dispose();
+        }
+
+        [WriteGroup(typeof(LocalToWorld))]
+        struct TestWriteGroupComponent : IComponentData
+        {
+            public int Value;
+        }
+
+        [UpdateInGroup(typeof(SimulationSystemGroup))]
+        [UpdateBefore(typeof(TransformSystemGroup))]
+        public partial class TestTransformWriteGroupSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((ref LocalToWorld localToWorld, in TestWriteGroupComponent test) =>
+                {
+                    localToWorld.Value = new float4x4(float3x3.identity, new float3(test.Value));
+                }).ScheduleParallel();
+            }
+        }
+
+        [Test]
+        public void TRS_TestHierarchyUpdatesNestedParentsChildWithWriteGroups()
+        {
+            // P
+            // -- C1 <- This has an archetype with writegroup for LocalToWorld
+            // -- -- C2 <- Normal child, this should be updated by LocalToParentSystem if I modify C1's LocalToWorld in a custom system
+
+            var testHierarchy = new TestHierarchy(World, m_Manager);
+            var c2Entity = testHierarchy.CreateWithWriteGroupChildren();
+            testHierarchy.Update();
+            World.GetOrCreateSystem<TestTransformWriteGroupSystem>().Update();
+            testHierarchy.Update();
+
+            var localToWorld = m_Manager.GetComponentData<LocalToWorld>(c2Entity);
+            var expectedLocalToWorld = new float4x4(float3x3.identity, new float3(42));
+
+            TestHierarchy.AssertCloseEnough(expectedLocalToWorld, localToWorld.Value);
         }
     }
 }

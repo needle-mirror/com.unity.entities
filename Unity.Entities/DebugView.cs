@@ -111,7 +111,7 @@ namespace Unity.Entities
                 var componentType = chunk->Archetype->Types[i];
                 if (componentType.IsSharedComponent)
                     continue;
-                var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
+                ref readonly var typeInfo = ref TypeManager.GetTypeInfo(componentType.TypeIndex);
                 var type = TypeManager.GetType(typeInfo.TypeIndex);
                 var offset = archetype->Offsets[i];
                 var size = archetype->SizeOfs[i];

@@ -97,16 +97,17 @@ namespace Unity.Entities
 
                 if (Enabled && ShouldRunSystem())
                 {
-                    if (!state->m_PreviouslyEnabled)
+                    if (!state->PreviouslyEnabled)
                     {
-                        state->m_PreviouslyEnabled = true;
+                        state->PreviouslyEnabled = true;
                         OnStartRunning();
                     }
 
                     BeforeOnUpdate();
 
-                    var oldExecutingSystem = ms_ExecutingSystem;
-                    ms_ExecutingSystem = this;
+                    var world = World.Unmanaged;
+                    var oldExecutingSystem = world.ExecutingSystem;
+                    world.ExecutingSystem = state->m_Handle;
 
                     try
                     {
@@ -114,13 +115,13 @@ namespace Unity.Entities
                     }
                     finally
                     {
-                        ms_ExecutingSystem = oldExecutingSystem;
+                        world.ExecutingSystem = oldExecutingSystem;
                         AfterOnUpdate();
                     }
                 }
-                else if (state->m_PreviouslyEnabled)
+                else if (state->PreviouslyEnabled)
                 {
-                    state->m_PreviouslyEnabled = false;
+                    state->PreviouslyEnabled = false;
                     OnStopRunningInternal();
                 }
             }

@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Unity.Scenes.Editor.Tests
 {
     [Serializable]
-    struct TestWithTempAssets
+    public struct TestWithTempAssets
     {
         public string TempAssetDir;
         public int AssetCounter;

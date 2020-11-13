@@ -200,7 +200,9 @@ namespace Unity.Scenes
         void ResetGame()
         {
             var sceneSystem = World.GetExistingSystem<SceneSystem>();
-            sceneSystem.UnloadAllScenes();
+
+            var goSceneSystem = World.GetExistingSystem<GameObjectSceneSystem>();
+            goSceneSystem.UnloadAllScenes();
 
             while (m_ResourcePacketQueue.Count != 0)
                 m_ResourcePacketQueue.Dequeue().Dispose();
@@ -224,7 +226,7 @@ namespace Unity.Scenes
                     LiveLinkMsg.LogReceived($"ReceiveInitialScenes {scenes.ToString()}");
                     var sceneSystem = World.GetOrCreateSystem<SceneSystem>();
                     for (int i = 0; i < scenes.Length; i++)
-                        sceneSystem.LoadSceneAsync(scenes[i], new SceneSystem.LoadParameters() { Flags = SceneLoadFlags.LoadAdditive | SceneLoadFlags.LoadAsGOScene });
+                        sceneSystem.LoadSceneAsync(scenes[i], new SceneSystem.LoadParameters() { Flags = SceneLoadFlags.LoadAsGOScene });
                 }
             }
         }

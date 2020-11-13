@@ -22,7 +22,7 @@ namespace Doc.CodeSamples.SyBase.Tests
         public float3 Value;
     }
 
-    public class ECSSystem : SystemBase
+    public partial class ECSSystem : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -46,7 +46,7 @@ namespace Doc.CodeSamples.SyBase.Tests
 
     #endregion
 
-    public class EntitiesBasicExample : SystemBase
+    public partial class EntitiesBasicExample : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -77,7 +77,7 @@ namespace Doc.CodeSamples.SyBase.Tests
 
     #region basic-job
 
-    public class JobSystem : SystemBase
+    public partial class JobSystem : SystemBase
     {
         NativeArray<int> EndlessSequence;
 
@@ -121,12 +121,13 @@ namespace Doc.CodeSamples.SyBase.Tests
     {
     }
 
-    public class LambdaParamsEx : SystemBase
+    public partial class LambdaParamsEx : SystemBase
     {
         protected override void OnUpdate()
         {
             Entities
             #region lambda-params
+
                 .ForEach((Entity entity,
                 int entityInQueryIndex,
                 ref WritableComponent aReadwriteComponent,
@@ -147,7 +148,7 @@ namespace Doc.CodeSamples.SyBase.Tests
     {
     }
 
-    public class SimpleDependencyManagement : SystemBase
+    public partial class SimpleDependencyManagement : SystemBase
     {
         #region simple-dependency
 
@@ -185,7 +186,7 @@ namespace Doc.CodeSamples.SyBase.Tests
         #endregion
     }
 
-    public class ManualDependencyManagement : SystemBase
+    public partial class ManualDependencyManagement : SystemBase
     {
         #region manual-dependency
 

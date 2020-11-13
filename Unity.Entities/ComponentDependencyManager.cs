@@ -52,6 +52,7 @@ namespace Unity.Entities
         bool                   _IsInTransaction;
 
         private ProfilerMarker m_Marker;
+        private WorldUnmanaged m_World;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         public ComponentSafetyHandles Safety;
@@ -83,8 +84,9 @@ namespace Unity.Entities
             m_DependencyHandlesCount = 0;
         }
 
-        public void OnCreate()
+        public void OnCreate(WorldUnmanaged world)
         {
+            m_World = world;
             m_TypeArrayIndices = (ushort*)Memory.Unmanaged.Allocate(sizeof(ushort) * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemSet(m_TypeArrayIndices, 0xFF, sizeof(ushort) * kMaxTypes);
 
@@ -120,6 +122,14 @@ namespace Unity.Entities
 
         public void CompleteAllJobsAndInvalidateArrays()
         {
+            var executingSystem = m_World.ExecutingSystem;
+            if (executingSystem != default)
+            {
+                var systemState = m_World.ResolveSystemState(executingSystem);
+                if (systemState != null)
+                    systemState->m_JobHandle.Complete();
+            }
+
             if (m_DependencyHandlesCount != 0)
             {
                 AssertCompleteSyncPoint();
@@ -385,11 +395,13 @@ namespace Unity.Entities
         public ComponentSafetyHandles Safety;
 #endif
         public int IsInForEachDisallowStructuralChange;
+        private WorldUnmanaged m_World;
 
-        public void OnCreate()
+        public void OnCreate(WorldUnmanaged world)
         {
             m_Dependency = default;
             _IsInTransaction = false;
+            m_World = world;
             IsInForEachDisallowStructuralChange = 0;
             m_ExclusiveTransactionDependency = default;
 
@@ -400,6 +412,13 @@ namespace Unity.Entities
 
         public void CompleteAllJobsAndInvalidateArrays()
         {
+            var executingSystem = m_World.ExecutingSystem;
+            if (executingSystem != default)
+            {
+                var systemState = m_World.ResolveSystemState(executingSystem);
+                if (systemState != null)
+                    systemState->m_JobHandle.Complete();
+            }
             m_Dependency.Complete();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

@@ -43,8 +43,12 @@ foreach(var type in types)
         public static <#=type#> WithChangeFilter<T1,T2>(this <#=type#> description) => description;
 
         public static <#=type#> WithEntityQueryOptions(this <#=type#> description, EntityQueryOptions options) => description;
+        //TODO: Deprecate and rename to WithFilter for consistency
         public static <#=type#> WithSharedComponentFilter<T>(this <#=type#> description, [AllowDynamicValue] T sharedComponent) where T : struct, ISharedComponentData => description;
         public static <#=type#> WithStoreEntityQueryInField(this <#=type#> description, [AllowDynamicValue] ref EntityQuery query) => description;
+#if ROSLYN_SOURCEGEN_ENABLED
+        public static <#=type#> WithFilter(this <#=type#> description, [AllowDynamicValue] NativeArray<Entity> entities) => description;
+#dndif
 
 <#
    }

@@ -305,17 +305,9 @@ namespace Unity.Scenes.Editor
                     typeDB = null
                 };
 
-#if UNITY_2020_1_OR_NEWER
                 // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
                 var manifestObjects =
                     ContentBuildInterface.GetPlayerObjectIdentifiersInSerializedFile(manifestPath, buildSettings.target);
-#else
-                var method = typeof(ContentBuildInterface).GetMethod("GetPlayerObjectIdentifiersInSerializedFile",
-                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-                // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
-                var manifestObjects =
-                    (ObjectIdentifier[])method.Invoke(null, new object[] {manifestPath, buildSettings.target});
-#endif
                 // Collect all the objects we need to reference for this asset (returned array order is deterministic)
                 var manifestDependencies =
                     ContentBuildInterface.GetPlayerDependenciesForObjects(manifestObjects, buildSettings.target,
@@ -376,15 +368,20 @@ namespace Unity.Scenes.Editor
 
                 // The requirement is that a single asset bundle only contains the ObjectManifest and the objects that are directly part of the asset, objects for external assets will be in their own bundles. IE: 1 asset per bundle layout
                 // So this means we need to take manifestObjects & manifestDependencies and filter storing them into writeCommand.serializeObjects and/or referenceMap based on if they are this asset or other assets
+
+                // For the Manifest Objects, we only have the ScriptableObject `AssetObjectManifest` which is not referenced outside of this bundle.
+                // This creates a deterministic ID for it, regardless of the path of the manifest file
+                var linearGenerator = new LinearPackedIdentifiers(2);
                 foreach (var obj in manifestObjects)
                 {
+                    var index = linearGenerator.SerializationIndexFromObjectIdentifier(obj);
                     writeParams.writeCommand.serializeObjects.Add(new SerializationInfo
                     {
                         serializationObject = obj,
-                        serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj)
+                        serializationIndex = index
                     });
                     writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName,
-                        generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                        index, obj);
                 }
 
                 foreach (var obj in manifestDependencies)
@@ -470,14 +467,8 @@ namespace Unity.Scenes.Editor
                 if (assetGuid == GUIDHelper.UnityBuiltinExtraResources)
                     FilterBuiltinExtraResourcesObjectManifest(manifestPath);
 
-#if UNITY_2020_1_OR_NEWER
                 // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
                 var manifestObjects = ContentBuildInterface.GetPlayerObjectIdentifiersInSerializedFile(manifestPath, settings.target);
-#else
-                var method = typeof(ContentBuildInterface).GetMethod("GetPlayerObjectIdentifiersInSerializedFile", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
-                // Collect all the objects we need for this asset & bundle (returned array order is deterministic)
-                var manifestObjects = (ObjectIdentifier[])method.Invoke(null, new object[] { manifestPath, settings.target });
-#endif
 
                 // Collect all the objects we need to reference for this asset (returned array order is deterministic)
                 var manifestDependencies = ContentBuildInterface.GetPlayerDependenciesForObjects(manifestObjects, settings.target, settings.typeDB);
@@ -534,10 +525,15 @@ namespace Unity.Scenes.Editor
 
                 // The requirement is that a single asset bundle only contains the ObjectManifest and the objects that are directly part of the asset, objects for external assets will be in their own bundles. IE: 1 asset per bundle layout
                 // So this means we need to take manifestObjects & manifestDependencies and filter storing them into writeCommand.serializeObjects and/or referenceMap based on if they are this asset or other assets
+
+                // For the Manifest Objects, we only have the ScriptableObject `AssetObjectManifest` which is not referenced outside of this bundle.
+                // This creates a deterministic ID for it, regardless of the path of the manifest file
+                var linearGenerator = new LinearPackedIdentifiers(2);
                 foreach (var obj in manifestObjects)
                 {
-                    writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = generator.SerializationIndexFromObjectIdentifier(obj) });
-                    writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, generator.SerializationIndexFromObjectIdentifier(obj), obj);
+                    var index = linearGenerator.SerializationIndexFromObjectIdentifier(obj);
+                    writeParams.writeCommand.serializeObjects.Add(new SerializationInfo { serializationObject = obj, serializationIndex = index });
+                    writeParams.referenceMap.AddMapping(writeParams.writeCommand.internalName, index, obj);
                 }
 
                 foreach (var obj in manifestDependencies)

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 #if !UNITY_DOTSRUNTIME
 using System.IO;
 #endif
@@ -71,7 +72,7 @@ namespace Unity.Entities.CodeGen
     {
         public static DiagnosticMessage DC0001(MethodDefinition method, Instruction instruction, FieldReference fr)
         {
-            return MakeError(nameof(DC0001), $"Entities.ForEach Lambda expression uses field '{fr.Name}'. Either assign the field to a local outside of the lambda expression and use that instead, or use .WithoutBurst() and .Run()", method, instruction);
+            return MakeError(nameof(DC0001), $"Entities.ForEach Lambda expression uses field '{fr.Name} in a reference type'. Either assign the field to a local outside of the lambda expression and use that instead, or use .WithoutBurst() and .Run()", method, instruction);
         }
 
         public static DiagnosticMessage DC0002(MethodDefinition method, Instruction instruction, MethodReference mr, TypeReference argument)
@@ -101,12 +102,12 @@ namespace Unity.Entities.CodeGen
 
         public static DiagnosticMessage DC0017(MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0006), $"Scheduling an Lambda job requires a .{nameof(LambdaSingleJobDescriptionConstructionMethods.WithCode)} invocation", method, instruction);
+            return MakeError(nameof(DC0017), $"Scheduling an Lambda job requires a .{nameof(LambdaSingleJobDescriptionConstructionMethods.WithCode)} invocation", method, instruction);
         }
 
         public static DiagnosticMessage DC0018(MethodDefinition method, Instruction instruction)
         {
-            return MakeError(nameof(DC0006), $"Scheduling an Chunk job requires a .{nameof(LambdaJobChunkDescriptionConstructionMethods.ForEach)} invocation", method, instruction);
+            return MakeError(nameof(DC0018), $"Scheduling an Chunk job requires a .{nameof(LambdaJobChunkDescriptionConstructionMethods.ForEach)} invocation", method, instruction);
         }
 
         public static DiagnosticMessage DC0007(MethodDefinition method, Instruction instruction)
@@ -254,11 +255,6 @@ namespace Unity.Entities.CodeGen
             return MakeError(nameof(DC0034), $"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithReadOnly)} is called with an argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}] or a type that has a field marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
         }
 
-        public static DiagnosticMessage DC0035(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
-        {
-            return MakeError(nameof(DC0035), $"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)}] or a type that has a field marked with [{nameof(NativeContainerSupportsDeallocateOnJobCompletionAttribute)}].", containingMethod, instruction);
-        }
-
         public static DiagnosticMessage DC0036(MethodDefinition containingMethod, string argumentName, TypeReference unsupportedType, Instruction instruction)
         {
             return MakeError(nameof(DC0036), $"Entities.{nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableContainerSafetyRestriction)} is called with an invalid argument {argumentName} of unsupported type {unsupportedType}. It can only be called with an argument that is marked with [{nameof(NativeContainerAttribute)}] or a type that has a field marked with [{nameof(NativeContainerAttribute)}].", containingMethod, instruction);
@@ -398,6 +394,14 @@ namespace Unity.Entities.CodeGen
         public static DiagnosticMessage DC3002(TypeReference jobStructType)
         {
             return MakeError(nameof(DC3002), $"{jobStructType.FullName}: generic jobs cannot have their reflection data auto-registered - you must use the assembly-level RegisterGenericJobType attribute to specify which instantiations you need", method: null, instruction: null);
+        }
+
+        public static DiagnosticMessage DC3003(TypeDefinition typeWithGenerateAuthoringComponentAttribute)
+        {
+            var typeMethod = typeWithGenerateAuthoringComponentAttribute.Methods.FirstOrDefault();
+            var instruction = typeMethod?.Body.Instructions.FirstOrDefault();
+
+            return MakeError(nameof(DC3003), $"{typeWithGenerateAuthoringComponentAttribute.FullName} has the [GenerateAuthoringComponent] attribute, and must therefore implement either the IComponentData interface or the IBufferElementData interface.", typeMethod, instruction);
         }
 
         static DiagnosticMessage MakeInternal(DiagnosticType type, string errorCode, string messageData, MethodDefinition method, Instruction instruction)

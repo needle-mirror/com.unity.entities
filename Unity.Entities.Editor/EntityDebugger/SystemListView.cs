@@ -41,7 +41,7 @@ namespace Unity.Entities.Editor
                 if (Managed != null)
                     return Managed.m_StatePtr;
                 else if (Unmanaged.World != null)
-                    return Unmanaged.World.ResolveSystemState(Unmanaged.Handle);
+                    return Unmanaged.World.Unmanaged.ResolveSystemState(Unmanaged.Handle);
                 return null;
             }
         }

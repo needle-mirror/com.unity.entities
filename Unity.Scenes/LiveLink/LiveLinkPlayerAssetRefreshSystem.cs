@@ -247,8 +247,7 @@ namespace Unity.Scenes
                     {
                         LiveLinkMsg.LogInfo($"Unloading scene bundle: {assetGUID}");
                         var sceneSystem = World.GetExistingSystem<SceneSystem>();
-                        if (sceneSystem != null)
-                            sceneSystem.ReloadScenesWithHash(assetGUID, targetHash);
+                        sceneSystem.UnloadScene(assetGUID);
                         globalAssetObjectResolver.UnloadAsset(assetGUID);
                         continue;
                     }

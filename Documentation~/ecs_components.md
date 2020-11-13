@@ -10,6 +10,7 @@ A component in ECS is a struct that has one of the following "marker interfaces"
 * [IComponentData] — Use for [general purpose](xref:ecs-component-data) and [chunk components].
 * [IBufferElementData] — Associates  [dynamic buffers] with an entity.
 * [ISharedComponentData] — Categorizes or groups entities by value within an archetype. For more information, see [Shared Component Data].
+* [Hybrid Components] — A way of adding UnityEngine components to entities.
 * [ISystemStateComponentData] — Associates a system-specific state with an entity and detects when individual entities are created or destroyed. For more information, see [System State Components].
 * [ISharedSystemStateComponentData] — a combination of shared and system state data. See [System State Components].
 * [Blob assets] – While not technically a "component," you can use blob assets to store data. Blob assets can be referenced by one or more components using a [BlobAssetReference] and are immutable. You can use blob assets to share data between assets and access that data in C# jobs.
@@ -29,4 +30,4 @@ This diagram illustrates how ECS stores component data chunks by their archetype
 [ISharedSystemStateComponentData]: xref:Unity.Entities.ISystemStateSharedComponentData
 [ISystemStateComponentData]: xref:Unity.Entities.ISystemStateComponentData
 [System State Components]: xref:ecs-system-state-component-data
- 
+[Hybrid Components]: hybrid_component.md

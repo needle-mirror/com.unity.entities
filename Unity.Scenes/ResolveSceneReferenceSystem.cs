@@ -118,7 +118,7 @@ namespace Unity.Scenes
                         var requestSceneLoaded = EntityManager.GetComponentData<RequestSceneLoaded>(sceneEntity);
 
                         var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(scene.SceneGUID,
-                            buildConfigurationGUID, out var requireRefresh);
+                            buildConfigurationGUID, true, out var requireRefresh);
                         var async = (requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0;
 
                         LogResolving(async ? "Adding Async" : "Adding Sync", guid);
@@ -211,7 +211,7 @@ namespace Unity.Scenes
                     None = new[]
                     {
                         ComponentType.ReadOnly<DisableSceneResolveAndLoad>(),
-                        ComponentType.ReadOnly<AssetDependencyTrackerState>()
+                        ComponentType.ReadOnly<AssetDependencyTrackerState>(),
                     }
                 });
 
@@ -221,7 +221,10 @@ namespace Unity.Scenes
                 {
                     All = new[] {ComponentType.ReadOnly<AssetDependencyTrackerState>()},
                     None = new[]
-                        {ComponentType.ReadOnly<SceneReference>(), ComponentType.ReadOnly<RequestSceneLoaded>()}
+                    {
+                        ComponentType.ReadOnly<SceneReference>(),
+                        ComponentType.ReadOnly<RequestSceneLoaded>(),
+                    }
                 },
                 new EntityQueryDesc
                 {

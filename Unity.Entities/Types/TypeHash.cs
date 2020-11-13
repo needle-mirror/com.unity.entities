@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using Unity.Burst;
 using UnityEngine.Assertions;
+#endif
 
 namespace Unity.Entities
 {
@@ -27,7 +27,6 @@ namespace Unity.Entities
             return result;
         }
 
-        [BurstCompile]
         public static ulong FNV1A64(int val)
         {
             ulong result = kFNV1A64OffsetBasis;
@@ -42,18 +41,14 @@ namespace Unity.Entities
             return result;
         }
 
-        [BurstCompile]
-        public static ulong CombineFNV1A64(ulong hash, params ulong[] values)
+        public static ulong CombineFNV1A64(ulong hash, ulong value)
         {
-            foreach (var value in values)
-            {
-                hash ^= value;
-                hash *= kFNV1A64Prime;
-            }
+            hash ^= value;
+            hash *= kFNV1A64Prime;
 
             return hash;
         }
-
+#if !NET_DOTS
         // Todo: Remove this. DOTS Runtime currently doesn't conform to these system types so don't inspect their fields
         private static readonly Type[] WorkaroundTypes = new Type[] { typeof(System.Guid) };
 
@@ -225,6 +220,6 @@ namespace Unity.Entities
 
             return CalculateStableTypeHash(type, customAttributes);
         }
+#endif
     }
 }
-#endif

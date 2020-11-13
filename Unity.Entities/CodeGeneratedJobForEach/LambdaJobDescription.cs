@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
@@ -119,10 +120,6 @@ namespace Unity.Entities
         [AllowMultipleInvocations]
         public static TDescription WithReadOnly<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
 
-        [Obsolete("Use WithDisposeOnCompletion(capturedVariable) instead. (RemovedAfter 2020-20-08)")]
-        [AllowMultipleInvocations]
-        public static TDescription WithDeallocateOnJobCompletion<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
-
         [AllowMultipleInvocations]
         public static TDescription WithDisposeOnCompletion<TDescription, TCapturedVariableType>(this TDescription description, [AllowDynamicValue] TCapturedVariableType capturedVariable) where TDescription : ILambdaJobDescription => description;
         [AllowMultipleInvocations]
@@ -214,12 +211,15 @@ namespace Unity.Entities
 
     public static class InternalCompilerInterface
     {
+        // Todo: rename these to reference `IJobEntityBatch` instead of `IJobChunk` once we have removed non-source generated Entities.ForEach
         public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
         public static JobChunkRunWithoutJobSystemDelegate BurstCompile(JobChunkRunWithoutJobSystemDelegate d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
-
+        public static JobEntityBatchRunWithoutJobSystemDelegateLimitEntities BurstCompile(JobEntityBatchRunWithoutJobSystemDelegateLimitEntities d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
 
         public unsafe delegate void JobChunkRunWithoutJobSystemDelegate(ArchetypeChunkIterator* iterator, void* job);
         public unsafe delegate void JobRunWithoutJobSystemDelegate(void* job);
+        public unsafe delegate void JobEntityBatchRunWithoutJobSystemDelegate(ArchetypeChunkIterator* iterator, void* job);
+        public unsafe delegate void JobEntityBatchRunWithoutJobSystemDelegateLimitEntities(EntityQuery* query, Entity* limitToEntityArray, int limitToEntityArrayLength, void* job);
 
 #if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS && !UNITY_DOTSRUNTIME_IL2CPP
         // DOTS Runtime always compiles against the .Net Framework which will re-order structs if they contain non-blittable data (unlike mono which
@@ -283,16 +283,22 @@ namespace Unity.Entities
                 var marshalToBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalToBurstFn();
 
                 UnsafeUtility.EnterTempScope();
-                UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
+                try
+                {
+                    UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
 
-                // In the case of JobStruct we know the jobwrapper doesn't add
-                // anything to the jobData so just pass it along, no offset required unlike JobChunk
-                functionPointer(alignedUnmanagedJobData);
+                    // In the case of JobStruct we know the jobwrapper doesn't add
+                    // anything to the jobData so just pass it along, no offset required unlike JobChunk
+                    functionPointer(alignedUnmanagedJobData);
 
-                // Since Run can capture locals for write back, we must write back the marshalled jobData after the job executes
-                var marshalFromBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalFromBurstFn();
-                UnsafeUtility.CallFunctionPtr_pp(marshalFromBurstFnPtr.ToPointer(), src, dst);
-                UnsafeUtility.ExitTempScope();
+                    // Since Run can capture locals for write back, we must write back the marshalled jobData after the job executes
+                    var marshalFromBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalFromBurstFn();
+                    UnsafeUtility.CallFunctionPtr_pp(marshalFromBurstFnPtr.ToPointer(), src, dst);
+                }
+                finally
+                {
+                    UnsafeUtility.ExitTempScope();
+                }
 
                 jobData = jobStructData.JobData;
             }
@@ -329,23 +335,29 @@ namespace Unity.Entities
                     var marshalToBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalToBurstFn();
 
                     UnsafeUtility.EnterTempScope();
-                    UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
+                    try
+                    {
+                        UnsafeUtility.CallFunctionPtr_pp(marshalToBurstFnPtr.ToPointer(), dst, src);
 
-                    // Since we are running inline, normally the outer job scheduling code would
-                    // reference jobWrapper.Data however we can't do that since if we are in this code it means
-                    // we are dealing with a job/jobwrapper that is burst compiled and is non-blittable. Thus any
-                    // type-safe offset we calculate here will be based on the managed data layout which is not useful.
-                    // Instead we can at least know that for a sequential layout (which is what we know we must be using
-                    // since we are burst compiled) our JobChunkData contains a safety field as its first member. Skipping over this will
-                    // provide the necessary offset to jobChunkData.Data
-                    var DataOffset = UnsafeUtility.SizeOf<JobChunkExtensions.EntitySafetyHandle>();
-                    Assertions.Assert.AreEqual(jobChunkWrapper.safety.GetType(), typeof(JobChunkExtensions.EntitySafetyHandle));
-                    functionPointer(&myIterator, alignedUnmanagedJobData + DataOffset);
+                        // Since we are running inline, normally the outer job scheduling code would
+                        // reference jobWrapper.Data however we can't do that since if we are in this code it means
+                        // we are dealing with a job/jobwrapper that is burst compiled and is non-blittable. Thus any
+                        // type-safe offset we calculate here will be based on the managed data layout which is not useful.
+                        // Instead we can at least know that for a sequential layout (which is what we know we must be using
+                        // since we are burst compiled) our JobChunkData contains a safety field as its first member. Skipping over this will
+                        // provide the necessary offset to jobChunkData.Data
+                        var DataOffset = UnsafeUtility.SizeOf<JobChunkExtensions.EntitySafetyHandle>();
+                        Assertions.Assert.AreEqual(jobChunkWrapper.safety.GetType(), typeof(JobChunkExtensions.EntitySafetyHandle));
+                        functionPointer(&myIterator, alignedUnmanagedJobData + DataOffset);
 
-                    // Since Run can capture locals for write back, we must write back the marshalled jobData after the job executes
-                    var marshalFromBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalFromBurstFn();
-                    UnsafeUtility.CallFunctionPtr_pp(marshalFromBurstFnPtr.ToPointer(), src, dst);
-                    UnsafeUtility.ExitTempScope();
+                        // Since Run can capture locals for write back, we must write back the marshalled jobData after the job executes
+                        var marshalFromBurstFnPtr = JobMarshalFnLookup<T>.GetMarshalFromBurstFn();
+                        UnsafeUtility.CallFunctionPtr_pp(marshalFromBurstFnPtr.ToPointer(), src, dst);
+                    }
+                    finally
+                    {
+                        UnsafeUtility.ExitTempScope();
+                    }
 
                     jobData = jobChunkWrapper.JobData;
                 }
@@ -386,6 +398,81 @@ namespace Unity.Entities
             #endif
         }
 
+#if ROSLYN_SOURCEGEN_ENABLED
+
+        // Unsafe methods used to provide access for source-generated code.
+        // Do not use these methods outside of source-generated code.
+        // Unsafe methods to run jobs (replacing ILPP invoked methods)
+        public static unsafe void UnsafeRunIJob(void* jobPtr, JobRunWithoutJobSystemDelegate functionPointer)
+        {
+            functionPointer(jobPtr);
+        }
+
+        public static unsafe void UnsafeRunJobEntityBatch(void* jobPtr, EntityQuery query, JobChunkRunWithoutJobSystemDelegate functionPointer)
+        {
+            var myIterator = query.GetArchetypeChunkIterator();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var access = query._GetImpl()->_Access;
+            try
+            {
+                access->DependencyManager->IsInForEachDisallowStructuralChange++;
+                functionPointer(&myIterator, jobPtr);
+            }
+            finally
+            {
+                access->DependencyManager->IsInForEachDisallowStructuralChange--;
+            }
+#else
+            functionPointer(&myIterator, jobPtr);
+#endif
+        }
+
+        public static unsafe void UnsafeRunJobEntityBatch(void* jobPtr, EntityQuery query, NativeArray<Entity> limitToEntityArray, JobEntityBatchRunWithoutJobSystemDelegateLimitEntities functionPointer)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var access = query._GetImpl()->_Access;
+            try
+            {
+                access->DependencyManager->IsInForEachDisallowStructuralChange++;
+                functionPointer(&query, (Entity*)limitToEntityArray.GetUnsafeReadOnlyPtr(), limitToEntityArray.Length, jobPtr);
+            }
+            finally
+            {
+                access->DependencyManager->IsInForEachDisallowStructuralChange--;
+            }
+#else
+            functionPointer(&myIterator, jobPtr);
+#endif
+        }
+
+
+        // Unsafe methods used to provide access for StructuralChanges
+        public static unsafe T GetComponentData<T>(EntityManager manager, Entity entity, int typeIndex, out T originalComponent)
+            where T : struct, IComponentData
+        {
+            var access = manager.GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            UnsafeUtility.CopyPtrToStructure(ecs->GetComponentDataWithTypeRO(entity, typeIndex), out originalComponent);
+            return originalComponent;
+        }
+        public static unsafe void WriteComponentData<T>(EntityManager manager, Entity entity, int typeIndex, ref T lambdaComponent, ref T originalComponent)
+            where T : struct, IComponentData
+        {
+            var access = manager.GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            // MemCmp check is necessary to ensure we only write-back the value if we changed it in the lambda (or a called function)
+            if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref lambdaComponent), UnsafeUtility.AddressOf(ref originalComponent), UnsafeUtility.SizeOf<T>()) != 0 &&
+                ecs->HasComponent(entity, typeIndex))
+            {
+                UnsafeUtility.CopyStructureToPtr(ref lambdaComponent, ecs->GetComponentDataWithTypeRW(entity, typeIndex, ecs->GlobalSystemVersion));
+            }
+        }
+        public static void UnsafeCreateGatherEntitiesResult(ref EntityQuery query, out EntityQuery.GatherEntitiesResult result) =>
+            query.GatherEntitiesToArray(out result);
+        public static void UnsafeReleaseGatheredEntities(ref EntityQuery query, ref EntityQuery.GatherEntitiesResult result) =>
+            query.ReleaseGatheredEntities(ref result);
+#endif  // #if ROSLYN_SOURCEGEN_ENABLED
 #endif
     }
 }

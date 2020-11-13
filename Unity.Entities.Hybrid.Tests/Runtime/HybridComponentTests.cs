@@ -66,6 +66,23 @@ namespace Unity.Entities.Tests
 
             entities.Dispose();
         }
+
+        [Test]
+        public void HybridComponent_OnDisabledGameObject_IsConvertedAndDisabled()
+        {
+            var gameObject = CreateGameObject();
+            gameObject.AddComponent<ConversionTestHybridComponent>().SomeValue = 123;
+            gameObject.SetActive(false);
+            var entity = GameObjectConversionUtility.ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings().WithExtraSystem<MonoBehaviourComponentConversionSystem>());
+            var hybridComponent = m_World.EntityManager.GetComponentObject<ConversionTestHybridComponent>(entity);
+            Assert.AreEqual(123, hybridComponent.SomeValue);
+
+            // give the hybrid component system a chance to activate this object, and check it did not in fact do it.
+            m_World.Update();
+
+            var companion = m_World.EntityManager.GetComponentObject<CompanionLink>(entity);
+            Assert.IsFalse(companion.Companion.activeSelf);
+        }
     }
 }
 #endif

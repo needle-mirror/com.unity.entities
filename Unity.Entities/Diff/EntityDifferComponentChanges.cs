@@ -111,6 +111,69 @@ namespace Unity.Entities
             }
         }
 
+        static internal void GatherLinkedEntityGroupChanges(
+            EntityGuid entityGuid,
+            NativeArray<EntityGuid> beforeLinkedEntityGroup,
+            NativeArray<EntityGuid> afterLinkedEntityGroup,
+            NativeList<LinkedEntityGroupChange> additions,
+            NativeList<LinkedEntityGroupChange> removals)
+        {
+            beforeLinkedEntityGroup.Sort();
+            afterLinkedEntityGroup.Sort();
+
+            var beforeIndex = 0;
+            var afterIndex = 0;
+
+            int beforeLength = beforeLinkedEntityGroup.Length;
+            int afterLength = afterLinkedEntityGroup.Length;
+
+            while (beforeIndex < beforeLength && afterIndex < afterLength)
+            {
+                var beforeEntityGuid = beforeLinkedEntityGroup[beforeIndex];
+                var afterEntityGuid = afterLinkedEntityGroup[afterIndex];
+
+                var comparison = beforeEntityGuid.CompareTo(afterEntityGuid);
+
+                if (comparison == 0)
+                {
+                    // If the guids are equal, we know that the entity exists in both states.
+                    beforeIndex++;
+                    afterIndex++;
+                }
+                else if (comparison > 0)
+                {
+                    // If the before guid is greater, then we know that whatever guid we compared to
+                    // belongs to an entity that was added. Otherwise, we would already have matched it
+                    // in the first case before.
+                    additions.Add(new LinkedEntityGroupChange
+                        {RootEntityGuid = entityGuid, ChildEntityGuid = afterEntityGuid});
+                    afterIndex++;
+                }
+                else if (comparison < 0)
+                {
+                    // If the before guid is smaller, then we know that that entity must have been
+                    // removed
+                    removals.Add(new LinkedEntityGroupChange
+                        {RootEntityGuid = entityGuid, ChildEntityGuid = beforeEntityGuid});
+                    beforeIndex++;
+                }
+            }
+
+            while (beforeIndex < beforeLength)
+            {
+                // If the entity is in "before" but not "after", it's been removed.
+                removals.Add(new LinkedEntityGroupChange
+                    {RootEntityGuid = entityGuid, ChildEntityGuid = beforeLinkedEntityGroup[beforeIndex++]});
+            }
+
+            while (afterIndex < afterLength)
+            {
+                // If the entity is in "after" but not "before", it's been added.
+                additions.Add(new LinkedEntityGroupChange
+                    {RootEntityGuid = entityGuid, ChildEntityGuid = afterLinkedEntityGroup[afterIndex++]});
+            }
+        }
+
         [BurstCompile]
         struct GatherComponentChanges : IJob
         {
@@ -430,52 +493,9 @@ namespace Unity.Entities
                                 afterLinkedEntityGroupEntityGuids[i] = afterEntityGuid;
                             }
 
-                            beforeLinkedEntityGroupEntityGuids.Sort();
-                            afterLinkedEntityGroupEntityGuids.Sort();
-
-                            var beforeIndex = 0;
-                            var afterIndex = 0;
-
-                            while (beforeIndex < beforeLength && afterIndex < afterLength)
-                            {
-                                var beforeEntityGuid = beforeLinkedEntityGroupEntityGuids[beforeIndex];
-                                var afterEntityGuid = afterLinkedEntityGroupEntityGuids[afterIndex];
-
-                                var comparison = beforeEntityGuid.CompareTo(afterEntityGuid);
-
-                                if (comparison == 0)
-                                {
-                                    // If the entity is in both "before" and "after", then there is no change.
-                                    beforeIndex++;
-                                    afterIndex++;
-                                }
-                                else if (comparison > 0)
-                                {
-                                    // If the entity is in "before" but not "after", it's been removed.
-                                    LinkedEntityGroupRemovals.Add(new LinkedEntityGroupChange {RootEntityGuid = entityGuid, ChildEntityGuid = beforeEntityGuid});
-                                    beforeIndex++;
-                                }
-                                else if (comparison < 0)
-                                {
-                                    // If the entity is in "after" but not "before", it's been added.
-                                    LinkedEntityGroupAdditions.Add(new LinkedEntityGroupChange {RootEntityGuid = entityGuid, ChildEntityGuid = afterEntityGuid});
-                                    afterIndex++;
-                                }
-                            }
-
-                            while (beforeIndex < beforeLength)
-                            {
-                                // If the entity is in "before" but not "after", it's been removed.
-                                LinkedEntityGroupRemovals.Add(new LinkedEntityGroupChange
-                                    {RootEntityGuid = entityGuid, ChildEntityGuid = beforeLinkedEntityGroupEntityGuids[beforeIndex++]});
-                            }
-
-                            while (afterIndex < afterLength)
-                            {
-                                // If the entity is in "after" but not "before", it's been added.
-                                LinkedEntityGroupAdditions.Add(new LinkedEntityGroupChange
-                                    {RootEntityGuid = entityGuid, ChildEntityGuid = afterLinkedEntityGroupEntityGuids[afterIndex++]});
-                            }
+                            GatherLinkedEntityGroupChanges(entityGuid,
+                                beforeLinkedEntityGroupEntityGuids, afterLinkedEntityGroupEntityGuids,
+                                LinkedEntityGroupAdditions, LinkedEntityGroupRemovals);
                         }
                     }
                     else
@@ -1067,7 +1087,7 @@ namespace Unity.Entities
             for (var i = 0; i < changes.Length; i++)
             {
                 var change = changes[i];
-                var typeInfo = TypeManager.GetTypeInfo(change.TypeIndex);
+                ref readonly var typeInfo = ref TypeManager.GetTypeInfo(change.TypeIndex);
 
                 if (typeInfo.Category == TypeManager.TypeCategory.UnityEngineObject)
                 {

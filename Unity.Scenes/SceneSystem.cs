@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
 using Unity.Assertions;
 using Unity.Collections;
@@ -37,24 +35,11 @@ namespace Unity.Scenes
                 set => Flags = value ? Flags & ~SceneLoadFlags.DisableAutoLoad : Flags | SceneLoadFlags.DisableAutoLoad;
             }
             public SceneLoadFlags Flags;
-            public int Priority;
-        }
-
-
-        internal struct SceneLoadRequest : IComponentData
-        {
-            public Hash128 sceneGUID;
-            public Scene loadedScene;
-            public Entity dependency;
 #if !UNITY_DOTSRUNTIME
-            public LoadSceneParameters loadParameters;
+            public int Priority;
 #endif
-            public int priority;
-            public bool activateOnLoad;
         }
 
-        protected EntityArchetype sceneLoadRequestArchetype;
-        protected EntityQuery sceneLoadRequestQuery;
         private EntityQuery _unloadSceneQuery;
         BlobAssetReference<ResourceCatalogData> catalogData;
 
@@ -67,8 +52,6 @@ namespace Unity.Scenes
 
         protected override void OnCreate()
         {
-            sceneLoadRequestArchetype = EntityManager.CreateArchetype(typeof(SceneLoadRequest));
-            sceneLoadRequestQuery = GetEntityQuery(new EntityQueryDesc { All = new[] { ComponentType.ReadWrite<SceneLoadRequest>() } });
             _unloadSceneQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] {ComponentType.ReadWrite<SceneSectionStreamingSystem.StreamingState>()},
@@ -92,7 +75,7 @@ namespace Unity.Scenes
                     {
                         if (catalogData.Value.resources[i].ResourceType == ResourceMetaData.Type.Scene &&
                             (catalogData.Value.resources[i].ResourceFlags & ResourceMetaData.Flags.AutoLoad) == ResourceMetaData.Flags.AutoLoad)
-                            LoadSceneAsync(catalogData.Value.resources[i].ResourceId, new LoadParameters() { Flags = SceneLoadFlags.LoadAsGOScene | SceneLoadFlags.LoadAdditive });
+                            LoadSceneAsync(catalogData.Value.resources[i].ResourceId, new LoadParameters() { Flags = SceneLoadFlags.LoadAsGOScene});
                     }
                 }
             }
@@ -106,8 +89,26 @@ namespace Unity.Scenes
         /// <returns>True if the scene guid exists.</returns>
         public Hash128 GetSceneGUID(string scenePath)
         {
+            // In future this should come from the active build configuration, or something along those lines
+            // How will active build configuration work with Client AND Server in same process?
+#if UNITY_EDITOR
+            return AssetDatabaseCompatibility.PathToGUID(scenePath);
+#else
             Assert.IsTrue(catalogData.IsCreated, "The scene catalog has not been loaded yet");
             return catalogData.Value.GetGUIDFromPath(scenePath);
+#endif
+        }
+
+        // TODO: Remove this when we have API to access scenes by GUID (Root Scene Conversion)
+        // TODO: https://unity3d.atlassian.net/browse/DOTS-3329
+        internal string GetScenePath(Hash128 sceneGUID)
+        {
+#if UNITY_EDITOR
+            return AssetDatabaseCompatibility.GuidToPath(sceneGUID);
+#else
+            Assert.IsTrue(catalogData.IsCreated, "The scene catalog has not been loaded yet");
+            return catalogData.Value.GetPathFromGUID(sceneGUID);
+#endif
         }
 
         /// <summary>
@@ -117,11 +118,12 @@ namespace Unity.Scenes
         /// <returns>True if the scene is loaded.</returns>
         public bool IsSceneLoaded(Entity entity)
         {
-            if (EntityManager.HasComponent<SceneLoadRequest>(entity))
+#if !UNITY_DOTSRUNTIME
+            if (EntityManager.HasComponent<GameObjectReference>(entity))
             {
-                var scene = EntityManager.GetComponentData<SceneLoadRequest>(entity).loadedScene;
-                return scene.IsValid() && scene.isLoaded;
+                return GameObjectSceneUtility.IsGameObjectSceneLoaded(this, entity);
             }
+#endif
 
             if (!EntityManager.HasComponent<SceneReference>(entity))
                 return false;
@@ -173,19 +175,17 @@ namespace Unity.Scenes
                 return Entity.Null;
             }
 
+#if !UNITY_DOTSRUNTIME
             if ((parameters.Flags & SceneLoadFlags.LoadAsGOScene) == SceneLoadFlags.LoadAsGOScene)
             {
-#if !UNITY_DOTSRUNTIME
-                var loadSceneMode = ((parameters.Flags & SceneLoadFlags.LoadAdditive) == SceneLoadFlags.LoadAdditive) ? LoadSceneMode.Additive : LoadSceneMode.Single;
-                var activeOnLoad = !((parameters.Flags & SceneLoadFlags.DisableAutoLoad) == SceneLoadFlags.DisableAutoLoad);
-                var newEntity = EntityManager.CreateEntity(sceneLoadRequestArchetype);
-                EntityManager.SetComponentData(newEntity, new SceneLoadRequest() { sceneGUID = sceneGUID, loadParameters = new LoadSceneParameters(loadSceneMode), activateOnLoad = activeOnLoad, priority = 50 });
-                return newEntity;
-#else
-                throw new ArgumentException("Loading a GameObject scene is not supported in Dots Runtime. Please double check your LoadParameters are correct.");
-#endif
+                return GameObjectSceneUtility.LoadGameObjectSceneAsync(this, sceneGUID, parameters);
             }
+#endif
+            return LoadEntitySceneAsync(sceneGUID, parameters);
+        }
 
+        private Entity LoadEntitySceneAsync(Hash128 sceneGUID, LoadParameters parameters)
+        {
             var sceneEntity = Entity.Null;
             if ((parameters.Flags & SceneLoadFlags.NewInstance) == 0)
                 Entities.ForEach((Entity entity, ref SceneReference scene) =>
@@ -197,19 +197,32 @@ namespace Unity.Scenes
             if (sceneEntity == Entity.Null)
                 return CreateSceneEntity(sceneGUID, parameters);
 
-            LoadSceneAsync(sceneEntity, parameters);
+            LoadEntitySceneAsync(sceneEntity, parameters);
             return sceneEntity;
         }
 
-        public void LoadSceneAsync(Entity sceneEntity, LoadParameters parameters = default)
+        void LoadEntitySceneAsync(Entity sceneEntity, LoadParameters parameters)
         {
             var requestSceneLoaded = new RequestSceneLoaded { LoadFlags = parameters.Flags};
             EntityManager.AddComponentData(sceneEntity, requestSceneLoaded);
+
             if (parameters.AutoLoad && EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
             {
                 foreach (var s in EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity))
                     EntityManager.AddComponentData(s.SectionEntity, requestSceneLoaded);
             }
+        }
+
+        public void LoadSceneAsync(Entity sceneEntity, LoadParameters parameters = default)
+        {
+#if !UNITY_DOTSRUNTIME
+            if (EntityManager.HasComponent<GameObjectReference>(sceneEntity))
+            {
+                GameObjectSceneUtility.LoadGameObjectSceneAsync(this, sceneEntity, parameters);
+                return;
+            }
+#endif
+            LoadEntitySceneAsync(sceneEntity, parameters);
         }
 
         Entity CreateSceneEntity(Hash128 sceneGUID, LoadParameters parameters = default)
@@ -230,7 +243,8 @@ namespace Unity.Scenes
             Default = 0,
             DestroySectionProxyEntities = 1 << 1,
             DestroySceneProxyEntity = 1 << 2,
-            DontRemoveRequestSceneLoaded = 1 << 3
+            DontRemoveRequestSceneLoaded = 1 << 3,
+            DestroySubSceneProxyEntities = 1 << 4,
         }
 
         /// <summary>
@@ -240,26 +254,21 @@ namespace Unity.Scenes
         /// <param name="unloadParams">Parameters controlling the unload process.  These are ignored for GameObject scenes.</param>
         public void UnloadScene(Entity sceneEntity, UnloadParameters unloadParams = UnloadParameters.Default)
         {
-            if (EntityManager.HasComponent<SceneLoadRequest>(sceneEntity))
+#if !UNITY_DOTSRUNTIME
+            if (EntityManager.HasComponent<GameObjectReference>(sceneEntity))
             {
-                var req = EntityManager.GetComponentData<SceneLoadRequest>(sceneEntity);
-#if !UNITY_DOTSRUNTIME // todo need pure dots scene manager
-                SceneManager.UnloadSceneAsync(req.loadedScene);
-#endif
-                EntityManager.DestroyEntity(req.dependency);
-                req.dependency = default;
-                EntityManager.DestroyEntity(sceneEntity);
+                GameObjectSceneUtility.UnloadGameObjectScene(this, sceneEntity, unloadParams);
                 return;
             }
-
-            var streamingSystem = World.GetExistingSystem<SceneSectionStreamingSystem>();
-
+#endif
             bool removeRequest = (unloadParams & UnloadParameters.DontRemoveRequestSceneLoaded) == 0;
             bool destroySceneProxyEntity = (unloadParams & UnloadParameters.DestroySceneProxyEntity) != 0;
             bool destroySectionProxyEntities = (unloadParams & UnloadParameters.DestroySectionProxyEntities) != 0;
 
             if (destroySceneProxyEntity && !destroySectionProxyEntities)
                 throw new ArgumentException("When unloading a scene it's not possible to destroy the scene entity without also destroying the section entities. Please also add the UnloadParameters.DestroySectionProxyEntities flag");
+
+            var streamingSystem = World.GetExistingSystem<SceneSectionStreamingSystem>();
 
             if (EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
             {
@@ -323,15 +332,6 @@ namespace Unity.Scenes
                     sceneEntity = entity;
             });
 
-            if (sceneEntity == Entity.Null)
-            {
-                Entities.ForEach((Entity entity, ref SceneLoadRequest req) =>
-                {
-                    if (req.sceneGUID == sceneGUID)
-                        sceneEntity = entity;
-                });
-            }
-
             return sceneEntity;
         }
 
@@ -350,15 +350,6 @@ namespace Unity.Scenes
                     sceneEntity = entity;
             });
 
-            if (sceneEntity == Entity.Null)
-            {
-                Entities.WithNone<DisableLiveLink>().ForEach((Entity entity, ref SceneLoadRequest req) =>
-                {
-                    if (req.sceneGUID == sceneGUID)
-                        sceneEntity = entity;
-                });
-            }
-
             return sceneEntity;
         }
 #endif
@@ -374,64 +365,10 @@ namespace Unity.Scenes
                     streamingSystem.UnloadSectionImmediate(sectionEntity);
                 });
             }
-
-#if !UNITY_DOTSRUNTIME // Used by LiveLink -- enable once supported
-            if (!sceneLoadRequestQuery.IsEmptyIgnoreFilter)
-            {
-                var assetResolver = LiveLinkPlayerAssetRefreshSystem.GlobalAssetObjectResolver;
-                Entities.With(sceneLoadRequestQuery).ForEach((Entity entity, ref SceneLoadRequest req) =>
-                {
-                    if (!req.loadedScene.IsValid())
-                    {
-                        if (!EntityManager.Exists(req.dependency))
-                        {
-                            req.dependency = EntityManager.CreateEntity(typeof(ResourceGUID));
-                            EntityManager.SetComponentData(req.dependency, new ResourceGUID() {Guid = req.sceneGUID});
-                        }
-
-                        if (assetResolver.HasAsset(req.sceneGUID))
-                        {
-                            var firstBundle = assetResolver.GetAssetBundle(req.sceneGUID);
-                            var scenePath = firstBundle.GetAllScenePaths()[0];
-                            LiveLinkMsg.LogInfo($"Loading GameObject Scene with path {scenePath}.");
-                            var sceneLoadOperation = SceneManager.LoadSceneAsync(scenePath, req.loadParameters);
-                            sceneLoadOperation.allowSceneActivation = req.activateOnLoad;
-                            sceneLoadOperation.priority = req.priority;
-
-                            req.loadedScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
-                        }
-                    }
-                });
-            }
-#endif
         }
 
         // Used by LiveLink -- enable once supported
 #if !UNITY_DOTSRUNTIME
-        internal void ReloadScenesWithHash(Hash128 assetGUID, Hash128 newHash)
-        {
-            Entities.With(sceneLoadRequestQuery).ForEach((Entity entity, ref SceneLoadRequest req) =>
-            {
-                if (req.sceneGUID == assetGUID)
-                {
-                    LiveLinkMsg.LogInfo($"Reloading GameObject Scene with path {req.loadedScene.path}.");
-                    SceneManager.UnloadSceneAsync(req.loadedScene);
-                    EntityManager.DestroyEntity(req.dependency);
-                    req.dependency = default;
-                }
-            });
-        }
-
-        internal void UnloadAllScenes()
-        {
-            LiveLinkMsg.LogInfo($"Unloading all GameObject Scenes.");
-            Entities.With(sceneLoadRequestQuery).ForEach((Entity entity, ref SceneLoadRequest req) =>
-            {
-                SceneManager.UnloadSceneAsync(req.loadedScene);
-                EntityManager.DestroyEntity(req.dependency);
-            });
-            EntityManager.DestroyEntity(sceneLoadRequestQuery);
-        }
 #endif
     }
 }

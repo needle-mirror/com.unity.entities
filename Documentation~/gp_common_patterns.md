@@ -78,7 +78,8 @@ public class RotationSpeedSystem_ForEach : SystemBase
 }
 ```
 
-**Note:** this pattern copies the data into your job struct (and back out if used with `.Run`). If you do this with very large job structs it can have some performance overhead due to struct copying. In this case it might be a sign that your job should be split up into multiple smaller jobs.
+> [!NOTE]
+> This pattern copies the data into your job struct (and back out if used with `.Run`). If you do this with very large job structs it can have some performance overhead due to struct copying. In this case it might be a sign that your job should be split up into multiple smaller jobs.
 
 For more information about creating ECS systems, see:
 

@@ -35,7 +35,7 @@ namespace Unity.Entities
             }
 
             var type = obj.GetType();
-            var typeInfo = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(type));
+            ref readonly var typeInfo = ref TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(type));
 
             if (typeInfo.Category == TypeManager.TypeCategory.UnityEngineObject)
             {

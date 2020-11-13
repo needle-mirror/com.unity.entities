@@ -268,20 +268,28 @@ namespace Unity.Scenes.Editor
                     }
 
                     buttonRect.x += buttonRect.width + spacing;
-                    if (!entityManager.HasComponent<RequestSceneLoaded>(scene.Scene))
+                    if (!scene.IsLoaded)
                     {
-                        if (GUI.Button(buttonRect, Content.LoadLabel))
+                        using (new EditorGUI.DisabledScope(!scene.Section0IsLoaded && scene.SectionIndex != 0))
                         {
-                            entityManager.AddComponentData(scene.Scene, new RequestSceneLoaded());
-                            EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+                            if (GUI.Button(buttonRect, Content.LoadLabel))
+                            {
+                                // if we load any scene, we also have load section 0
+                                entityManager.AddComponentData(scene.Scene, new RequestSceneLoaded());
+                                EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+                            }
                         }
                     }
                     else
                     {
-                        if (GUI.Button(buttonRect, Content.UnloadLabel))
+                        using (new EditorGUI.DisabledScope(scene.NumSubSceneSectionsLoaded > 1 && scene.SectionIndex == 0))
                         {
-                            entityManager.RemoveComponent<RequestSceneLoaded>(scene.Scene);
-                            EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+                            if (GUI.Button(buttonRect, Content.UnloadLabel))
+                            {
+                                // if we unload section 0, we also need to unload the entire rest
+                                entityManager.RemoveComponent<RequestSceneLoaded>(scene.Scene);
+                                EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
+                            }
                         }
                     }
 
@@ -431,7 +439,7 @@ namespace Unity.Scenes.Editor
                 if (sceneSystem is null)
                     continue;
 
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, ImportMode.NoImport);
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, true, ImportMode.NoImport);
                 if (!hash.IsValid)
                     return false;
             }
@@ -454,7 +462,7 @@ namespace Unity.Scenes.Editor
                 else if (loaded)
                     continue;
 
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, ImportMode.Asynchronous);
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.SceneGUID, sceneSystem.BuildConfigurationGUID, true, ImportMode.Asynchronous);
                 if (!hash.IsValid)
                 {
                     pendingWork = true;
@@ -489,8 +497,8 @@ namespace Unity.Scenes.Editor
             public static readonly GUIContent LoadAllLabel = EditorGUIUtility.TrTextContent("Load All");
             public static readonly GUIContent UnloadAllLabel = EditorGUIUtility.TrTextContent("Unload All");
             public static readonly GUIContent ReimportAllLabel = EditorGUIUtility.TrTextContent("Reimport All");
-            public static readonly GUIContent LoadLabel = EditorGUIUtility.TrTextContent("Load");
-            public static readonly GUIContent UnloadLabel = EditorGUIUtility.TrTextContent("Unload");
+            public static readonly GUIContent LoadLabel = EditorGUIUtility.TrTextContent("Load", "You can only load a section if section 0 of that scene is also loaded.");
+            public static readonly GUIContent UnloadLabel = EditorGUIUtility.TrTextContent("Unload", "You can only unload section 0 if no other sections of that scene are loaded.");
             public static readonly GUIContent ReimportLabel = EditorGUIUtility.TrTextContent("Reimport");
             public static readonly GUIContent ImportingLabel = EditorGUIUtility.TrTextContent("Importing...");
             public static readonly GUIContent OpenLabel = EditorGUIUtility.TrTextContent("Open");

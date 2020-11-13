@@ -18,12 +18,6 @@ using UnityEngine.Scripting;
 
 namespace Unity.Entities
 {
-    // Exists to allow `EntityManager mgr = null` to compile, as it required by existing packages (Physics)
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public struct EntityManagerNullShim
-    {
-    }
-
     /// <summary>
     /// The EntityManager manages entities and components in a World.
     /// </summary>
@@ -50,15 +44,14 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private AtomicSafetyHandle m_Safety;
 
-#if UNITY_2020_1_OR_NEWER
         private static readonly SharedStatic<int> s_staticSafetyId = SharedStatic<int>.GetOrCreate<EntityManager>();
         [BurstDiscard]
         private static void CreateStaticSafetyId()
         {
             s_staticSafetyId.Data = AtomicSafetyHandle.NewStaticSafetyId<EntityManager>();
         }
-#endif
-        private bool m_IsInExclusiveTransaction;
+        private byte m_IsInExclusiveTransaction;
+        private bool IsInExclusiveTransaction => m_IsInExclusiveTransaction != 0;
 #endif
 
         [NativeDisableUnsafePtrRestriction]
@@ -68,9 +61,9 @@ namespace Unity.Entities
         private void AssertIsExclusiveTransaction()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (m_IsInExclusiveTransaction == !m_EntityDataAccess->IsInExclusiveTransaction)
+            if (IsInExclusiveTransaction == !m_EntityDataAccess->IsInExclusiveTransaction)
             {
-                if (m_IsInExclusiveTransaction)
+                if (IsInExclusiveTransaction)
                     throw new InvalidOperationException("EntityManager cannot be used from this context because it is part of an exclusive transaction that has already ended.");
                 throw new InvalidOperationException("EntityManager cannot be used from this context because it is not part of the exclusive transaction that is currently active.");
             }
@@ -190,6 +183,7 @@ namespace Unity.Entities
         [NotBurstCompatible]
         internal void Initialize(World world)
         {
+            WordStorage.Initialize();
             TypeManager.Initialize();
             StructuralChange.Initialize();
             EntityCommandBuffer.Initialize();
@@ -206,15 +200,13 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Safety = AtomicSafetyHandle.Create();
 
-#if UNITY_2020_1_OR_NEWER
             if (s_staticSafetyId.Data == 0)
             {
                 CreateStaticSafetyId();
             }
             AtomicSafetyHandle.SetStaticSafetyId(ref m_Safety, s_staticSafetyId.Data);
-#endif
 
-            m_IsInExclusiveTransaction = false;
+            m_IsInExclusiveTransaction = 0;
 #endif
             m_EntityDataAccess = (EntityDataAccess*)Memory.Unmanaged.Allocate(sizeof(EntityDataAccess), 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_EntityDataAccess, sizeof(EntityDataAccess));
@@ -235,6 +227,7 @@ namespace Unity.Entities
             IJobBurstSchedulableExtensions.JobStruct<GatherChunksAndOffsetsJob>.Initialize();
             IJobBurstSchedulableExtensions.JobStruct<GatherChunksAndOffsetsWithFilteringJob>.Initialize();
             IJobBurstSchedulableExtensions.JobStruct<PrefilterForJobEntityBatchWithIndex>.Initialize();
+            IJobBurstSchedulableExtensions.JobStruct<PrefilterForJobEntityBatchWithIndex_EntityArray>.Initialize();
 
             IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<RemapChunksFilteredJob>.Initialize();
             IJobParallelForExtensionsBurstSchedulable.ParallelForJobStructBurstSchedulable<RemapAllChunksJob>.Initialize();

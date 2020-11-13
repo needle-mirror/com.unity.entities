@@ -64,6 +64,10 @@ namespace Unity.Scenes.Editor
             public Entity Scene;
             public string Name;
             public SubScene SubScene;
+            public int SectionIndex;
+            public bool IsLoaded;
+            public bool Section0IsLoaded;
+            public int NumSubSceneSectionsLoaded;
         }
 
         static NativeArray<Entity> GetActiveWorldSections(World world, Hash128 sceneGUID)
@@ -87,26 +91,49 @@ namespace Unity.Scenes.Editor
         public static LoadableScene[] GetLoadableScenes(SubScene[] scenes)
         {
             var loadables = new List<LoadableScene>();
-
             var world = World.DefaultGameObjectInjectionWorld;
+            var entityManager = world.EntityManager;
             foreach (var scene in scenes)
             {
+                bool section0IsLoaded = false;
+                var numSections = 0;
+                var numSectionsLoaded = 0;
                 foreach (var section in GetActiveWorldSections(world, scene.SceneGUID))
                 {
-                    if (world.EntityManager.HasComponent<SceneSectionData>(section))
+                    if (entityManager.HasComponent<SceneSectionData>(section))
                     {
                         var name = scene.SceneAsset != null ? scene.SceneAsset.name : "Missing Scene Asset";
-                        var sectionIndex = world.EntityManager.GetComponentData<SceneSectionData>(section).SubSectionIndex;
+                        var sectionIndex = entityManager.GetComponentData<SceneSectionData>(section).SubSectionIndex;
                         if (sectionIndex != 0)
                             name += $" Section: {sectionIndex}";
+
+                        numSections += 1;
+                        var isLoaded = entityManager.HasComponent<RequestSceneLoaded>(section);
+                        if (isLoaded)
+                            numSectionsLoaded += 1;
+                        if (sectionIndex == 0)
+                            section0IsLoaded = isLoaded;
 
                         loadables.Add(new LoadableScene
                         {
                             Scene = section,
                             Name = name,
-                            SubScene = scene
+                            SubScene = scene,
+                            SectionIndex = sectionIndex,
+                            IsLoaded = isLoaded,
+                            Section0IsLoaded = section0IsLoaded,
                         });
                     }
+                }
+
+                // Go over all sections of this subscene and set the number of sections that are loaded.
+                // This is needed to decide whether are able to unload section 0.
+                for (int i = 0; i < numSections; i++)
+                {
+                    var idx = numSections - 1 - i;
+                    var l = loadables[idx];
+                    l.NumSubSceneSectionsLoaded = numSectionsLoaded;
+                    loadables[idx] = l;
                 }
             }
 
@@ -122,14 +149,7 @@ namespace Unity.Scenes.Editor
                 if (sceneSystem != null)
                 {
                     foreach (var scene in scenes)
-                    {
-                        var guid = SceneWithBuildConfigurationGUIDs.Dirty(scene.SceneGUID, sceneSystem.BuildConfigurationGUID, out var requestRefresh);
-                        needRefresh |= requestRefresh;
-
-                        // Ignoring return as this is just being used to start an impot, we don't actually care about the hash result
-                        AssetDatabaseCompatibility.GetArtifactHash(guid.ToString(),
-                            EntityScenesPaths.SubSceneImporterType, ImportMode.Asynchronous);
-                    }
+                        needRefresh |= SceneWithBuildConfigurationGUIDs.Dirty(scene.SceneGUID, sceneSystem.BuildConfigurationGUID);
                 }
             }
             if (needRefresh)

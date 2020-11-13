@@ -51,19 +51,19 @@ namespace Unity.Entities
             var access = GetCheckedEntityDataAccess();
 
         #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (m_IsInExclusiveTransaction)
+            if (IsInExclusiveTransaction)
                 throw new InvalidOperationException("An exclusive transaction is already in process.");
             if (access->DependencyManager->IsInTransaction)
                 throw new InvalidOperationException("An exclusive transaction is already in process.");
         #endif
 
             access->DependencyManager->BeginExclusiveTransaction();
-            access->m_IsInExclusiveTransaction = true;
+            access->m_IsInExclusiveTransaction = 1;
 
             var copy = this;
 
         #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            copy.m_IsInExclusiveTransaction = true;
+            copy.m_IsInExclusiveTransaction = 1;
         #endif
             return new ExclusiveEntityTransaction(copy);
         }
@@ -76,7 +76,7 @@ namespace Unity.Entities
         public void EndExclusiveEntityTransaction()
         {
         #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (m_IsInExclusiveTransaction)
+            if (m_IsInExclusiveTransaction == 1)
                 throw new InvalidOperationException("Transactions can only be ended from the main thread");
             AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
         #endif
@@ -86,7 +86,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
         #endif
             m_EntityDataAccess->DependencyManager->EndExclusiveTransaction();
-            m_EntityDataAccess->m_IsInExclusiveTransaction = false;
+            m_EntityDataAccess->m_IsInExclusiveTransaction = 0;
         }
 
         // ----------------------------------------------------------------------------------------------------------
@@ -108,11 +108,10 @@ namespace Unity.Entities
         internal void AddSharedComponent<T>(NativeArray<ArchetypeChunk> chunks, T componentData)
             where T : struct, ISharedComponentData
         {
-            ManagedComponentStore mcs = GetCheckedEntityDataAccess()->ManagedComponentStore;
             var componentType = ComponentType.ReadWrite<T>();
-            int sharedComponentIndex = mcs.InsertSharedComponent(componentData);
+            int sharedComponentIndex = m_EntityDataAccess->InsertSharedComponent(componentData);
             m_EntityDataAccess->AddSharedComponentData(chunks, sharedComponentIndex, componentType);
-            mcs.RemoveReference(sharedComponentIndex);
+            m_EntityDataAccess->RemoveSharedComponentReference(sharedComponentIndex);
         }
     }
 }

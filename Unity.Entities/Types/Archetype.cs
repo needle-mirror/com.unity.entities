@@ -13,10 +13,11 @@ namespace Unity.Entities
         Disabled = 4,
         Prefab = 8,
         HasChunkHeader = 16,
-        ContainsBlobAssetRefs = 32,
+        HasBlobAssetRefs = 32,
         HasHybridComponents = 64,
         HasBufferComponents = 128,
-        HasManagedComponents = 256
+        HasManagedComponents = 256,
+        HasManagedEntityRefs = 512
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -40,7 +41,6 @@ namespace Unity.Entities
         public int TypesCount;
         public int InstanceSize;
         public int InstanceSizeWithOverhead;
-        public int ManagedEntityPatchCount;
         public int ScalarEntityPatchCount;
         public int BufferEntityPatchCount;
 
@@ -70,7 +70,6 @@ namespace Unity.Entities
 
         public EntityRemapUtility.EntityPatchInfo* ScalarEntityPatches;
         public EntityRemapUtility.BufferEntityPatchInfo* BufferEntityPatches;
-        public EntityRemapUtility.ManagedEntityPatchInfo* ManagedEntityPatches;
 
         // @macton Temporarily store back reference to EntityComponentStore.
         // - In order to remove this we need to sever the connection to ManagedChangesTracker
@@ -84,7 +83,8 @@ namespace Unity.Entities
         public bool Disabled => (Flags & ArchetypeFlags.Disabled) != 0;
         public bool Prefab => (Flags & ArchetypeFlags.Prefab) != 0;
         public bool HasChunkHeader => (Flags & ArchetypeFlags.HasChunkHeader) != 0;
-        public bool ContainsBlobAssetRefs => (Flags & ArchetypeFlags.ContainsBlobAssetRefs) != 0;
+        public bool HasBlobAssetRefs => (Flags & ArchetypeFlags.HasBlobAssetRefs) != 0;
+        public bool HasManagedEntityRefs => (Flags & ArchetypeFlags.HasManagedEntityRefs) != 0;
         public bool HasHybridComponents => (Flags & ArchetypeFlags.HasHybridComponents) != 0;
 
         public int NumNativeComponentData => FirstBufferComponent - 1;
@@ -103,6 +103,19 @@ namespace Unity.Entities
         public int TagComponentsEnd => FirstSharedComponent;
         public int SharedComponentsEnd => FirstChunkComponent;
         public int ChunkComponentsEnd => TypesCount;
+
+        public ulong GetStableHash()
+        {
+            ulong hash = 1;
+            for (int i = 0; i != TypesCount; i++)
+            {
+                int typeIndex = Types[TypeMemoryOrder[i]].TypeIndex;
+                ulong stableTypeIndex = TypeManager.GetTypeInfo(typeIndex).StableTypeHash;
+                hash = TypeHash.CombineFNV1A64(hash, stableTypeIndex);
+            }
+
+            return hash;
+        }
 
         public bool HasChunkComponents => FirstChunkComponent != TypesCount;
 
@@ -160,13 +173,13 @@ namespace Unity.Entities
             }
         }
 
-        public void AddToChunkListWithEmptySlots(Chunk *chunk)
+        void AddToChunkListWithEmptySlots(Chunk *chunk)
         {
             chunk->ListWithEmptySlotsIndex = ChunksWithEmptySlots.Length;
             ChunksWithEmptySlots.Add(chunk);
         }
 
-        public void RemoveFromChunkListWithEmptySlots(Chunk *chunk)
+        void RemoveFromChunkListWithEmptySlots(Chunk *chunk)
         {
             var index = chunk->ListWithEmptySlotsIndex;
             Assert.IsTrue(index >= 0 && index < ChunksWithEmptySlots.Length);
@@ -188,6 +201,10 @@ namespace Unity.Entities
         /// <param name="chunk"></param>
         internal void EmptySlotTrackingRemoveChunk(Chunk* chunk)
         {
+            fixed (Archetype* archetype = &this)
+            {
+                Assert.AreEqual((ulong)archetype, (ulong)chunk->Archetype);
+            }
             if (NumSharedComponents == 0)
                 RemoveFromChunkListWithEmptySlots(chunk);
             else
@@ -202,6 +219,10 @@ namespace Unity.Entities
         /// <param name="chunk"></param>
         internal void EmptySlotTrackingAddChunk(Chunk* chunk)
         {
+            fixed (Archetype* archetype = &this)
+            {
+                Assert.AreEqual((ulong)archetype, (ulong)chunk->Archetype);
+            }
             if (NumSharedComponents == 0)
                 AddToChunkListWithEmptySlots(chunk);
             else

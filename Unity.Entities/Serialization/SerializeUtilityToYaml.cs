@@ -7,7 +7,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Unity.Assertions;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Serialization.Json;
 
 namespace Unity.Entities.Serialization
 {
@@ -43,8 +45,10 @@ namespace Unity.Entities.Serialization
             var entityComponentStore = access->EntityComponentStore;
 
             using (var archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp))
+            using (var entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(entityManager.EntityCapacity, Allocator.Temp))
             using (yaml.WriteCollection(k_ChunksDataCollectionTag))
             {
+                GenerateRemapInfo(entityManager, archetypeArray, entityRemapInfos);
                 for (int a = 0; a < archetypeArray.Length; ++a)
                 {
                     var archetype = archetypeArray.Ptr[a];
@@ -55,7 +59,7 @@ namespace Unity.Entities.Serialization
                         for (var ci = 0; ci < archetype->Chunks.Count; ++ci)
                         {
                             var chunk = archetype->Chunks[ci];
-                            WriteChunkData(yaml, entityManager, chunk, archetype, dumpChunkRawData);
+                            WriteChunkData(yaml, entityManager, entityRemapInfos, chunk, archetype, a, dumpChunkRawData);
                         }
                     }
                 }
@@ -182,26 +186,42 @@ namespace Unity.Entities.Serialization
                         if (a->Prefab)                         props.Add(nameof(Archetype.Prefab));
                         if (a->HasChunkComponents)             props.Add(nameof(Archetype.HasChunkComponents));
                         if (a->HasChunkHeader)                 props.Add(nameof(Archetype.HasChunkHeader));
-                        if (a->ContainsBlobAssetRefs)          props.Add(nameof(Archetype.ContainsBlobAssetRefs));
+                        if (a->HasBlobAssetRefs)          props.Add(nameof(Archetype.HasBlobAssetRefs));
                         writer.WriteInlineSequence("properties", props);
                     }
                 }
             }
         }
 
-        static unsafe void WriteChunkData(YamlWriter writer, EntityManager entityManager, Chunk* initialChunk, Archetype* archetype, bool dumpChunkRawData)
+        static unsafe void WriteChunkData(YamlWriter writer, EntityManager entityManager, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, Chunk* initialChunk, Archetype* archetype, int archetypeIndex, bool dumpChunkRawData)
         {
+            var tempChunkMem = stackalloc byte[Chunk.kChunkSize];
+            Chunk* tempChunk = (Chunk*)tempChunkMem;
+            if (dumpChunkRawData)
+            {
+                UnsafeUtility.MemCpy(tempChunk, initialChunk, Chunk.kChunkSize);
+
+                byte* tempChunkBuffer = tempChunk->Buffer;
+
+                BufferHeader.PatchAfterCloningChunk(tempChunk);
+                EntityRemapUtility.PatchEntities(archetype->ScalarEntityPatches, archetype->ScalarEntityPatchCount, archetype->BufferEntityPatches, archetype->BufferEntityPatchCount, tempChunkBuffer, tempChunk->Count, ref entityRemapInfos);
+                ClearChunkHeaderComponents(tempChunk);
+                ChunkDataUtility.MemsetUnusedChunkData(tempChunk, 0);
+
+                tempChunk->Archetype = (Archetype*)archetypeIndex;
+            }
+
             using (writer.WriteCollection(k_ChunkDataCollectionTag))
             {
                 using (writer.WriteCollection("Header"))
                 {
                     WriteEntity(writer, nameof(Chunk.metaChunkEntity), initialChunk->metaChunkEntity);
-                    writer.WriteKeyValue(nameof(Chunk.Capacity), initialChunk->Capacity)
-                        .WriteKeyValue(nameof(Chunk.Count), initialChunk->Count);
+                    writer.WriteKeyValue(nameof(Chunk.Capacity), initialChunk->Capacity);
+                    writer.WriteKeyValue(nameof(Chunk.Count), initialChunk->Count);
 
                     if (dumpChunkRawData)
                     {
-                        writer.WriteFormattedBinaryData("RawData", initialChunk, Chunk.kBufferOffset);
+                        writer.WriteFormattedBinaryData("Header-RawData", tempChunk, Chunk.kBufferOffset);
                     }
                 }
 
@@ -214,7 +234,7 @@ namespace Unity.Entities.Serialization
                 {
                     var componentType = &chunkTypes[typeI];
                     var type = TypeManager.GetType(componentType->TypeIndex);
-                    var typeInfo = TypeManager.GetTypeInfo(componentType->TypeIndex);
+                    ref readonly var typeInfo = ref TypeManager.GetTypeInfo(componentType->TypeIndex);
 
                     if (componentType->IsChunkComponent)
                     {
@@ -232,12 +252,11 @@ namespace Unity.Entities.Serialization
 
                             for (int i = 0; i < initialChunk->Count;)
                             {
-                                var entity = (Entity)Marshal.PtrToStructure((IntPtr)initialChunk->Buffer + archetype->SizeOfs[0] * i, type);
-                                if (entityManager.Exists(entity))
-                                {
-                                    entitiesByChunkIndex.Add(i, entity);
-                                    i++;
-                                }
+                                var entity = *(Entity*)(initialChunk->Buffer + archetype->SizeOfs[0] * i);
+                                Assert.IsTrue(entityManager.Exists(entity));
+
+                                entitiesByChunkIndex.Add(i, entity);
+                                i++;
                             }
                         }
                         else
@@ -250,12 +269,16 @@ namespace Unity.Entities.Serialization
                 // Parse the Component Data for this chunk and store them
                 using (writer.WriteCollection(k_ComponentDataCollectionTag))
                 {
+                    var access = entityManager.GetCheckedEntityDataAccess();
                     foreach (var typeI in componentDataList)
                     {
                         var componentTypeInArchetype = &chunkTypes[typeI];
                         var componentType = TypeManager.GetType(componentTypeInArchetype->TypeIndex);
-                        var componentTypeInfo = TypeManager.GetTypeInfo(componentTypeInArchetype->TypeIndex);
-                        var componentExtractedInfo = TypeDataExtractor.GetTypeExtractedInfo(componentType);
+
+                        ref readonly var componentTypeInfo = ref TypeManager.GetTypeInfo(componentTypeInArchetype->TypeIndex);
+                        TypeDataExtractor.TypeExtractedInfo componentExtractedInfo = null;
+                        if (UnsafeUtility.IsUnmanaged(componentType))
+                            componentExtractedInfo = TypeDataExtractor.GetTypeExtractedInfo(componentType);
 
                         using (writer.WriteCollection(k_ComponentDataTag))
                         {
@@ -287,10 +310,12 @@ namespace Unity.Entities.Serialization
                                     {
                                         var header = (BufferHeader*)compData;
                                         var begin = BufferHeader.GetElementPointer(header);
-                                        var size = Marshal.SizeOf(componentType);
+                                        var size = componentTypeInfo.ElementSize;
 
                                         using (writer.WriteCollection(entity.ToString()))
                                         {
+                                            writer.WriteLine($"Length: {header->Length} Capacity: {header->Capacity}");
+
                                             for (var it = 0; it < header->Length; it++)
                                             {
                                                 var item = begin + (size * it);
@@ -305,26 +330,73 @@ namespace Unity.Entities.Serialization
                                                 writer.WriteInlineMap($"{it:0000}", entityData);
                                             }
                                         }
+
+                                        if (dumpChunkRawData)
+                                        {
+                                            if (componentSize > 0)
+                                                writer.WriteFormattedBinaryData("ComponentRawData", begin, size * header->Length, 0);
+                                        }
                                     }
-                                    // If it's a Component Data
                                     else
                                     {
-                                        // Dump each field of the current entity's component data
-                                        foreach (var componentFieldInfo in componentExtractedInfo.Fields)
+                                        // If it's a Component Data
+                                        if (componentTypeInfo.Category == TypeManager.TypeCategory.ComponentData && !componentTypeInfo.Type.IsClass || componentTypeInfo.Category == TypeManager.TypeCategory.EntityData)
                                         {
-                                            var compDataObject = Marshal.PtrToStructure((IntPtr)compData + componentFieldInfo.Offset, componentFieldInfo.Type);
-                                            entityData.Add(componentFieldInfo.Name, compDataObject.ToString());
+                                            // Dump each field of the current entity's component data
+                                            foreach (var componentFieldInfo in componentExtractedInfo.Fields)
+                                            {
+                                                var compDataObject = Marshal.PtrToStructure((IntPtr)compData + componentFieldInfo.Offset, componentFieldInfo.Type);
+                                                entityData.Add(componentFieldInfo.Name, compDataObject.ToString());
+                                            }
+                                            writer.WriteInlineMap(entity.ToString(), entityData);
                                         }
-                                        writer.WriteInlineMap(entity.ToString(), entityData);
+                                        else if (componentTypeInfo.Category == TypeManager.TypeCategory.ComponentData && componentTypeInfo.Type.IsClass)
+                                        {
+                                            var obj = access->ManagedComponentStore.GetManagedComponent(*(int*)(compData));
+                                            if (obj == null)
+                                                writer.WriteLine("null");
+                                            else
+                                                writer.WriteLine(JsonSerialization.ToJson(obj));
+                                        }
+                                        //@Todo: Shared components
+
+                                        if (dumpChunkRawData)
+                                        {
+                                            if (componentSize > 0)
+                                                writer.WriteFormattedBinaryData("ComponentRawData", compData, componentSize, 0);
+                                        }
                                     }
-                                }
-                                if (dumpChunkRawData)
-                                {
-                                    var csize = EntityComponentStore.GetComponentArraySize(componentSize, archetype->ChunkCapacity);
-                                    writer.WriteFormattedBinaryData("RawData", componentsBuffer, csize, componentOffsetInChunk + Chunk.kBufferOffset);
                                 }
                             }
                         }
+                    }
+
+                    if (dumpChunkRawData)
+                    {
+                        writer.WriteLine("Archetype: " + initialChunk->Archetype->ToString());
+
+                        using (var bufferPatches = new NativeList<BufferPatchRecord>(128, Allocator.Temp))
+                        using (var bufferPtrs = new NativeList<IntPtr>(128, Allocator.Temp))
+                        {
+                            tempChunk->Archetype = archetype;
+                            FillBufferPatchRecordsAndClearBufferPointer(tempChunk, bufferPatches, bufferPtrs);
+                            for (int i = 0; i < bufferPtrs.Length; ++i)
+                            {
+                                var ptr = (void*)bufferPtrs[i];
+                                BufferHeader.FreeBufferPtr(ptr);
+                            }
+                        }
+
+                        for (int i = 0; i != tempChunk->Archetype->TypesCount; i++)
+                        {
+                            var begin = archetype->Offsets[i];
+                            var end = i == tempChunk->Archetype->TypesCount -1 ? Chunk.GetChunkBufferSize() : archetype->Offsets[i+1];
+                            writer.WriteLine("Type: " + tempChunk->Archetype->Types[i]);
+                            writer.WriteFormattedBinaryData("Chunk Row", tempChunk->Buffer + begin, end - begin, 0);
+                        }
+
+                        //writer.WriteLine("Archetype: " + initialChunk->Archetype->ToString());
+                        //writer.WriteFormattedBinaryData("Complete chunk", tempChunk, Chunk.kChunkSize, 0);
                     }
                 }
             }

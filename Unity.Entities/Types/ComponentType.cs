@@ -185,7 +185,7 @@ namespace Unity.Entities
 
             var info = TypeManager.GetTypeInfo(TypeIndex);
             FixedString512 ns = default;
-            ns.Append(info.Debug.TypeName);
+            ns.Append(info.DebugTypeName);
 
             if (IsBuffer)
                 ns.Append(" [B]");

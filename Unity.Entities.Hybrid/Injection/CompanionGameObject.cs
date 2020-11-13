@@ -96,7 +96,7 @@ namespace Unity.Entities
 
                 for (int t = firstIndex; t < lastIndex; ++t)
                 {
-                    var type = TypeManager.GetTypeInfo(types[t].TypeIndex);
+                    ref readonly var type = ref TypeManager.GetTypeInfo(types[t].TypeIndex);
 
                     if (type.Category != TypeManager.TypeCategory.UnityEngineObject)
                         continue;

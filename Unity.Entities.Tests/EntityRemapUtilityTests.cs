@@ -54,10 +54,8 @@ namespace Unity.Entities.Tests
 
         static TypeManager.EntityOffsetInfo[] GetEntityOffsets(System.Type type)
         {
-#if !UNITY_DOTSRUNTIME // Work needed to make CalculateEntityOffsets compatible with DOTS Runtime (comment with explanation at that code)
-            return EntityRemapUtility.CalculateEntityOffsets(type);
-#else
-            unsafe {
+            unsafe
+            {
                 var info = TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(type));
                 if (info.EntityOffsetCount > 0)
                 {
@@ -68,7 +66,6 @@ namespace Unity.Entities.Tests
                 }
                 return null;
             }
-#endif
         }
 
         [Test]
@@ -106,10 +103,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(12, offsets[1].Offset);
         }
 
-        struct EmbeddedEntityStruct
-#if UNITY_DOTSRUNTIME
-            : IComponentData
-#endif
+        struct EmbeddedEntityStruct : IComponentData
         {
             // The offsets of these fields are accessed through reflection
             #pragma warning disable CS0169  // field never used warning.

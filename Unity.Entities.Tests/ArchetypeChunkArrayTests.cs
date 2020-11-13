@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using System;
 using System.Collections.Generic;
+using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -591,6 +592,252 @@ namespace Unity.Entities.Tests
             chunks.Dispose();
         }
 
+
+        class UntypedBufferSystemBumpVersion : ComponentSystem
+        {
+            struct UpdateChunks : IJobParallelFor
+            {
+                public NativeArray<ArchetypeChunk> Chunks;
+                public DynamicComponentTypeHandle ElementHandle;
+
+                public void Execute(int chunkIndex)
+                {
+                    var chunk = Chunks[chunkIndex];
+                    var ecsBufferAccessor = chunk.GetUntypedBufferAccessor(ref ElementHandle);
+                    for (int i = 0; i < ecsBufferAccessor.Length; ++i)
+                    {
+                        unsafe
+                        {
+                            var buffer = ecsBufferAccessor.GetUnsafeReadOnlyPtrAndLength(i, out var len);
+                            for(int e=0;e<len;++e)
+                            {
+                                ((int*) buffer)[e] = 0xBADF00D;
+                            }
+                        }
+                    }
+                }
+            }
+            protected override void OnUpdate()
+            {
+                var query = GetEntityQuery(typeof(EcsIntElement));
+                var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob);
+                var updateChunksJob = new UpdateChunks
+                {
+                    Chunks = chunks,
+                    ElementHandle = GetDynamicComponentTypeHandle(ComponentType.ReadWrite(typeof(EcsIntElement)))
+                };
+                var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32);
+                updateChunksJobHandle.Complete();
+                chunks.Dispose();
+            }
+        }
+
+        [Test]
+        public void ACS_UntypedBuffers()
+        {
+            CreateEntities(128);
+
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
+
+            var roComponentType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsIntElement)));
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+                var accessor = chunk.GetUntypedBufferAccessor(ref roComponentType);
+                Assert.IsTrue(accessor.Length != 0);
+                Assert.IsTrue(accessor.ElementSize == UnsafeUtility.SizeOf<EcsIntElement>());
+                for (int k = 0; k < accessor.Length; ++k)
+                {
+                    unsafe
+                    {
+                        var bufferPtr = (byte*) accessor.GetUnsafeReadOnlyPtrAndLength(k, out var length);
+                        Assert.IsTrue(bufferPtr != null);
+                        //Verify all accessors return the same values
+                        Assert.IsTrue(bufferPtr == accessor.GetUnsafeReadOnlyPtr(k));
+                        Assert.AreEqual(length, accessor.GetBufferLength(k));
+
+                        //Check value contents by either case to int or EcsIntElement. Is also an example of proper api use
+                        var bufferData = (int*) bufferPtr;
+                        for (int n = 0; n < length; ++n)
+                            Assert.AreEqual(n, bufferData[n], "buffer element does not have the expected value");
+
+                        var elementSize = UnsafeUtility.SizeOf<EcsIntElement>();
+                        for (int n = 0; n < length; ++n)
+                        {
+                            var ecsElement = UnsafeUtility.AsRef<EcsIntElement>((void*) bufferPtr);
+                            Assert.AreEqual(n, ecsElement.Value, "buffer element does not have the expected value");
+                            bufferPtr += elementSize;
+                        }
+
+                        //This should throw, since is a readonly handle
+                        Assert.Throws<InvalidOperationException>(() =>
+                        {
+                            accessor.ResizeUninitialized(k, length + 1);
+                        });
+                    }
+                }
+
+                // Test resize
+                var rwComponentType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadWrite(typeof(EcsIntElement)));
+                accessor = chunk.GetUntypedBufferAccessor(ref rwComponentType);
+                for (int k = 0; k < accessor.Length; ++k)
+                {
+                    unsafe
+                    {
+                        //Increase the buffer size.
+                        var oldLength = accessor.GetBufferLength(k);
+                        var newLength = oldLength + 16;
+                        accessor.ResizeUninitialized(k, newLength);
+                        var bufferPtr = (byte*) accessor.GetUnsafePtrAndLength(k, out var length);
+
+                        Assert.IsTrue(bufferPtr != null);
+                        Assert.AreEqual(newLength, length);
+                        Assert.GreaterOrEqual(accessor.GetBufferCapacity(k), newLength);
+                        //Check content in range 0 - oldLen are the same
+                        var bufferData = (int*) bufferPtr;
+                        for (int n = 0; n < oldLength; ++n)
+                            Assert.AreEqual(n, bufferData[n], "buffer element does not have the expected value");
+
+                        //Shrink the buffer size. Check capacity is still the same
+                        var oldCapacity = accessor.GetBufferCapacity(k);
+                        accessor.ResizeUninitialized(k, 10);
+                        Assert.IsTrue(accessor.GetUnsafePtr(k) != null);
+                        Assert.AreEqual(10, accessor.GetBufferLength(k));
+                        Assert.AreEqual(oldCapacity, accessor.GetBufferCapacity(k));
+                        //Check content in range 0 - 10 are still the same
+                        var toCheck = oldLength < 10 ? oldLength : 10;
+                        bufferData = (int*) bufferPtr;
+                        for (int n = 0; n < toCheck; ++n)
+                            Assert.AreEqual(n, bufferData[n], "buffer element does not have the expected value");
+                    }
+                }
+            }
+
+            chunks.Dispose();
+        }
+
+        [Test]
+        public void ACS_UntypedBuffersBumpVersion()
+        {
+            CreateEntities(128);
+
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.Temp);
+            group.Dispose();
+
+            var versions = new NativeArray<uint>(chunks.Length, Allocator.Temp);
+            var roComponentType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsIntElement)));
+            for (int i = 0; i < chunks.Length; ++i)
+                versions[i] = chunks[i].GetChangeVersion(roComponentType);
+
+            var system = World.CreateSystem<UntypedBufferSystemBumpVersion>();
+            system.Update();
+
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var newVersion = chunks[i].GetChangeVersion(roComponentType);
+                Assert.AreNotEqual(versions[i], newVersion);
+                bool afterDidAddChange = chunks[i].DidChange(roComponentType, versions[i]);
+                Assert.IsTrue(afterDidAddChange, "DidChange() is false after modifications");
+            }
+        }
+
+        struct UntypedBufferResizeJob : IJobEntityBatch
+        {
+            public DynamicComponentTypeHandle typeHandle;
+            public int size;
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            {
+                var accessor = batchInChunk.GetUntypedBufferAccessor(ref typeHandle);
+                for (int i = 0; i < batchInChunk.Count; ++i)
+                {
+                    //Resize and invalidate the secondary version.
+                    accessor.ResizeUninitialized(i, size);
+                }
+            }
+        }
+
+        [Test,DotsRuntimeFixme]
+        public void ACS_UntypedBuffersInvalidationWorks()
+        {
+            var entity = m_Manager.CreateEntity();
+            var bufferRW = m_Manager.AddBuffer<EcsIntElement>(entity);
+            bufferRW.Length = 1;
+
+            var bufferFromEntity = m_Manager.GetBufferFromEntity<EcsIntElement>(true);
+            var bufferRO = bufferFromEntity[entity];
+            //grab also an alias
+            var array = bufferRO.AsNativeArray();
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var typeHandle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadWrite(typeof(EcsIntElement)));
+            //Resize buffer with a job (on the main thread)
+            new UntypedBufferResizeJob {
+                typeHandle = typeHandle,
+                size = 5
+            }.Run(query);
+            //old buffer references are still valid here. So no throw or errors
+            Assert.AreEqual(5, bufferRO.Length);
+            Assert.AreEqual(5, bufferRW.Length);
+            Assert.DoesNotThrow(() =>
+            {
+                for (int i = 0; i < bufferRO.Length; ++i)  {
+                    var o = bufferRO[i];
+                }
+            });
+            //But arrays should be ivalidated
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(() =>
+#else
+            Assert.Throws<InvalidOperationException>(()=>
+#endif
+            {
+                var el = array[0];
+            });
+
+            //Let's now run the job using schedule and check that is not possible to invalidate the buffer from the main
+            //thread if they are assigned to to a job
+            var jobHandle = new UntypedBufferResizeJob {
+                typeHandle = typeHandle,
+                size = 10
+            }.Schedule(query);
+            Assert.Throws<InvalidOperationException>(() => { bufferRW.Add(new EcsIntElement()); });
+            Assert.Throws<InvalidOperationException>(() => { bufferRW.Length = 2; });
+            jobHandle.Complete();
+        }
+
+        [Test]
+        public void ACS_UntypeBufferAccessorIncorrectUse()
+        {
+            CreateEntities(128);
+
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            group.Dispose();
+
+            var bufferType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsIntElement)));
+            var componentType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
+
+            for (int i = 0; i < chunks.Length; ++i)
+            {
+                var chunk = chunks[i];
+                //Fail: cannot use GetDynamicComponentDataArrayReinterpret with IBufferElementData types
+                Assert.Throws<ArgumentException>(() =>
+                {
+                    chunk.GetDynamicComponentDataArrayReinterpret<EcsIntElement>(bufferType, UnsafeUtility.SizeOf<EcsIntElement>());
+                });
+
+                //Fail: cannot use GetUntypedBufferAccessor with IComponentData types
+                Assert.Throws<ArgumentException>(() =>
+                {
+                    chunk.GetUntypedBufferAccessor(ref componentType);
+                });
+            }
+
+            chunks.Dispose();
+        }
+
         [Test]
         public void ACS_DynamicTypeHas()
         {
@@ -622,7 +869,7 @@ namespace Unity.Entities.Tests
         {
             CreateEntities2(128);
 
-            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData2>());
             var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
             group.Dispose();
 
@@ -638,11 +885,23 @@ namespace Unity.Entities.Tests
                     var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int>(ecsTestData, UnsafeUtility.SizeOf<int>());
                 });
 
-                // Fail: not dividable by size
-                Assert.Throws<InvalidOperationException>(() =>
+                // If (Count * sizeof(int2)) % sizeof(int3) == 0 -> the test fail because the types can be aliased in that case.
+                if ((chunk.Count * UnsafeUtility.SizeOf<int2>() % UnsafeUtility.SizeOf<int3>()) != 0)
                 {
-                    var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int3>(ecsTestData, UnsafeUtility.SizeOf<int2>());
-                });
+                    // Fail: not dividable by size
+                    Assert.Throws<InvalidOperationException>(() =>
+                    {
+                        var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int3>(ecsTestData, UnsafeUtility.SizeOf<int2>());
+                    });
+                }
+                else
+                {
+                    Assert.DoesNotThrow(()=>
+                    {
+                        var chunkEcsTestData = chunk.GetDynamicComponentDataArrayReinterpret<int3>(ecsTestData, UnsafeUtility.SizeOf<int2>());
+                    });
+                }
+
             }
 
             chunks.Dispose();
@@ -651,7 +910,7 @@ namespace Unity.Entities.Tests
         // These tests require:
         // - JobsDebugger support for static safety IDs (added in 2020.1)
         // - Asserting throws
-#if UNITY_2020_1_OR_NEWER && !UNITY_DOTSRUNTIME
+#if !UNITY_DOTSRUNTIME
         struct UseComponentTypeHandle : IJob
         {
             public Unity.Entities.ComponentTypeHandle<EcsTestData> ecsTestData;

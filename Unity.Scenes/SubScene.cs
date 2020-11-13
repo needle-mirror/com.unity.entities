@@ -174,6 +174,8 @@ namespace Unity.Scenes
             // if the Subscene gets assigned later, otherwise the change won't trigger an import/conversion.
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
 
+            GameObjectSceneUtility.RegisterSubScene(gameObject.scene, this);
+
 #if UNITY_EDITOR
             WarnIfNeeded();
 
@@ -198,6 +200,8 @@ namespace Unity.Scenes
 #endif
 
             RemoveSceneEntities();
+
+            GameObjectSceneUtility.UnregisterSubScene(gameObject.scene, this);
         }
 
         void AddSceneEntities()
@@ -232,14 +236,15 @@ namespace Unity.Scenes
         {
             if (_AddedSceneGUID != default)
             {
+                var sceneGUID = _AddedSceneGUID;
+                _AddedSceneGUID = default;
+
                 foreach (var world in World.All)
                 {
                     var sceneSystem = world.GetExistingSystem<SceneSystem>();
                     if (sceneSystem != null)
-                        sceneSystem.UnloadScene(_AddedSceneGUID, SceneSystem.UnloadParameters.DestroySceneProxyEntity | SceneSystem.UnloadParameters.DestroySectionProxyEntities);
+                        sceneSystem.UnloadScene(sceneGUID, SceneSystem.UnloadParameters.DestroySceneProxyEntity | SceneSystem.UnloadParameters.DestroySectionProxyEntities);
                 }
-
-                _AddedSceneGUID = default;
             }
         }
 

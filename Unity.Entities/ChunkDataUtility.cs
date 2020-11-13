@@ -385,10 +385,29 @@ namespace Unity.Entities
         public static void MemsetUnusedChunkData(Chunk* chunk, byte value)
         {
             var arch = chunk->Archetype;
-            var bufferSize = Chunk.GetChunkBufferSize();
             var buffer = chunk->Buffer;
             var count = chunk->Count;
 
+            // Clear unused buffer data
+            for (int i = 0; i < arch->TypesCount; ++i)
+            {
+                var componentDataType = &arch->Types[i];
+                var componentSize = arch->SizeOfs[i];
+
+                if (componentDataType->IsBuffer)
+                {
+                    var elementSize = TypeManager.GetTypeInfo(componentDataType->TypeIndex).ElementSize;
+                    var bufferCapacity = arch->BufferCapacities[i];
+
+                    for (int chunkI = 0; chunkI < count; chunkI++)
+                    {
+                        var bufferHeader = (BufferHeader*)(buffer + arch->Offsets[i] + (chunkI * componentSize));
+                        BufferHeader.MemsetUnusedMemory(bufferHeader, bufferCapacity, elementSize, value);
+                    }
+                }
+            }
+
+            // Clear chunk data stream padding
             for (int i = 0; i < arch->TypesCount - 1; ++i)
             {
                 var index = arch->TypeMemoryOrder[i];
@@ -397,37 +416,20 @@ namespace Unity.Entities
                 var componentSize = arch->SizeOfs[index];
                 var startOffset = arch->Offsets[index] + count * componentSize;
                 var endOffset = arch->Offsets[nextIndex];
-                var componentDataType = &arch->Types[index];
 
-                // Start Offset needs to be fixed if we have a Dynamic Buffer
-                if (componentDataType->IsBuffer)
-                {
-                    var elementSize = TypeManager.GetTypeInfo(componentDataType->TypeIndex).ElementSize;
-                    var bufferCapacity = arch->BufferCapacities[index];
-
-                    for (int chunkI = 0; chunkI < count; chunkI++)
-                    {
-                        var bufferHeader = (BufferHeader*)(buffer + arch->Offsets[index] + (chunkI * componentSize));
-
-                        // If bufferHeader->Pointer is not null it means with rely on a dedicated buffer instead of the internal one (that follows the header) to store the elements
-                        //  in this case we wipe everything after the header. Otherwise we wipe after the used elements.
-                        var elementCountToClean = bufferHeader->Pointer != null ? bufferCapacity : (bufferHeader->Capacity - bufferHeader->Length);
-                        var firstElementToClean = bufferHeader->Pointer != null ? 0 : bufferHeader->Length;
-
-                        byte* internalBuffer = (byte*)(bufferHeader + 1);
-
-                        UnsafeUtility.MemSet(internalBuffer + (firstElementToClean * elementSize), value, elementCountToClean * elementSize);
-                    }
-                }
+                Assert.AreNotEqual(-1, startOffset);
+                Assert.AreNotEqual(-1, endOffset);
+                Assert.IsTrue(componentSize >= 0);
 
                 UnsafeUtility.MemSet(buffer + startOffset, value, endOffset - startOffset);
             }
             var lastIndex = arch->TypeMemoryOrder[arch->TypesCount - 1];
             var lastStartOffset = arch->Offsets[lastIndex] + count * arch->SizeOfs[lastIndex];
+            var bufferSize = Chunk.GetChunkBufferSize();
             UnsafeUtility.MemSet(buffer + lastStartOffset, value, bufferSize - lastStartOffset);
 
-            // 0 the sequence number and the chunk header padding zone
-            UnsafeUtility.MemClear(40 + (byte*)chunk, 24);    // End of chunk header at 40, we clear the header padding (24) and the Buffer value which is the very first data after the header
+            // clear the chunk header padding zone
+            UnsafeUtility.MemClear(Chunk.kSerializedHeaderSize + (byte*)chunk, Chunk.kBufferOffset - Chunk.kSerializedHeaderSize);
         }
 
         public static bool AreLayoutCompatible(Archetype* a, Archetype* b)
@@ -705,10 +707,10 @@ namespace Unity.Entities
             srcArchetype->RemoveFromChunkList(srcChunk, ref entityComponentStore->m_ChunkListChangesTracker);
             srcChunk->ListIndex = chunkIndexInDstArchetype;
 
+            entityComponentStore->SetArchetype(srcChunk, dstArchetype);
+
             if (hasEmptySlots)
                 dstArchetype->EmptySlotTrackingAddChunk(srcChunk);
-
-            entityComponentStore->SetArchetype(srcChunk, dstArchetype);
 
             srcArchetype->EntityCount -= count;
             dstArchetype->EntityCount += count;
@@ -1059,7 +1061,7 @@ namespace Unity.Entities
                     continue;
                 }
 
-                var typeInfo = entityComponentStore->GetTypeInfo(componentTypeInArchetype.TypeIndex);
+                ref readonly var typeInfo = ref entityComponentStore->GetTypeInfo(componentTypeInArchetype.TypeIndex);
                 var typeInChunkPtr = GetChunkBuffer(chunk) + archetype->Offsets[typeIndexInArchetype];
                 var typeSizeOf = archetype->SizeOfs[typeIndexInArchetype];
 
@@ -1092,7 +1094,7 @@ namespace Unity.Entities
             }
         }
 
-        static bool ClearEntityReferences(EntityComponentStore* entityComponentStore, TypeManager.TypeInfo typeInfo, byte* address, int elementCount)
+        static bool ClearEntityReferences(EntityComponentStore* entityComponentStore, in TypeManager.TypeInfo typeInfo, byte* address, int elementCount)
         {
             var changed = false;
 

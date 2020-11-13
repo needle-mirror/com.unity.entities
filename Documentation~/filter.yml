@@ -44,3 +44,14 @@ apiRules:
   - exclude:
       uidRegex: ^Some\.Namespace
       type: Namespace
+  - exclude:
+      uidRegex: ^docnamespace_
+      type: Namespace
+  - exclude:
+      uidRegex: ^Unity.TestTools
+      type: Namespace
+  - exclude:
+      uidRegex: ^docnamespace.*
+      type: Namespace
+  - exclude: 
+      uidRegex: .*Test.*

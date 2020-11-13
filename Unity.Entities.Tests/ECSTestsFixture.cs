@@ -37,9 +37,9 @@ namespace Unity.Entities.Tests
             return base.GetEntityQuery(componentTypes);
         }
 
-        public new BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
+        public unsafe new BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
         {
-            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+            CheckedState()->AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
             return EntityManager.GetBufferFromEntity<T>(isReadOnly);
         }
     }

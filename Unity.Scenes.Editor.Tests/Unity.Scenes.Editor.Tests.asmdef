@@ -1,5 +1,6 @@
 {
     "name": "Unity.Scenes.Editor.Tests",
+    "rootNamespace": "",
     "references": [
         "Unity.Entities.Tests",
         "Unity.Entities",
@@ -13,8 +14,8 @@
         "Unity.Mathematics",
         "Unity.Build",
         "Unity.Build.Classic",
-        "Unity.Build.Common",
-        "Unity.Collections"
+        "Unity.Collections",
+        "Unity.Transforms"
     ],
     "includePlatforms": [
         "Editor"

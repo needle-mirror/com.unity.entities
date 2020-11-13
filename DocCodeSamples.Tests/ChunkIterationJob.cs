@@ -7,6 +7,7 @@ using Unity.Transforms;
 using UnityEngine;
 using NUnit.Framework;
 
+// Only used in obsolete IJobChunk docs -- do not update to use IJobEntityBatch
 // The files in this namespace are used to compile/test the code samples in the documentation.
 namespace Doc.CodeSamples.Tests
 {
@@ -22,6 +23,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region rotationspeedsystem
+
     public class RotationSpeedSystem : SystemBase
     {
         private EntityQuery m_Query;
@@ -87,6 +89,7 @@ namespace Doc.CodeSamples.Tests
         private EntityQuery m_Query;
 
         #region oncreate2
+
         protected override void OnCreate()
         {
             var queryDescription = new EntityQueryDesc()
@@ -282,6 +285,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region basic-ijobchunk
+
     [GenerateAuthoringComponent]
     public struct Target : IComponentData
     {

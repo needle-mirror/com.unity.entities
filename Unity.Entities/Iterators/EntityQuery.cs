@@ -393,10 +393,26 @@ namespace Unity.Entities
             return ChunkIterationUtility.CalculateEntityCount(ref _QueryData->MatchingArchetypes, ref _Filter);
         }
 
+        public int CalculateEntityCount(NativeArray<Entity> entityArray)
+        {
+            SyncFilterTypes();
+            var ecs = _Access->EntityComponentStore;
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+            return ChunkIterationUtility.CalculateEntityCountInEntityArray((Entity*)entityArray.GetUnsafeReadOnlyPtr(), entityArray.Length, _QueryData, ecs, ref mask, ref _Filter);
+        }
+
         public int CalculateEntityCountWithoutFiltering()
         {
             var dummyFilter = default(EntityQueryFilter);
             return ChunkIterationUtility.CalculateEntityCount(ref _QueryData->MatchingArchetypes, ref dummyFilter);
+        }
+
+        public int CalculateEntityCountWithoutFiltering(NativeArray<Entity> entityArray)
+        {
+            var dummyFilter = default(EntityQueryFilter);
+            var ecs = _Access->EntityComponentStore;
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+            return ChunkIterationUtility.CalculateEntityCountInEntityArray((Entity*) entityArray.GetUnsafeReadOnlyPtr(), entityArray.Length, _QueryData, ecs, ref mask, ref dummyFilter);
         }
 
         public int CalculateChunkCount()
@@ -415,6 +431,21 @@ namespace Unity.Entities
         {
             SyncFilterTypes();
             entityCount = ChunkIterationUtility.CalculateChunkAndEntityCount(ref _QueryData->MatchingArchetypes, ref _Filter, out chunkCount);
+        }
+
+        public bool MatchesInEntityArray(NativeArray<Entity> entityArray)
+        {
+            var ecs = _Access->EntityComponentStore;
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+            return ChunkIterationUtility.MatchesAnyInEntityArray((Entity*) entityArray.GetUnsafeReadOnlyPtr(), entityArray.Length, _QueryData, ecs, ref mask, ref _Filter);
+        }
+
+        public bool MatchesInEntityArrayIgnoreFilter(NativeArray<Entity> entityArray)
+        {
+            var dummyFilter = default(EntityQueryFilter);
+            var ecs = _Access->EntityComponentStore;
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+            return ChunkIterationUtility.MatchesAnyInEntityArray((Entity*) entityArray.GetUnsafeReadOnlyPtr(), entityArray.Length, _QueryData, ecs, ref mask, ref dummyFilter);
         }
 
         public ArchetypeChunkIterator GetArchetypeChunkIterator()
@@ -463,6 +494,9 @@ namespace Unity.Entities
         public NativeArray<Entity> ToEntityArrayAsync(Allocator allocator, out JobHandle jobhandle, EntityQuery outer)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (allocator == Allocator.Temp)
+                throw new ArgumentException("Allocator.Temp containers cannot be used when scheduling a job, use TempJob instead.");
+
             var entityType = new EntityTypeHandle(SafetyHandles->GetSafetyHandleForEntityTypeHandle());
 #else
             var entityType = new EntityTypeHandle();
@@ -492,10 +526,29 @@ namespace Unity.Entities
             }
             else
             {
-                res = ChunkIterationUtility.CreateEntityArrayAsync(_QueryData->MatchingArchetypes, allocator, entityType,
-                    outer, entityCount, out var job, GetDependency());
-                job.Complete();
+                res = ChunkIterationUtility.CreateEntityArrayAsyncComplete(_QueryData->MatchingArchetypes, allocator, entityType,
+                    outer, entityCount, GetDependency());
             }
+            return res;
+        }
+
+        public NativeArray<Entity> ToEntityArray(NativeArray<Entity> entityArray, Allocator allocator)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var entityType = new EntityTypeHandle(SafetyHandles->GetSafetyHandleForEntityTypeHandle());
+#else
+            var entityType = new EntityTypeHandle();
+#endif
+            var ecs = _Access->EntityComponentStore;
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+
+            var arrayPtr = ChunkIterationUtility.CreateEntityArrayFromEntityArray((Entity*)entityArray.GetUnsafeReadOnlyPtr(), entityArray.Length, allocator,_QueryData, ecs, ref mask, ref entityType, ref _Filter, out var arrayLength);
+            var res = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Entity>(arrayPtr, arrayLength, allocator);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref res, AtomicSafetyHandle.Create());
+#endif
+
             return res;
         }
 
@@ -511,13 +564,15 @@ namespace Unity.Entities
 #else
                 var entityType = new EntityTypeHandle();
 #endif
+                var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob,NativeArrayOptions.UninitializedMemory);
+
                 var job = new GatherEntitiesJob
                 {
                     EntityTypeHandle = entityType,
-                    Entities = new NativeArray<Entity>(entityCount, Allocator.TempJob)
+                    Entities = (byte*)entities.GetUnsafePtr()
                 };
                 job.Run(outer);
-                result.EntityArray = job.Entities;
+                result.EntityArray = entities;
                 result.EntityBuffer = (Entity*)result.EntityArray.GetUnsafeReadOnlyPtr();
                 result.EntityCount = result.EntityArray.Length;
             }
@@ -536,6 +591,9 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (allocator == Allocator.Temp)
+                throw new ArgumentException("Allocator.Temp containers cannot be used when scheduling a job, use TempJob instead.");
+
             var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ComponentTypeHandle<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
@@ -549,6 +607,45 @@ namespace Unity.Entities
                 throw new InvalidOperationException($"Trying ToComponentDataArrayAsync of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
 #endif
             return ChunkIterationUtility.CreateComponentDataArrayAsync(allocator, componentType,CalculateEntityCount(), outer, out jobhandle, GetDependency());
+        }
+
+        public NativeArray<T> ToComponentDataArray<T>(NativeArray<Entity> entityArray, Allocator allocator)
+            where T : struct, IComponentData
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
+#else
+            var componentType = new ComponentTypeHandle<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
+#endif
+
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
+            if (indexInEntityQuery == -1)
+                throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+#endif
+
+            var ecs = _Access->EntityComponentStore;
+            var typeInfo = ecs->GetTypeInfo(typeIndex);
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+
+            var arrayPtr = ChunkIterationUtility.CreateComponentDataArrayFromEntityArray(
+                (Entity*)entityArray.GetUnsafeReadOnlyPtr(),
+                entityArray.Length,
+                allocator,_QueryData,
+                ecs,
+                typeIndex,
+                typeInfo.SizeInChunk,
+                typeInfo.AlignmentInBytes,
+                ref mask,
+                ref _Filter,
+                out var arrayLength);
+            var res = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(arrayPtr, arrayLength, allocator);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref res, AtomicSafetyHandle.Create());
+#endif
+
+            return res;
         }
 
         public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, EntityQuery outer)
@@ -579,8 +676,7 @@ namespace Unity.Entities
             }
             else
             {
-                res = ChunkIterationUtility.CreateComponentDataArrayAsync(allocator, componentType, entityCount,outer, out var job, GetDependency());
-                job.Complete();
+                res = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(allocator, componentType, entityCount,outer, GetDependency());
             }
             return res;
         }
@@ -660,8 +756,8 @@ namespace Unity.Entities
             }
             else
             {
-                ChunkIterationUtility.CopyFromComponentDataArrayAsync(_QueryData->MatchingArchetypes, componentDataArray, componentType, outer, ref _Filter, out var job, GetDependency());
-                job.Complete();
+                ChunkIterationUtility.CopyFromComponentDataArrayAsyncComplete(_QueryData->MatchingArchetypes,
+                    componentDataArray, componentType, outer, ref _Filter, GetDependency());
             }
         }
 
@@ -669,6 +765,13 @@ namespace Unity.Entities
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (componentDataArray.m_AllocatorLabel == Allocator.Temp)
+            {
+                throw new ArgumentException(
+                    $"The NativeContainer is allocated with Allocator.Temp." +
+                    $", use TempJob instead.",nameof (componentDataArray));
+            }
+
             var entityCount = CalculateEntityCount();
             if (entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
@@ -689,6 +792,7 @@ namespace Unity.Entities
 
             ChunkIterationUtility.CopyFromComponentDataArrayAsync(_QueryData->MatchingArchetypes, componentDataArray, componentType, outer, ref _Filter, out jobhandle, GetDependency());
         }
+
 
         public Entity GetSingletonEntity()
         {
@@ -815,9 +919,8 @@ namespace Unity.Entities
         public void ResetFilter()
         {
             var sharedCount = _Filter.Shared.Count;
-            var sm = _Access->ManagedComponentStore;
             for (var i = 0; i < sharedCount; ++i)
-                sm.RemoveReference(_Filter.Shared.SharedComponentIndex[i]);
+                _Access->RemoveSharedComponentReference(_Filter.Shared.SharedComponentIndex[i]);
 
             _Filter.Changed.Count = 0;
             _Filter.Shared.Count = 0;
@@ -888,15 +991,13 @@ namespace Unity.Entities
         public void AddSharedComponentFilter<SharedComponent>(SharedComponent sharedComponent)
             where SharedComponent : struct, ISharedComponentData
         {
-            var sm = _Access->ManagedComponentStore;
-
             var newFilterIndex = _Filter.Shared.Count;
             if (newFilterIndex >= EntityQueryFilter.SharedComponentData.Capacity)
                 throw new ArgumentException($"EntityQuery accepts a maximum of {EntityQueryFilter.SharedComponentData.Capacity} shared component filters.");
 
             _Filter.Shared.Count = newFilterIndex + 1;
             _Filter.Shared.IndexInEntityQuery[newFilterIndex] = GetIndexInEntityQuery(TypeManager.GetTypeIndex<SharedComponent>());
-            _Filter.Shared.SharedComponentIndex[newFilterIndex] = sm.InsertSharedComponent(sharedComponent);
+            _Filter.Shared.SharedComponentIndex[newFilterIndex] = _Access->InsertSharedComponent(sharedComponent);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             _Filter.AssertValid();
@@ -980,6 +1081,36 @@ namespace Unity.Entities
             return _Filter.RequiresMatchesFilter;
         }
 
+
+        public EntityQueryMask GetEntityQueryMask()
+        {
+            var ecs = _Access->EntityComponentStore;
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+            return mask;
+        }
+
+        public bool Matches(Entity e)
+        {
+            var ecs = _Access->EntityComponentStore;
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+            if (mask.Matches(e))
+            {
+                var chunk = ecs->GetChunk(e);
+                var match = _QueryData->MatchingArchetypes.Ptr[
+                    EntityQueryManager.FindMatchingArchetypeIndexForArchetype(ref _QueryData->MatchingArchetypes, chunk->Archetype)];
+                return chunk->MatchesFilter(match, ref _Filter);
+            }
+
+            return false;
+        }
+
+        public bool MatchesNoFilter(Entity e)
+        {
+            var ecs = _Access->EntityComponentStore;
+            var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
+            return mask.Matches(e);
+        }
+
         internal bool CheckChunkListCacheConsistency()
         {
             return UnsafeCachedChunkList.CheckCacheConsistency(ref _QueryData->MatchingChunkCache, _QueryData);
@@ -996,11 +1127,6 @@ namespace Unity.Entities
         {
             Memory.Unmanaged.Free(impl, Allocator.Persistent);
         }
-    }
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public struct EntityQueryNullShim
-    {
     }
 
     /// <summary>
@@ -1033,7 +1159,7 @@ namespace Unity.Entities
     /// * `None` = None of the component types in this array can exist in the archetype
     ///
     /// For example, the following query includes archetypes containing Rotation and
-    /// RotationSpeed components, but excludes any archetypes containing a Frozen component:
+    /// RotationSpeed components, but excludes any archetypes containing a Static component:
     ///
     /// <example>
     /// <code source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-from-description" title="EntityQuery Example"/>
@@ -1097,7 +1223,7 @@ namespace Unity.Entities
         {
             EntityQuery _result = default;
             var _ptr = EntityQueryImpl.Allocate();
-            _result.__seqno = World.ms_NextSequenceNumber.Data++;
+            _result.__seqno = WorldUnmanaged.ms_NextSequenceNumber.Data++;
             _ptr->Construct(queryData, access, _result.__seqno);
             _result.__impl = _ptr;
             _CreateSafetyHandle(ref _result);
@@ -1200,6 +1326,15 @@ namespace Unity.Entities
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCount() => _GetImpl()->CalculateEntityCount();
         /// <summary>
+        /// Calculates the number of entities in the input entity list which match this EntityQuery.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must execute and apply any filters to calculate the entity count. If you are checking for whether the entity count equals zero, consider the more efficient IsEmpty property.
+        /// </remarks>
+        /// <param name="entityArray">A list of entities to limit execution to. Only entities in the list will be considered.</param>
+        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
+        public int CalculateEntityCount(NativeArray<Entity> entityArray) => _GetImpl()->CalculateEntityCount(entityArray);
+        /// <summary>
         /// Calculates the number of entities selected by this EntityQuery, ignoring any set filters.
         /// </summary>
         /// <remarks>
@@ -1207,6 +1342,15 @@ namespace Unity.Entities
         /// </remarks>
         /// <returns>The number of entities based on the current EntityQuery properties.</returns>
         public int CalculateEntityCountWithoutFiltering() => _GetImpl()->CalculateEntityCountWithoutFiltering();
+        /// <summary>
+        /// Calculates the number of entities in the input entity list which match this EntityQuery, ignoring any filters.
+        /// </summary>
+        /// <remarks>
+        /// The EntityQuery must execute and apply any filters to calculate the entity count. If you are checking for whether the entity count equals zero, consider the more efficient IsEmpty property.
+        /// </remarks>
+        /// <param name="entityArray">A list of entities to limit execution to. Only entities in the list will be considered.</param>
+        /// <returns>The number of entities based on the current EntityQuery properties.</returns>
+        public int CalculateEntityCountWithoutFiltering(NativeArray<Entity> entityArray) => _GetImpl()->CalculateEntityCountWithoutFiltering(entityArray);
         /// <summary>
         /// Calculates the number of chunks that match this EntityQuery.
         /// </summary>
@@ -1223,6 +1367,18 @@ namespace Unity.Entities
         /// </remarks>
         /// <returns>The number of chunks based on the current EntityQuery properties.</returns>
         public int CalculateChunkCountWithoutFiltering() => _GetImpl()->CalculateChunkCountWithoutFiltering();
+        /// <summary>
+        /// Fast path to determine if any entities in the input entity list match this EntityQuery.
+        /// </summary>
+        /// <param name="entityArray">A list of entities to limit execution to. Only entities in the list will be considered.</param>
+        /// <returns>True if any entity in the list matches the query, false if no entities match the query</returns>
+        public bool MatchesAny(NativeArray<Entity> entityArray) => _GetImpl()->MatchesInEntityArray(entityArray);
+        /// <summary>
+        /// Fast path to determine if any entities in the input entity list match this EntityQuery, ignoring any filters.
+        /// </summary>
+        /// <param name="entityArray">A list of entities to limit execution to. Only entities in the list will be considered.</param>
+        /// <returns>True if any entity in the list matches the query, false if no entities match the query</returns>
+        public bool MatchesAnyIgnoreFilter(NativeArray<Entity> entityArray) => _GetImpl()->MatchesInEntityArrayIgnoreFilter(entityArray);
         /// <summary>
         /// Gets an ArchetypeChunkIterator which can be used to iterate over every chunk returned by this EntityQuery.
         /// </summary>
@@ -1274,6 +1430,8 @@ namespace Unity.Entities
         /// that uses the NativeArray.</param>
         /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
         public NativeArray<Entity> ToEntityArrayAsync(Allocator allocator, out JobHandle jobhandle) => _GetImpl()->ToEntityArrayAsync(allocator, out jobhandle, this);
+
+
         /// <summary>
         /// Creates a NativeArray containing the selected entities.
         /// </summary>
@@ -1282,7 +1440,21 @@ namespace Unity.Entities
         /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
         public NativeArray<Entity> ToEntityArray(Allocator allocator) => _GetImpl()->ToEntityArray(allocator, this);
 
-        internal struct GatherEntitiesResult
+        /// <summary>
+        /// Creates a NativeArray containing the selected entities, given an input entity list to limit the search.
+        /// </summary>
+        /// <remarks>This version of the function blocks until the Job used to fill the array is complete.</remarks>
+        /// <param name="entityArray">The list of entities to be considered. Only entities in this list will be considered as output. </param>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
+        public NativeArray<Entity> ToEntityArray(NativeArray<Entity>entityArray, Allocator allocator) => _GetImpl()->ToEntityArray(entityArray, allocator);
+
+        #if ROSLYN_SOURCEGEN_ENABLED
+        public
+#else
+        internal
+#endif
+        struct GatherEntitiesResult
         {
             public int StartingOffset;
             public int EntityCount;
@@ -1303,6 +1475,7 @@ namespace Unity.Entities
         /// by the EntityQuery.</returns>
         public NativeArray<T> ToComponentDataArrayAsync<T>(Allocator allocator, out JobHandle jobhandle)            where T : struct, IComponentData
             => _GetImpl()->ToComponentDataArrayAsync<T>(allocator, out jobhandle, this);
+
         /// <summary>
         /// Creates a NativeArray containing the components of type T for the selected entities.
         /// </summary>
@@ -1314,6 +1487,15 @@ namespace Unity.Entities
         /// the group.</exception>
         public NativeArray<T> ToComponentDataArray<T>(Allocator allocator)            where T : struct, IComponentData
             => _GetImpl()->ToComponentDataArray<T>(allocator, this);
+        /// <summary>
+        /// Creates a NativeArray containing the components of type T for the selected entities, given an input entity list to limit the search.
+        /// </summary>
+        /// <remarks>This version of the function blocks until the Job used to fill the array is complete.</remarks>
+        /// <param name="entityArray">The list of entities to be considered. Only entities in this list will be considered as output. </param>
+        /// <param name="allocator">The type of memory to allocate.</param>
+        /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
+        public NativeArray<T> ToComponentDataArray<T>(NativeArray<Entity>entityArray, Allocator allocator) where T : struct, IComponentData
+            => _GetImpl()->ToComponentDataArray<T>(entityArray, allocator);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         public T[] ToComponentDataArray<T>() where T : class, IComponentData
             => _GetImpl()->ToComponentDataArray<T>();
@@ -1536,6 +1718,23 @@ namespace Unity.Entities
         /// </summary>
         /// <returns>Returns true if the query has a filter, returns false if the query does not have a filter.</returns>
         public bool HasFilter() => _GetImpl()->HasFilter();
+        /// <summary>
+        /// Returns an EntityQueryMask, which can be used to quickly determine if an entity matches the query.
+        /// </summary>
+        /// <remarks>A maximum of 1024 EntityQueryMasks can be allocated per World.</remarks>
+        public EntityQueryMask GetEntityQueryMask() => _GetImpl()->GetEntityQueryMask();
+        /// <summary>
+        /// Returns true if the entity matches the query, false if it does not. Applies any filters
+        /// </summary>
+        /// <param name="e">The entity to check for match</param>
+        /// <remarks>This function creates an EntityQueryMask, if one does not exist for this query already. A maximum of 1024 EntityQueryMasks can be allocated per World.</remarks>
+        public bool Matches(Entity e) => _GetImpl()->Matches(e);
+        /// <summary>
+        /// Returns true if the entity matches the query, false if it does not. Applies any filters
+        /// </summary>
+        /// <param name="e">The entity to check for match</param>
+        /// <remarks>This function creates an EntityQueryMask, if one does not exist for this query already. A maximum of 1024 EntityQueryMasks can be allocated per World.</remarks>
+        public bool MatchesNoFilter(Entity e) => _GetImpl()->MatchesNoFilter(e);
 
         internal void UpdateCache() => ChunkIterationUtility.RebuildChunkListCache(_GetImpl()->_QueryData);
         internal bool CheckChunkListCacheConsistency() => _GetImpl()->CheckChunkListCacheConsistency();
@@ -1573,11 +1772,6 @@ namespace Unity.Entities
 
         internal EntityQueryImpl* __impl;
         internal ulong __seqno;
-
-        // Temporarily allow conversion from null reference to allow existing packages to compile.
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("EntityQuery is a struct. Please use `default` instead of `null`. (RemovedAfter 2020-07-01)")]
-        public static implicit operator EntityQuery(EntityQueryNullShim? shim) => default(EntityQuery);
 
         public static bool operator==(EntityQuery lhs, EntityQuery rhs)
         {

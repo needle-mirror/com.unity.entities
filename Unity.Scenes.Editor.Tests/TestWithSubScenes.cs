@@ -1,5 +1,6 @@
 using System;
 using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
 
 namespace Unity.Scenes.Editor.Tests
 {
@@ -8,6 +9,7 @@ namespace Unity.Scenes.Editor.Tests
     {
         public void Setup()
         {
+            SceneManager.SetActiveScene(EditorSceneManager.NewScene(NewSceneSetup.EmptyScene));
         }
 
         public void TearDown()

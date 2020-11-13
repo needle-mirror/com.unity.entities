@@ -83,20 +83,20 @@ namespace Unity.Entities.Tests
         public void UnmanagedSystemLifetime()
         {
             SystemHandle<MyUnmanagedSystem2> sysHandle = default;
-            Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysHandle));
+            Assert.Throws<InvalidOperationException>(() => World.Unmanaged.ResolveSystem(sysHandle));
 
             using (var world = new World("Temp"))
             {
-                Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysHandle));
+                Assert.Throws<InvalidOperationException>(() => World.Unmanaged.ResolveSystem(sysHandle));
                 var sys = world.AddSystem<MyUnmanagedSystem2>();
                 sysHandle = sys.Handle;
-                Assert.IsTrue(world.IsSystemValid(sysHandle));
-                Assert.IsFalse(World.IsSystemValid(sysHandle));
-                ref var sys2 = ref world.ResolveSystem(sysHandle);
+                Assert.IsTrue(world.Unmanaged.IsSystemValid(sysHandle));
+                Assert.IsFalse(World.Unmanaged.IsSystemValid(sysHandle));
+                ref var sys2 = ref world.Unmanaged.ResolveSystem(sysHandle);
             }
 
-            Assert.IsFalse(World.IsSystemValid(sysHandle));
-            Assert.Throws<InvalidOperationException>(() => World.ResolveSystem(sysHandle));
+            Assert.IsFalse(World.Unmanaged.IsSystemValid(sysHandle));
+            Assert.Throws<InvalidOperationException>(() => World.Unmanaged.ResolveSystem(sysHandle));
         }
 
         [Test]
@@ -111,11 +111,11 @@ namespace Unity.Entities.Tests
             // We don't know which one we'll get currently, but the point is there will be two.
             Assert.AreEqual(19, Math.Abs(World.GetExistingSystem<MyUnmanagedSystem2>().Struct.Dummy));
 
-            World.DestroySystem(s1.Handle);
+            World.DestroyUnmanagedSystem(s1.Handle);
 
             Assert.AreEqual(19, Math.Abs(World.GetExistingSystem<MyUnmanagedSystem2>().Struct.Dummy));
 
-            World.DestroySystem(s2.Handle);
+            World.DestroyUnmanagedSystem(s2.Handle);
 
             Assert.Throws<InvalidOperationException>(() => World.GetExistingSystem<MyUnmanagedSystem2>());
         }
@@ -135,7 +135,7 @@ namespace Unity.Entities.Tests
                 group.AddSystemToUpdateList(s1.Handle);
                 w.Update();
 
-                w.DestroySystem(s1.Handle);
+                w.DestroyUnmanagedSystem(s1.Handle);
                 w.Update();
             }
 
@@ -146,9 +146,9 @@ namespace Unity.Entities.Tests
         public unsafe void RegistryCallManagedToManaged()
         {
             var sysRef = World.AddSystem<MyUnmanagedSystem2>();
-            var statePtr = World.ResolveSystemState(sysRef.Handle);
+            var statePtr = World.Unmanaged.ResolveSystemState(sysRef.Handle);
             SystemBaseRegistry.CallOnUpdate(statePtr);
-            ref var sys = ref World.ResolveSystem(sysRef.Handle);
+            ref var sys = ref World.Unmanaged.ResolveSystem(sysRef.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
 
@@ -156,9 +156,9 @@ namespace Unity.Entities.Tests
         public unsafe void RegistryCallManagedToBurst()
         {
             var sysId = World.AddSystem<MyUnmanagedSystem2WithBurst>();
-            var statePtr = World.ResolveSystemState(sysId.Handle);
+            var statePtr = World.Unmanaged.ResolveSystemState(sysId.Handle);
             SystemBaseRegistry.CallOnUpdate(statePtr);
-            ref var sys = ref World.ResolveSystem(sysId.Handle);
+            ref var sys = ref World.Unmanaged.ResolveSystem(sysId.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
 
@@ -179,9 +179,9 @@ namespace Unity.Entities.Tests
         public unsafe void RegistryCallBurstToManaged()
         {
             var sysRef = World.AddSystem<MyUnmanagedSystem2>();
-            var statePtr = (IntPtr) World.ResolveSystemState(sysRef.Handle);
+            var statePtr = (IntPtr) World.Unmanaged.ResolveSystemState(sysRef.Handle);
             BurstCompiler.CompileFunctionPointer<DispatchDelegate>(DispatchUpdate).Invoke(statePtr);
-            ref var sys = ref World.ResolveSystem(sysRef.Handle);
+            ref var sys = ref World.Unmanaged.ResolveSystem(sysRef.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
 
@@ -189,9 +189,9 @@ namespace Unity.Entities.Tests
         public unsafe void RegistryCallBurstToBurst()
         {
             var sysRef = World.AddSystem<MyUnmanagedSystem2WithBurst>();
-            var statePtr = (IntPtr) World.ResolveSystemState(sysRef.Handle);
+            var statePtr = (IntPtr) World.Unmanaged.ResolveSystemState(sysRef.Handle);
             BurstCompiler.CompileFunctionPointer<DispatchDelegate>(DispatchUpdate).Invoke(statePtr);
-            ref var sys = ref World.ResolveSystem(sysRef.Handle);
+            ref var sys = ref World.Unmanaged.ResolveSystem(sysRef.Handle);
             Assert.AreEqual(1, sys.UpdateCount);
         }
 

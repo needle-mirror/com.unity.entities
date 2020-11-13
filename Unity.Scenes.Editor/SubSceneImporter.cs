@@ -18,7 +18,7 @@ using UnityEditor.Experimental.AssetImporters;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(86, "extDontMatter")]
+    [ScriptedImporter(89, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {
@@ -93,41 +93,26 @@ namespace Unity.Scenes.Editor
         {
             try
             {
-                ctx.DependsOnCustomDependency("EntityBinaryFileFormatVersion");
-                ctx.DependsOnCustomDependency("SceneMetaDataFileFormatVersion");
-                ctx.DependsOnSourceAsset(EntitiesCacheUtility.globalEntitySceneDependencyPath);
-
                 var sceneWithBuildConfiguration = SceneWithBuildConfigurationGUIDs.ReadFromFile(ctx.assetPath);
 
                 // Ensure we have as many dependencies as possible registered early in case an exception is thrown
-                var scenePath = AssetDatabase.GUIDToAssetPath(sceneWithBuildConfiguration.SceneGUID.ToString());
-                ctx.DependsOnSourceAsset(scenePath);
-
-                if (sceneWithBuildConfiguration.BuildConfiguration.IsValid)
-                {
-                    var buildConfigurationPath = AssetDatabase.GUIDToAssetPath(sceneWithBuildConfiguration.BuildConfiguration.ToString());
-                    ctx.DependsOnSourceAsset(buildConfigurationPath);
-                    var buildConfigurationDependencies = AssetDatabase.GetDependencies(buildConfigurationPath);
-                    foreach (var dependency in buildConfigurationDependencies)
-                        ctx.DependsOnSourceAsset(dependency);
-                }
-
-                var dependencies = AssetDatabase.GetDependencies(scenePath);
-                foreach (var dependency in dependencies)
-                {
-                    if (dependency.ToLower().EndsWith(".prefab"))
-                        ctx.DependsOnSourceAsset(dependency);
-                }
+                EditorEntityScenes.AddEntityBinaryFileDependencies(ctx, sceneWithBuildConfiguration.BuildConfiguration);
+                EditorEntityScenes.DependOnSceneGameObjects(sceneWithBuildConfiguration.SceneGUID, ctx);
 
                 var config = BuildConfiguration.LoadAsset(sceneWithBuildConfiguration.BuildConfiguration);
 
+                var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneWithBuildConfiguration.SceneGUID);
                 var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
-
                 try
                 {
+                    EditorSceneManager.SetActiveScene(scene);
+
                     var settings = new GameObjectConversionSettings();
 
                     settings.SceneGUID = sceneWithBuildConfiguration.SceneGUID;
+                    if (!sceneWithBuildConfiguration.IsBuildingForEditor)
+                        settings.ConversionFlags |= GameObjectConversionUtility.ConversionFlags.IsBuildingForPlayer;
+
                     settings.BuildConfiguration = config;
                     settings.AssetImportContext = ctx;
                     settings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
@@ -137,8 +122,6 @@ namespace Unity.Scenes.Editor
                     {
                         if (config.TryGetComponent<DotsRuntimeRootAssembly>(out var rootAssembly))
                         {
-                            ctx.DependsOnSourceAsset(AssetDatabase.GetAssetPath(rootAssembly.RootAssembly.asset));
-                            EditorSceneManager.SetActiveScene(scene);
                             writeEntitySettings.Codec = Codec.LZ4;
                             writeEntitySettings.IsDotsRuntime = true;
                             writeEntitySettings.BuildAssemblyCache = new BuildAssemblyCache()
@@ -147,13 +130,23 @@ namespace Unity.Scenes.Editor
                                 PlatformName = profile.Target.UnityPlatformName
                             };
                             settings.FilterFlags = WorldSystemFilterFlags.DotsRuntimeGameObjectConversion;
+
+                            //Updating the root asmdef references or its references should re-trigger conversion
+                            ctx.DependsOnArtifact(AssetDatabase.GetAssetPath(rootAssembly.RootAssembly.asset));
+                            foreach (var assemblyPath in writeEntitySettings.BuildAssemblyCache.AssembliesPath)
+                            {
+                                ctx.DependsOnArtifact(assemblyPath);
+                            }
                         }
                     }
 
                     var sectionRefObjs = new List<ReferencedUnityObjects>();
-                    var sectionData = EditorEntityScenes.ConvertAndWriteEntitySceneInternal(scene, settings, sectionRefObjs, writeEntitySettings);
+                    var sectionData = EditorEntityScenes.ConvertAndWriteEntityScene(scene, settings, sectionRefObjs, writeEntitySettings);
 
                     WriteAssetDependencyGUIDs(sectionRefObjs, sectionData, ctx);
+
+                    foreach(var objRefs in sectionRefObjs)
+                        DestroyImmediate(objRefs);
                 }
                 finally
                 {

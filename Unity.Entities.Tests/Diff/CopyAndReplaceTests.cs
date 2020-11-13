@@ -83,5 +83,18 @@ namespace Unity.Entities.Tests
             DstEntityManager.CopyAndReplaceEntitiesFrom(SrcEntityManager);
             TestValues(entity, metaEntity, 5, 7);
         }
+
+        [Test]
+        public void Replace_AfterCreatingAndDestroyingAllEntities()
+        {
+            DstEntityManager.CopyAndReplaceEntitiesFrom(SrcEntityManager);
+
+            var emptyArchetype = DstEntityManager.CreateArchetype();
+            DstEntityManager.CreateEntity(emptyArchetype, 10000);
+            DstEntityManager.DestroyEntity(DstEntityManager.UniversalQuery);
+
+            DstEntityManager.CopyAndReplaceEntitiesFrom(SrcEntityManager);
+            Assert.AreEqual(0, DstEntityManager.UniversalQuery.CalculateChunkCount());
+        }
     }
 }

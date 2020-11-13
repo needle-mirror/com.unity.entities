@@ -21,9 +21,9 @@ Accessing data stored in [dynamic buffers] requires an extra step. You must decl
 [!code-cs[lookup-foreach-buffer](../DocCodeSamples.Tests/LookupDataExamples.cs#lookup-foreach-buffer)]
 
 
-## Looking up entity data in IJobChunk
+## Looking up entity data in IJobEntityBatch
 
-To randomly access component data in an IJobChunk or other job struct, use one of the following types to get an array-like interface to component, indexed by [Entity] object:
+To randomly access component data in an [IJobEntityBatch] or other job struct, use one of the following types to get an array-like interface to component, indexed by [Entity] object:
 
 * [ComponentDataFromEntity]
 * [BufferFromEntity]
@@ -62,6 +62,6 @@ If the data you are looking up overlaps the data you are directly reading and wr
 [dynamic buffers]: xref:ecs-dynamic-buffers
 [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
 [OnUpdate()]: xref:Unity.Entities.SystemBase.OnUpdate*
-[IJobChunk]: xref:Unity.Entities.IJobChunk
+[IJobEntityBatch]: xref:Unity.Entities.IJobEntityBatch
 [ReadOnly]: https://docs.unity3d.com/ScriptReference/Unity.Collections.ReadOnlyAttribute.html
 [NativeDisableParallelForRestriction]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeDisableParallelForRestrictionAttribute.html

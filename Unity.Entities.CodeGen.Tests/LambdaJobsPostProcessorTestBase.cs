@@ -8,9 +8,9 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using NUnit.Framework;
-using NUnit.Framework.Constraints;
+using Unity.CompilationPipeline.Common;
 using Unity.CompilationPipeline.Common.Diagnostics;
-using Unity.Entities.CodeGen;
+using UnityEditor.Compilation;
 
 namespace Unity.Entities.CodeGen.Tests
 {
@@ -87,6 +87,9 @@ namespace Unity.Entities.CodeGen.Tests
         [MethodImpl(MethodImplOptions.NoInlining)]
         protected static T EnsureNotOptimizedAway<T>(T x) { return x; }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        protected static ref T EnsureNotOptimizedAway<T>(ref T x) { return ref x; }
+
         private class OnDemandResolver : IAssemblyResolver
         {
             public void Dispose()
@@ -107,6 +110,16 @@ namespace Unity.Entities.CodeGen.Tests
                 var bytes = File.ReadAllBytes(fileName);
                 return AssemblyDefinition.ReadAssembly(new MemoryStream(bytes), parameters);
             }
+        }
+
+        protected static void AssertSourceGenerationFailure(CompilerMessage[] compilerMessages, string expectedErrorMessage)
+        {
+            Assert.IsTrue(compilerMessages.Length == 1);
+
+            CompilerMessage compilerMessage = compilerMessages.Single();
+
+            Assert.AreEqual(compilerMessage.type, CompilerMessageType.Error);
+            Assert.IsTrue(compilerMessage.message.Contains(expectedErrorMessage));
         }
 
         protected abstract void AssertProducesInternal(Type systemType, DiagnosticType type, string[] shouldContains, bool useFailResolver = false);
@@ -146,7 +159,7 @@ namespace Unity.Entities.CodeGen.Tests
                 var assemblyDefinition = AssemblyDefinitionFor(systemType);
                 var testSystemType = assemblyDefinition.MainModule
                     .GetAllTypes()
-                    .Where(TypeDefinitionExtensions.IsComponentSystem)
+                    .Where(type => type.IsComponentSystem())
                     .FirstOrDefault(t => t.Name == systemType.Name);
 
                 foreach (var methodToAnalyze in testSystemType.Methods.ToList())

@@ -5,7 +5,7 @@ using Unity.Jobs;
 namespace Unity.Entities.Tests.ForEachCodegen
 {
     [TestFixture]
-    public class SimpleJobTests : ECSTestsFixture
+    public partial class SimpleJobTests : ECSTestsFixture
     {
         private SimpleJobSystem TestSystem;
 
@@ -25,7 +25,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             }
         }
 
-        public class SimpleJobSystem : SystemBase
+        public partial class SimpleJobSystem : SystemBase
         {
             protected override void OnUpdate() {}
 

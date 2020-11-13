@@ -4,6 +4,9 @@ uid: ecs-ijobchunk
 
 # Using IJobChunk jobs
 
+>  [!NOTE]
+> IJobChunk has been superseded by [IJobEntityBatch](xref:ecs-ijobentitybatch), which should be used for new code.
+
 You can implement [IJobChunk](xref:Unity.Entities.IJobChunk) inside a system to iterate through your data by chunk. When you schedule an IJobChunk job in the `OnUpdate()` function of a system, the job invokes your `Execute()` function once for each chunk that matches the entity query passed to the job's `Schedule()` method. You can then iterate over the data inside each chunk, entity by entity.
 
 Iterating with IJobChunk requires more code setup than does Entities.ForEach, but is also more explicit and represents the most direct access to the data, as it is actually stored. 
@@ -45,7 +48,8 @@ You can also combine multiple queries. To do this, pass an array of `EntityQuery
 
 [!code-cs[oncreate3](../DocCodeSamples.Tests/ChunkIterationJob.cs#oncreate3)]
 
-**Note:** Do not include completely optional components in the `EntityQueryDesc`. To handle optional components, use the `chunk.Has<T>()` method inside `IJobChunk.Execute()` to determine whether the current ArchetypeChunk has the optional component or not. Because all entities in the same chunk have the same components, you only need to check whether an optional component exists once per chunk: not once per entity.
+> [!NOTE]
+> Do not include completely optional components in the `EntityQueryDesc`. To handle optional components, use the `chunk.Has<T>()` method inside `IJobChunk.Execute()` to determine whether the current ArchetypeChunk has the optional component or not. Because all entities in the same chunk have the same components, you only need to check whether an optional component exists once per chunk: not once per entity.
 
 For efficiency and to avoid needless creation of garbage-collected reference types, you should create the `EntityQueries` for a system in the system’s `OnCreate()` function and store the result in an instance variable. (In the above examples, the `m_Query` variable is used for this purpose.)
 
@@ -88,7 +92,8 @@ If you have the `Any` filter in your EntityQueryDesc or have completely optional
     if (chunk.Has<OptionalComp>(OptionalCompType))
     {//...}
 
-__Note:__ If you use a concurrent entity command buffer, pass the `chunkIndex` argument as the `sortKey` parameter to the command buffer functions.
+> [!NOTE]
+> If you're recording an `EntityCommandBuffer.ParallelWriter` inside the `Execute()` function, pass the `chunkIndex` argument as the `sortKey` parameter to the command buffer functions.
 
 <a name="filtering"></a>
 
@@ -108,7 +113,8 @@ As with all the job struct fields, you must assign its value before you schedule
 
 [!code-cs[changefilteronupdate](../DocCodeSamples.Tests/ChunkIterationJob.cs#changefilteronupdate)]
 
-**Note:** For efficiency, the change version applies to whole chunks not individual entities. If another job which has the ability to write to that type of component accesses a chunk, then ECS increments the change version for that component and the `DidChange()` function returns true. ECS increments the change version even if the job that declares write access to a component does not actually change the component value. 
+> [!NOTE]
+> For efficiency, the change version applies to whole chunks not individual entities. If another job which has the ability to write to that type of component accesses a chunk, then ECS increments the change version for that component and the `DidChange()` function returns true. ECS increments the change version even if the job that declares write access to a component does not actually change the component value. 
 
 <a name="schedule"></a>
 ## Instantiate and schedule the job

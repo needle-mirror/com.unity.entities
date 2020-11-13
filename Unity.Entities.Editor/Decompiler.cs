@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Mono.Cecil;
@@ -21,8 +22,73 @@ namespace Unity.Entities.Editor
 
     internal static class Decompiler
     {
+        public static Process DecompileIntoCSharp(string fullyQualifiedTypeName, string fullDllPath)
+        {
+            StringBuilder referencePaths = GetAllReferencePaths();
+
+            bool isWindows = Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT;
+            string ilspycmdFullPath = Path.GetFullPath("Packages/com.unity.entities/Unity.Entities.Editor/PostprocessedILInspector/.ilspyfolder/ilspycmd.exe");
+
+            if (isWindows)
+            {
+                ilspycmdFullPath = ilspycmdFullPath.Replace("/", "\\");
+            }
+
+            string ilSpyArgument = $"{(isWindows ? "" : ilspycmdFullPath)} \"{fullDllPath}\" -t \"{fullyQualifiedTypeName}\" {referencePaths}";
+
+            Process outputCSharpProcess =
+                new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        FileName = isWindows
+                            ? ilspycmdFullPath
+                            : $"{EditorApplication.applicationPath}/Contents/MonoBleedingEdge/bin/mono",
+                        Arguments = ilSpyArgument,
+                        RedirectStandardOutput = true
+                    }
+                };
+
+            outputCSharpProcess.Start();
+            return outputCSharpProcess;
+        }
+
+        private static StringBuilder GetAllReferencePaths()
+        {
+            var referencePaths = new StringBuilder();
+            var processed = new HashSet<string>();
+
+            foreach (Assembly assembly in
+                AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic && !string.IsNullOrEmpty(assembly.Location)))
+            {
+                string path;
+
+                try
+                {
+                    path = Path.GetDirectoryName(assembly.Location);
+                }
+
+                catch (ArgumentException)
+                {
+                    Debug.Log($"Unexpected path: {assembly.Location}");
+                    continue;
+                }
+
+                if (processed.Contains(path))
+                {
+                    continue;
+                }
+                processed.Add(path);
+                referencePaths.Append($"--referencepath \"{path}\" ");
+            }
+
+            return referencePaths;
+        }
+
         public static (Process DecompileIntoCSharpProcess, Process DecompileIntoILProcess)
-        StartDecompilationProcesses(TypeReference typeReference, DecompiledLanguage decompiledLanguage)
+            StartDecompilationProcesses(TypeReference typeReference, DecompiledLanguage decompiledLanguage)
         {
             var assemblyDefinition = typeReference.Module.Assembly;
 
@@ -40,39 +106,18 @@ namespace Unity.Entities.Editor
                     SymbolWriterProvider = new PortablePdbWriterProvider(),
                     WriteSymbols = true
                 });
+
             peStream.Close();
             symbolStream.Close();
 
-            var sb = new StringBuilder();
-            var processed = new HashSet<string>();
-
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location)))
-            {
-                string path;
-                try
-                {
-                    path = Path.GetDirectoryName(assembly.Location);
-                }
-                catch (ArgumentException)
-                {
-                    Debug.Log("Unexpected path: " + assembly.Location);
-                    continue;
-                }
-
-                if (processed.Contains(path))
-                {
-                    continue;
-                }
-                processed.Add(path);
-                sb.Append($"--referencepath \"{path}\" ");
-            }
+            StringBuilder referencePaths = GetAllReferencePaths();
 
             var isWin = Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT;
             var ilspycmd = Path.GetFullPath("Packages/com.unity.entities/Unity.Entities.Editor/PostprocessedILInspector/.ilspyfolder/ilspycmd.exe");
             if (isWin)
                 ilspycmd = ilspycmd.Replace("/", "\\");
 
-            string ilSpyArgument = $"{(isWin ? "" : ilspycmd)} \"{fileName}\" -t \"{typeReference.FullName.Replace("/","+")}\" {sb}";
+            string ilSpyArgument = $"{(isWin ? "" : ilspycmd)} \"{fileName}\" -t \"{typeReference.FullName.Replace("/","+")}\" {referencePaths}";
 
             var outputCSharpProcess =
                 decompiledLanguage == DecompiledLanguage.CSharpOnly || decompiledLanguage == DecompiledLanguage.CSharpAndIL

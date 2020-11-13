@@ -8,11 +8,20 @@ namespace Unity.Entities.Hybrid.Tests
     public struct TestWithCustomDefaultGameObjectInjectionWorld
     {
         public World PreviousGameObjectInjectionWorld;
-        private PlayerLoopSystem m_PrevPlayerLoop;
+        private bool _wasInPlayerLoop;
 
         public void Setup()
         {
             PreviousGameObjectInjectionWorld = World.DefaultGameObjectInjectionWorld;
+            if (PreviousGameObjectInjectionWorld != null)
+            {
+                _wasInPlayerLoop = ScriptBehaviourUpdateOrder.IsWorldInCurrentPlayerLoop(PreviousGameObjectInjectionWorld);
+                if (_wasInPlayerLoop)
+                    ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(PreviousGameObjectInjectionWorld);
+            }
+            else
+                _wasInPlayerLoop = false;
+
             World.DefaultGameObjectInjectionWorld = null;
         }
 
@@ -23,6 +32,11 @@ namespace Unity.Entities.Hybrid.Tests
             if (PreviousGameObjectInjectionWorld != null && !PreviousGameObjectInjectionWorld.IsCreated)
                 PreviousGameObjectInjectionWorld = null;
             World.DefaultGameObjectInjectionWorld = PreviousGameObjectInjectionWorld;
+            if (_wasInPlayerLoop)
+            {
+                ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(PreviousGameObjectInjectionWorld);
+                _wasInPlayerLoop = false;
+            }
         }
     }
 }

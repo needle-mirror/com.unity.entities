@@ -6,13 +6,16 @@ namespace Unity.Entities.Tests
 #if UNITY_DOTSRUNTIME
     public class DotsRuntimeFixmeAttribute : IgnoreAttribute
     {
-        public DotsRuntimeFixmeAttribute() : base("Test should work in DOTS Runtime but currently doesn't. Ignoring until fixed...")
+        public DotsRuntimeFixmeAttribute(string msg = null) : base(msg == null ? "Test should work in DOTS Runtime but currently doesn't. Ignoring until fixed..." : msg)
         {
         }
     }
 #else
     public class DotsRuntimeFixmeAttribute : Attribute
     {
+        public DotsRuntimeFixmeAttribute(string msg = null)
+        {
+        }
     }
 #endif
 

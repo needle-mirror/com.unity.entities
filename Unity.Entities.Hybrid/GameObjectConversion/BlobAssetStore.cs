@@ -1,5 +1,6 @@
 using System;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
@@ -57,7 +58,7 @@ namespace Unity.Entities
         /// <returns></returns>
         public bool TryGet<T>(Hash128 key, out BlobAssetReference<T> blobAssetReference) where T : struct
         {
-            var typedHash = ComputeTypedHash(key, typeof(T));
+            var typedHash = ComputeKeyAndTypeHash(key, typeof(T));
 
             var res = m_BlobAssets.TryGetValue(typedHash, out var blobData);
             if (res)
@@ -81,7 +82,7 @@ namespace Unity.Entities
         /// <returns>true if the Store contains the BlobAsset or false if it doesn't</returns>
         public bool Contains<T>(Hash128 key)
         {
-            var typedHash = ComputeTypedHash(key, typeof(T));
+            var typedHash = ComputeKeyAndTypeHash(key, typeof(T));
             return m_BlobAssets.ContainsKey(typedHash);
         }
 
@@ -94,13 +95,38 @@ namespace Unity.Entities
         /// <returns>true if the BlobAssetReference was found, false if not found</returns>
         public bool TryAdd<T>(Hash128 key, BlobAssetReference<T> result) where T : struct
         {
-            var typedHash = ComputeTypedHash(key, typeof(T));
+            var typedHash = ComputeKeyAndTypeHash(key, typeof(T));
             if (m_BlobAssets.ContainsKey(typedHash))
             {
                 return false;
             }
 
             m_BlobAssets.Add(typedHash, result.m_data);
+            return true;
+        }
+
+        /// <summary>
+        /// Adds a blob asset where the key that makes it unique is based on the BlobAsset contents itself. If the contents of the generated blob asset is the same as a previously inserted blob asset,
+        /// then the passed blobAsset will be disposed and the reference to the blob asset will be replaced with the previously added blob asset
+        /// </summary>
+        /// <param name="blobAsset">The blob asset that will be inserted or replaced</param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns>Returns true if the blob asset was added, returns false if the blob asset was disposed and replaced with the previous blob.</returns>
+        unsafe public bool AddUniqueBlobAsset<T>(ref BlobAssetReference<T> blobAsset) where T : struct
+        {
+            Hash128 key = default;
+            ulong hash = blobAsset.m_data.Header->Hash;
+            UnsafeUtility.MemCpy(&key, &blobAsset.m_data.Header->Hash, sizeof(ulong));
+            key.Value.w = ComputeTypeHash(typeof(T));
+
+            if (m_BlobAssets.TryGetValue(key, out var previousBlob))
+            {
+                blobAsset.Dispose();
+                blobAsset = BlobAssetReference<T>.Create(previousBlob);
+                return false;
+            }
+
+            m_BlobAssets.Add(key, blobAsset.m_data);
             return true;
         }
 
@@ -113,7 +139,7 @@ namespace Unity.Entities
         /// <returns>True if the BLobAsset was removed from the store, false if it wasn't found</returns>
         public bool Remove<T>(Hash128 key, bool releaseBlobAsset)
         {
-            var typedHash = ComputeTypedHash(key, typeof(T));
+            var typedHash = ComputeKeyAndTypeHash(key, typeof(T));
 
             if (releaseBlobAsset && m_BlobAssets.TryGetValue(typedHash, out var blobData))
             {
@@ -144,9 +170,15 @@ namespace Unity.Entities
             m_RefCounterPerBlobHash.Dispose();
         }
 
-        static Hash128 ComputeTypedHash(Hash128 key, Type type)
+
+        static uint ComputeTypeHash(Type type)
         {
-            return new Hash128(math.hash(new uint4x2 { c0 = key.Value, c1 = new uint4((uint)type.GetHashCode())}));
+            return (uint)type.GetHashCode();
+        }
+
+        static Hash128 ComputeKeyAndTypeHash(Hash128 key, Type type)
+        {
+            return new Hash128(math.hash(new uint4x2 { c0 = key.Value, c1 = new uint4(ComputeTypeHash(type))}));
         }
 
         /// <summary>

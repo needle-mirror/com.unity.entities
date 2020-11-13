@@ -37,7 +37,7 @@ namespace Unity.Entities.CodeGen.Tests.SingletonAccess.Infrastructure
                     _methodIL.AppendLine(instruction.ToString());
             }
 
-            RunTest(methodToAnalyze.DeclaringType);
+            RunPostprocessingTest(methodToAnalyze.DeclaringType);
         }
     }
 }

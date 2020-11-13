@@ -168,11 +168,12 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        public static void AssertSameEntities(EntityComponentStore* rhs, EntityComponentStore* lhs)
+        public static void AssertAllEntitiesCopied(EntityComponentStore* lhs, EntityComponentStore* rhs)
         {
-            Assert.AreEqual(rhs->EntitiesCapacity, lhs->EntitiesCapacity);
-            var lhsEntities = lhs->m_EntityInChunkByEntity;
+            Assert.IsTrue(rhs->EntitiesCapacity >= lhs->EntitiesCapacity);
             var rhsEntities = rhs->m_EntityInChunkByEntity;
+            var lhsEntities = lhs->m_EntityInChunkByEntity;
+
             int capacity = lhs->EntitiesCapacity;
             for (int i = 0; i != capacity; i++)
             {
@@ -182,7 +183,7 @@ namespace Unity.Entities
                 if (lhsEntities[i].IndexInChunk != rhsEntities[i].IndexInChunk)
                     Assert.AreEqual(lhsEntities[i].IndexInChunk, rhsEntities[i].IndexInChunk);
             }
-            Assert.AreEqual(rhs->m_NextFreeEntityIndex, lhs->m_NextFreeEntityIndex);
+            Assert.AreEqual(lhs->m_NextFreeEntityIndex, rhs->m_NextFreeEntityIndex);
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -304,6 +305,29 @@ namespace Unity.Entities
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanAddComponents(Archetype* archetype, ComponentTypes componentTypes)
+        {
+            int totalComponentInstanceSize = 0;
+            for (int i = 0; i < componentTypes.Length; i++)
+            {
+                var type = componentTypes.GetComponentType(i);
+
+                if (type == m_EntityComponentType)
+                    throw new ArgumentException("Cannot add Entity as a component.");
+
+                if (type.IsSharedComponent && (archetype->NumSharedComponents == kMaxSharedComponentCount))
+                    throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent to a single Archetype");
+
+                var componentTypeInfo = GetTypeInfo(type.TypeIndex);
+                totalComponentInstanceSize += GetComponentArraySize(componentTypeInfo.SizeInChunk, 1);
+            }
+            var archetypeInstanceSize = archetype->InstanceSizeWithOverhead + totalComponentInstanceSize;
+            var chunkDataSize = Chunk.GetChunkBufferSize();
+            if (archetypeInstanceSize > chunkDataSize)
+                throw new InvalidOperationException("Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead}  bytes. Attempting to add component size {totalComponentInstanceSize} bytes. Maximum chunk size {chunkDataSize}.");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void AssertCanAddComponent(Entity entity, ComponentType componentType)
         {
             if (!Exists(entity))
@@ -354,7 +378,28 @@ namespace Unity.Entities
         public void AssertCanAddComponents(Entity entity, ComponentTypes types)
         {
             for (int i = 0; i < types.Length; ++i)
-                AssertCanAddComponent(entity, ComponentType.FromTypeIndex(types.GetTypeIndex(i)));
+                AssertCanAddComponent(entity, types.GetComponentType(i));
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanAddComponents(NativeArray<Entity> entities, ComponentTypes types)
+        {
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                var entity = entities[i];
+                for (int j = 0; j < types.Length; ++j)
+                    AssertCanAddComponent(entity, types.GetComponentType(j));
+            }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        public void AssertCanAddComponent(NativeArray<Entity> entities, ComponentType type)
+        {
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                var entity = entities[i];
+                AssertCanAddComponent(entity, type);
+            }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -453,9 +498,14 @@ namespace Unity.Entities
         }
 
         [BurstDiscard]
+        [Conditional("UNITY_EDITOR")]
         private void ThrowDestroyEntityErrorFancy(Entity errorEntity, Entity errorReferencedEntity)
         {
-            throw new ArgumentException($"DestroyEntity(EntityQuery query) is destroying entity {errorEntity} which contains a LinkedEntityGroup and the entity {errorReferencedEntity} in that group is not included in the query. If you want to destroy entities using a query all linked entities must be contained in the query..");
+#if UNITY_EDITOR
+            string errorEntityName = Exists(errorEntity) ? GetName(errorEntity) : "(Deleted)";
+            string errorReferencedEntityName = Exists(errorReferencedEntity) ? GetName(errorReferencedEntity) : "(Deleted)";
+            throw new ArgumentException($"DestroyEntity(EntityQuery query) is destroying entity {errorEntity} '{errorEntityName}' which contains a LinkedEntityGroup and the entity {errorReferencedEntity} '{errorReferencedEntityName}' in that group is not included in the query. If you want to destroy entities using a query all linked entities must be contained in the query..");
+#endif
         }
 
 

@@ -125,6 +125,25 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddUniqueBlobAsset()
+        {
+            var a0 = BlobAssetReference<int>.Create(0);
+            var a0Duplicate = BlobAssetReference<int>.Create(0);
+            var a1 = BlobAssetReference<int>.Create(1);
+            var a0Float = BlobAssetReference<float>.Create(0);
+
+            Assert.IsTrue(m_Store.AddUniqueBlobAsset(ref a0));
+            Assert.IsFalse(m_Store.AddUniqueBlobAsset(ref a0Duplicate));
+            Assert.IsTrue(m_Store.AddUniqueBlobAsset(ref a1));
+            Assert.IsTrue(m_Store.AddUniqueBlobAsset(ref a0Float));
+
+            Assert.AreEqual(0, a0.Value);
+            Assert.AreEqual(0, a0Duplicate.Value);
+            Assert.AreEqual(1, a1.Value);
+            Assert.AreEqual(0.0F, a0Float.Value);
+        }
+
+        [Test]
         public void BlobPerOwnerTest()
         {
             var go0 = new GameObject("GO 0");

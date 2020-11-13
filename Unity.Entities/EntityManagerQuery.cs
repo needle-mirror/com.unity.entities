@@ -91,29 +91,7 @@ namespace Unity.Entities
         public EntityQueryMask GetEntityQueryMask(EntityQuery query)
         {
             var access = GetCheckedEntityDataAccess();
-            var queryImpl = query._GetImpl();
-
-            if (queryImpl->_QueryData->EntityQueryMask.IsCreated())
-                return queryImpl->_QueryData->EntityQueryMask;
-
-            if (access->EntityQueryManager->m_EntityQueryMasksAllocated >= 1024)
-                throw new Exception("You have reached the limit of 1024 unique EntityQueryMasks, and cannot generate any more.");
-
-            var mask = new EntityQueryMask(
-                (byte)(access->EntityQueryManager->m_EntityQueryMasksAllocated / 8),
-                (byte)(1 << (access->EntityQueryManager->m_EntityQueryMasksAllocated % 8)),
-                access->EntityComponentStore);
-
-            access->EntityQueryManager->m_EntityQueryMasksAllocated++;
-
-            for (var i = 0; i < queryImpl->_QueryData->MatchingArchetypes.Length; ++i)
-            {
-                queryImpl->_QueryData->MatchingArchetypes.Ptr[i]->Archetype->QueryMaskArray[mask.Index] |= mask.Mask;
-            }
-
-            queryImpl->_QueryData->EntityQueryMask = mask;
-
-            return mask;
+            return access->EntityQueryManager->GetEntityQueryMask(query.__impl->_QueryData, access->EntityComponentStore);
         }
 
         // ----------------------------------------------------------------------------------------------------------

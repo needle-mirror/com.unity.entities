@@ -18,9 +18,7 @@
     "includePlatforms": [
         "Editor"
     ],
-    "precompiledReferences": [
-        "bee.dll"
-    ],
+    "precompiledReferences": [],
     "excludePlatforms": [],
     "allowUnsafeCode": true
 }

@@ -18,13 +18,8 @@ namespace Unity.Entities.Conversion
         bool m_IsDirty = true;
 
         [CreateProperty]
-#if UNITY_2020_1_OR_NEWER
         public List<UnityEngine.LazyLoadReference<UnityEditorInternal.AssemblyDefinitionAsset>> ExcludedConversionSystemAssemblies { get; set; } =
             new List<UnityEngine.LazyLoadReference<UnityEditorInternal.AssemblyDefinitionAsset>>();
-#else
-        public List<UnityEditorInternal.AssemblyDefinitionAsset> ExcludedConversionSystemAssemblies { get; set; } =
-            new List<UnityEditorInternal.AssemblyDefinitionAsset>();
-#endif
 
         public ConversionSystemFilterSettings() {}
 
@@ -87,11 +82,7 @@ namespace Unity.Entities.Conversion
             m_ExcludedDomainAssemblies = new HashSet<Assembly>();
 
             var domainAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-#if UNITY_2020_1_OR_NEWER
             foreach (var excl in ExcludedConversionSystemAssemblies.Select(lazy => lazy.asset))
-#else
-            foreach (var excl in ExcludedConversionSystemAssemblies)
-#endif
             {
                 var asm = domainAssemblies.FirstOrDefault(s => s.GetName().Name == excl.name);
                 if (asm != null)

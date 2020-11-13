@@ -1,7 +1,7 @@
 using System;
 using Mono.Cecil;
-using NUnit.Framework;
 using Unity.Entities.CodeGen.Tests;
+using static Unity.Entities.Hybrid.CodeGen.AuthoringComponentPostProcessor;
 
 namespace Unity.Entities.Hybrid.CodeGen.Tests
 {
@@ -10,20 +10,14 @@ namespace Unity.Entities.Hybrid.CodeGen.Tests
         protected override string ExpectedPath =>
             "Packages/com.unity.entities/Unity.Entities.Hybrid.CodeGen.Tests/AuthoringComponent/IntegrationTests";
 
-        protected void RunAuthoringComponentDataTest(Type type)
+        protected void RunAuthoringComponentDataPostprocessingTest(Type type)
         {
-            TypeDefinition authoringType =
-                AuthoringComponentPostProcessor.CreateComponentDataAuthoringType(TypeDefinitionFor(type));
-
-            RunTest(authoringType);
+            RunPostprocessingTest(CreateComponentDataAuthoringType(TypeDefinitionFor(type)));
         }
 
-        protected void RunAuthoringBufferElementDataTest(Type type)
+        protected void RunAuthoringBufferElementDataPostprocessingTest(Type type)
         {
-            TypeDefinition authoringType =
-                AuthoringComponentPostProcessor.CreateBufferElementDataAuthoringType(TypeDefinitionFor(type));
-
-            RunTest(authoringType);
+            RunPostprocessingTest(CreateBufferElementDataAuthoringType(TypeDefinitionFor(type)));
         }
     }
 }

@@ -278,8 +278,7 @@ namespace Unity.Scenes
 
             Assert.IsNotNull(companionLinkType, "Failed to find the CompanionLink type");
             var typeIndex = TypeManager.GetTypeIndex(companionLinkType);
-            var typeInfo = TypeManager.GetTypeInfo(typeIndex);
-            CompanionLinkStableTypeHash = typeInfo.StableTypeHash;
+            CompanionLinkStableTypeHash = TypeManager.GetTypeInfo(typeIndex).StableTypeHash;
 
             return CompanionLinkStableTypeHash;
         }

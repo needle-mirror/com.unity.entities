@@ -10,12 +10,12 @@ namespace Unity.Transforms
 {
     public abstract class LocalToParentSystem : JobComponentSystem
     {
-        private EntityQuery m_RootsGroup;
+        private EntityQuery m_RootsQuery;
         private EntityQueryMask m_LocalToWorldWriteGroupMask;
 
         // LocalToWorld = Parent.LocalToWorld * LocalToParent
         [BurstCompile]
-        struct UpdateHierarchy : IJobChunk
+        struct UpdateHierarchy : IJobEntityBatch
         {
             [ReadOnly] public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandle;
             [ReadOnly] public BufferTypeHandle<Child> ChildTypeHandle;
@@ -29,8 +29,7 @@ namespace Unity.Transforms
 
             void ChildLocalToWorld(float4x4 parentLocalToWorld, Entity entity, bool updateChildrenTransform)
             {
-                bool transformChanged = LocalToParentFromEntity.DidChange(entity, LastSystemVersion);
-                updateChildrenTransform = updateChildrenTransform || transformChanged;
+                updateChildrenTransform = updateChildrenTransform || LocalToParentFromEntity.DidChange(entity, LastSystemVersion);
 
                 float4x4 localToWorldMatrix;
 
@@ -43,6 +42,7 @@ namespace Unity.Transforms
                 else //This entity has a component with the WriteGroup(LocalToWorld)
                 {
                     localToWorldMatrix = LocalToWorldFromEntity[entity].Value;
+                    updateChildrenTransform = updateChildrenTransform || LocalToWorldFromEntity.DidChange(entity, LastSystemVersion);
                 }
 
                 if (ChildFromEntity.HasComponent(entity))
@@ -55,15 +55,15 @@ namespace Unity.Transforms
                 }
             }
 
-            public void Execute(ArchetypeChunk chunk, int index, int entityOffset)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
                 bool updateChildrenTransform =
-                    chunk.DidChange<LocalToWorld>(LocalToWorldTypeHandle, LastSystemVersion) ||
-                    chunk.DidChange<Child>(ChildTypeHandle, LastSystemVersion);
+                    batchInChunk.DidChange<LocalToWorld>(LocalToWorldTypeHandle, LastSystemVersion) ||
+                    batchInChunk.DidChange<Child>(ChildTypeHandle, LastSystemVersion);
 
-                var chunkLocalToWorld = chunk.GetNativeArray(LocalToWorldTypeHandle);
-                var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
-                for (int i = 0; i < chunk.Count; i++)
+                var chunkLocalToWorld = batchInChunk.GetNativeArray(LocalToWorldTypeHandle);
+                var chunkChildren = batchInChunk.GetBufferAccessor(ChildTypeHandle);
+                for (int i = 0; i < batchInChunk.Count; i++)
                 {
                     var localToWorldMatrix = chunkLocalToWorld[i].Value;
                     var children = chunkChildren[i];
@@ -77,7 +77,7 @@ namespace Unity.Transforms
 
         protected override void OnCreate()
         {
-            m_RootsGroup = GetEntityQuery(new EntityQueryDesc
+            m_RootsQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -121,7 +121,7 @@ namespace Unity.Transforms
                 LocalToWorldWriteGroupMask = m_LocalToWorldWriteGroupMask,
                 LastSystemVersion = LastSystemVersion
             };
-            var updateHierarchyJobHandle = updateHierarchyJob.Schedule(m_RootsGroup, inputDeps);
+            var updateHierarchyJobHandle = updateHierarchyJob.ScheduleParallel(m_RootsQuery, 1, inputDeps);
             return updateHierarchyJobHandle;
         }
     }

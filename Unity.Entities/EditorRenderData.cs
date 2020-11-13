@@ -6,10 +6,6 @@ namespace Unity.Entities
 {
     public struct EditorRenderData : ISharedComponentData, IEquatable<EditorRenderData>
     {
-#if !UNITY_2020_1_OR_NEWER
-        public const UInt64 LiveLinkEditSceneViewMask = 1UL << 60;
-        public const UInt64 LiveLinkEditGameViewMask = 1UL << 59;
-#endif
         public ulong      SceneCullingMask;
         public GameObject PickableObject;
 

@@ -280,6 +280,14 @@ namespace Unity.Entities.Editor.Tests
             }
         }
 
+        class InvalidEntityVisitor : PropertyVisitor
+        {
+            protected override void VisitProperty<TContainer, TValue>(Property<TContainer, TValue> property, ref TContainer container, ref TValue value)
+            {
+                throw new InvalidOperationException();
+            }
+        }
+
         GameObject _gameObject;
 
         public override void Setup()
@@ -377,6 +385,30 @@ namespace Unity.Entities.Editor.Tests
 
             PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(false, 25, Category.BufferData));
             PropertyContainer.Visit(new EntityContainer(m_Manager, entity, false), new TestDataWriteBackVisitor(true, 25, Category.BufferData));
+        }
+
+        [Test]
+        public void EntityContainer_WhenVisitingAnInvalidEntity_DoesNotThrow()
+        {
+            Assert.DoesNotThrow(() => PropertyContainer.Visit(new EntityContainer(m_Manager, Entity.Null, false), new InvalidEntityVisitor()));
+
+            var entity = m_Manager.CreateEntity(typeof(StructComponentData), typeof(BufferElement));
+            var container = new EntityContainer(m_Manager, entity, false);
+
+            // Validate that we are actually visiting something.
+            Assert.Throws<InvalidOperationException>(() => PropertyContainer.Visit(container, new InvalidEntityVisitor()));
+
+            // We can find the correct path and this will not throw.
+            Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(StructComponentData)}")), Is.True);
+            Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(BufferElement)}")), Is.True);
+
+            m_Manager.DestroyEntity(entity);
+
+            Assert.DoesNotThrow(() => PropertyContainer.Visit(container, new InvalidEntityVisitor()));
+
+            // We cannot find the correct path anymore and this will not throw.
+            Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(StructComponentData)}")), Is.False);
+            Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(BufferElement)}")), Is.False);
         }
     }
 }

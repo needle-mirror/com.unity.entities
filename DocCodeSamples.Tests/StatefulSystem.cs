@@ -1,6 +1,7 @@
 namespace Doc.CodeSamples.Tests
 {
     #region stateful-example
+
     using Unity.Entities;
     using Unity.Jobs;
     using Unity.Collections;
@@ -15,7 +16,7 @@ namespace Doc.CodeSamples.Tests
         public int State;
     }
 
-    public class StatefulSystem : SystemBase
+    public partial class StatefulSystem : SystemBase
     {
         private EntityCommandBufferSystem ecbSource;
 

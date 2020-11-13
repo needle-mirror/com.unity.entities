@@ -209,6 +209,18 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void RemoveAtSwapBack_WithMultiByteElements_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+            buffer.Add(0);
+            buffer.Add(0x7FFFFFFF);
+            buffer.Add(0x12345678);
+            buffer.RemoveAtSwapBack(0);
+            CheckBufferContents(buffer, new [] { 0x12345678, 0x7FFFFFFF });
+        }
+
+        [Test]
         public void RemoveAtSwapBack_WithMiddleElement_Works()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsIntElement));

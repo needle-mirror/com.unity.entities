@@ -205,10 +205,10 @@ namespace Unity.Entities.Editor
             SetSelection(new List<int>());
         }
 
-        public void SetEntitySelection(Entity entitySelection)
+        public void SetEntitySelection(Entity entitySelection, TreeViewSelectionOptions options = TreeViewSelectionOptions.None)
         {
             if (entitySelection != Entity.Null && getWorldSelection().EntityManager.Exists(entitySelection))
-                SetSelection(new List<int> {entitySelection.Index});
+                SetSelection(new List<int> {entitySelection.Index}, options);
         }
 
         public void TouchSelection()
@@ -217,6 +217,18 @@ namespace Unity.Entities.Editor
                 GetSelection()
                 , TreeViewSelectionOptions.RevealAndFrame);
         }
+
+        public Entity GetSelectedEntity()
+        {
+            if (HasSelection())
+            {
+                if (rows.GetById(GetSelection()[0], out Entity selectedEntity))
+                    return selectedEntity;
+            }
+
+            return Entity.Null;
+        }
+
 
         public void FrameSelection()
         {

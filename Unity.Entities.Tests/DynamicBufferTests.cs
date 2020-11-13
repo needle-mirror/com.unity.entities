@@ -16,7 +16,7 @@ using System.Text.RegularExpressions;
 
 namespace Unity.Entities.Tests
 {
-    public class DynamicBufferTests : ECSTestsFixture
+    public partial class DynamicBufferTests : ECSTestsFixture
     {
         [DebuggerDisplay("Value: {Value}")]
         struct DynamicBufferElement : IBufferElementData
@@ -182,7 +182,7 @@ namespace Unity.Entities.Tests
 
 // https://unity3d.atlassian.net/browse/DOTSR-1995 Fails on Runtime WebGL target.
 #if !(UNITY_DOTSRUNTIME && UNITY_WEBGL)
-        public class DynamicBufferTestsSystem : SystemBase
+        public partial class DynamicBufferTestsSystem : SystemBase
         {
             private struct DynamicBufferData1 : IBufferElementData
             {
@@ -389,7 +389,7 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-        [Test]
+        [Test, Ignore("DOTS-3029")]
         public void DynamicBufferAliasing()
         {
             World.GetOrCreateSystem<DynamicBufferTestsSystem>().Update();

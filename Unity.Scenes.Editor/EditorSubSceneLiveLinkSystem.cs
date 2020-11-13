@@ -52,7 +52,14 @@ namespace Unity.Scenes.Editor
                 // Apply changes to scenes that are being edited
                 foreach (var change in _ChangeSets)
                 {
-                    _Patcher.ApplyPatch(change);
+                    try
+                    {
+                        _Patcher.ApplyPatch(change);
+                    }
+                    catch (System.Exception exc)
+                    {
+                        Debug.LogException(exc);
+                    }
                 }
             }
             finally
@@ -95,7 +102,7 @@ namespace Unity.Scenes.Editor
         protected override void OnCreate()
         {
             Camera.onPreCull += OnPreCull;
-            RenderPipelineManager.beginCameraRendering += OnPreCull;
+            RenderPipelineManager.beginFrameRendering += OnPreCull;
             SceneView.duringSceneGui += SceneViewOnBeforeSceneGui;
 
             _SceneChangeTracker = new LiveLinkSceneChangeTracker(EntityManager);
@@ -109,7 +116,7 @@ namespace Unity.Scenes.Editor
         protected override void OnDestroy()
         {
             Camera.onPreCull -= OnPreCull;
-            RenderPipelineManager.beginCameraRendering -= OnPreCull;
+            RenderPipelineManager.beginFrameRendering -= OnPreCull;
             SceneView.duringSceneGui -= SceneViewOnBeforeSceneGui;
 
             if (_EditorLiveLink != null)
@@ -138,7 +145,13 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        void OnPreCull(ScriptableRenderContext _, Camera camera) => OnPreCull(camera);
+        void OnPreCull(ScriptableRenderContext src, Camera[] cameras)
+        {
+            foreach (Camera camera in cameras)
+            {
+                OnPreCull(camera);
+            }
+        }
 
         void OnPreCull(Camera camera)
         {

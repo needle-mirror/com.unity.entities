@@ -165,7 +165,6 @@ namespace Unity.Scenes
             m_NotYetRequestedScenes = GetEntityQuery(ComponentType.ReadWrite<SceneReference>(),
                 ComponentType.ReadOnly<EditorTriggeredLoad>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
-
                 ComponentType.Exclude<ResolvedSectionEntity>(),
                 ComponentType.Exclude<WaitingForEditor>(),
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
@@ -174,7 +173,6 @@ namespace Unity.Scenes
                 ComponentType.ReadOnly<EditorTriggeredLoad>(),
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.ReadWrite<WaitingForEditor>(),
-
                 ComponentType.Exclude<ResolvedSectionEntity>(),
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
 
@@ -183,7 +181,6 @@ namespace Unity.Scenes
                 ComponentType.ReadWrite<RequestSceneLoaded>(),
                 ComponentType.ReadWrite<ResolvedSectionEntity>(),
                 ComponentType.ReadWrite<ResolvedSceneHash>(),
-
                 ComponentType.Exclude<DisableSceneResolveAndLoad>());
         }
     }

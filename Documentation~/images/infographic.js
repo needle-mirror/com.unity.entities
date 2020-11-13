@@ -1,15 +1,13 @@
 var slideNumber = 1;
 advanceSlide(0);
-document.getElementById('slides').addEventListener('click', changeSlide);
+document.getElementById('previous').addEventListener('click', previousSlide);
+document.getElementById('next').addEventListener('click', nextSlide);
 
-function changeSlide(evt){
-    var rect = evt.target.getBoundingClientRect();
-
-    if(evt.clientX > rect.left + (rect.right - rect.left)/2){ 
-        advanceSlide(1);
-    } else {
-        advanceSlide(-1);
-    }
+function nextSlide(evt){
+    advanceSlide(1);
+}
+function previousSlide(evt){
+    advanceSlide(-1);
 }
 
 function advanceSlide(n) {

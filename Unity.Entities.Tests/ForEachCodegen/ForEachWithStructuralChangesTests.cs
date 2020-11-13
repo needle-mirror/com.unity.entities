@@ -14,7 +14,7 @@ using System.Linq;
 namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 {
     [TestFixture]
-    public class ForEachWithStructuralChangesCodegenTests : ECSTestsFixture
+    public partial class ForEachWithStructuralChangesCodegenTests : ECSTestsFixture
     {
         MyTestSystem TestSystem;
         Entity TestEntity;
@@ -209,6 +209,12 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
             TestSystem.RemoveOtherEntityFromProcessing(false);
         }
 
+        [Test]
+        public void CanAssignThisValueInside()
+        {
+            TestSystem.CanAssignThisValueInside();
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void Many_ManagedComponents()
@@ -218,7 +224,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
 #endif
 
-        class MyTestSystem : SystemBase
+        partial class MyTestSystem : SystemBase
         {
             protected override void OnUpdate() { }
 
@@ -257,10 +263,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
-                {
-                    Assert.AreEqual(kRepeat - kRepeat / 3, arr.Length);
-                }
+                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                    {
+                        Assert.AreEqual(kRepeat - kRepeat / 3, arr.Length);
+                    }
             }
 
             public void DestroyEntity_OfAForwardEntity_CanBeIterated()
@@ -289,10 +295,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
-                {
-                    Assert.AreEqual(10, arr.Length);
-                }
+                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                    {
+                        Assert.AreEqual(10, arr.Length);
+                    }
             }
 
             public void RemoveComponent_OfAForwardEntity_CanBeIterated()
@@ -320,10 +326,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
-                {
-                    Assert.AreEqual(10 + 1, arr.Length);
-                }
+                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                    {
+                        Assert.AreEqual(10 + 1, arr.Length);
+                    }
             }
 
             public void Buffer_ModifiedEntities_VisibleFromInsideForEach()
@@ -547,11 +553,11 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(EcsTestData)))
-                using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
-                {
-                    Assert.AreEqual(1, arr.Length);     // (e)
-                    Assert.AreEqual(123, arr[0].value);
-                }
+                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                    {
+                        Assert.AreEqual(1, arr.Length); // (e)
+                        Assert.AreEqual(123, arr[0].value);
+                    }
             }
 
             public void RemoveComponent_GetOrSetOfRemovedComponent_Throws()
@@ -646,10 +652,10 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     using (var group = new ExtractTestDataFromEntityManager<EcsTestData2>(EntityManager))
                     {
                         Assert.AreEqual(4, group.Values.Length);
-                        Assert.AreEqual(0, group.Values[0].value0);     // case 0
-                        Assert.AreEqual(100, group.Values[1].value0);   // case 1
-                        Assert.AreEqual(1, group.Values[2].value0);     // case 2
-                        Assert.AreEqual(-300, group.Values[3].value0);  // case 3
+                        Assert.AreEqual(0, group.Values[0].value0); // case 0
+                        Assert.AreEqual(100, group.Values[1].value0); // case 1
+                        Assert.AreEqual(1, group.Values[2].value0); // case 2
+                        Assert.AreEqual(-300, group.Values[3].value0); // case 3
                     }
                 }
             }
@@ -697,10 +703,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
                 Entities
                     .WithStructuralChanges()
-                    .ForEach((Entity entity, in EcsTestTag tag) =>
-                    {
-                        EntityManager.AddComponentData(entity, new EcsTestData(1234));
-                    }).Run();
+                    .ForEach((Entity entity, in EcsTestTag tag) => { EntityManager.AddComponentData(entity, new EcsTestData(1234)); }).Run();
 
                 Assert.AreEqual(1234, EntityManager.GetComponentData<EcsTestData>(newEntity).value);
             }
@@ -729,6 +732,19 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                 Assert.AreEqual(2, count);
             }
 
+            public void CanAssignThisValueInside()
+            {
+                EntityManager.CreateEntity();
+
+                MyTestSystem thisSystem = null;
+                Entities.WithStructuralChanges().ForEach((Entity e) =>
+                {
+                    thisSystem = this;
+                }).Run();
+
+                Assert.AreEqual(this, thisSystem);
+            }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             public void Many_ManagedComponents()
             {
@@ -754,7 +770,6 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
                 Assert.AreEqual(1, counter);
             }
-
 #endif
         }
     }

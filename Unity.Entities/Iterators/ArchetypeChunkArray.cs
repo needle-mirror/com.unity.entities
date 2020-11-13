@@ -343,25 +343,29 @@ namespace Unity.Entities
             return ChangeVersionUtility.DidChange(GetChangeVersion(chunkSharedComponentData), version);
         }
 
-        [Obsolete("Use GetChangeVersion instead. GetComponentVersion will be (RemovedAfter 2020-05-19). (UnityUpgradable) -> GetChangeVersion(*)")]
-        public uint GetComponentVersion<T>(ComponentTypeHandle<T> chunkComponentTypeHandle)
-            where T : IComponentData
+        /// <summary>
+        /// Reports whether the value of shared components associated with the chunk, of the type identified by
+        /// <paramref name="chunkSharedComponentData"/>, could have changed since the specified version.
+        /// </summary>
+        /// <remarks>
+        /// Shared components behave differently than other types of components in terms of change versioning because
+        /// changing the value of a shared component can move an entity to a different chunk. If the change results
+        /// in an entity moving to a different chunk, then only the order version is updated (for both the original and
+        /// the receiving chunk). If you change the shared component value for all entities in a chunk at once, the
+        /// change version for that chunk is updated. The order version is unaffected.
+        ///
+        /// Note that for efficiency, the change version applies to whole chunks not individual entities. The change
+        /// version is updated even when another job or system that has declared write access to a component does
+        /// not actually change the component value.</remarks>
+        /// <param name="chunkSharedComponentData">An object containing type and job safety information. Create this
+        /// object by calling <see cref="ComponentSystemBase.GetDynamicSharedComponentTypeHandle"/>.</param>
+        /// <param name="version">The version to compare. In a system, this parameter should be set to the
+        /// current <see cref="ComponentSystemBase.LastSystemVersion"/>.</param>
+        /// <returns>True, if the version number stored in the chunk for this component is more recent than the version
+        /// passed to the <paramref name="version"/></returns>
+        public bool DidChange(DynamicSharedComponentTypeHandle chunkSharedComponentData, uint version)
         {
-            return GetChangeVersion(chunkComponentTypeHandle);
-        }
-
-        [Obsolete("Use GetChangeVersion instead. GetComponentVersion will be (RemovedAfter 2020-05-19). (UnityUpgradable) -> GetChangeVersion(*)")]
-        public uint GetComponentVersion<T>(BufferTypeHandle<T> chunkBufferTypeHandle)
-            where T : struct, IBufferElementData
-        {
-            return GetChangeVersion(chunkBufferTypeHandle);
-        }
-
-        [Obsolete("Use GetChangeVersion instead. GetComponentVersion will be (RemovedAfter 2020-05-19). (UnityUpgradable) -> GetChangeVersion(*)")]
-        public uint GetComponentVersion<T>(SharedComponentTypeHandle<T> chunkSharedComponentData)
-            where T : struct, ISharedComponentData
-        {
-            return GetChangeVersion(chunkSharedComponentData);
+            return ChangeVersionUtility.DidChange(GetChangeVersion(chunkSharedComponentData), version);
         }
 
         /// <summary>
@@ -492,6 +496,30 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Gets the change version number assigned to the specified type of shared component in this chunk.
+        /// </summary>
+        /// <remarks>
+        /// Shared components behave differently than other types of components in terms of change versioning because
+        /// changing the value of a shared component can move an entity to a different chunk. If the change results
+        /// in an entity moving to a different chunk, then only the order version is updated (for both the original and
+        /// the receiving chunk). If you change the shared component value for all entities in a chunk at once,
+        /// the entities remain in their current chunk. The change version for that chunk is updated and the order
+        /// version is unaffected.
+        /// </remarks>
+        /// <param name="chunkSharedComponentData">An object containing type and job safety information. Create this
+        /// object by calling <see cref="ComponentSystemBase.GetDynamicSharedComponentTypeHandle"/>.</param>
+        /// <returns>The current version number of the specified shared component, which is the version set the last time a system
+        /// accessed a component of that type in this chunk with write privileges. Returns 0 if the chunk does not contain
+        /// a shared component of the specified type.</returns>
+        public uint GetChangeVersion(DynamicSharedComponentTypeHandle chunkSharedComponentData)
+        {
+            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkSharedComponentData.m_TypeIndex, ref chunkSharedComponentData.m_TypeLookupCache);
+            int typeIndexInArchetype = chunkSharedComponentData.m_TypeLookupCache;
+            if (typeIndexInArchetype == -1) return 0;
+            return m_Chunk->GetChangeVersion(typeIndexInArchetype);
+        }
+
+        /// <summary>
         /// Reports whether a structural change has occured in this chunk since the specified version.
         /// </summary>
         /// <remarks>
@@ -591,6 +619,35 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Gets the index into the array of unique values for the specified shared component.
+        /// </summary>
+        /// <remarks>
+        /// Because shared components can contain managed types, you can only access the value index of a shared component
+        /// inside a job, not the value itself. The index value indexes the array returned by
+        /// <see cref="EntityManager.GetAllUniqueSharedComponentData{T}(List{T})"/>. If desired, you can create a native
+        /// array that mirrors your unique value list, but which contains only unmanaged, blittable data and pass that
+        /// into an <see cref="IJobChunk"/> job. The unique value list and a specific index is only valid until a
+        /// structural change occurs.
+        /// </remarks>
+        /// <param name="chunkSharedComponentData">An object containing type and job safety information. Create this
+        /// object by calling <see cref="ComponentSystemBase.GetDynamicSharedComponentTypeHandle"/>.</param>
+        /// <returns>The index value, or -1 if the chunk does not contain a shared component of the specified type.</returns>
+        public int GetSharedComponentIndex(DynamicSharedComponentTypeHandle chunkSharedComponentData)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(chunkSharedComponentData.m_Safety);
+#endif
+            var archetype = m_Chunk->Archetype;
+            ChunkDataUtility.GetIndexInTypeArray(archetype, chunkSharedComponentData.m_TypeIndex, ref chunkSharedComponentData.m_TypeLookupCache);
+            var typeIndexInArchetype = chunkSharedComponentData.m_TypeLookupCache;
+            if (typeIndexInArchetype == -1) return -1;
+
+            var chunkSharedComponentIndex = typeIndexInArchetype - archetype->FirstSharedComponent;
+            var sharedComponentIndex = m_Chunk->GetSharedComponentValue(chunkSharedComponentIndex);
+            return sharedComponentIndex;
+        }
+
+        /// <summary>
         /// Gets the current value of a shared component.
         /// </summary>
         /// <remarks>You cannot call this function inside a job.</remarks>
@@ -604,6 +661,24 @@ namespace Unity.Entities
             where T : struct, ISharedComponentData
         {
             return entityManager.GetSharedComponentData<T>(GetSharedComponentIndex(chunkSharedComponentData));
+        }
+
+        /// <summary>
+        /// Gets the current value of a shared component.
+        /// </summary>
+        /// <remarks>You cannot call this function inside a job.</remarks>
+        /// <param name="chunkSharedComponentData">An object containing type and job safety information. Create this
+        /// object by calling <see cref="ComponentSystemBase.GetDynamicSharedComponentTypeHandle"/>.</param>
+        /// <param name="entityManager">An EntityManager instance.</param>
+        /// <returns>The shared component value.</returns>
+        public object GetSharedComponentDataBoxed(DynamicSharedComponentTypeHandle chunkSharedComponentData, EntityManager entityManager)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(chunkSharedComponentData.m_Safety);
+#endif
+            return entityManager.GetSharedComponentDataBoxed(
+                GetSharedComponentIndex(chunkSharedComponentData),
+                chunkSharedComponentData.m_TypeIndex);
         }
 
         /// <summary>
@@ -682,6 +757,22 @@ namespace Unity.Entities
         {
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentTypeHandle.m_TypeIndex);
             return (typeIndexInArchetype != -1);
+        }
+
+        /// <summary>
+        /// Reports whether this chunk contains a shared component of the specified component type.
+        /// </summary>
+        /// <remarks>When an <see cref="EntityQuery"/> includes optional components used as shared
+        /// components (with <see cref="EntityQueryDesc.Any"/>), some chunks returned by the query may have these shared
+        /// components and some may not. Use this function to determine whether or not the current chunk contains one of
+        /// these optional component types as a shared component.</remarks>
+        /// <param name="chunkComponentTypeHandle">An object containing type and job safety information. Create this
+        /// object by calling <see cref="ComponentSystemBase.GetDynamicSharedComponentTypeHandle"/>.</param>
+        /// <returns>True, if this chunk contains a shared component of the specified type.</returns>
+        public bool Has(DynamicSharedComponentTypeHandle chunkComponentTypeHandle)
+        {
+            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentTypeHandle.m_TypeIndex, ref chunkComponentTypeHandle.m_TypeLookupCache);
+            return (chunkComponentTypeHandle.m_TypeLookupCache != -1);
         }
 
         /// <summary>
@@ -789,7 +880,7 @@ namespace Unity.Entities
         {
             CheckZeroSizedGetDynamicComponentDataArrayReinterpret<T>(chunkComponentType);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(chunkComponentType.m_Safety);
+            AtomicSafetyHandle.CheckReadAndThrow(chunkComponentType.m_Safety0);
 #endif
             var archetype = m_Chunk->Archetype;
             ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentType.m_TypeIndex, ref chunkComponentType.m_TypeLookupCache);
@@ -799,10 +890,14 @@ namespace Unity.Entities
                 var emptyResult =
                     NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(null, 0, 0);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref emptyResult, chunkComponentType.m_Safety);
+                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref emptyResult, chunkComponentType.m_Safety0);
 #endif
                 return emptyResult;
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (archetype->Types[typeIndexInArchetype].IsBuffer)
+                throw new ArgumentException($"ArchetypeChunk.GetDynamicComponentDataArrayReinterpret cannot be called for IBufferElementData {TypeManager.GetType(chunkComponentType.m_TypeIndex)}");
+#endif
 
             var typeSize = archetype->SizeOfs[typeIndexInArchetype];
             var length = Count;
@@ -820,7 +915,7 @@ namespace Unity.Entities
             var batchStartOffset = m_BatchStartEntityIndex * archetype->SizeOfs[typeIndexInArchetype];
             var result = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(ptr + batchStartOffset, outLength, Allocator.None);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref result, chunkComponentType.m_Safety);
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref result, chunkComponentType.m_Safety0);
 #endif
             return result;
         }
@@ -862,41 +957,6 @@ namespace Unity.Entities
             return new ManagedComponentAccessor<T>(indexArray, manager);
         }
 
-#if UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE
-        [Obsolete("GetComponentObjects has been renamed to GetManagedComponentAccessor. (RemovedAfter 2020-08-01). -- please remove the UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE define in the Unity.Entities assembly definition file if this message is unexpected and you want to attempt an automatic upgrade.", false)]
-#else
-        [Obsolete("GetComponentObjects has been renamed to GetManagedComponentAccessor. (RemovedAfter 2020-08-01). (UnityUpgradable) -> GetManagedComponentAccessor<T>(*)", false)]
-#endif
-        public ArchetypeChunkComponentObjects<T> GetComponentObjects<T>(ArchetypeChunkComponentType<T> componentTypeHandle, EntityManager manager)
-            where T : class
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(componentTypeHandle.m_Safety);
-#endif
-            var archetype = m_Chunk->Archetype;
-            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, componentTypeHandle.m_TypeIndex);
-
-            NativeArray<int> indexArray;
-            if (typeIndexInArchetype == -1)
-            {
-                indexArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(null, 0, 0);
-            }
-            else
-            {
-
-                byte* ptr = ChunkDataUtility.GetComponentDataRW(m_Chunk, 0, typeIndexInArchetype, componentTypeHandle.GlobalSystemVersion);
-                var length = Count;
-                var batchStartOffset = m_BatchStartEntityIndex * archetype->SizeOfs[typeIndexInArchetype];
-                indexArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(ptr + batchStartOffset, length, Allocator.None);
-            }
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref indexArray, componentTypeHandle.m_Safety);
-#endif
-
-            return new ArchetypeChunkComponentObjects<T>(indexArray, manager);
-        }
-
         /// <summary>
         ///
         /// </summary>
@@ -935,6 +995,50 @@ namespace Unity.Entities
             return new BufferAccessor<T>(ptr + batchStartOffset, length, stride, bufferComponentTypeHandle.IsReadOnly, bufferComponentTypeHandle.m_Safety0, bufferComponentTypeHandle.m_Safety1, internalCapacity);
 #else
             return new BufferAccessor<T>(ptr + batchStartOffset, length, stride, internalCapacity);
+#endif
+        }
+
+        /// <summary>
+        /// Give unsafe access to the buffers with type <paramref name="chunkBufferTypeHandle"/> in the chunk.
+        /// </summary>
+        /// <param name="chunkBufferTypeHandle"></param>
+        /// <returns></returns>
+        public LowLevel.Unsafe.UnsafeUntypedBufferAccessor GetUntypedBufferAccessor(ref DynamicComponentTypeHandle chunkBufferTypeHandle)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(chunkBufferTypeHandle.m_Safety0);
+#endif
+            var archetype = m_Chunk->Archetype;
+            short typeIndexInArchetype = chunkBufferTypeHandle.m_TypeLookupCache;
+            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkBufferTypeHandle.m_TypeIndex, ref typeIndexInArchetype);
+            chunkBufferTypeHandle.m_TypeLookupCache = (short)typeIndexInArchetype;
+            if (typeIndexInArchetype == -1)
+            {
+                return default(LowLevel.Unsafe.UnsafeUntypedBufferAccessor);
+            }
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (!archetype->Types[typeIndexInArchetype].IsBuffer)
+                throw new ArgumentException($"ArchetypeChunk.GetUntypedBufferAccessor must be called only for IBufferElementData types");
+            //Expect the safety to be set and valid
+            AtomicSafetyHandle.CheckReadAndThrow(chunkBufferTypeHandle.m_Safety1);
+#endif
+            int internalCapacity = archetype->BufferCapacities[typeIndexInArchetype];
+            var typeInfo = TypeManager.GetTypeInfo(chunkBufferTypeHandle.m_TypeIndex);
+            byte* ptr = (chunkBufferTypeHandle.IsReadOnly)
+                ? ChunkDataUtility.GetComponentDataRO(m_Chunk, 0, typeIndexInArchetype)
+                : ChunkDataUtility.GetComponentDataRW(m_Chunk, 0, typeIndexInArchetype, chunkBufferTypeHandle.GlobalSystemVersion);
+
+            var length = Count;
+            int stride = archetype->SizeOfs[typeIndexInArchetype];
+            int elementSize = typeInfo.ElementSize;
+            int elementAlign = typeInfo.AlignmentInBytes;
+            var batchStartOffset = m_BatchStartEntityIndex * stride;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new LowLevel.Unsafe.UnsafeUntypedBufferAccessor(ptr + batchStartOffset, length, stride, elementSize, elementAlign, internalCapacity,
+                chunkBufferTypeHandle.IsReadOnly, chunkBufferTypeHandle.m_Safety0, chunkBufferTypeHandle.m_Safety1);
+#else
+            return new LowLevel.Unsafe.UnsafeUntypedBufferAccessor(ptr + batchStartOffset, length, stride, elementSize, elementAlign, internalCapacity);
 #endif
         }
 
@@ -1063,6 +1167,196 @@ namespace Unity.Entities
         }
     }
 
+    namespace LowLevel.Unsafe
+    {
+        /// <summary>
+        /// Allow untyped access to buffers data in a chunk. The use of untyped accessor is in general
+        /// not recommended and should be exploited only in very specific use case scenario.
+        /// </summary>
+        public unsafe struct UnsafeUntypedBufferAccessor
+        {
+            [NativeDisableUnsafePtrRestriction]
+            private byte* m_Pointer;
+            private int m_InternalCapacity;
+            private int m_Stride;
+            private int m_Length;
+            private int m_ElementSize;
+            private int m_ElementAlign;
+
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            private AtomicSafetyHandle m_Safety0;
+            private AtomicSafetyHandle m_ArrayInvalidationSafety;
+    #pragma warning disable 0414 // assigned but its value is never used
+            private int m_SafetyReadOnlyCount;
+            private int m_SafetyReadWriteCount;
+    #pragma warning restore 0414
+
+    #endif
+
+            /// <summary>
+            /// The number of buffers in the chunk.
+            /// </summary>
+            public int Length => m_Length;
+            public int ElementSize => m_ElementSize;
+
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            internal UnsafeUntypedBufferAccessor(byte* basePointer, int length, int stride, int elementSize, int elementAlign,
+                int internalCapacity, bool readOnly, AtomicSafetyHandle safety0, AtomicSafetyHandle arrayInvalidationSafety)
+            {
+                m_Pointer = basePointer;
+                m_InternalCapacity = internalCapacity;
+                m_ElementSize = elementSize;
+                m_ElementAlign = elementAlign;
+                m_Stride = stride;
+                m_Length = length;
+                m_Safety0 = safety0;
+                m_ArrayInvalidationSafety = arrayInvalidationSafety;
+                m_SafetyReadOnlyCount = readOnly ? 2 : 0;
+                m_SafetyReadWriteCount = readOnly ? 0 : 2;
+            }
+    #else
+            internal UnsafeUntypedBufferAccessor(byte* basePointer, int length, int stride, int elementSize, int elementAlign, int internalCapacity)
+            {
+                m_Pointer = basePointer;
+                m_InternalCapacity = internalCapacity;
+                m_ElementSize = elementSize;
+                m_ElementAlign = elementAlign;
+                m_Stride = stride;
+                m_Length = length;
+            }
+    #endif
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private void CheckReadAccess()
+            {
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
+                AtomicSafetyHandle.CheckReadAndThrow(m_ArrayInvalidationSafety);
+    #endif
+            }
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private void CheckWriteAccess()
+            {
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
+                AtomicSafetyHandle.CheckWriteAndThrow(m_ArrayInvalidationSafety);
+    #endif
+            }
+
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            private void AssertIndexInRange(int index)
+            {
+                if (index < 0 || index >= m_Length)
+                    throw new InvalidOperationException($"index {index} out of range in LowLevelBufferAccessor of length {Length}");
+            }
+            /// <summary>
+            /// The unsafe pointer and length for the buffer at the given <paramref name="index"/> in the chunk
+            /// </summary>
+            /// <param name="index"></param>
+            /// <param name="length"></param>
+            /// <exception cref="InvalidOperationException"></exception>
+            public void* GetUnsafePtrAndLength(int index, out int length)
+            {
+                CheckWriteAccess();
+                AssertIndexInRange(index);
+                var hdr = (BufferHeader*)(m_Pointer + index * m_Stride);
+                length = hdr->Length;
+                return BufferHeader.GetElementPointer(hdr);
+            }
+            /// <summary>
+            /// The unsafe pointer and length for the buffer at the given <paramref name="index"/> in the chunk
+            /// </summary>
+            /// <param name="index"></param>
+            /// <param name="length"></param>
+            /// <exception cref="InvalidOperationException"></exception>
+            public void* GetUnsafeReadOnlyPtrAndLength(int index, out int length)
+            {
+                CheckReadAccess();
+                AssertIndexInRange(index);
+                var hdr = (BufferHeader*)(m_Pointer + index * m_Stride);
+                length = hdr->Length;
+                return BufferHeader.GetElementPointer(hdr);
+            }
+            /// <summary>
+            /// The unsafe pointer to buffer elements at the given <paramref name="index"/> in the chunk
+            /// </summary>
+            /// <param name="index"></param>
+            /// <exception cref="InvalidOperationException"></exception>
+            public void* GetUnsafePtr(int index)
+            {
+                CheckWriteAccess();
+                AssertIndexInRange(index);
+                var hdr = (BufferHeader*)(m_Pointer + index * m_Stride);
+                return BufferHeader.GetElementPointer(hdr);
+            }
+
+            /// <summary>
+            /// The unsafe pointer to buffer elements at the given <paramref name="index"/> in the chunk
+            /// </summary>
+            /// <param name="index"></param>
+            /// <exception cref="InvalidOperationException"></exception>
+            public void* GetUnsafeReadOnlyPtr(int index)
+            {
+                CheckReadAccess();
+                AssertIndexInRange(index);
+                var hdr = (BufferHeader*)(m_Pointer + index * m_Stride);
+                return BufferHeader.GetElementPointer(hdr);
+            }
+
+            /// <summary>
+            /// Return the current size of the buffer at the given <paramref name="index"/> in the chunk
+            /// </summary>
+            /// <param name="index"></param>
+            /// <exception cref="InvalidOperationException"></exception>
+            public int GetBufferLength(int index)
+            {
+                CheckReadAccess();
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if(index >= m_Length)
+                    throw new InvalidOperationException("out of bound exception. Cannot get buffer length  at index {index}");
+    #endif
+                var hdr = (BufferHeader*)(m_Pointer + index * m_Stride);
+                return hdr->Length;
+            }
+            /// <summary>
+            /// Return the current capacity of the buffer at the given <paramref name="index"/> in the chunk
+            /// </summary>
+            /// <param name="index"></param>
+            /// <exception cref="InvalidOperationException"></exception>
+            public int GetBufferCapacity(int index)
+            {
+                CheckReadAccess();
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if(index >= m_Length)
+                    throw new InvalidOperationException("out of bound exception. Cannot get buffer length  at index {index}");
+    #endif
+                var hdr = (BufferHeader*)(m_Pointer + index * m_Stride);
+                return hdr->Capacity;
+            }
+            /// <summary>
+            /// Increases the buffer capacity and length of the buffer associated to the entity at the given
+            /// <paramref name="index"/> in the chunk
+            /// </summary>
+            /// <remarks>If <paramref name="length"/> is less than the current
+            /// length of the buffer at index <paramref name="index"/>, the length of the buffer is reduced while the
+            /// capacity remains unchanged.</remarks>
+            /// <param name="index"></param>
+            /// <param name="length"></param> the new length of the buffer
+            /// /// <exception cref="InvalidOperationException"></exception>
+            public void ResizeUninitialized(int index, int length)
+            {
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
+                AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_ArrayInvalidationSafety);
+    #endif
+                AssertIndexInRange(index);
+
+                var headerPtr = (BufferHeader*)(m_Pointer + index * m_Stride);
+                BufferHeader.EnsureCapacity(headerPtr, length, m_ElementSize , m_ElementAlign, BufferHeader.TrashMode.RetainOldData, false, 0);
+                headerPtr->Length = length;
+            }
+        }
+    }
+
     /// <summary>
     ///
     /// </summary>
@@ -1151,12 +1445,15 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private readonly int m_MinIndex;
         private readonly int m_MaxIndex;
-        internal readonly AtomicSafetyHandle m_Safety;
+        internal readonly AtomicSafetyHandle m_Safety0;
+        internal readonly AtomicSafetyHandle m_Safety1;
+        internal readonly int m_SafetyReadOnlyCount;
+        internal readonly int m_SafetyReadWriteCount;
 #endif
 #pragma warning restore 0414
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal DynamicComponentTypeHandle(ComponentType componentType, AtomicSafetyHandle safety, uint globalSystemVersion)
+        internal DynamicComponentTypeHandle(ComponentType componentType, AtomicSafetyHandle safety0, AtomicSafetyHandle safety1, uint globalSystemVersion)
 #else
         internal DynamicComponentTypeHandle(ComponentType componentType, uint globalSystemVersion)
 #endif
@@ -1171,7 +1468,11 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_MinIndex = 0;
             m_MaxIndex = 0;
-            m_Safety = safety;
+            m_Safety0 = safety0;
+            m_Safety1 = safety1;
+            var numHandles = componentType.IsBuffer ? 2 : 1;
+            m_SafetyReadOnlyCount = m_IsReadOnly ? numHandles : 0;
+            m_SafetyReadWriteCount = m_IsReadOnly ? 0: numHandles;
 #endif
         }
     }
@@ -1255,6 +1556,40 @@ namespace Unity.Entities
         {
             m_Length = 1;
             m_TypeIndex = TypeManager.GetTypeIndex<T>();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_MinIndex = 0;
+            m_MaxIndex = 0;
+            m_Safety = safety;
+#endif
+        }
+    }
+
+    [NativeContainer]
+    [NativeContainerSupportsMinMaxWriteRestriction]
+    public struct DynamicSharedComponentTypeHandle
+    {
+        internal readonly int m_TypeIndex;
+        public short m_TypeLookupCache;
+
+#pragma warning disable 0414
+        private readonly int m_Length;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        private readonly int m_MinIndex;
+        private readonly int m_MaxIndex;
+        internal readonly AtomicSafetyHandle m_Safety;
+#endif
+#pragma warning restore 0414
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        internal DynamicSharedComponentTypeHandle(ComponentType componentType, AtomicSafetyHandle safety)
+#else
+        internal unsafe DynamicSharedComponentTypeHandle(ComponentType componentType)
+#endif
+        {
+            m_Length = 1;
+            m_TypeIndex = componentType.TypeIndex;
+            m_TypeLookupCache = 0;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_MinIndex = 0;

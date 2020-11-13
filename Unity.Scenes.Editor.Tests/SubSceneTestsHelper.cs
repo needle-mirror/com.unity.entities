@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 
 namespace Unity.Scenes.Editor.Tests
 {
-    static class SubSceneTestsHelper
+    public static class SubSceneTestsHelper
     {
         public static SubScene CreateSubSceneInSceneFromObjects(string name, bool keepOpen, Scene parentScene, Func<List<GameObject>> createObjects = null)
         {

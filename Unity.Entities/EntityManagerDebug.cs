@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using Unity.Assertions;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -160,25 +161,56 @@ namespace Unity.Entities
                 return chunk.m_Chunk->metaChunkEntity;
             }
 
-            public void LogEntityInfo(Entity entity)
+            public void LogEntityInfo(Entity entity) => Unity.Debug.Log(GetEntityInfo(entity));
+
+#if UNITY_EDITOR
+            internal string GetAllEntityInfo(bool includeComponentValues=false)
             {
-                Unity.Debug.Log(GetEntityInfo(entity));
+                var str = new System.Text.StringBuilder();
+                using (var arr = m_Manager.UniversalQuery.ToEntityArray(Allocator.Persistent))
+                {
+                    for (int i = 0; i < arr.Length; i++)
+                    {
+                        GetEntityInfo(arr[i], includeComponentValues, str);
+                        str.AppendLine();
+                    }
+                }
+
+                return str.ToString();
             }
+#endif
 
             public string GetEntityInfo(Entity entity)
             {
-
-
                 var entityComponentStore = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
 
                 if (entity.Index < 0 || entity.Index > entityComponentStore->EntitiesCapacity)
                 {
                     return "Entity.Invalid";
                 }
-
-                var archetype = entityComponentStore->GetArchetype(entity);
 #if !NET_DOTS
                 var str = new System.Text.StringBuilder();
+                GetEntityInfo(entity, false, str);
+                return str.ToString();
+#else
+                // @TODO Tiny really needs a proper string/stringutils implementation
+                var archetype = entityComponentStore->GetArchetype(entity);
+                string str = $"Entity {entity.Index}.{entity.Version}";
+                for (var i = 0; i < archetype->TypesCount; i++)
+                {
+                    var componentTypeInArchetype = archetype->Types[i];
+                    str += "  - {0}" + componentTypeInArchetype.ToString();
+                }
+
+                return str;
+#endif
+            }
+
+#if !NET_DOTS
+            internal void GetEntityInfo(Entity entity, bool includeComponentValues, System.Text.StringBuilder str)
+            {
+                var entityComponentStore = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
+                var archetype = entityComponentStore->GetArchetype(entity);
                 str.Append(entity.ToString());
 #if UNITY_EDITOR
                 {
@@ -193,19 +225,26 @@ namespace Unity.Entities
                     str.AppendFormat("  - {0}", componentTypeInArchetype.ToString());
                 }
 
-                return str.ToString();
-#else
-                // @TODO Tiny really needs a proper string/stringutils implementation
-                string str = $"Entity {entity.Index}.{entity.Version}";
-                for (var i = 0; i < archetype->TypesCount; i++)
+#if UNITY_EDITOR
+                if (includeComponentValues)
                 {
-                    var componentTypeInArchetype = archetype->Types[i];
-                    str += "  - {0}" + componentTypeInArchetype.ToString();
+                    for (var i = 0; i < archetype->TypesCount; i++)
+                    {
+                        var componentType = archetype->Types[i].ToComponentType();
+                        if (componentType.IsBuffer || componentType.IsZeroSized || TypeManager.GetTypeInfo(componentType.TypeIndex).Category == TypeManager.TypeCategory.EntityData)
+                            continue;
+                        var comp = GetComponentBoxed(entity, componentType);
+                        if (comp is UnityEngine.Object)
+                            continue;
+                        str.AppendLine();
+                        str.AppendLine(componentType.ToString());
+                        var json = UnityEngine.JsonUtility.ToJson(comp, true);
+                        str.AppendLine(json);
+                    }
                 }
-
-                return str;
 #endif
             }
+#endif
 
 #if !UNITY_DOTSRUNTIME
             public object GetComponentBoxed(Entity entity, ComponentType type)
@@ -275,6 +314,86 @@ namespace Unity.Entities
                 throw new System.NotImplementedException();
             }
 
+#endif
+
+
+#if UNITY_EDITOR
+            /// <summary>
+            /// Returns the Authoring object for the entity. Returns null if the authoring object is not available.
+            /// For example closed subscenes will always return null.
+            /// </summary>
+            public UnityEngine.Object GetAuthoringObjectForEntity(Entity entity)
+            {
+                if (m_Manager.HasComponent<EntityGuid>(entity))
+                    return UnityEditor.EditorUtility.InstanceIDToObject(m_Manager.GetComponentData<EntityGuid>(entity).OriginatingId);
+
+                return null;
+            }
+
+            [BurstCompile]
+            struct BuildInstanceIDToEntityIndex : IJobEntityBatch
+            {
+                public UnsafeMultiHashMap<int, Entity>.ParallelWriter EntityLookup;
+                [ReadOnly]
+                public ComponentTypeHandle<EntityGuid>                GuidType;
+                [ReadOnly]
+                public EntityTypeHandle                               EntityType;
+
+                public void Execute(ArchetypeChunk chunk, int batchIndex)
+                {
+                    var entities = chunk.GetNativeArray(EntityType);
+                    var guids = chunk.GetNativeArray(GuidType);
+
+                    for (int i = 0; i != entities.Length; i++)
+                        EntityLookup.Add(guids[i].OriginatingId, entities[i]);
+                }
+            }
+
+            /// <summary>
+            /// Lists all entities in this world that were converted from or are associated with the game object.
+            /// </summary>
+            public void GetEntitiesForAuthoringObject(UnityEngine.GameObject gameObject, NativeList<Entity> entities)
+            {
+                GetEntitiesForAuthoringObject((UnityEngine.Object)gameObject, entities);
+            }
+
+            /// <summary>
+            /// Lists all entities in this world that were converted from or are associated with the game object.
+            /// </summary>
+            public void GetEntitiesForAuthoringObject(UnityEngine.Component component, NativeList<Entity> entities)
+            {
+                GetEntitiesForAuthoringObject((UnityEngine.Object)component.gameObject, entities);
+            }
+            /// <summary>
+            /// Lists all entities in this world that were converted from or are associated with the given object.
+            /// </summary>
+            public void GetEntitiesForAuthoringObject(UnityEngine.Object obj, NativeList<Entity> entities)
+            {
+                var instanceID = obj.GetInstanceID();
+                var access = m_Manager.GetCheckedEntityDataAccess();
+                var newVersion = m_Manager.GetComponentOrderVersion<EntityGuid>();
+                if (access->m_CachedEntityGUIDToEntityIndexVersion != newVersion)
+                {
+                    access->CachedEntityGUIDToEntityIndex.Clear();
+                    var count = access->m_EntityGuidQuery.CalculateEntityCount();
+                    if (access->CachedEntityGUIDToEntityIndex.Capacity < count)
+                        access->CachedEntityGUIDToEntityIndex.Capacity = count;
+
+                    new BuildInstanceIDToEntityIndex
+                    {
+                        EntityLookup = access->CachedEntityGUIDToEntityIndex.AsParallelWriter(),
+                        GuidType = m_Manager.GetComponentTypeHandle<EntityGuid>(true),
+                        EntityType = m_Manager.GetEntityTypeHandle()
+                    }.ScheduleParallel(access->m_EntityGuidQuery).Complete();
+                    access->m_CachedEntityGUIDToEntityIndexVersion = newVersion;
+                }
+
+                var lookup = access->CachedEntityGUIDToEntityIndex;
+
+                entities.Clear();
+                foreach (var e in lookup.GetValuesForKey(instanceID))
+                    entities.Add(e);
+            }
 #endif
 
             [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]

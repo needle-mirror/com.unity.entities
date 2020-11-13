@@ -30,6 +30,12 @@
         "UNITY_INCLUDE_TESTS",
         "!NET_DOTS"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.roslyn",
+            "expression": "0.0.0-preview.3",
+            "define": "ROSLYN_SOURCEGEN_ENABLED"
+        }
+    ],
     "noEngineReferences": false
 }

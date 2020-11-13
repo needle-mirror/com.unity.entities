@@ -22,7 +22,7 @@ namespace Unity.Entities
      unsafe partial struct EntityComponentStore
     {
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
 
         [BurstDiscard]
         private static void CheckDelegate(ref bool useDelegate)
@@ -42,7 +42,7 @@ namespace Unity.Entities
         {
             public static bool _initialized = false;
 
-            public delegate void _dlg_EntityBatchFromEntityChunkDataShared(in EntityInChunk* chunkData, int chunkCount, IntPtr entityBatchList, IntPtr currentbatchIndex, EntityComponentStore.ComponentOperation operation, ref ComponentType componentType, IntPtr foundError);
+            public delegate void _dlg_EntityBatchFromEntityChunkDataShared(in EntityInChunk* chunkData, int chunkCount, IntPtr entityBatchList, IntPtr currentbatchIndex, int nSharedComponentsToAdd, IntPtr foundError);
             public static _dlg_EntityBatchFromEntityChunkDataShared _bfp_EntityBatchFromEntityChunkDataShared;
             public delegate void _dlg_SortEntityInChunk(IntPtr entityInChunks, int count);
             public static _dlg_SortEntityInChunk _bfp_SortEntityInChunk;
@@ -56,7 +56,7 @@ namespace Unity.Entities
         [NotBurstCompatible]
         internal static void Initialize()
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (Managed._initialized)
                 return;
             Managed._initialized = true;
@@ -67,37 +67,37 @@ namespace Unity.Entities
 #endif
         }
 
-        private  static void EntityBatchFromEntityChunkDataShared (in EntityInChunk* chunkData, int chunkCount, EntityBatchInChunk* entityBatchList, int* currentbatchIndex, EntityComponentStore.ComponentOperation operation, ref ComponentType componentType, int* foundError)
+        private  static void EntityBatchFromEntityChunkDataShared (in EntityInChunk* chunkData, int chunkCount, EntityBatchInChunk* entityBatchList, int* currentbatchIndex, int nSharedComponentsToAdd, int* foundError)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
-                _forward_mono_EntityBatchFromEntityChunkDataShared(in chunkData, chunkCount, entityBatchList, currentbatchIndex, operation, ref componentType, foundError);
+                _forward_mono_EntityBatchFromEntityChunkDataShared(in chunkData, chunkCount, entityBatchList, currentbatchIndex, nSharedComponentsToAdd, foundError);
                 return;
             }
 #endif
 
-            _EntityBatchFromEntityChunkDataShared(in chunkData, chunkCount, entityBatchList, currentbatchIndex, operation, ref componentType, foundError);
+            _EntityBatchFromEntityChunkDataShared(in chunkData, chunkCount, entityBatchList, currentbatchIndex, nSharedComponentsToAdd, foundError);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_EntityBatchFromEntityChunkDataShared))]
-        private static void _mono_to_burst_EntityBatchFromEntityChunkDataShared(in EntityInChunk* chunkData, int chunkCount, IntPtr entityBatchList, IntPtr currentbatchIndex, EntityComponentStore.ComponentOperation operation, ref ComponentType componentType, IntPtr foundError)
+        private static void _mono_to_burst_EntityBatchFromEntityChunkDataShared(in EntityInChunk* chunkData, int chunkCount, IntPtr entityBatchList, IntPtr currentbatchIndex, int nSharedComponentsToAdd, IntPtr foundError)
         {
-            _EntityBatchFromEntityChunkDataShared(in chunkData, chunkCount, (EntityBatchInChunk*)entityBatchList, (int*)currentbatchIndex, operation, ref componentType, (int*)foundError);
+            _EntityBatchFromEntityChunkDataShared(in chunkData, chunkCount, (EntityBatchInChunk*)entityBatchList, (int*)currentbatchIndex, nSharedComponentsToAdd, (int*)foundError);
         }
 
         [BurstDiscard]
-        private static void _forward_mono_EntityBatchFromEntityChunkDataShared(in EntityInChunk* chunkData, int chunkCount, EntityBatchInChunk* entityBatchList, int* currentbatchIndex, EntityComponentStore.ComponentOperation operation, ref ComponentType componentType, int* foundError)
+        private static void _forward_mono_EntityBatchFromEntityChunkDataShared(in EntityInChunk* chunkData, int chunkCount, EntityBatchInChunk* entityBatchList, int* currentbatchIndex, int nSharedComponentsToAdd, int* foundError)
         {
-            Managed._bfp_EntityBatchFromEntityChunkDataShared(in chunkData, chunkCount, (IntPtr) entityBatchList, (IntPtr) currentbatchIndex, operation, ref componentType, (IntPtr) foundError);
+            Managed._bfp_EntityBatchFromEntityChunkDataShared(in chunkData, chunkCount, (IntPtr) entityBatchList, (IntPtr) currentbatchIndex, nSharedComponentsToAdd, (IntPtr) foundError);
         }
 #endif
 
         private  static void SortEntityInChunk (EntityInChunk* entityInChunks, int count)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_SortEntityInChunk(entityInChunks, count);
@@ -108,7 +108,7 @@ namespace Unity.Entities
             _SortEntityInChunk(entityInChunks, count);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_SortEntityInChunk))]
         private static void _mono_to_burst_SortEntityInChunk(IntPtr entityInChunks, int count)
@@ -125,7 +125,7 @@ namespace Unity.Entities
 
         private  static void GatherEntityInChunkForEntities (Entity* Entities, EntityInChunk* globalEntityInChunk, EntityInChunk* EntityChunkData, int numEntities)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_GatherEntityInChunkForEntities(Entities, globalEntityInChunk, EntityChunkData, numEntities);
@@ -136,7 +136,7 @@ namespace Unity.Entities
             _GatherEntityInChunkForEntities(Entities, globalEntityInChunk, EntityChunkData, numEntities);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_GatherEntityInChunkForEntities))]
         private static void _mono_to_burst_GatherEntityInChunkForEntities(IntPtr Entities, IntPtr globalEntityInChunk, IntPtr EntityChunkData, int numEntities)

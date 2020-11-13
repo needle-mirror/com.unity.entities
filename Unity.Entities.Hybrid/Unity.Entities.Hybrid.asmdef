@@ -9,7 +9,9 @@
         "Unity.Mathematics.Extensions",
         "Unity.Build",
         "Unity.Build.Classic",
-        "Unity.Properties"
+        "Unity.Properties",
+        "Unity.Properties.Editor",
+        "Unity.Scenes"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -17,7 +19,9 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": ["!UNITY_DOTSRUNTIME"],
+    "defineConstraints": [
+        "!UNITY_DOTSRUNTIME"
+    ],
     "versionDefines": [
         {
             "name": "com.unity.modules.physics",

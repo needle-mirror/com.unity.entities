@@ -86,7 +86,8 @@ e.g. If the following components are present...
 
 LocalToWorld components associated with Parent Entity IDs are guaranteed to be computed before multiplies with LocalToParent associated with Child Entity ID.
 
-Note: Cyclical graph relationships are invalid. Results are undefined.
+> [!NOTE]
+> Cyclical graph relationships are invalid. Results are undefined.
 
 When the hierarchy (topology) is changed (i.e. Any Parent component is added, removed or changed) internal state is added as SystemStateComponentData as:
 
@@ -401,7 +402,8 @@ e.g. If the following components are present...
 Section 5: Hierarchical Transforms (Advanced)
 ---------------------------------------------
 
-Note: Advanced Hierarchical transform component rules largely mirror the use of the non-hierarchical components, except that they are writing to LocalToParent (instead of LocalToWorld.) The main additional component unique to hierarchical transforms is ParentScaleInverse.
+> [!NOTE]
+> Advanced Hierarchical transform component rules largely mirror the use of the non-hierarchical components, except that they are writing to LocalToParent (instead of LocalToWorld.) The main additional component unique to hierarchical transforms is ParentScaleInverse.
 
 -----
 

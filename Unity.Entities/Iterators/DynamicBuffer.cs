@@ -442,9 +442,8 @@ namespace Unity.Entities
             int newLength = l;
             if (index != newLength)
             {
-                int elemSize = UnsafeUtility.SizeOf<T>();
                 byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
-                *(basePtr + index * elemSize) = *(basePtr + newLength * elemSize);
+                UnsafeUtility.WriteArrayElement(basePtr, index, UnsafeUtility.ReadArrayElement<T>(basePtr, newLength));
             }
         }
 

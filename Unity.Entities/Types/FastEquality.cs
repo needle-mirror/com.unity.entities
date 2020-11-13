@@ -4,19 +4,37 @@ using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Unity.Assertions;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Core;
 using Unity.Entities.Serialization;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Tests")]
 
 namespace Unity.Entities
 {
-    public static class FastEquality
+    [BurstCompile]
+    [GenerateBurstMonoInterop("FastEquality")]
+    public partial struct FastEquality
     {
 
 // While UNITY_DOTSRUNTIME not using Tiny BCL can compile most of this code, UnsafeUtility doesn't currently provide a
 // FieldOffset method so we disable for UNITY_DOTSRUNTIME rather than NET_DOTS
 #if !UNITY_DOTSRUNTIME
+        [Obsolete("FastEquality.Layout is deprecated and will be removed as component comparisons no longer require it. (RemovedAfter 2021-01-12).", true)]
+        public struct Layout
+        {
+            public int offset;
+            public int count;
+            public bool Aligned4;
+
+            public override string ToString()
+            {
+                return $"offset: {offset} count: {count} Aligned4: {Aligned4}";
+            }
+        }
+
         internal static TypeInfo CreateTypeInfo<T>() where T : struct
         {
             if (TypeUsesDelegates(typeof(T)))
@@ -110,10 +128,8 @@ namespace Unity.Entities
 
                 return new TypeInfo
                 {
-                    Layouts = null,
                     EqualFn = equalsFn != null ? Delegate.CreateDelegate(typeof(TypeInfo.ManagedCompareEqualDelegate), equalsFn) : null,
                     GetHashFn = getHashFn != null ? Delegate.CreateDelegate(typeof(TypeInfo.ManagedGetHashCodeDelegate), getHashFn) : null,
-                    Hash = 1, // non-zero so out TypeInfo isn't equal to TypeInfo.Null
                 };
             }
             else
@@ -123,168 +139,35 @@ namespace Unity.Entities
 
                 return new TypeInfo
                 {
-                    Layouts = null,
                     EqualFn = Delegate.CreateDelegate(typeof(TypeInfo.CompareEqualDelegate), equalsFn),
                     GetHashFn = Delegate.CreateDelegate(typeof(TypeInfo.GetHashCodeDelegate), getHashFn),
-                    Hash = 0,
+                    TypeSize = (uint) UnsafeUtility.SizeOf(t)
                 };
             }
         }
 
         private static TypeInfo CreateTypeInfoBlittable(Type type)
         {
-            var begin = 0;
-            var end = 0;
-            var hash = 0;
-
-            var layouts = new List<Layout>();
-
-            CreateLayoutRecurse(type, 0, layouts, ref begin, ref end, ref hash);
-
-            if (begin != end)
-                layouts.Add(new Layout {offset = begin, count = end - begin, Aligned4 = false});
-
-            var layoutsArray = layouts.ToArray();
-
-            for (var i = 0; i != layoutsArray.Length; i++)
-                if (layoutsArray[i].count % 4 == 0 && layoutsArray[i].offset % 4 == 0)
-                {
-                    layoutsArray[i].count /= 4;
-                    layoutsArray[i].Aligned4 = true;
-                }
-
-            return new TypeInfo { Layouts = layoutsArray, Hash = hash };
+            return new TypeInfo { TypeSize = (uint) UnsafeUtility.SizeOf(type)};
         }
 
 #endif
 
-        public struct Layout
-        {
-            public int offset;
-            public int count;
-            public bool Aligned4;
-
-            public override string ToString()
-            {
-                return $"offset: {offset} count: {count} Aligned4: {Aligned4}";
-            }
-        }
-
         public struct TypeInfo
         {
-#if !UNITY_DOTSRUNTIME
             public unsafe delegate bool CompareEqualDelegate(void* lhs, void* rhs);
             public unsafe delegate int GetHashCodeDelegate(void* obj);
             public unsafe delegate bool ManagedCompareEqualDelegate(object lhs, object rhs);
             public unsafe delegate int ManagedGetHashCodeDelegate(object obj);
-#endif
 
-            public Layout[] Layouts;
-            public int Hash;
-#if !UNITY_DOTSRUNTIME
+            public uint TypeSize;
             public Delegate EqualFn;
             public Delegate GetHashFn;
-#endif
 
             public static TypeInfo Null => new TypeInfo();
         }
 
-#if !UNITY_DOTSRUNTIME
-        private unsafe struct PointerSize
-        {
-            private void* pter;
-        }
-
-        struct FieldData
-        {
-            public int Offset;
-            public FieldInfo Field;
-        }
-
-        static FixedBufferAttribute GetFixedBufferAttribute(FieldInfo field)
-        {
-            foreach (var attribute in field.GetCustomAttributes(typeof(FixedBufferAttribute)))
-            {
-                return (FixedBufferAttribute)attribute;
-            }
-
-            return null;
-        }
-
-        static void CombineHash(ref int hash, params int[] values)
-        {
-            foreach (var value in values)
-            {
-                hash *= FNV_32_PRIME;
-                hash ^= value;
-            }
-        }
-
-        private static void CreateLayoutRecurse(Type type, int baseOffset, List<Layout> layouts, ref int begin,
-            ref int end, ref int typeHash)
-        {
-            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-            var fieldsWithOffset = new FieldData[fields.Length];
-            for (int i = 0; i != fields.Length; i++)
-            {
-                fieldsWithOffset[i].Offset = UnsafeUtility.GetFieldOffset(fields[i]);
-                fieldsWithOffset[i].Field = fields[i];
-            }
-
-            Array.Sort(fieldsWithOffset, (a, b) => a.Offset - b.Offset);
-
-            foreach (var fieldWithOffset in fieldsWithOffset)
-            {
-                var field = fieldWithOffset.Field;
-                var fixedBuffer = GetFixedBufferAttribute(field);
-                var offset = baseOffset + fieldWithOffset.Offset;
-
-                if (fixedBuffer != null)
-                {
-                    var stride = UnsafeUtility.SizeOf(fixedBuffer.ElementType);
-                    for (int i = 0; i < fixedBuffer.Length; ++i)
-                    {
-                        CreateLayoutRecurse(fixedBuffer.ElementType, offset + i * stride, layouts, ref begin, ref end, ref typeHash);
-                    }
-                }
-                else if (field.FieldType.IsPrimitive || field.FieldType.IsPointer || field.FieldType.IsClass || field.FieldType.IsEnum)
-                {
-                    CombineHash(ref typeHash, offset, (int)Type.GetTypeCode(field.FieldType));
-
-                    var sizeOf = -1;
-                    if (field.FieldType.IsPointer || field.FieldType.IsClass)
-                        sizeOf = UnsafeUtility.SizeOf<PointerSize>();
-                    else if (field.FieldType.IsEnum)
-                    {
-                        //@TODO: Workaround IL2CPP bug
-                        // sizeOf = UnsafeUtility.SizeOf(field.FieldType);
-                        sizeOf = UnsafeUtility.SizeOf(field.FieldType.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)[0].FieldType);
-                    }
-                    else
-                        sizeOf = UnsafeUtility.SizeOf(field.FieldType);
-
-                    if (end != offset)
-                    {
-                        layouts.Add(new Layout {offset = begin, count = end - begin, Aligned4 = false });
-                        begin = offset;
-                        end = offset + sizeOf;
-                    }
-                    else
-                    {
-                        end += sizeOf;
-                    }
-                }
-                else
-                {
-                    CreateLayoutRecurse(field.FieldType, offset, layouts, ref begin, ref end, ref typeHash);
-                }
-            }
-        }
-
-#endif
         private const int FNV_32_PRIME = 0x01000193;
-
-        //@TODO: Encode type in hashcode...
 
 #if !UNITY_DOTSRUNTIME
         public static unsafe int ManagedGetHashCode(object lhs, TypeInfo typeInfo)
@@ -293,25 +176,14 @@ namespace Unity.Entities
             if (fn != null)
                 return fn(lhs);
 
-            int hash = 0;
+            var hash = 0;
             using (var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp))
             {
                 var writer = new ManagedObjectBinaryWriter(&buffer);
                 writer.WriteObject(lhs);
 
-                var remainder = buffer.Length & (sizeof(int) - 1);
-                var alignedSize = buffer.Length - remainder;
-                var bufferPtrAtEndOfAlignedData = buffer.Ptr + alignedSize;
-                for (int i = 0; i < alignedSize; i += sizeof(int))
-                {
-                    hash *= FNV_32_PRIME;
-                    hash ^= *(int*)(buffer.Ptr + i);
-                }
-                for (var i = 0; i < remainder; i++)
-                {
-                    hash *= FNV_32_PRIME;
-                    hash ^= *(byte*)(bufferPtrAtEndOfAlignedData + i);
-                }
+                hash = Hash32(buffer.Ptr, (uint) buffer.Length);
+
                 foreach (var obj in writer.GetUnityObjects())
                 {
                     hash *= FNV_32_PRIME;
@@ -321,8 +193,12 @@ namespace Unity.Entities
 
             return hash;
         }
-
 #endif
+
+        internal static unsafe int GetHashCode<T>(T lhs) where T : struct
+        {
+            return Hash32((byte*)UnsafeUtility.AddressOf(ref lhs), (uint) UnsafeUtility.SizeOf<T>());
+        }
 
         public static unsafe int GetHashCode<T>(T lhs, TypeInfo typeInfo) where T : struct
         {
@@ -336,41 +212,31 @@ namespace Unity.Entities
 
         public static unsafe int GetHashCode(void* dataPtr, TypeInfo typeInfo)
         {
-#if !UNITY_DOTSRUNTIME
             if (typeInfo.GetHashFn != null)
             {
                 TypeInfo.GetHashCodeDelegate fn = (TypeInfo.GetHashCodeDelegate)typeInfo.GetHashFn;
                 return fn(dataPtr);
             }
-#endif
 
-            var layout = typeInfo.Layouts;
-            var data = (byte*)dataPtr;
-            uint hash = 0;
+            return Hash32((byte*) dataPtr, typeInfo.TypeSize);
+        }
 
-            for (var k = 0; k != layout.Length; k++)
-                if (layout[k].Aligned4)
-                {
-                    var dataInt = (uint*)(data + layout[k].offset);
-                    var count = layout[k].count;
-                    for (var i = 0; i != count; i++)
-                    {
-                        hash *= FNV_32_PRIME;
-                        hash ^= dataInt[i];
-                    }
-                }
-                else
-                {
-                    var dataByte = data + layout[k].offset;
-                    var count = layout[k].count;
-                    for (var i = 0; i != count; i++)
-                    {
-                        hash *= FNV_32_PRIME;
-                        hash ^= dataByte[i];
-                    }
-                }
+        static FastEquality()
+        {
+            Initialize();
+        }
 
-            return (int)hash;
+        [BurstMonoInteropMethod]
+        private static unsafe int _Hash32(byte* input, uint len)
+        {
+            int hash = 0;
+            for (int i = 0; i < len; ++i)
+            {
+                hash *= FNV_32_PRIME;
+                hash ^= input[i];
+            }
+
+            return hash;
         }
 
 #if !UNITY_DOTSRUNTIME
@@ -383,8 +249,17 @@ namespace Unity.Entities
 
             return new ManagedObjectEqual().CompareEqual(lhs, rhs);
         }
-
 #endif
+
+        internal static unsafe bool Equals<T>(T lhs, T rhs) where T : struct
+        {
+            return UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref lhs), UnsafeUtility.AddressOf(ref rhs), UnsafeUtility.SizeOf<T>()) == 0;
+        }
+
+        internal static unsafe bool Equals(void* lhs, void* rhs, int typeSize)
+        {
+            return UnsafeUtility.MemCmp(lhs, rhs, typeSize) == 0;
+        }
 
         public static unsafe bool Equals<T>(T lhs, T rhs, TypeInfo typeInfo) where T : struct
         {
@@ -406,33 +281,7 @@ namespace Unity.Entities
             }
 #endif
 
-            var layout = typeInfo.Layouts;
-            var lhs = (byte*)lhsPtr;
-            var rhs = (byte*)rhsPtr;
-
-            var same = true;
-
-            for (var k = 0; k != layout.Length; k++)
-                if (layout[k].Aligned4)
-                {
-                    var offset = layout[k].offset;
-                    var lhsInt = (uint*)(lhs + offset);
-                    var rhsInt = (uint*)(rhs + offset);
-                    var count = layout[k].count;
-                    for (var i = 0; i != count; i++)
-                        same &= lhsInt[i] == rhsInt[i];
-                }
-                else
-                {
-                    var offset = layout[k].offset;
-                    var lhsByte = lhs + offset;
-                    var rhsByte = rhs + offset;
-                    var count = layout[k].count;
-                    for (var i = 0; i != count; i++)
-                        same &= lhsByte[i] == rhsByte[i];
-                }
-
-            return same;
+            return Equals(lhsPtr, rhsPtr, (int) typeInfo.TypeSize);
         }
 
 #if !UNITY_DOTSRUNTIME

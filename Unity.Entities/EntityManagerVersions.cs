@@ -54,8 +54,7 @@ namespace Unity.Entities
         public int GetSharedComponentOrderVersion<T>(T sharedComponent) where T : struct, ISharedComponentData
         {
             var access = GetCheckedEntityDataAccess();
-            var mcs = access->ManagedComponentStore;
-            return mcs.GetSharedComponentVersion(sharedComponent);
+            return access->GetSharedComponentVersion(sharedComponent);
         }
 
         // ----------------------------------------------------------------------------------------------------------

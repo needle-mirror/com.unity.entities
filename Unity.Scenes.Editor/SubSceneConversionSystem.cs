@@ -16,7 +16,7 @@ namespace Unity.Scenes.Editor
                 if (subscene.AutoLoadScene)
                 {
                     DstEntityManager.AddComponentData(entity,
-                        new RequestSceneLoaded() {LoadFlags = SceneLoadFlags.LoadAdditive});
+                        new RequestSceneLoaded());
                 }
             });
         }

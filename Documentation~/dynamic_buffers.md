@@ -16,7 +16,8 @@ ECS manages the container. For most purposes, you can use a declared `IBufferEle
 
 To specify an “internal capacity" for a dynamic buffer component, use the [InternalBufferCapacity attribute](xref:Unity.Entities.InternalBufferCapacityAttribute). The internal capacity defines the number of elements the dynamic buffer stores in the [ArchetypeChunk](xref:Unity.Entities.ArchetypeChunk) along with the other components of an entity. If you increase the size of a buffer beyond the internal capacity, the buffer allocates a heap memory block outside the current chunk and moves all existing elements. ECS manages this external buffer memory automatically, and frees the memory when the buffer component is removed. 
 
-**Note:** If the data in a buffer is not dynamic, you can use a [blob asset](xref:Unity.Entities.BlobBuilder) instead of a dynamic buffer. Blob assets can store structured data, including arrays. Multiple entities can share blob assets.
+> [!NOTE]
+> If the data in a buffer is not dynamic, you can use a [blob asset](xref:Unity.Entities.BlobBuilder) instead of a dynamic buffer. Blob assets can store structured data, including arrays. Multiple entities can share blob assets.
  
 ## Declaring buffer element types
 
@@ -70,7 +71,8 @@ The following job creates a new entity using a command buffer and then adds a dy
 
 [!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#add-in-job)]
 
-**Note:** You are not required to add data to the dynamic buffer immediately. However, you won't have access to the buffer again until after the entity command buffer you are using is executed.
+> [!NOTE]
+> You are not required to add data to the dynamic buffer immediately. However, you won't have access to the buffer again until after the entity command buffer you are using is executed.
 
 ## Accessing buffers
 

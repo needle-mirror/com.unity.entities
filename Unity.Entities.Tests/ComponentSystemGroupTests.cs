@@ -552,8 +552,8 @@ namespace Unity.Entities.Tests
         public void UpdateInGroup_TargetNotASystem_Throws()
         {
             World w = new World("Test World");
-#if UNITY_DOTSRUNTIME
-            // In DOTSR, the IsSystemAGroup() call will throw
+#if NET_DOTS
+            // In Tiny, the IsSystemAGroup() call will throw
             Assert.Throws<ArgumentException>(() =>
                 DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystem)));
 #else
@@ -589,6 +589,7 @@ namespace Unity.Entities.Tests
         {
         }
 
+        [Test]
         public void UpdateInGroup_OrderFirstAndOrderLast_Throws()
         {
             World w = new World("Test World");
@@ -849,7 +850,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
         [Test]
         public void NewSortWorksWithBoth()
         {
@@ -916,7 +916,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
         [Test]
         public void ComponentSystemGroup_RemoveThenReAddUnmanagedSystem_SystemIsInGroup()
         {
@@ -933,7 +932,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(group.m_UnmanagedSystemsToUpdate.Contains(sys.Handle.MHandle), "system not in group after re-sorting");
         }
 
-        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
         [Test]
         public void ComponentSystemGroup_RemoveUnmanagedSystemNotInGroup_Ignored()
         {
@@ -944,7 +942,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, group.m_UnmanagedSystemsToRemove.Length);
         }
 
-        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
         [Test]
         public void ComponentSystemGroup_DuplicateRemoveUnmanaged_Ignored()
         {
@@ -965,6 +962,150 @@ namespace Unity.Entities.Tests
             var group = World.CreateSystem<TestGroup>();
             group.FixedRateManager = null;
             Assert.DoesNotThrow(() => { group.Update(); });
+        }
+
+        class ParentSystemGroup : ComponentSystemGroup
+        {
+        }
+
+        class ChildSystemGroup : ComponentSystemGroup
+        {
+        }
+
+        [Test]
+        public void ComponentSystemGroup_SortCleanParentWithDirtyChild_ChildIsSorted()
+        {
+            var parentGroup = World.CreateSystem<ParentSystemGroup>();
+            var childGroup = World.CreateSystem<ChildSystemGroup>();
+            parentGroup.AddSystemToUpdateList(childGroup); // parent group sort order is dirty
+            parentGroup.SortSystems(); // parent group sort order is clean
+
+            var child1 = World.CreateSystem<Sibling1System>();
+            var child2 = World.CreateSystem<Sibling2System>();
+            childGroup.AddSystemToUpdateList(child1); // child group sort order is dirty
+            childGroup.AddSystemToUpdateList(child2);
+            parentGroup.SortSystems(); // parent and child group sort orders should be clean
+
+            // If the child group's systems aren't in the correct order, it wasn't recursively sorted by the parent group.
+            CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, childGroup.Systems);
+        }
+
+        class NoSortGroup : ComponentSystemGroup
+        {
+            public NoSortGroup()
+            {
+                EnableSystemSorting = false;
+            }
+        }
+
+        [Test]
+        public void ComponentSystemGroup_SortManuallySortedParentWithDirtyChild_ChildIsSorted()
+        {
+            var parentGroup = World.CreateSystem<NoSortGroup>();
+            var childGroup = World.CreateSystem<ChildSystemGroup>();
+            parentGroup.AddSystemToUpdateList(childGroup);
+
+            var child1 = World.CreateSystem<Sibling1System>();
+            var child2 = World.CreateSystem<Sibling2System>();
+            childGroup.AddSystemToUpdateList(child1); // child group sort order is dirty
+            childGroup.AddSystemToUpdateList(child2);
+            parentGroup.SortSystems(); // parent and child group sort orders should be clean
+
+            // If the child group's systems aren't in the correct order, it wasn't recursively sorted by the parent group.
+            CollectionAssert.AreEqual(new TestSystemBase[] {child2, child1}, childGroup.Systems);
+        }
+
+        [Test]
+        public void ComponentSystemGroup_RemoveFromManuallySortedGroup_Throws()
+        {
+            var group = World.CreateSystem<NoSortGroup>();
+            var sys = World.CreateSystem<TestSystem>();
+            group.AddSystemToUpdateList(sys);
+            Assert.Throws<InvalidOperationException>(() => group.RemoveSystemFromUpdateList(sys));
+        }
+
+        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
+        [Test]
+        public void ComponentSystemGroup_RemoveUnmanagedFromManuallySortedGroup_Throws()
+        {
+            var group = World.CreateSystem<NoSortGroup>();
+            var sysHandle = World.AddSystem<MyUnmanagedSystem>().Handle;
+            group.AddUnmanagedSystemToUpdateList(sysHandle);
+            Assert.Throws<InvalidOperationException>(() => group.RemoveUnmanagedSystemFromUpdateList(sysHandle));
+        }
+
+        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
+        [Test]
+        public void ComponentSystemGroup_DisableAutoSorting_UpdatesInInsertionOrder()
+        {
+            var noSortGroup = World.CreateSystem<NoSortGroup>();
+            var child1 = World.CreateSystem<Sibling1System>();
+            var child2 = World.CreateSystem<Sibling2System>();
+            var unmanagedChild = World.AddSystem<MyUnmanagedSystem>();
+            noSortGroup.AddSystemToUpdateList(child1);
+            noSortGroup.AddUnmanagedSystemToUpdateList(unmanagedChild.Handle);
+            noSortGroup.AddSystemToUpdateList(child2);
+            // Just adding the systems should cause them to be updated in insertion order
+            var expectedUpdateList = new[]
+            {
+                new UpdateIndex(0, true),
+                new UpdateIndex(0, false),
+                new UpdateIndex(1, true),
+            };
+            CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2}, noSortGroup.Systems);
+            Assert.AreEqual(1, noSortGroup.UnmanagedSystems.Length);
+            Assert.AreEqual(unmanagedChild.Handle.MHandle, noSortGroup.UnmanagedSystems[0]);
+            for (int i = 0; i < expectedUpdateList.Length; ++i)
+            {
+                Assert.AreEqual(expectedUpdateList[i], noSortGroup.m_MasterUpdateList[i]);
+            }
+            // Sorting the system group should have no effect on the update order
+            noSortGroup.SortSystems();
+            CollectionAssert.AreEqual(new TestSystemBase[] {child1, child2}, noSortGroup.Systems);
+            Assert.AreEqual(1, noSortGroup.UnmanagedSystems.Length);
+            Assert.AreEqual(unmanagedChild.Handle.MHandle, noSortGroup.UnmanagedSystems[0]);
+            for (int i = 0; i < expectedUpdateList.Length; ++i)
+            {
+                Assert.AreEqual(expectedUpdateList[i], noSortGroup.m_MasterUpdateList[i]);
+            }
+        }
+
+        struct UnmanagedSystemWithSyncPointAfterSchedule : ISystemBase
+        {
+            struct MyJob : IJobChunk
+            {
+                public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+                {
+                }
+            }
+
+            private EntityQuery m_Query;
+
+            public void OnCreate(ref SystemState state)
+            {
+                state.EntityManager.CreateEntity(typeof(EcsTestData));
+                m_Query = state.GetEntityQuery(typeof(EcsTestData));
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                state.GetComponentTypeHandle<EcsTestData>();
+                state.Dependency = new MyJob().ScheduleParallel(m_Query, state.Dependency);
+                state.EntityManager.CreateEntity();
+            }
+        }
+
+        [Test]
+        public void ISystemBase_CanHaveSyncPointAfterSchedule()
+        {
+            var group = World.CreateSystem<TestGroup>();
+            var sys = World.AddSystem<UnmanagedSystemWithSyncPointAfterSchedule>();
+            group.AddSystemToUpdateList(sys.Handle);
+            Assert.DoesNotThrow(() => group.Update());
         }
     }
 }

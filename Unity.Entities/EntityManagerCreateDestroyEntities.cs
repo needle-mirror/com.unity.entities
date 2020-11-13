@@ -153,6 +153,31 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Destroys all entities in the EntityManager and resets the internal entity ID version table.
+        /// </summary>
+        /// <remarks>
+        /// This method can be used to reset an EntityManager for the purpose of creating data that can be written to disk with a deterministic, exact matching file on disk.
+        /// It resets all chunk and entity version state so that it can be serialized to disk back to a state that is the same as a clean world.
+        /// Archetypes and EntityQuery are not reset since they are often cached / owned by systems, but these are also not stored on disk.
+        /// </remarks>
+        [NotBurstCompatible]
+        public void DestroyAndResetAllEntities()
+        {
+            DestroyEntity(UniversalQuery);
+            if (Debug.EntityCount != 0)
+                throw new System.ArgumentException("Destroying all entities failed. Some entities couldn't be deleted.");
+
+            // FreeAllEntities also resets entity index
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            ecs->FreeAllEntities(true);
+
+            access->ManagedComponentStore.ResetManagedComponentStoreForDeserialization(0, ref *ecs);
+            access->ManagedComponentStore.PrepareForDeserialize();
+        }
+
+
+        /// <summary>
         /// Destroys all entities in an array.
         /// </summary>
         /// <remarks>
@@ -323,34 +348,6 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
             access->InstantiateInternal((Entity*)srcEntities.GetUnsafeReadOnlyPtr(), (Entity*)outputEntities.GetUnsafePtr(), srcEntities.Length, outputEntities.Length, false);
-        }
-
-        /// <summary>
-        /// Creates a set of chunks containing the specified number of entities having the specified archetype.
-        /// </summary>
-        /// <remarks>
-        /// The EntityManager creates enough chunks to hold the required number of entities.
-        ///
-        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
-        /// currently running Jobs to complete before creating these chunks and no additional Jobs can start before
-        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
-        /// be able to make use of the processing power of all available cores.
-        /// </remarks>
-        /// <param name="archetype">The archetype for the chunk and entities.</param>
-        /// <param name="chunks">An empty array to receive the created chunks.</param>
-        /// <param name="entityCount">The number of entities to create.</param>
-        [Obsolete("CreateChunk is deprecated. (RemovedAfter 2020-06-05)", false)]
-        [StructuralChangeMethod]
-        public void CreateChunk(EntityArchetype archetype, NativeArray<ArchetypeChunk> chunks, int entityCount)
-        {
-            var access = GetCheckedEntityDataAccess();
-            var ecs = access->EntityComponentStore;
-
-            Unity.Entities.EntityComponentStore.AssertValidArchetype(ecs, archetype);
-            BeforeStructuralChange();
-
-            ecs->CreateChunks(archetype.Archetype, (ArchetypeChunk*)chunks.GetUnsafePtr(), chunks.Length, entityCount);
-            access->PlaybackManagedChanges();
         }
 
         /// <summary>

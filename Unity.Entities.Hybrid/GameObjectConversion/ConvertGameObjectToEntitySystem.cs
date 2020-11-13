@@ -61,21 +61,4 @@ namespace Unity.Entities.Conversion
             Entities.ForEach((RectTransform transform) => Convert(transform, convertibles));
         }
     }
-
-    [UpdateInGroup(typeof(GameObjectBeforeConversionGroup))]
-    class ComponentDataProxyToEntitySystem : GameObjectConversionSystem
-    {
-        protected override void OnUpdate()
-        {
-            Entities.ForEach((Transform transform) =>
-            {
-                GameObjectConversionMappingSystem.CopyComponentDataProxyToEntity(DstEntityManager, transform.gameObject, GetPrimaryEntity(transform));
-            });
-            //@TODO: Remove this again once KevinM adds support for inheritance in queries
-            Entities.ForEach((RectTransform transform) =>
-            {
-                GameObjectConversionMappingSystem.CopyComponentDataProxyToEntity(DstEntityManager, transform.gameObject, GetPrimaryEntity(transform));
-            });
-        }
-    }
 }

@@ -277,8 +277,172 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData3>(entity).value0);
             Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData3>(entity).value1);
             Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData3>(entity).value2);
+        }
 
-            m_Manager.DestroyEntity(entity);
+        [Test]
+        public void AddRemoveComponent_FailForInt()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            var entity = m_Manager.CreateEntity(archetype);
+
+#if UNITY_DOTSRUNTIME
+            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent<int>(entity));
+            Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent<int>(entity));
+            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(entity, typeof(int)));
+            Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent(entity, typeof(int)));
+#else
+            Assert.That(() => { m_Manager.AddComponent<int>(entity); },
+                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+            Assert.That(() => { m_Manager.RemoveComponent<int>(entity); },
+                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+            Assert.That(() => { m_Manager.AddComponent(entity, typeof(int)); },
+                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+            Assert.That(() => { m_Manager.RemoveComponent(entity, typeof(int)); },
+                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+#endif
+        }
+
+        [Test]
+        public void AddRemoveComponent_FailForNonIComponentData()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            var entity = m_Manager.CreateEntity(archetype);
+
+#if UNITY_DOTSRUNTIME
+            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent<EcsTestNonComponent>(entity));
+            Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent<EcsTestNonComponent>(entity));
+            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(entity, typeof(EcsTestNonComponent)));
+            Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent(entity, typeof(EcsTestNonComponent)));
+#else
+            Assert.That(() => { m_Manager.AddComponent<EcsTestNonComponent>(entity); },
+                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+            Assert.That(() => { m_Manager.RemoveComponent<EcsTestNonComponent>(entity); },
+                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+            Assert.That(() => { m_Manager.AddComponent(entity, typeof(EcsTestNonComponent)); },
+                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+            Assert.That(() => { m_Manager.RemoveComponent(entity, typeof(EcsTestNonComponent)); },
+                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+#endif
+        }
+
+        [Test]
+        public void AddRemoveSharedComponent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var entity = m_Manager.CreateEntity(archetype);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedComp>(entity));
+
+            m_Manager.AddComponent<EcsTestSharedComp>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedComp>(entity));
+
+            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+
+            m_Manager.RemoveComponent<EcsTestData2>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestSharedComp>(entity));
+
+            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsTestSharedComp>(entity).value);
+
+            m_Manager.RemoveComponent<EcsTestSharedComp>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedComp>(entity));
+        }
+
+        [Test]
+        public void AddRemoveBufferComponent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var entity = m_Manager.CreateEntity(archetype);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsIntElement>(entity));
+
+            m_Manager.AddComponent<EcsIntElement>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsIntElement>(entity));
+
+            Assert.AreEqual(0, m_Manager.GetBuffer<EcsIntElement>(entity).Length);
+
+            m_Manager.RemoveComponent<EcsTestData2>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsIntElement>(entity));
+
+            Assert.AreEqual(0, m_Manager.GetBuffer<EcsIntElement>(entity).Length);
+
+            m_Manager.RemoveComponent<EcsIntElement>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsIntElement>(entity));
+        }
+
+        [Test]
+        public void AddRemoveSystemStateComponent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var entity = m_Manager.CreateEntity(archetype);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsState1>(entity));
+
+            m_Manager.AddComponent<EcsState1>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsState1>(entity));
+
+            Assert.AreEqual(0, m_Manager.GetComponentData<EcsState1>(entity).Value);
+
+            m_Manager.RemoveComponent<EcsTestData2>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsState1>(entity));
+
+            Assert.AreEqual(0, m_Manager.GetComponentData<EcsState1>(entity).Value);
+
+            m_Manager.RemoveComponent<EcsState1>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsState1>(entity));
+        }
+
+        [Test]
+        public void AddRemoveSystemStateSharedComponent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+
+            var entity = m_Manager.CreateEntity(archetype);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsStateShared1>(entity));
+
+            m_Manager.AddComponent<EcsStateShared1>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsStateShared1>(entity));
+
+            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsStateShared1>(entity).Value);
+
+            m_Manager.RemoveComponent<EcsTestData2>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsTrue(m_Manager.HasComponent<EcsStateShared1>(entity));
+
+            Assert.AreEqual(0, m_Manager.GetSharedComponentData<EcsStateShared1>(entity).Value);
+
+            m_Manager.RemoveComponent<EcsStateShared1>(entity);
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsStateShared1>(entity));
         }
 
         [Test]
@@ -507,15 +671,21 @@ namespace Unity.Entities.Tests
             {
                 m_Manager.CreateEntity();
             }
+
             var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob);
-            Assert.AreEqual(entities.Length, entityCount);
+            try
+            {
+                Assert.AreEqual(entities.Length, entityCount);
 
-            entities[0] = invalidEnt;
-            Assert.That(() => { m_Manager.AddComponent<EcsTestData>(entities); },
-                Throws.ArgumentException.With.Message.Contains("All entities passed to EntityManager must exist"));
-            entities.Dispose();
+                entities[0] = invalidEnt;
+                Assert.That(() => { m_Manager.AddComponent<EcsTestData>(entities); },
+                    Throws.InvalidOperationException.With.Message.Contains("The entity does not exist"));
+            }
+            finally
+            {
+                entities.Dispose();
+            }
         }
-
 #endif
 
         [Test]

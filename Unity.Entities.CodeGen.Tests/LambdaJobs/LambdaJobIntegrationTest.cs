@@ -40,7 +40,7 @@ namespace Unity.Entities.CodeGen.Tests.LambdaJobs.Infrastructure
                     _methodIL.AppendLine(instruction.ToString());
             }
 
-            RunTest(jobStructForLambdaJob.TypeDefinition.DeclaringType);
+            RunPostprocessingTest(jobStructForLambdaJob.TypeDefinition.DeclaringType);
         }
     }
 }

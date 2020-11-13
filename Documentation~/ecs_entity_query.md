@@ -13,7 +13,8 @@ You can use an [EntityQuery] to do the following:
 
 The entity and component arrays an [EntityQuery] returns are guaranteed to be "parallel", that is, the same index value always applies to the same entity in any array. 
 
-**Note:** The SystemBase [Entities.ForEach] constructions create internal [EntityQuery] instances based on the component types and attributes you specify for these APIs. You cannot use a different [EntityQuery] object with [Entities.ForEach], (though you can get the query object that an [Entities.ForEach] instance constructs and use it elsewhere).
+> [!NOTE]
+> The SystemBase [Entities.ForEach] constructions create internal [EntityQuery] instances based on the component types and attributes you specify for these APIs. You cannot use a different [EntityQuery] object with [Entities.ForEach], (though you can get the query object that an [Entities.ForEach] instance constructs and use it elsewhere).
 
 ## Defining a query
 
@@ -37,7 +38,8 @@ For example, the following query includes archetypes that contain the RotationQu
 
 [!code-cs[query-desc](../DocCodeSamples.Tests/EntityQueryExamples.cs#query-desc)]
 
-**Note:** Do not include optional components in the [EntityQueryDesc]. To handle optional components, use the [ArchetypeChunk.Has<T>] method to determine whether a chunk contains the optional component or not. Because all entities within the same chunk have the same components, you only need to check whether an optional component exists once per chunk: not once per entity.
+> [!NOTE]
+> Do not include optional components in the [EntityQueryDesc]. To handle optional components, use the [ArchetypeChunk.Has<T>] method to determine whether a chunk contains the optional component or not. Because all entities within the same chunk have the same components, you only need to check whether an optional component exists once per chunk: not once per entity.
 
 <a name="query-options"></a>
 ### Query options
@@ -94,7 +96,8 @@ Filters exclude entities that otherwise would be included among those returned b
 
 The filters you set remain in effect until you call [ResetFilter] on the query object.
 
-**Note:** Write Groups use a different mechanism. See [Query options].
+> [!NOTE]
+> Write Groups use a different mechanism. See [Query options].
 
 ### Shared component filters
 
@@ -112,7 +115,8 @@ If you only need to update entities when a component value has changed, you can 
 
 [!code-cs[change-filter](../DocCodeSamples.Tests/EntityQueryExamples.cs#change-filter)]
 
-**Note:** For efficiency, the change filter applies to whole chunks, not individual entities. The change filter also only checks whether a system has run that declared write access to the component, not whether it actually changed any data. In other words, if another job which had the ability to write to that type of component accesses the chunk, then the change filter includes all entities in that chunk. This is why you should always declare read only access to components that you do not need to modify.
+> [!NOTE]
+> For efficiency, the change filter applies to whole chunks, not individual entities. The change filter also only checks whether a system has run that declared write access to the component, not whether it actually changed any data. In other words, if another job which had the ability to write to that type of component accesses the chunk, then the change filter includes all entities in that chunk. This is why you should always declare read only access to components that you do not need to modify.
 
 ## Executing the query
 

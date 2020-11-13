@@ -1,20 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
-using UnityEngine;
 using UnityEditor.IMGUI.Controls;
+using UnityEngine;
 using UnityEngine.Serialization;
-using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Editor
 {
     internal class EntityDebugger : EditorWindow
     {
-        public delegate void SelectionChangeCallback(EntitySelectionProxy proxy);
-
-        public event SelectionChangeCallback OnEntitySelectionChanged;
-
         internal static ComponentSystemBase[] extraSystems;
 
         internal static void SetExtraSystems(ComponentSystemBase[] systems)
@@ -158,7 +152,16 @@ namespace Unity.Entities.Editor
                 entityListView.TouchSelection();
         }
 
-        public Entity EntitySelection => selectionProxy.Entity;
+        public Entity EntitySelection
+        {
+            get
+            {
+                if (WorldSelection == null || entityListView == null)
+                    return Entity.Null;
+
+                return entityListView.GetSelectedEntity();
+            }
+        }
 
         internal void SetEntitySelection(Entity newSelection, bool updateList)
         {
@@ -168,14 +171,16 @@ namespace Unity.Entities.Editor
             var world = WorldSelection ?? SystemSelection.World;
             if (world != null && newSelection != Entity.Null)
             {
-                selectionProxy.SetEntity(world, newSelection);
-                Selection.activeObject = selectionProxy;
-                OnEntitySelectionChanged?.Invoke(selectionProxy);
+                // No need to re-select the same entity twice
+                var selectedProxy = Selection.activeObject as EntitySelectionProxy;
+                if (selectedProxy == null || selectedProxy.World != world || selectedProxy.Entity != newSelection)
+                {
+                    EntitySelectionProxy.SelectEntity(world, newSelection);
+                }
             }
-            else if (Selection.activeObject == selectionProxy)
+            else if (Selection.activeObject is EntitySelectionProxy)
             {
                 Selection.activeObject = null;
-                OnEntitySelectionChanged?.Invoke(null);
             }
         }
 
@@ -192,8 +197,6 @@ namespace Unity.Entities.Editor
         }
 
         private static EntityDebugger Instance { get; set; }
-
-        private EntitySelectionProxy selectionProxy;
 
         [FormerlySerializedAs("componentGroupListStates")]
         [SerializeField] private List<TreeViewState> entityQueryListStates = new List<TreeViewState>();
@@ -311,7 +314,6 @@ namespace Unity.Entities.Editor
             Instance = this;
             filterUI = new ComponentTypeFilterUI(SetAllEntitiesFilter, () => WorldSelection);
 
-            CreateEntitySelectionProxy();
             CreateWorldPopup();
             CreateSystemListView();
             CreateEntityQueryListView();
@@ -321,17 +323,6 @@ namespace Unity.Entities.Editor
 
             showingChunkInfoView = ShowingChunkInfoViewPersistent;
             EditorApplication.playModeStateChanged += OnPlayModeStateChange;
-        }
-
-        private void CreateEntitySelectionProxy()
-        {
-            selectionProxy = ScriptableObject.CreateInstance<EntitySelectionProxy>();
-            selectionProxy.hideFlags = HideFlags.HideAndDontSave;
-
-            selectionProxy.EntityControlSelectButton += (world, entity) =>
-            {
-                SetAllSelections(world, null, null, entity);
-            };
         }
 
         private void OnDestroy()
@@ -345,8 +336,6 @@ namespace Unity.Entities.Editor
             chunkInfoListView?.Dispose();
             if (Instance == this)
                 Instance = null;
-            if (selectionProxy)
-                DestroyImmediate(selectionProxy);
 
             ShowingChunkInfoViewPersistent = showingChunkInfoView;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChange;
@@ -356,7 +345,7 @@ namespace Unity.Entities.Editor
         {
             if (change == PlayModeStateChange.ExitingPlayMode)
                 SetAllEntitiesFilter(null);
-            if (change == PlayModeStateChange.ExitingPlayMode && Selection.activeObject == selectionProxy)
+            if (change == PlayModeStateChange.ExitingPlayMode && Selection.activeObject is EntitySelectionProxy)
                 Selection.activeObject = null;
         }
 
@@ -572,10 +561,18 @@ namespace Unity.Entities.Editor
 
         private void OnSelectionChange()
         {
-            if (Selection.activeObject != selectionProxy)
+            if (Selection.activeObject is EntitySelectionProxy selectionProxy && selectionProxy.Exists)
+            {
+                SetWorldSelection(selectionProxy.World, false);
+                entityListView.SetEntitySelection(selectionProxy.Entity, TreeViewSelectionOptions.RevealAndFrame);
+            }
+            else
             {
                 entityListView.SelectNothing();
             }
+
+            // Ensures we keep the window in sync with selection changes
+            Repaint();
         }
 
         private void OnGUI()
@@ -589,13 +586,10 @@ namespace Unity.Entities.Editor
                 entityListView.ReloadIfNecessary();
             }
 
-            if (Selection.activeObject == selectionProxy)
+            if (Selection.activeObject is EntitySelectionProxy selectionProxy && !selectionProxy.Exists)
             {
-                if (!selectionProxy.Exists)
-                {
-                    Selection.activeObject = null;
-                    entityListView.SelectNothing();
-                }
+                Selection.activeObject = null;
+                entityListView.SelectNothing();
             }
 
             {

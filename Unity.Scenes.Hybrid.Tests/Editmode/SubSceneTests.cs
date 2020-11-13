@@ -334,7 +334,7 @@ namespace Unity.Scenes.Hybrid.Tests
     }
 
     [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
-    public class IncrementEcsTestDataProcessAfterLoadSystem : SystemBase
+    public partial class IncrementEcsTestDataProcessAfterLoadSystem : SystemBase
     {
         protected override void OnUpdate()
         {

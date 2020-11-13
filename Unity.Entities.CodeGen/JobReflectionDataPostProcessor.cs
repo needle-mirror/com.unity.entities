@@ -22,6 +22,11 @@ namespace Unity.Entities.CodeGen
         // This must happen very late, after all jobs have been set up
         public override int SortWeight => 0xff00;
 
+        public override bool WillProcess()
+        {
+            return ReferencesJobs || ReferencesEntities;
+        }
+
         protected override bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes)
         {
             return false;
@@ -32,14 +37,43 @@ namespace Unity.Entities.CodeGen
             return module.ImportReference(attributeType.GetConstructors().Single(c => !c.GetParameters().Any()));
         }
 
-        private static TypeReference LaunderTypeRef(TypeReference r, ModuleDefinition mod)
+
+        private TypeReference LaunderTypeRef(TypeReference r_)
         {
-            TypeReference laundered = new TypeReference(r.Namespace, r.Name, mod, r.Scope, r.Resolve().IsValueType);
-            if (r.DeclaringType != null)
+            ModuleDefinition mod = AssemblyDefinition.MainModule;
+
+            TypeDefinition def = r_.Resolve();
+
+            TypeReference result;
+
+            if (r_ is GenericInstanceType git)
             {
-                laundered.DeclaringType = LaunderTypeRef(r.DeclaringType, mod);
+                var gt = new GenericInstanceType(LaunderTypeRef(def));
+
+                foreach (var gp in git.GenericParameters)
+                {
+                    gt.GenericParameters.Add(gp);
+                }
+
+                foreach (var ga in git.GenericArguments)
+                {
+                    gt.GenericArguments.Add(LaunderTypeRef(ga));
+                }
+
+                result = gt;
+
             }
-            return mod.ImportReference(laundered);
+            else
+            {
+                result = new TypeReference(def.Namespace, def.Name, def.Module, def.Scope, def.IsValueType);
+
+                if (def.DeclaringType != null)
+                {
+                    result.DeclaringType = LaunderTypeRef(def.DeclaringType);
+                }
+            }
+
+            return mod.ImportReference(result);
         }
 
         protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
@@ -66,48 +100,37 @@ namespace Unity.Entities.CodeGen
 
             bool anythingChanged = false;
 
-            var declaredGenerics = new HashSet<string>();
             var genericJobs = new List<TypeReference>();
+            var visited = new HashSet<string>();
 
             foreach (var attr in assemblyDefinition.CustomAttributes)
             {
                 if (attr.AttributeType.FullName != RegisterGenericJobTypeAttributeName)
                     continue;
 
-                var openTypeRef = (TypeReference)attr.ConstructorArguments[0].Value;
-                var openType = assemblyDefinition.MainModule.ImportReference(openTypeRef).Resolve();
+                var typeRef = (TypeReference)attr.ConstructorArguments[0].Value;
+                var openType = typeRef.Resolve();
 
-                if (!openTypeRef.IsGenericInstance || !openType.IsValueType)
+                if (!typeRef.IsGenericInstance || !openType.IsValueType)
                 {
                     AddDiagnostic(UserError.DC3001(openType));
                     continue;
                 }
 
-                TypeReference result = new GenericInstanceType(assemblyDefinition.MainModule.ImportReference(new TypeReference(openType.Namespace, openType.Name, assemblyDefinition.MainModule, openTypeRef.Scope, true)));
-
-                foreach (var ga in ((GenericInstanceType)openTypeRef).GenericArguments)
-                {
-                    ((GenericInstanceType)result).GenericArguments.Add(LaunderTypeRef(ga, assemblyDefinition.MainModule));
-                }
-
-                genericJobs.Add(result);
-
-
-                var fn = openType.FullName;
-                if (!declaredGenerics.Contains(fn))
-                {
-                    declaredGenerics.Add(fn);
-                }
+                genericJobs.Add(typeRef);
+                visited.Add(typeRef.FullName);
             }
+
+            CollectGenericTypeInstances(AssemblyDefinition, genericJobs, visited);
 
             foreach (var t in assemblyDefinition.MainModule.Types)
             {
-                anythingChanged |= VisitJobStructs(t, processor, body, declaredGenerics);
+                anythingChanged |= VisitJobStructs(t, processor, body);
             }
 
             foreach (var t in genericJobs)
             {
-                anythingChanged |= VisitJobStructs(t, processor, body, declaredGenerics);
+                anythingChanged |= VisitJobStructs(t, processor, body);
             }
 
             processor.Emit(OpCodes.Ret);
@@ -160,8 +183,14 @@ namespace Unity.Entities.CodeGen
             return anythingChanged;
         }
 
-        private bool VisitJobStructs(TypeReference t, ILProcessor processor, MethodBody body, HashSet<string> declaredGenerics)
+        private bool VisitJobStructs(TypeReference t, ILProcessor processor, MethodBody body)
         {
+            if (t.GenericParameters.Count > 0)
+            {
+                // Generic jobs need to be either reference in fully closed form, or registered explicitly with an attribute.
+                return false;
+            }
+
             var rt = t.CheckedResolve();
 
             bool didAnything = false;
@@ -181,20 +210,21 @@ namespace Unity.Entities.CodeGen
                             continue;
 
                         var producerRef = (TypeReference)attr.ConstructorArguments[0].Value;
-                        didAnything |= GenerateCalls(producerRef, t, body, processor, declaredGenerics);
+                        var launderedType = LaunderTypeRef(t);
+                        didAnything |= GenerateCalls(producerRef, launderedType, body, processor);
                     }
                 }
             }
 
             foreach (var nestedType in rt.NestedTypes)
             {
-                didAnything |= VisitJobStructs(nestedType, processor, body, declaredGenerics);
+                didAnything |= VisitJobStructs(nestedType, processor, body);
             }
 
             return didAnything;
         }
 
-        private bool GenerateCalls(TypeReference producerRef, TypeReference jobStructType, MethodBody body, ILProcessor processor, HashSet<string> declaredGenerics)
+        private bool GenerateCalls(TypeReference producerRef, TypeReference jobStructType, MethodBody body, ILProcessor processor)
         {
             try
             {
@@ -213,14 +243,6 @@ namespace Unity.Entities.CodeGen
                 // Legacy jobs lazy initialize.
                 if (methodToCall == null)
                     return false;
-
-                // We need a separate solution for generic jobs
-                if (jobStructType.HasGenericParameters)
-                {
-                    if (!declaredGenerics.Contains(jobStructType.FullName))
-                        AddDiagnostic(UserError.DC3002(jobStructType));
-                    return false;
-                }
 
                 var asm = AssemblyDefinition.MainModule;
 
@@ -264,6 +286,92 @@ namespace Unity.Entities.CodeGen
 
             return false;
         }
+
+        private static void CollectGenericTypeInstances(AssemblyDefinition assembly, List<TypeReference> types, HashSet<string> visited)
+        {
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // WARNING: THIS CODE HAS TO BE MAINTAINED IN SYNC WITH BurstReflection.cs in Unity.Burst package
+            // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+            // From: https://gist.github.com/xoofx/710aaf86e0e8c81649d1261b1ef9590e
+            if (assembly == null) throw new ArgumentNullException(nameof(assembly));
+            const int mdMaxCount = 1 << 24;
+            foreach (var module in assembly.Modules)
+            {
+                for (int i = 1; i < mdMaxCount; i++)
+                {
+                    // Token base id for TypeSpec
+                    const int mdTypeSpec = 0x1B000000;
+                    var token = module.LookupToken(mdTypeSpec | i);
+                    if (token is GenericInstanceType type)
+                    {
+                        if (type.IsGenericInstance && !type.ContainsGenericParameter)
+                        {
+                            CollectGenericTypeInstances(type, types, visited);
+                        }
+                    } else if (token == null) break;
+                }
+
+                for (int i = 1; i < mdMaxCount; i++)
+                {
+                    // Token base id for MethodSpec
+                    const int mdMethodSpec = 0x2B000000;
+                    var token = module.LookupToken(mdMethodSpec | i);
+                    if (token is GenericInstanceMethod method)
+                    {
+                        foreach (var argType in method.GenericArguments)
+                        {
+                            if (argType.IsGenericInstance && !argType.ContainsGenericParameter)
+                            {
+                                CollectGenericTypeInstances(argType, types, visited);
+                            }
+                        }
+                    }
+                    else if (token == null) break;
+                }
+
+                for (int i = 1; i < mdMaxCount; i++)
+                {
+                    // Token base id for Field
+                    const int mdField = 0x04000000;
+                    var token = module.LookupToken(mdField | i);
+                    if (token is FieldReference field)
+                    {
+                        var fieldType = field.FieldType;
+                        if (fieldType.IsGenericInstance && !fieldType.ContainsGenericParameter)
+                        {
+                            CollectGenericTypeInstances(fieldType, types, visited);
+                        }
+                    }
+                    else if (token == null) break;
+                }
+            }
+        }
+
+        private static void CollectGenericTypeInstances(TypeReference type, List<TypeReference> types, HashSet<string> visited)
+        {
+            if (type.IsPrimitive) return;
+            if (!visited.Add(type.FullName)) return;
+
+            // Add only concrete types
+            if (type.IsGenericInstance && !type.ContainsGenericParameter)
+            {
+                types.Add(type);
+            }
+
+            // Collect recursively generic type arguments
+            var genericInstanceType = type as GenericInstanceType;
+            if (genericInstanceType != null)
+            {
+                foreach (var genericTypeArgument in genericInstanceType.GenericArguments)
+                {
+                    if (!genericTypeArgument.IsPrimitive)
+                    {
+                        CollectGenericTypeInstances(genericTypeArgument, types, visited);
+                    }
+                }
+            }
+        } 
     }
 #endif
 }

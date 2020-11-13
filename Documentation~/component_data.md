@@ -2,9 +2,9 @@
 uid: ecs-component-data
 ---
 
-# General purpose components
+# General-purpose components
 
-`ComponentData` in Unity (also known as a component in standard ECS terms) is a struct that contains only the instance data for an [entity](ecs_entities.md). `ComponentData` should not contain methods beyond utility functions to access the data in the struct. You should implement all of your game logic and behavior in systems. To put this in terms of the object-oriented Unity system, this is somewhat similar to a Component class, but one that **only contains variables**.
+An ECS component (not an instance of the managed `UnityEngine.Component` class) is a struct that contains only the instance data for an [entity](ecs_entities.md). ECS components should not contain methods beyond utility functions to access the data in the struct. You should implement all of your game logic and behavior in systems. To put this in terms of the object-oriented Unity system, this is similar to a Component class, but one that **only contains variables**.
 
 The Unity ECS API provides an interface called [IComponentData](xref:Unity.Entities.IComponentData) that you can implement in your code to declare a general-purpose component type.
 
@@ -21,7 +21,7 @@ transform.position += deltaTime * playerInput.move * settings.playerMoveSpeed;
 group.transform[index] = transform; // Write
 ```
 
-`IComponentData` structs must not contain references to managed objects. This is because `ComponentData` lives in simple non-garbage-collected tracked [Chunk memory](chunk_iteration.md), which has many performance advantages.
+`IComponentData` structs must not contain references to managed objects. This is because `ComponentData` lives in simple non-garbage-collected tracked [Chunk memory](xref:Unity.Entities.ArchetypeChunk), which has many performance advantages.
 
 ### Managed IComponentData
 
@@ -32,7 +32,7 @@ These components are used the same way as value type `IComponentData`. However, 
 Because managed `IComponentData` is a managed type, it has the following performance drawbacks compared to value-type `IComponentData`:
 * It cannot be used with the Burst Compiler
 * It cannot be used in job structs 
-* It cannot use [Chunk memory](chunk_iteration.md) 
+* It cannot use [Chunk memory](xref:Unity.Entities.ArchetypeChunk) 
 * It requires garbage collection
 
 You should try to limit the number of managed components, and use blittable types as much as possible. 

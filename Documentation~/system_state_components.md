@@ -78,6 +78,7 @@ The following example shows a simplified system that illustrates how to manage e
 * `m_activeEntities` selects entities that have both the general-purpose and the system state component. In a real application, other systems might be the ones that process or destroy the entities.
 * `m_destroyedEntities` selects entities that have the system state, but not the general-purpose component. Since the system state component is never added to an entity by itself, the entities that this query selects must have been deleted, either by this system or another system. The system reuses the destroyed entities query to run a job and remove the system state component from the entities, which allows the ECS code to recycle the entity identifier. 
 
-**Note:** This simplified example does not maintain any state within the system. One purpose for system state components is to track when persistent resources need to be allocated or cleaned up.
+> [!NOTE]
+> This simplified example does not maintain any state within the system. One purpose for system state components is to track when persistent resources need to be allocated or cleaned up.
 
 [!code-cs[stateful-example](../DocCodeSamples.Tests/StatefulSystem.cs#stateful-example)]

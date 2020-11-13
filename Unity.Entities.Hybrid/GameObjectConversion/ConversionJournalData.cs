@@ -16,6 +16,11 @@ namespace Unity.Entities.Conversion
         public string Stacktrace;
     }
 
+    /// <summary>
+    /// Exposes the entities that belong to a GameObject with a given instance ID.
+    ///
+    /// ATTENTION: Future public API.
+    /// </summary>
     internal struct ConvertedEntitiesAccessor
     {
         NativeHashMap<int, int> m_HeadIdIndices; // object instanceId -> front index
@@ -29,7 +34,13 @@ namespace Unity.Entities.Conversion
         }
 
 
-        internal MultiListEnumerator<Entity> GetEntities(int instanceId)
+        /// <summary>
+        /// Returns an enumerator for the entities associated with a given instance ID. The first entity returned by
+        /// the enumerator is the primary entity associated with the instance ID.
+        /// </summary>
+        /// <param name="instanceId">The instance ID of the GameObject that you want to get the entities of.</param>
+        /// <returns>An enumerator for the entities associated with the instance ID.</returns>
+        public MultiListEnumerator<Entity> GetEntities(int instanceId)
         {
             if (!m_HeadIdIndices.TryGetValue(instanceId, out var headIdIndex))
                 return MultiListEnumerator<Entity>.Empty;
@@ -47,8 +58,8 @@ namespace Unity.Entities.Conversion
         // Only for UnityEngine component types to be stored in a companion GameObject
         // maps GameObject to MultiList m_HybridTypes
         // for 2020.2, this could be based on instance IDs instead
-        Dictionary<GameObject, int> m_HybridHeadIdIndices;
-        internal Dictionary<GameObject, int> HybridHeadIdIndices => m_HybridHeadIdIndices;
+        Dictionary<GameObject, int> m_NewHybridHeadIdIndices;
+        internal Dictionary<GameObject, int> NewHybridHeadIdIndices => m_NewHybridHeadIdIndices;
 
 
         public void Dispose()
@@ -70,7 +81,7 @@ namespace Unity.Entities.Conversion
         {
             m_HeadIdIndices = new NativeHashMap<int, int>(1000, Allocator.Persistent);
             m_FreeHeadIds = new NativeList<int>(Allocator.Persistent);
-            m_HybridHeadIdIndices = new Dictionary<GameObject, int>();
+            m_NewHybridHeadIdIndices = new Dictionary<GameObject, int>();
 
             m_Entities.Init();
             m_LogEvents.Init();
@@ -90,7 +101,7 @@ namespace Unity.Entities.Conversion
                 m_LogEvents.ReleaseList(headIdIndex);
             }
 
-            if (go != null && m_HybridHeadIdIndices.TryGetValue(go, out headIdIndex))
+            if (go != null && m_NewHybridHeadIdIndices.TryGetValue(go, out headIdIndex))
             {
                 m_HybridTypes.ReleaseList(headIdIndex);
             }
@@ -132,10 +143,10 @@ namespace Unity.Entities.Conversion
 
         int GetOrAddHybridHeadIdIndex(GameObject gameObject)
         {
-            if (!m_HybridHeadIdIndices.TryGetValue(gameObject, out var headIdIndex))
+            if (!m_NewHybridHeadIdIndices.TryGetValue(gameObject, out var headIdIndex))
             {
-                headIdIndex = m_HybridHeadIdIndices.Count;
-                m_HybridHeadIdIndices.Add(gameObject, headIdIndex);
+                headIdIndex = m_NewHybridHeadIdIndices.Count;
+                m_NewHybridHeadIdIndices.Add(gameObject, headIdIndex);
 
                 var headIdsCapacity = headIdIndex + 1;
                 if (MultiList.CalcExpandCapacity(m_HybridTypes.HeadIds.Length, ref headIdsCapacity))
@@ -315,6 +326,11 @@ namespace Unity.Entities.Conversion
 
         public MultiListEnumerator<Type, MultiListArrayData<Type>> HybridTypes(int headIdIndex) =>
             m_HybridTypes.SelectList(headIdIndex);
+
+        internal void ClearNewHybridComponents()
+        {
+            m_NewHybridHeadIdIndices.Clear();
+        }
 
         public IEnumerable<(int objectInstanceId, LogEventData eventData)> SelectLogEventsFast() =>
             SelectJournalData(m_LogEvents);

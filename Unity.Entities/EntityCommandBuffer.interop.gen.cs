@@ -22,7 +22,7 @@ namespace Unity.Entities
     public unsafe partial struct EntityCommandBuffer
     {
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
 
         [BurstDiscard]
         private static void CheckDelegate(ref bool useDelegate)
@@ -52,7 +52,7 @@ namespace Unity.Entities
         [NotBurstCompatible]
         internal static void Initialize()
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (Managed._initialized)
                 return;
             Managed._initialized = true;
@@ -63,7 +63,7 @@ namespace Unity.Entities
 
         private  static void PlaybackChainChunk (EntityDataAccess* mgr, Unity.Collections.LowLevel.Unsafe.UnsafeList* managedReferenceIndexRemovalCount, ref EntityComponentStore.ArchetypeChanges archetypeChanges, ref ECBSharedPlaybackState playbackState, ECBChainPlaybackState* chainStates, int currentChain, int nextChain, bool isFirstPlayback, PlaybackPolicy playbackPolicy)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_PlaybackChainChunk(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges, ref playbackState, chainStates, currentChain, nextChain, isFirstPlayback, playbackPolicy);
@@ -74,7 +74,7 @@ namespace Unity.Entities
             _PlaybackChainChunk(mgr, managedReferenceIndexRemovalCount, ref archetypeChanges, ref playbackState, chainStates, currentChain, nextChain, isFirstPlayback, playbackPolicy);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_PlaybackChainChunk))]
         private static void _mono_to_burst_PlaybackChainChunk(IntPtr mgr, IntPtr managedReferenceIndexRemovalCount, ref EntityComponentStore.ArchetypeChanges archetypeChanges, ref ECBSharedPlaybackState playbackState, IntPtr chainStates, int currentChain, int nextChain, bool isFirstPlayback, PlaybackPolicy playbackPolicy)

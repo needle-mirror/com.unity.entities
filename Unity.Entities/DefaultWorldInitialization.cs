@@ -92,10 +92,7 @@ namespace Unity.Entities
             PlayerLoop.SetPlayerLoop(playerLoop);
 
             World.DisposeAllWorlds();
-
-            WordStorage.Instance.Dispose();
-            WordStorage.Instance = null;
-
+            
             s_UnloadOrPlayModeChangeShutdownRegistered = false;
 
             DefaultWorldDestroyed?.Invoke();
@@ -224,7 +221,7 @@ namespace Unity.Entities
             // Add unmanaged systems
             foreach (var type in unmanagedTypes)
             {
-                SystemHandleUntyped sysHandle = world.CreateUnmanagedSystem(type);
+                SystemHandleUntyped sysHandle = world.Unmanaged.CreateUnmanagedSystem(world, type);
 
                 // Add systems to their groups, based on the [UpdateInGroup] attribute.
 

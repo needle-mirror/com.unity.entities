@@ -60,17 +60,17 @@ namespace Unity.Entities
         // Restore to BuildComponentToEntityMultiHashMap<TComponent> once fix goes in:
         // https://unity3d.atlassian.net/browse/DOTSR-354
         [BurstCompile]
-        struct BuildComponentToEntityMultiHashMap : IJobChunk
+        struct BuildComponentToEntityMultiHashMap : IJobEntityBatch
         {
             [ReadOnly] public ComponentTypeHandle<EntityGuid> ComponentTypeHandle;
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
             [WriteOnly] public NativeMultiHashMap<EntityGuid, Entity>.ParallelWriter ComponentToEntity;
 
-            public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                var components = chunk.GetNativeArray(ComponentTypeHandle);
-                var entities = chunk.GetNativeArray(EntityTypeHandle);
+                var components = batchInChunk.GetNativeArray(ComponentTypeHandle);
+                var entities = batchInChunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
                     ComponentToEntity.Add(components[i], entities[i]);
@@ -81,17 +81,17 @@ namespace Unity.Entities
         // Restore to BuildComponentToEntityMultiHashMap<TComponent> once fix goes in:
         // https://unity3d.atlassian.net/browse/DOTSR-354
         [BurstCompile]
-        struct BuildComponentToEntityHashMap : IJobChunk
+        struct BuildComponentToEntityHashMap : IJobEntityBatch
         {
             [ReadOnly] public ComponentTypeHandle<EntityGuid> ComponentTypeHandle;
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
             [WriteOnly] public NativeHashMap<EntityGuid, Entity>.ParallelWriter ComponentToEntity;
 
-            public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                var components = chunk.GetNativeArray(ComponentTypeHandle);
-                var entities = chunk.GetNativeArray(EntityTypeHandle);
+                var components = batchInChunk.GetNativeArray(ComponentTypeHandle);
+                var entities = batchInChunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
                     ComponentToEntity.TryAdd(components[i], entities[i]);
@@ -102,17 +102,17 @@ namespace Unity.Entities
         // Restore to BuildComponentToEntityMultiHashMap<TComponent> once fix goes in:
         // https://unity3d.atlassian.net/browse/DOTSR-354
         [BurstCompile]
-        struct BuildEntityToComponentHashMap : IJobChunk
+        struct BuildEntityToComponentHashMap : IJobEntityBatch
         {
             [ReadOnly] public ComponentTypeHandle<EntityGuid> EntityGuidComponentTypeHandle;
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
             [WriteOnly] public NativeHashMap<Entity, EntityGuid>.ParallelWriter EntityToEntityGuid;
 
-            public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                var components = chunk.GetNativeArray(EntityGuidComponentTypeHandle);
-                var entities = chunk.GetNativeArray(EntityTypeHandle);
+                var components = batchInChunk.GetNativeArray(EntityGuidComponentTypeHandle);
+                var entities = batchInChunk.GetNativeArray(EntityTypeHandle);
                 for (var i = 0; i != entities.Length; i++)
                 {
                     EntityToEntityGuid.TryAdd(entities[i], components[i]);
@@ -144,14 +144,14 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        struct BuildLinkedEntityGroupHashMap : IJobChunk
+        struct BuildLinkedEntityGroupHashMap : IJobEntityBatch
         {
             [WriteOnly] public NativeHashMap<Entity, Entity>.ParallelWriter EntityToLinkedEntityGroupRoot;
             [ReadOnly] public BufferTypeHandle<LinkedEntityGroup> LinkedEntityGroupTypeHandle;
 
-            public void Execute(ArchetypeChunk chunk, int entityIndex, int chunkIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                var linkedEntityGroups = chunk.GetBufferAccessor(LinkedEntityGroupTypeHandle);
+                var linkedEntityGroups = batchInChunk.GetBufferAccessor(LinkedEntityGroupTypeHandle);
 
                 for (var bufferIndex = 0; bufferIndex != linkedEntityGroups.Length; bufferIndex++)
                 {
@@ -377,14 +377,14 @@ namespace Unity.Entities
                 EntityTypeHandle = entityManager.GetEntityTypeHandle(),
                 ComponentTypeHandle = entityManager.GetComponentTypeHandle<EntityGuid>(true),
                 ComponentToEntity = entityGuidToEntity.AsParallelWriter()
-            }.Schedule(entityQuery);
+            }.ScheduleParallel(entityQuery, 1);
 
             var buildEntityToEntityGuid = new BuildEntityToComponentHashMap
             {
                 EntityTypeHandle = entityManager.GetEntityTypeHandle(),
                 EntityGuidComponentTypeHandle = entityManager.GetComponentTypeHandle<EntityGuid>(true),
                 EntityToEntityGuid = entityToEntityGuid.AsParallelWriter()
-            }.Schedule(entityQuery);
+            }.ScheduleParallel(entityQuery, 1);
 
             JobHandle.CombineDependencies(buildEntityGuidToEntity, buildEntityToEntityGuid).Complete();
             s_BuildEntityLookupsProfilerMarker.End();
@@ -404,13 +404,13 @@ namespace Unity.Entities
                 EntityTypeHandle = entityManager.GetEntityTypeHandle(),
                 ComponentTypeHandle = entityManager.GetComponentTypeHandle<EntityGuid>(true),
                 ComponentToEntity = entityGuidToPrefab.AsParallelWriter()
-            }.Schedule(prefabQuery);
+            }.ScheduleParallel(prefabQuery, 1);
 
             var buildLinkedEntityGroupLookups = new BuildLinkedEntityGroupHashMap
             {
                 EntityToLinkedEntityGroupRoot = entityToLinkedEntityGroupRoot.AsParallelWriter(),
                 LinkedEntityGroupTypeHandle = entityManager.GetBufferTypeHandle<LinkedEntityGroup>(true)
-            }.Schedule(linkedEntityGroupQuery);
+            }.ScheduleParallel(linkedEntityGroupQuery, 1);
 
             JobHandle.CombineDependencies(buildPrefabLookups, buildLinkedEntityGroupLookups).Complete();
             s_BuildPrefabAndLinkedEntityGroupLookupsProfilerMarker.End();
@@ -510,6 +510,7 @@ namespace Unity.Entities
             NativeMultiHashMap<EntityGuid, Entity> entityGuidToEntity)
         {
             s_ApplyDestroyEntitiesProfilerMarker.Begin();
+            var linkedEntityGroupType = ComponentType.ReadOnly<LinkedEntityGroup>();
             var s = entityManager.GetCheckedEntityDataAccess();
             for (var i = changeSet.Entities.Length - changeSet.DestroyedEntityCount; i < changeSet.Entities.Length; i++)
             {
@@ -524,13 +525,17 @@ namespace Unity.Entities
                     // @NOTE We do NOT remove from the `entityToEntityGuid` here since the LinkedEntityGroup removal will need it to map back groups.
                     entityGuidToEntity.Remove(changeSet.Entities[i], entity);
 
+                    // It's possible that this entity has already been deleted. This can happen in two different scenarios:
+                    //  - the change set is inconsistent with the state of the world. That means that the world has diverged.
+                    //  - the entity was part of a LinkedEntityGroup that has already been destroyed earlier while applying this patch
                     if (s->Exists(entity))
                     {
+                        // We need to remove the linked entity group component before destroying the entity, because
+                        // otherwise we cannot handle the case when an entity has its linked entity group modified and
+                        // is then destroyed: The Differ won't pick up the changes to the linked entity group, which
+                        // means that the patcher operates on a stale linked entity group and deletes too many entities.
+                        s->RemoveComponent(entity, linkedEntityGroupType);
                         s->DestroyEntity(entity);
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"DestroyEntity({entity}) but it does not exist.");
                     }
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
@@ -621,7 +626,7 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        Debug.LogWarning($"RemoveComponent({packedEntityGuids[packedComponent.PackedEntityIndex]}, {component}) but the component already exists.");
+                        Debug.LogWarning($"RemoveComponent({packedEntityGuids[packedComponent.PackedEntityIndex]}, {component}) but the component was already removed.");
                     }
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
@@ -791,7 +796,7 @@ namespace Unity.Entities
                                 }
                                 else if (componentTypeInArchetype.IsBuffer)
                                 {
-                                    var typeInfo = TypeManager.GetTypeInfo(componentTypeInArchetype.TypeIndex);
+                                    ref readonly var typeInfo = ref TypeManager.GetTypeInfo(componentTypeInArchetype.TypeIndex);
                                     var elementSize = typeInfo.ElementSize;
                                     var lengthInElements = size / elementSize;
                                     var header = (BufferHeader*)EntityManager.GetComponentDataRawRW(entity, component.TypeIndex);
@@ -884,7 +889,7 @@ namespace Unity.Entities
             public ulong Target;
         }
 
-        internal struct EntityComponentPair : IEquatable<EntityComponentPair>
+        internal struct EntityComponentPair : IEquatable<EntityComponentPair>, IComparable<EntityComponentPair>
         {
             public Entity Entity;
             public ComponentType Component;
@@ -892,6 +897,14 @@ namespace Unity.Entities
             public bool Equals(EntityComponentPair other)
             {
                 return Entity == other.Entity && Component == other.Component;
+            }
+
+            public int CompareTo(EntityComponentPair other)
+            {
+                var result = Entity.CompareTo(other.Entity);
+                if (result != 0) return result;
+                result = Component.TypeIndex.CompareTo(other.Component.TypeIndex);
+                return result;
             }
         }
 
@@ -1017,8 +1030,12 @@ namespace Unity.Entities
             // Apply all managed entity patches
             using (var keys = managedObjectEntityReferencePatches.GetKeyArray(Allocator.Temp))
             {
-                foreach (var pair in keys)
+                keys.Sort();
+                var uniqueCount = keys.Unique();
+
+                for (var i = 0; i < uniqueCount; i++)
                 {
+                    var pair = keys[i];
                     var patches = managedObjectEntityReferencePatches.GetValuesForKey(pair);
 
                     if (pair.Component.IsManagedComponent)
@@ -1217,11 +1234,6 @@ namespace Unity.Entities
                                         ChildEntity = childEntity,
                                         ChildEntityGuid = linkedEntityGroupRemoval.ChildEntityGuid,
                                     });
-
-                                    if (s->Exists(childEntity))
-                                    {
-                                        s->DestroyEntity(childEntity);
-                                    }
                                     break;
                                 }
                             }
@@ -1235,20 +1247,7 @@ namespace Unity.Entities
 
                 for (var i = 0; i < removals.Length; ++i)
                 {
-                    var removal = removals[i];
-
-                    for (var packedEntityGuidIndex = 0; packedEntityGuidIndex < packedEntityGuids.Length; ++packedEntityGuidIndex)
-                    {
-                        if (packedEntityGuids[packedEntityGuidIndex].Equals(removal.ChildEntityGuid))
-                        {
-                            packedEntities.Remove(packedEntityGuidIndex, removal.ChildEntity);
-                            break;
-                        }
-                    }
-
-                    entityToEntityGuid.Remove(removal.ChildEntity);
-                    entityGuidToEntity.Remove(removal.ChildEntityGuid, removal.ChildEntity);
-                    entityToLinkedEntityGroupRoot.Remove(removal.ChildEntity);
+                    entityToLinkedEntityGroupRoot.Remove(removals[i].ChildEntity);
                 }
             }
             s_ApplyLinkedEntityGroupRemovalsProfilerMarker.End();

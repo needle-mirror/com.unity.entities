@@ -14,11 +14,11 @@ namespace Unity.Entities.Tests
             var g1 = new EntityGuid(-1, 0xF0, 0x89ABCDEF);
 
             Assert.That(g0.OriginatingId, Is.EqualTo(1));
-            Assert.That(g0.NamespaceId, Is.EqualTo(2));
+            Assert.That(g0.FullNamespaceId, Is.EqualTo(2));
             Assert.That(g0.Serial, Is.EqualTo((uint)3));
 
             Assert.That(g1.OriginatingId, Is.EqualTo(-1));
-            Assert.That(g1.NamespaceId, Is.EqualTo(0xF0));
+            Assert.That(g1.FullNamespaceId, Is.EqualTo(0xF0));
             Assert.That(g1.Serial, Is.EqualTo(0x89ABCDEF));
         }
 
@@ -28,8 +28,8 @@ namespace Unity.Entities.Tests
             var g0 = new EntityGuid(1, 2, 3);
             var g1 = new EntityGuid(-1, 0xF0, 0x89ABCDEF);
 
-            Assert.That(g0.ToString(), Is.EqualTo("1:02:00000003"));
-            Assert.That(g1.ToString(), Is.EqualTo("-1:f0:89abcdef"));
+            Assert.That(g0.ToString(), Is.EqualTo("1:00000002:00000003"));
+            Assert.That(g1.ToString(), Is.EqualTo("-1:000000f0:89abcdef"));
         }
 
 #if !NET_DOTS

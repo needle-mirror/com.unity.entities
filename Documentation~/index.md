@@ -3,28 +3,27 @@ uid: ecs-overview
 ---
 
 <div id="slides">
-    <style type="text/css" scoped>
-        .infographic {
-            background-color: #020202;
-        }
-        .slide-indicator {
-            position:absolute;
-            opacity: 0.0;
-            transition: opacity .5s ease;
-        }
-        .slide-indicator:hover {
-            opacity: 1.0;
-        }
+    <style type="text/css" scoped="">
+        .infographic {background-color: #020202;}
+        a {text-decoration: none; display: inline-block; padding: 8px 16px;}
+        a:hover {background-color: #ddd; color: black;}
+        .previous {background-color: #4CAF50; color: black;}
+        .next {background-color: #4CAF50; color: black;}
+        .round {border-radius: 50%;}
+        .slideshow {display: flex; align-items: center;}
     </style>
-    
-    <img class="slide-indicator" src="images/SlideArrows.png">
-    <img class="infographic" src="images/WhatIsECSinfographic0000.png">
-    <img class="infographic" src="images/WhatIsECSinfographic0001.png">
-    <img class="infographic" src="images/WhatIsECSinfographic0002.png">
-    <img class="infographic" src="images/WhatIsECSinfographic0003.png">
-    <img class="infographic" src="images/WhatIsECSinfographic0004.png"> 
-    <script  type="text/javascript" src="images/infographic.js"> </script>
+    <div class="slideshow">
+        <a href="#" id="previous" class="previous round">&#8249;</a>
+        <img class="infographic" src="images/WhatIsECSinfographic0000.png">
+        <img class="infographic" src="images/WhatIsECSinfographic0001.png">
+        <img class="infographic" src="images/WhatIsECSinfographic0002.png">
+        <img class="infographic" src="images/WhatIsECSinfographic0003.png">
+        <img class="infographic" src="images/WhatIsECSinfographic0004.png">
+        <a href="#" id="next" class="next round">&#8250;</a> 
+    </div>
+    <script type="text/javascript" src="images/infographic.js"> </script>
 </div>
+
 
 # Entity Component System
 

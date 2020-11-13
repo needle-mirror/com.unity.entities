@@ -143,7 +143,7 @@ namespace Unity.Entities.CodeGen
             {
                 typeof(int), typeof(TypeCategory), typeof(int), typeof(int),
                 typeof(ulong), typeof(ulong), typeof(int), typeof(int), typeof(int),
-                typeof(int), typeof(int), typeof(int), typeof(int),
+                typeof(int), typeof(int), typeof(int), typeof(int), typeof(bool),
                 typeof(int), typeof(int), typeof(int), typeof(int)
             }));
 
@@ -335,25 +335,20 @@ namespace Unity.Entities.CodeGen
             // Store TypeRegistry.TypeInfos[]
             il.Emit(OpCodes.Ldloc_0);
             var typeInfoCount = typeGenInfoList.Count;
-            if (IsMono)
+            var typeInfosFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeInfosPtr", BindingFlags.Public | BindingFlags.Instance));
+            var typeInfoBlob = GenerateTypeInfoBlobArray(typeGenInfoList);
+            if (typeInfoBlob.Length > 0)
             {
-                var typeInfosFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeInfos", BindingFlags.Public | BindingFlags.Instance));
-                GenerateTypeInfoArray(il, typeGenInfoList, typeInfosFieldDef, false);
+                var constantTypeInfoFieldDef = GenerateConstantData(GeneratedRegistryDef, typeInfoBlob);
+                il.Emit(OpCodes.Ldsflda, constantTypeInfoFieldDef);
+                Assert.AreEqual(typeInfoCount, typeInfoBlob.Length / sizeof(TypeManager.TypeInfo));
             }
             else
             {
-                var typeInfosFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeInfosPtr", BindingFlags.Public | BindingFlags.Instance));
-                var typeInfoBlob = GenerateTypeInfoBlobArray(typeGenInfoList);
-                if (typeInfoBlob.Length > 0)
-                {
-                    var constantTypeInfoFieldDef = GenerateConstantData(GeneratedRegistryDef, typeInfoBlob);
-                    il.Emit(OpCodes.Ldsflda, constantTypeInfoFieldDef);
-                    Assert.AreEqual(typeInfoCount, typeInfoBlob.Length / sizeof(TypeManager.TypeInfo));
-                }
-                else
-                    il.Emit(OpCodes.Ldnull);
-                il.Emit(OpCodes.Stfld, typeInfosFieldDef);
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Conv_U);
             }
+            il.Emit(OpCodes.Stfld, typeInfosFieldDef);
 
             // Store TypeRegistry.TypeInfosCount
             il.Emit(OpCodes.Ldloc_0);
@@ -375,25 +370,21 @@ namespace Unity.Entities.CodeGen
             // Store TypeRegistry.EntityOffsets
             il.Emit(OpCodes.Ldloc_0);
             int entityOffsetCount = typeGenInfoList.Sum(ti => ti.EntityOffsets.Count);
-            if (IsMono)
+            var entityOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("EntityOffsetsPtr", BindingFlags.Public | BindingFlags.Instance));
+            var entityOffsetDataBlob = typeGenInfoList.SelectMany(tgi => tgi.EntityOffsets).SelectMany(offset => BitConverter.GetBytes(offset)).ToArray();
+            if (entityOffsetDataBlob.Length > 0)
             {
-                var entityOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("EntityOffsets", BindingFlags.Public | BindingFlags.Instance));
-                GenerateEntityOffsetInfoArray(il, typeGenInfoList, entityOffsetsFieldDef, false);
+                Assert.AreEqual(entityOffsetCount, entityOffsetDataBlob.Length / sizeof(int));
+
+                var constantEntityOffsetsFieldDef = GenerateConstantData(GeneratedRegistryDef, entityOffsetDataBlob);
+                il.Emit(OpCodes.Ldsflda, constantEntityOffsetsFieldDef);
             }
             else
             {
-                var entityOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("EntityOffsetsPtr", BindingFlags.Public | BindingFlags.Instance));
-                var entityOffsetDataBlob = typeGenInfoList.SelectMany(tgi => tgi.EntityOffsets).SelectMany(offset => BitConverter.GetBytes(offset)).ToArray();
-                if (entityOffsetDataBlob.Length > 0)
-                {
-                    var constantEntityOffsetsFieldDef = GenerateConstantData(GeneratedRegistryDef, entityOffsetDataBlob);
-                    il.Emit(OpCodes.Ldsflda, constantEntityOffsetsFieldDef);
-                    Assert.AreEqual(entityOffsetCount, entityOffsetDataBlob.Length / sizeof(int));
-                }
-                else
-                    il.Emit(OpCodes.Ldnull);
-                il.Emit(OpCodes.Stfld, entityOffsetsFieldDef);
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Conv_U);
             }
+            il.Emit(OpCodes.Stfld, entityOffsetsFieldDef);
 
             // Store TypeRegistry.EntityOffsetsCount
             il.Emit(OpCodes.Ldloc_0);
@@ -404,25 +395,21 @@ namespace Unity.Entities.CodeGen
             // Store TypeRegistry.BlobAssetReferenceOffsets
             il.Emit(OpCodes.Ldloc_0);
             int blobAssetReferenceOffsetsCount = typeGenInfoList.Sum(ti => ti.BlobAssetRefOffsets.Count);
-            if (IsMono)
+            var blobOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("BlobAssetReferenceOffsetsPtr", BindingFlags.Public | BindingFlags.Instance));
+            var blobOffsetsDataBlob = typeGenInfoList.SelectMany(tgi => tgi.BlobAssetRefOffsets).SelectMany(offset => BitConverter.GetBytes(offset)).ToArray();
+            if (blobOffsetsDataBlob.Length > 0)
             {
-                var blobOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("BlobAssetReferenceOffsets", BindingFlags.Public | BindingFlags.Instance));
-                GenerateBlobAssetReferenceArray(il, typeGenInfoList, blobOffsetsFieldDef, false);
+                Assert.AreEqual(blobAssetReferenceOffsetsCount, blobOffsetsDataBlob.Length / sizeof(int));
+
+                var constantblobOffsetsFieldDef = GenerateConstantData(GeneratedRegistryDef, blobOffsetsDataBlob);
+                il.Emit(OpCodes.Ldsflda, constantblobOffsetsFieldDef);
             }
             else
             {
-                var blobOffsetsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("BlobAssetReferenceOffsetsPtr", BindingFlags.Public | BindingFlags.Instance));
-                var blobOffsetsDataBlob = typeGenInfoList.SelectMany(tgi => tgi.BlobAssetRefOffsets).SelectMany(offset => BitConverter.GetBytes(offset)).ToArray();
-                if (blobOffsetsDataBlob.Length > 0)
-                {
-                    var constantblobOffsetsFieldDef = GenerateConstantData(GeneratedRegistryDef, blobOffsetsDataBlob);
-                    il.Emit(OpCodes.Ldsflda, constantblobOffsetsFieldDef);
-                    Assert.AreEqual(entityOffsetCount, blobOffsetsDataBlob.Length / sizeof(int));
-                }
-                else
-                    il.Emit(OpCodes.Ldnull);
-                il.Emit(OpCodes.Stfld, blobOffsetsFieldDef);
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Conv_U);
             }
+            il.Emit(OpCodes.Stfld, blobOffsetsFieldDef);
 
             // Store TypeRegistry.BlobAssetReferenceOffsetsCount
             il.Emit(OpCodes.Ldloc_0);

@@ -10,7 +10,8 @@ The following example  uses one [Job.WithCode] lambda function to fill a [native
 
 [!code-cs[job-with-code-example](../DocCodeSamples.Tests/LambdaJobExamples.cs#job-with-code-example)]
 
-**Note:** To run a parallel job, implement [IJobFor], which you can schedule using [ScheduleParallel()] in the system [OnUpdate()] function.
+> [!NOTE]
+> To run a parallel job, implement [IJobFor], which you can schedule using [ScheduleParallel()] in the system [OnUpdate()] function.
 
 ## Variables
 

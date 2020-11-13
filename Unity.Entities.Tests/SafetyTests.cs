@@ -171,19 +171,11 @@ namespace Unity.Entities.Tests
             Assert.Throws<System.ArgumentException>(() => m_Manager.CreateEntity(null, typeof(EcsTestData)));
         }
 
-// We want these types registered with in DOTS Runtime by default
-#if !UNITY_DOTSRUNTIME
-        [DisableAutoTypeRegistration]
-#endif
         unsafe struct BigComponentData1 : IComponentData
         {
             public fixed int BigArray[10000];
         }
 
-// We want these types registered with in DOTS Runtime by default
-#if !UNITY_DOTSRUNTIME
-        [DisableAutoTypeRegistration]
-#endif
         unsafe struct BigComponentData2 : IComponentData
         {
             public fixed float BigArray[10000];
@@ -192,11 +184,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void CreateTooBigArchetypeThrows()
         {
-// TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
-#if !UNITY_DOTSRUNTIME
-            TypeManager.AddNewComponentTypes(new []{typeof(BigComponentData1), typeof(BigComponentData2)});
-#endif
-
             Assert.Throws<System.ArgumentException>(() =>
             {
                 m_Manager.CreateArchetype(typeof(BigComponentData1), typeof(BigComponentData2));

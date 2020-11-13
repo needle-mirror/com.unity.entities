@@ -80,41 +80,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(system.Created);
         }
 
-        class StackedTestSystem1 : TestSystem
-        {
-            public Type FoundTypeBefore;
-            public Type FoundTypeAfter;
-            public TestSystem System2;
-            protected override void OnUpdate()
-            {
-                FoundTypeBefore = ExecutingSystemType;
-                System2.Update();
-                FoundTypeAfter = ExecutingSystemType;
-            }
-        }
-
-        class StackedTestSystem2 : TestSystem
-        {
-            public Type FoundTypeDuring;
-            protected override void OnUpdate()
-            {
-                FoundTypeDuring = ExecutingSystemType;
-            }
-        }
-
-        [Test]
-        public void ComponentSystem_ExecutingSystemType()
-        {
-            var system1 = World.CreateSystem<StackedTestSystem1>();
-            var system2 = World.CreateSystem<StackedTestSystem2>();
-            system1.System2 = system2;
-            system1.Update();
-            Assert.AreEqual(typeof(StackedTestSystem1), system1.FoundTypeBefore);
-            Assert.AreEqual(typeof(StackedTestSystem2), system2.FoundTypeDuring);
-            Assert.AreEqual(typeof(StackedTestSystem1), system1.FoundTypeAfter);
-        }
-
-
 #if !UNITY_PORTABLE_TEST_RUNNER
         // TODO: IL2CPP_TEST_RUNNER can't handle Assert.That Throws
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -177,10 +142,6 @@ namespace Unity.Entities.Tests
         public void CreateNonSystemThrows()
         {
             Assert.Throws<ArgumentException>(() => { World.CreateSystem(typeof(Entity)); });
-
-            #pragma warning disable 618
-            Assert.Throws<ArgumentException>(() => { World.CreateSystem(typeof(Entity), 5); });
-            #pragma warning restore 618
         }
 
 #endif
@@ -437,37 +398,6 @@ namespace Unity.Entities.Tests
             public PreservedTestSystem(string inputParam) { m_Test = inputParam; }
             protected override void OnUpdate() {}
         }
-
-
-#pragma warning disable 618
-        [Test]
-        public void CreateSystemInvalidParameters()
-        {
-            //Non-preserved but valid parameter
-            Assert.That(() =>
-            { World.CreateSystem<NonPreservedTestSystem>("test"); },
-                Throws.Exception.With.Message.Contains(
-                    "failed because CreateSystem parameters did not match its constructor."));
-
-            //Preserved but invalid parameter
-            Assert.That(() =>
-            { World.CreateSystem<PreservedTestSystem>(10); },
-                Throws.Exception.With.Message.Contains(
-                    "failed because CreateSystem parameters did not match its constructor."));
-        }
-
-        [Test]
-        public void CreateSystemValidParameters()
-        {
-            Assert.DoesNotThrow(() =>
-            {
-                var system = World.CreateSystem<PreservedTestSystem>("test");
-                World.DestroySystem(system);
-            });
-        }
-
-#pragma warning restore 618
-
 #endif
     }
 }

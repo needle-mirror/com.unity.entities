@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Unity.Collections;
@@ -13,6 +12,7 @@ using Unity.Profiling;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Assertions;
+using UnityEngine.Profiling;
 using UnityEngine.SceneManagement;
 using ConversionFlags = Unity.Entities.GameObjectConversionUtility.ConversionFlags;
 using UnityLogType = UnityEngine.LogType;
@@ -41,6 +41,8 @@ namespace Unity.Entities.Conversion
         static List<UnityComponent>             s_ComponentsCache = new List<UnityComponent>();
 
         internal GameObjectConversionSettings   Settings { get; private set; }
+        private IncrementalConversionContext    m_LiveConversionContext;
+        private IncrementalConversionData       m_IncrementalConversionData;
         readonly EntityManager                  m_DstManager;
         readonly JournalingUnityLogger          m_JournalingUnityLogger;
 
@@ -48,9 +50,7 @@ namespace Unity.Entities.Conversion
         int                                     m_BeginConvertingRefCount;
 
         ConversionJournalData                   m_JournalData;
-
-        ConversionDependencies                  m_Dependencies;
-        internal ConversionDependencies         Dependencies => m_Dependencies;
+        internal ref ConversionDependencies      Dependencies => ref m_LiveConversionContext.Dependencies;
 
         EntityArchetype[]                       m_Archetypes;
 
@@ -78,17 +78,86 @@ namespace Unity.Entities.Conversion
         public EntityManager   DstEntityManager => Settings.DestinationWorld.EntityManager;
         public ConversionState ConversionState  => m_ConversionState;
 
+        struct CachedCollections
+        {
+            public List<GameObject> OldGameObjects;
+            public List<GameObject> NewGameObjects;
+            public List<UnityEngine.Object> TmpObjects;
+            public Stack<Transform> Transforms;
+            public HashSet<GameObject> GameObjectsWithEntities;
+
+            public void Init()
+            {
+                if (OldGameObjects != null)
+                {
+                    OldGameObjects.Clear();
+                    NewGameObjects.Clear();
+                    TmpObjects.Clear();
+                    Transforms.Clear();
+                    GameObjectsWithEntities.Clear();
+                }
+                else
+                {
+                    OldGameObjects = new List<GameObject>();
+                    NewGameObjects = new List<GameObject>();
+                    TmpObjects = new List<UnityEngine.Object>();
+                    Transforms = new Stack<Transform>();
+                    GameObjectsWithEntities = new HashSet<GameObject>();
+                }
+            }
+        }
+
+        private CachedCollections _cachedCollections;
+
         public GameObjectConversionMappingSystem(GameObjectConversionSettings settings)
         {
             Settings = settings;
             m_DstManager = Settings.DestinationWorld.EntityManager;
             m_JournalingUnityLogger = new JournalingUnityLogger(this);
-            m_Dependencies = new ConversionDependencies(IsLiveLink);
             m_JournalData.Init();
+            m_IncrementalConversionData = IncrementalConversionData.Create();
+            _cachedCollections = default;
+            _cachedCollections.Init();
+#if !UNITY_2020_2_OR_NEWER
+            _instanceIdToGameObject = new Dictionary<int, GameObject>();
+#endif
+            m_LiveConversionContext = new IncrementalConversionContext(IsLiveLink);
 
             InitArchetypes();
         }
 
+#if !UNITY_2020_2_OR_NEWER
+        // There is no API in 2020.1 to map instance IDs to game objects, but the conversion code relies on it. This is
+        // working around that.
+        private readonly Dictionary<int, GameObject> _instanceIdToGameObject;
+        internal void RegisterForInstanceIdMapping(GameObject go)
+        {
+            if (go != null && !_instanceIdToGameObject.TryGetValue(go.GetInstanceID(), out _))
+                _instanceIdToGameObject.Add(go.GetInstanceID(), go);
+        }
+
+        void ResolveInstanceIDs(NativeHashSet<int> instanceIDs, HashSet<GameObject> outGameObjects)
+        {
+            // TODO: cannot use foreach here because it is broken for NativeHashSet.
+            var instances = instanceIDs.ToNativeArray(Allocator.Temp);
+            for (int i = 0; i < instances.Length; i++)
+            {
+                if (_instanceIdToGameObject.TryGetValue(instances[i], out var obj))
+                    outGameObjects.Add(obj);
+            }
+        }
+#endif
+
+        public void PrepareForLiveLink(Scene scene)
+        {
+            var gameObjects = scene.GetRootGameObjects();
+            using (new ProfilerMarker("Build Incremental Hierarchy").Auto())
+            {
+                m_LiveConversionContext.InitializeHierarchy(scene, gameObjects);
+            }
+        }
+
+        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
         public GameObjectConversionSettings ForkSettings(byte entityGuidNamespaceID)
             => Settings.Fork(entityGuidNamespaceID);
 
@@ -103,7 +172,8 @@ namespace Unity.Entities.Conversion
             if (m_EntityIdsChached.IsCreated)
                 m_EntityIdsChached.Dispose();
             m_JournalData.Dispose();
-            m_Dependencies.Dispose();
+            m_LiveConversionContext.Dispose();
+            m_IncrementalConversionData.Dispose();
         }
 
         void CleanupConversion()
@@ -160,25 +230,39 @@ namespace Unity.Entities.Conversion
                 CleanupConversion();
         }
 
-        #if DETAIL_MARKERS
-        ProfilerMarker m_CreateEntity = new ProfilerMarker("GameObjectConversion.CreateEntity");
-        ProfilerMarker m_CreatePrimaryEntities = new ProfilerMarker("GameObjectConversion.CreatePrimaryEntities");
-        ProfilerMarker m_CreateAdditional = new ProfilerMarker("GameObjectConversionCreateAdditionalEntity");
-        #endif
+#if DETAIL_MARKERS
+        static ProfilerMarker m_CreateEntity = new ProfilerMarker("GameObjectConversion.CreateEntity");
+        static ProfilerMarker m_CreatePrimaryEntities = new ProfilerMarker("GameObjectConversion.CreatePrimaryEntities");
+        static ProfilerMarker m_CreateAdditional = new ProfilerMarker("GameObjectConversionCreateAdditionalEntity");
+#if UNITY_2020_2_OR_NEWER
+        static readonly ProfilerMarker IncrementalClearEntities = new ProfilerMarker("IncrementalClearEntities");
+        static readonly ProfilerMarker IncrementalCreateEntitiesOld = new ProfilerMarker("IncrementalCreateEntitiesOld");
+        static readonly ProfilerMarker IncrementalCreateEntitiesNew = new ProfilerMarker("IncrementalCreateEntitiesNew");
+        static readonly ProfilerMarker IncrementalDeleteEntities = new ProfilerMarker("IncrementalDeleteEntities");
+        static readonly ProfilerMarker IncrementalCollectDependencies = new ProfilerMarker("IncrementalCollectDependencies");
+#endif
+#endif
 
-        EntityArchetype GetCleanIncrementalArchetype(Entity entity)
+        int ComputeArchetypeFlags(UnityObject uobject)
         {
             int flags = 0;
-            if (m_DstManager.HasComponent<EntityGuid>(entity))
+            if (AddEntityGUID)
                 flags |= k_EntityGUIDMask;
-            if (m_DstManager.HasComponent<Static>(entity))
-                flags |= k_StaticMask;
-            if (m_DstManager.HasComponent<Disabled>(entity))
-                flags |= k_DisabledMask;
-            if (m_DstManager.HasComponent<SceneSection>(entity))
-                flags |= k_SceneSectionMask;
 
-            return m_Archetypes[flags];
+            var go = uobject as GameObject;
+            if (go != null)
+            {
+                if (ForceStaticOptimization || go.GetComponentInParent<StaticOptimizeEntity>(true) != null)
+                    flags |= k_StaticMask;
+                if (!go.IsActiveIgnorePrefab())
+                    flags |= k_DisabledMask;
+            }
+            else if (uobject is UnityComponent)
+                throw new ArgumentException("Object must be a GameObject, Prefab, or Asset", nameof(uobject));
+
+            if (Settings.SceneGUID != default)
+                flags |= k_SceneSectionMask;
+            return flags;
         }
 
         Entity CreateDstEntity(UnityObject uobject, int serial)
@@ -203,42 +287,30 @@ namespace Unity.Entities.Conversion
             using (m_CreateEntity.Auto())
             #endif
             {
-                int flags = 0;
-                if (AddEntityGUID)
-                    flags |= k_EntityGUIDMask;
-
-                var go = uobject as GameObject;
-                if (go != null)
-                {
-                    if (ForceStaticOptimization || go.GetComponentInParentIncludeInactive<StaticOptimizeEntity>() != null)
-                        flags |= k_StaticMask;
-                    if (!go.IsActiveIgnorePrefab())
-                        flags |= k_DisabledMask;
-                }
-                else if (uobject is UnityComponent)
-                    throw new ArgumentException("Object must be a GameObject, Prefab, or Asset", nameof(uobject));
-
+                int flags = ComputeArchetypeFlags(uobject);
                 m_DstManager.CreateEntity(m_Archetypes[flags], outEntities);
                 if ((flags & k_EntityGUIDMask) != 0)
                 {
+#pragma warning disable 0618
+                    uint namespaceId = Settings.NamespaceID ^ (uint)m_LiveConversionContext.Scene.handle;
                     for (int i = 0; i < outEntities.Length; i++)
-                        m_DstManager.SetComponentData(outEntities[i], uobject.ComputeEntityGuid(Settings.NamespaceID, serial + i));
+                        m_DstManager.SetComponentData(outEntities[i], uobject.ComputeEntityGuid(namespaceId, serial + i));
+#pragma warning restore 0618
                 }
 
                 if (Settings.SceneGUID != default)
                 {
                     int sectionIndex = 0;
+                    var go = uobject as GameObject;
                     if (go != null)
                     {
-                        var section = go.GetComponentInParentIncludeInactive<SceneSectionComponent>();
+                        var section = go.GetComponentInParent<SceneSectionComponent>(true);
                         if (section != null)
                         {
                             sectionIndex = section.SectionIndex;
                         }
                     }
 
-                    //@TODO: add an `else` that figures out what referenced this thing, because this is a dependency.
-                    // probably easiest to determine after everything has been converted by simply analyzing entity references. -joe
                     for (int i = 0; i < outEntities.Length; i++)
                     {
                         m_DstManager.AddSharedComponentData(outEntities[i], new SceneSection { SceneGUID = Settings.SceneGUID, Section = sectionIndex });
@@ -269,6 +341,24 @@ namespace Unity.Entities.Conversion
             var entity = CreateDstEntity(uobject, 0);
             m_JournalData.RecordPrimaryEntity(uobject.GetInstanceID(), entity);
             return entity;
+        }
+
+        void CreatePrimaryEntitiesRecurse(GameObject go)
+        {
+            var stack = _cachedCollections.Transforms;
+            stack.Clear();
+            stack.Push(go.transform);
+            while (stack.Count > 0)
+            {
+                var top = stack.Pop();
+                // Check that we do not already have an entity. Might be the case when both a parent and a child are
+                // separately added to the conversion.
+                if (!m_JournalData.TryGetPrimaryEntity(top.gameObject.GetInstanceID(), out _))
+                    CreatePrimaryEntity(top.gameObject);
+
+                for (int i = 0, n = top.childCount; i < n; i++)
+                    stack.Push(top.GetChild(i));
+            }
         }
 
         public void CreatePrimaryEntities()
@@ -382,6 +472,19 @@ namespace Unity.Entities.Conversion
             return true;
         }
 
+        public bool IsBuildingForEditor
+        {
+            get
+            {
+                return (Settings.ConversionFlags & ConversionFlags.IsBuildingForPlayer) == 0;
+            }
+        }
+
+        public UnityEditor.GUID BuildConfigurationGUID
+        {
+            get { return Settings.BuildConfigurationGUID; }
+        }
+
 #endif // UNITY_EDITOR
 
         public Entity TryGetPrimaryEntity(UnityObject uobject)
@@ -430,6 +533,12 @@ namespace Unity.Entities.Conversion
             return entity;
         }
 
+        Entity GetPrimaryEntity(int instanceId)
+        {
+            m_JournalData.TryGetPrimaryEntity(instanceId, out var entity);
+            return entity;
+        }
+
         public Entity CreateAdditionalEntity(UnityObject uobject)
         {
             #if DETAIL_MARKERS
@@ -474,7 +583,8 @@ namespace Unity.Entities.Conversion
             }
         }
 
-        public void PrepareIncrementalConversion(IEnumerable<GameObject> gameObjects, ConversionFlags flags)
+#if !UNITY_2020_2_OR_NEWER
+        public void PrepareIncrementalConversion(IEnumerable<GameObject> gameObjects, NativeList<int> assetChanges, ConversionFlags flags)
         {
             if (Settings.ConversionFlags != flags)
                 throw new ArgumentException("Conversion flags don't match");
@@ -487,18 +597,24 @@ namespace Unity.Entities.Conversion
 
             m_DstLinkedEntityGroups.Clear();
 
-            HashSet<GameObject> dependents;
+            HashSet<GameObject> dependents = new HashSet<GameObject>();
             using (new ProfilerMarker("CalculateDependencies").Auto())
             {
-                dependents = m_Dependencies.CalculateDependents(gameObjects);
-                if (dependents == null)
-                    throw new InvalidOperationException("Missing dependencies");
+                var dependentInstances = new NativeHashSet<int>(0, Allocator.Temp);
+                var gosToConvert = gameObjects.ToList();
+                var toConvert = new NativeArray<int>(gosToConvert.Count, Allocator.Temp);
+                for (int i = 0; i < gosToConvert.Count; i++)
+                    toConvert[i] = gosToConvert[i].GetInstanceID();
+                Dependencies.CalculateDependents(toConvert, dependentInstances);
+                if (assetChanges.IsCreated)
+                    Dependencies.CalculateAssetDependents(assetChanges, dependentInstances);
+                ResolveInstanceIDs(dependentInstances, dependents);
             }
 
             using (new ProfilerMarker($"ClearIncrementalConversion ({dependents.Count} GameObjects)").Auto())
             {
                 foreach (var go in dependents)
-                    ClearIncrementalConversion(go);
+                    ClearIncrementalConversion(go.GetInstanceID(), go);
             }
 
             using (new ProfilerMarker($"CreateGameObjectEntities ({dependents.Count} GameObjects)").Auto())
@@ -509,34 +625,183 @@ namespace Unity.Entities.Conversion
 
             //Debug.Log($"Incremental processing {EntityManager.UniversalQuery.CalculateEntityCount()}");
         }
-
-        void ClearIncrementalConversion(GameObject gameObject)
+#else
+        public void BeginIncrementalConversionPreparation(ConversionFlags flags, ref IncrementalConversionBatch arguments)
         {
-            var instanceId = gameObject.GetInstanceID();
+            if (Settings.ConversionFlags != flags)
+                throw new ArgumentException("Conversion flags don't match");
 
-            if (!m_JournalData.GetEntities(instanceId, out var entities))
-                throw new ArgumentException($"GameObject {gameObject} has changed but is not known to the incremental conversion.");
+            if (!IsLiveLink)
+                throw new InvalidOperationException(
+                    "Incremental conversion can only be used when the conversion world was specifically created for it");
 
-            entities.MoveNext();
-            var primaryEntity = entities.Current;
-            if (m_DstManager.HasComponent<Prefab>(primaryEntity))
-                throw new ArgumentException("An Entity with a Prefab tag cannot be updated during incremental conversion");
+            if (!EntityManager.UniversalQuery.IsEmptyIgnoreFilter)
+                throw new InvalidOperationException("Conversion world is expected to be empty");
 
-            //@TODO(scobi): implement removal of primary
-            m_DstManager.SetArchetype(primaryEntity, GetCleanIncrementalArchetype(primaryEntity));
+            m_DstLinkedEntityGroups.Clear();
 
-            while (entities.MoveNext())
+            m_IncrementalConversionData.Clear();
+            m_LiveConversionContext.UpdateHierarchy(arguments, ref m_IncrementalConversionData);
+
+            var incrementalSystem = World.GetExistingSystem<IncrementalChangesSystem>();
+            incrementalSystem.SceneHierarchy.Hierarchy = m_LiveConversionContext.Hierarchy.AsReadOnly();
+            incrementalSystem.SceneHierarchy.TransformAccessArray = m_LiveConversionContext.Hierarchy.TransformArray;
+            incrementalSystem.ConvertedEntities = m_JournalData.GetConvertedEntitiesAccessor();
+            incrementalSystem.IncomingChanges = m_IncrementalConversionData.ToChanges();
+        }
+
+        public void FinishIncrementalConversionPreparation()
+        {
+            var incrementalSystem = World.GetExistingSystem<IncrementalChangesSystem>();
+            incrementalSystem.ExtractRequests(m_IncrementalConversionData);
+
+#if DETAIL_MARKERS
+            using (IncrementalDeleteEntities.Auto())
+#endif
             {
-                var entity = entities.Current;
-                if (m_DstManager.HasComponent<LinkedEntityGroup>(entity))
-                    throw new ArgumentException("An Entity with a LinkedEntityGroup cannot be destroyed during incremental conversion");
-                if (m_DstManager.HasComponent<Prefab>(entity))
-                    throw new ArgumentException("An Entity with a Prefab tag cannot be updated during incremental conversion");
-
-                m_DstManager.DestroyEntity(entity);
+                // TODO: Once hybrid components have been refactored, this whole thing can go through Burst
+                var toRemoveLinkedEntityGroup = new NativeList<Entity>(m_IncrementalConversionData.RemovedInstanceIds.Length, Allocator.Temp);
+                var toDestroy = new NativeList<Entity>(m_IncrementalConversionData.RemovedInstanceIds.Length, Allocator.Temp);
+                foreach (var instanceId in m_IncrementalConversionData.RemovedInstanceIds)
+                    DeleteIncrementalConversion(instanceId, toRemoveLinkedEntityGroup, toDestroy);
+                m_DstManager.RemoveComponent<LinkedEntityGroup>(toRemoveLinkedEntityGroup);
+                m_DstManager.DestroyEntity(toDestroy);
             }
 
-            m_JournalData.RemoveForIncremental(gameObject.GetInstanceID(), gameObject);
+            _cachedCollections.Init();
+            List<GameObject> oldGameObjects = _cachedCollections.OldGameObjects;
+            List<GameObject> newGameObjects = _cachedCollections.NewGameObjects;
+            NativeArray<int> dependentInstances;
+#if DETAIL_MARKERS
+            using (IncrementalCollectDependencies.Auto())
+#endif
+            {
+                using (var instancesToConvert =
+                    m_LiveConversionContext.CollectAndClearDependencies(m_IncrementalConversionData))
+                {
+                    dependentInstances = instancesToConvert.ToNativeArray(Allocator.TempJob);
+                }
+            }
+
+            using (dependentInstances)
+            {
+#if DETAIL_MARKERS
+                using (IncrementalClearEntities.Auto())
+#endif
+                {
+                    var objs = _cachedCollections.TmpObjects;
+                    Resources.InstanceIDToObjectList(dependentInstances, objs);
+                    var scene = m_LiveConversionContext.Scene;
+                    for (int i = 0; i < dependentInstances.Length; i++)
+                    {
+                        var go = objs[i] as GameObject;
+                        if (go == null || go.scene != scene)
+                        {
+                            // This case can happen e.g. when a GameObject is reparented to another object but that
+                            // new parent is then deleted later or moved to another scene.
+                            // Alternatively, this might happen for example when using prefabs: Deleting a child that
+                            // has a dependency on the root of the prefab would trigger this as well.
+                            continue;
+                        }
+                        if (ClearIncrementalConversion(dependentInstances[i], go))
+                            oldGameObjects.Add(go);
+                        else
+                            newGameObjects.Add(go);
+                    }
+                }
+            }
+
+            m_IncrementalConversionData.Clear();
+
+#if DETAIL_MARKERS
+            using (IncrementalCreateEntitiesOld.Auto())
+#endif
+            {
+                foreach (var go in oldGameObjects)
+                {
+                    // this check is necessary so enabling/disabling GOs works as expected
+                    if (!go.activeSelf)
+                        DeclareLinkedEntityGroup(go);
+
+                    _cachedCollections.GameObjectsWithEntities.Add(go);
+                    CreateGameObjectEntity(EntityManager, go, s_ComponentsCache);
+                }
+            }
+
+#if DETAIL_MARKERS
+            using (IncrementalCreateEntitiesNew.Auto())
+#endif
+            {
+                foreach (var go in newGameObjects)
+                {
+                    if (_cachedCollections.GameObjectsWithEntities.Contains(go))
+                        continue;
+                    CreatePrimaryEntitiesRecurse(go);
+                    CreateEntitiesForGameObjectsRecurse(go.transform, _cachedCollections.GameObjectsWithEntities);
+                }
+            }
+        }
+#endif
+
+        static void CheckCanConvertIncrementally(EntityManager manager, Entity entity, bool isPrimary)
+        {
+            if (manager.HasComponent<Prefab>(entity))
+                throw new ArgumentException("An Entity with a Prefab tag cannot be destroyed during incremental conversion");
+#if !UNITY_2020_2_OR_NEWER
+            if (!isPrimary && manager.HasComponent<LinkedEntityGroup>(entity))
+                throw new ArgumentException("An Entity with a LinkedEntityGroup component cannot be destroyed during incremental conversion");
+#endif
+        }
+
+        void DeleteIncrementalConversion(int instanceId, NativeList<Entity> toRemoveLinkedEntityGroup, NativeList<Entity> toDestroy)
+        {
+            if (m_JournalData.GetEntities(instanceId, out var entities))
+            {
+                entities.MoveNext();
+                var primaryEntity = entities.Current;
+                CheckCanConvertIncrementally(m_DstManager, primaryEntity, true);
+
+                while (entities.MoveNext())
+                {
+                    var entity = entities.Current;
+                    CheckCanConvertIncrementally(m_DstManager, entity, false);
+                    toDestroy.Add(entity);
+                }
+
+                m_JournalData.RemoveForIncremental(instanceId, null);
+                m_JournalData.RemovePrimaryEntity(instanceId);
+                // If this entity had a linked entity group, we should remove it before destroying it. It could be that
+                // one of the entities in the linked entity group is getting re-converted some other way, i.e. the data
+                // in the linked entity group is stale at this point.
+                toRemoveLinkedEntityGroup.Add(primaryEntity);
+                toDestroy.Add(primaryEntity);
+            }
+        }
+
+        bool ClearIncrementalConversion(int instanceId, GameObject go)
+        {
+            if (m_JournalData.GetEntities(instanceId, out var entities))
+            {
+                entities.MoveNext();
+                var primaryEntity = entities.Current;
+                CheckCanConvertIncrementally(m_DstManager, primaryEntity, true);
+
+                var archetype = m_Archetypes[ComputeArchetypeFlags(go)];
+                m_DstManager.SetArchetype(primaryEntity, archetype);
+
+                while (entities.MoveNext())
+                {
+                    var entity = entities.Current;
+                    CheckCanConvertIncrementally(m_DstManager, entity, false);
+                    m_DstManager.DestroyEntity(entity);
+                }
+
+                m_JournalData.RemoveForIncremental(instanceId, go);
+                return true;
+            }
+
+            m_JournalData.RemoveForIncremental(instanceId, go);
+            return false;
         }
 
         /// <summary>
@@ -741,21 +1006,6 @@ namespace Unity.Entities.Conversion
             }
         }
 
-        public static void CopyComponentDataProxyToEntity(EntityManager entityManager, GameObject gameObject, Entity entity)
-        {
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-            foreach (var proxy in gameObject.GetComponents<ComponentDataProxyBase>())
-            {
-                if (!proxy.enabled)
-                    continue;
-
-                var type = proxy.GetComponentType();
-                entityManager.AddComponent(entity, type);
-                proxy.UpdateComponentData(entityManager, entity);
-            }
-#pragma warning restore 618
-        }
-
         internal static unsafe Entity CreateGameObjectEntity(EntityManager entityManager, GameObject gameObject, List<UnityComponent> componentsCache)
         {
             var componentTypes = stackalloc ComponentType[128];
@@ -769,15 +1019,7 @@ namespace Unity.Entities.Conversion
             for (var i = 0; i != componentsCache.Count; i++)
             {
                 var com = componentsCache[i];
-
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-                var componentDataProxy = com as ComponentDataProxyBase;
-#pragma warning restore 618
-                if (componentDataProxy != null)
-                {
-                    componentDataProxy.UpdateComponentData(entityManager, entity);
-                }
-                else if (com != null)
+                if (com != null)
                 {
                     entityManager.SetComponentObject(entity, componentTypes[i], com);
                 }
@@ -788,12 +1030,15 @@ namespace Unity.Entities.Conversion
 
         void CreateEntitiesForGameObjectsRecurse(Transform transform, HashSet<GameObject> outDiscoveredGameObjects)
         {
-            // If a game object is disabled, we add a linked entity group so that EntityManager.SetEnabled() on the primary entity will result in the whole hierarchy becoming enabled.
-            if (!transform.gameObject.activeSelf)
-                DeclareLinkedEntityGroup(transform.gameObject);
+            var go = transform.gameObject;
+            if (outDiscoveredGameObjects != null && !outDiscoveredGameObjects.Add(go))
+                return;
 
-            CreateGameObjectEntity(EntityManager, transform.gameObject, s_ComponentsCache);
-            outDiscoveredGameObjects?.Add(transform.gameObject);
+            // If a game object is disabled, we add a linked entity group so that EntityManager.SetEnabled() on the primary entity will result in the whole hierarchy becoming enabled.
+            if (!go.activeSelf)
+                DeclareLinkedEntityGroup(go);
+
+            CreateGameObjectEntity(EntityManager, go, s_ComponentsCache);
 
             int childCount = transform.childCount;
             for (int i = 0; i != childCount; i++)
@@ -803,7 +1048,6 @@ namespace Unity.Entities.Conversion
         public void CreateEntitiesForGameObjects(Scene scene)
         {
             var gameObjects = scene.GetRootGameObjects();
-
             foreach (var go in gameObjects)
                 CreateEntitiesForGameObjectsRecurse(go.transform, null);
         }
@@ -825,21 +1069,18 @@ namespace Unity.Entities.Conversion
         #if !UNITY_DISABLE_MANAGED_COMPONENTS
         internal void CreateCompanionGameObjects()
         {
-            foreach (var kvp in m_JournalData.HybridHeadIdIndices)
+            foreach (var kvp in m_JournalData.NewHybridHeadIdIndices)
             {
                 var gameObject = kvp.Key;
+                var instanceId = gameObject.GetInstanceID();
                 var components = m_JournalData.HybridTypes(kvp.Value);
-                var entity = GetPrimaryEntity(gameObject);
+                var entity = GetPrimaryEntity(instanceId);
 
-                if (gameObject.activeSelf == false)
-                {
-                    LogWarning("GameObject is inactive and wasn't expected to be converted.", gameObject);
-                    continue;
-                }
-
+                bool wasActive = gameObject.activeSelf;
                 try
                 {
-                    gameObject.SetActive(false);
+                    if (wasActive)
+                        gameObject.SetActive(false);
 
                     var companion = CompanionLink.InstantiateCompanionObject(entity, gameObject);
 
@@ -878,9 +1119,12 @@ namespace Unity.Entities.Conversion
                 }
                 finally
                 {
-                    gameObject.SetActive(true);
+                    if (wasActive)
+                        gameObject.SetActive(true);
                 }
             }
+
+            m_JournalData.ClearNewHybridComponents();
         }
 
         #endif // !UNITY_DISABLE_MANAGED_COMPONENTS

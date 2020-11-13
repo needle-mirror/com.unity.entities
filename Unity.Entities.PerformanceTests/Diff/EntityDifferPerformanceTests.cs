@@ -88,6 +88,7 @@ namespace Unity.Entities.PerformanceTests
         /// </summary>
         [Test, Performance]
         [TestCase(1000)]
+        [TestCase(10000)]
         public void PerformanceTest_EntityDiffer_GetChanges_FastForwardOnly(int entityCount)
         {
             CreateEntitiesWithMockComponentData(SrcEntityManager, entityCount, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp));

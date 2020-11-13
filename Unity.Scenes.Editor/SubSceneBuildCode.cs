@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using Unity.Build;
-using Unity.Build.Common;
+using GameObjectConversion;
+using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Entities.Serialization;
 using UnityEditor;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
@@ -15,8 +13,8 @@ using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEditor.Build.Pipeline.Tasks;
 using UnityEditor.Build.Pipeline.Utilities;
 using UnityEditor.Build.Pipeline.Injector;
-using UnityEditor.Build.Pipeline.WriteTypes;
 using UnityEditor.Build.Utilities;
+using UnityEditor.Experimental;
 using BuildCompression = UnityEngine.BuildCompression;
 using BuildPipeline = UnityEditor.BuildPipeline;
 
@@ -41,7 +39,7 @@ namespace Unity.Scenes.Editor
         //
         // The reason for the strange looking api, where a two callbacks get passed in is to make integration of the new incremental buildpipeline easier, as this code
         // needs to be compatible both with the current buildpipeline in the dots-repo, as well as with the incremental buildpipeline.  When that is merged, we can simplify this.
-        public static void PrepareAdditionalFiles(string buildConfigurationGuid, string[] scenePathsForBuild, BuildTarget target, Action<string, string> RegisterFileCopy, string outputStreamingAssetsDirectory, string buildWorkingDirectory)
+        public static void PrepareAdditionalFiles(GUID[] sceneGuids, ArtifactKey[] entitySceneArtifacts, BuildTarget target, Action<string, string> RegisterFileCopy, string outputStreamingAssetsDirectory, string buildWorkingDirectory)
         {
             if (target == BuildTarget.NoTarget)
                 throw new InvalidOperationException($"Invalid build target '{target.ToString()}'.");
@@ -49,9 +47,10 @@ namespace Unity.Scenes.Editor
             if (target != EditorUserBuildSettings.activeBuildTarget)
                 throw new InvalidOperationException($"ActiveBuildTarget must be switched before the {nameof(SubSceneBuildCode)} runs.");
 
+            Assert.AreEqual(sceneGuids.Length, entitySceneArtifacts.Length);
+
             var content = new BundleBuildContent(new AssetBundleBuild[0]);
             var bundleNames = new HashSet<string>();
-            var subSceneGuids = scenePathsForBuild.SelectMany(scenePath => SceneMetaDataImporter.GetSubSceneGuids(AssetDatabase.AssetPathToGUID(scenePath))).Distinct().ToList();
             var subScenePaths = new Dictionary<Hash128, string>();
             var dependencyInputData = new Dictionary<SceneSection, SectionDependencyInfo>();
 
@@ -66,38 +65,34 @@ namespace Unity.Scenes.Editor
                 BundleCompression = BuildCompression.LZ4Runtime
             };
 
-            var requiresRefresh = false;
-            var sceneBuildConfigGuids = new NativeArray<GUID>(subSceneGuids.Count, Allocator.TempJob);
-            for (int i = 0; i != sceneBuildConfigGuids.Length; i++)
-            {
-                sceneBuildConfigGuids[i] = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(subSceneGuids[i], new Hash128(buildConfigurationGuid), out var thisRequiresRefresh);
-                requiresRefresh |= thisRequiresRefresh;
-            }
-            if (requiresRefresh)
-                AssetDatabase.Refresh();
+            var artifactHashes = new UnityEngine.Hash128[entitySceneArtifacts.Length];
+            AssetDatabaseCompatibility.ProduceArtifactsRefreshIfNecessary(entitySceneArtifacts, artifactHashes);
 
-            var artifactHashes = new NativeArray<UnityEngine.Hash128>(subSceneGuids.Count, Allocator.TempJob);
-            AssetDatabaseCompatibility.ProduceArtifactsRefreshIfNecessary(sceneBuildConfigGuids, typeof(SubSceneImporter), artifactHashes);
-
-            for (int i = 0; i != sceneBuildConfigGuids.Length; i++)
+            for (int i = 0; i != entitySceneArtifacts.Length; i++)
             {
-                var sceneGuid = subSceneGuids[i];
-                var sceneBuildConfigGuid = sceneBuildConfigGuids[i];
+                var sceneGuid = sceneGuids[i];
+                var sceneBuildConfigGuid = entitySceneArtifacts[i].guid;
                 var artifactHash = artifactHashes[i];
 
                 bool foundEntityHeader = false;
+
+                if (!artifactHash.isValid)
+                    throw new Exception($"Building EntityScene artifact failed: '{AssetDatabaseCompatibility.GuidToPath(sceneGuid)}' ({sceneGuid}). There were exceptions during the entity scene imports.");
+
                 AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out var artifactPaths);
 
                 foreach (var artifactPath in artifactPaths)
                 {
+                    //UnityEngine.Debug.Log($"guid: {sceneGuid} artifact: '{artifactPath}'");
+
                     //@TODO: This looks like a workaround. Whats going on here?
                     var ext = Path.GetExtension(artifactPath).Replace(".", "");
 
                     if (ext == conversionLogExtension)
                     {
-                        bool hasException = PrintConversionLogToUnityConsole(artifactPath);
+                        var res = ConversionLogUtils.PrintConversionLogToUnityConsole(artifactPath);
 
-                        if (hasException)
+                        if (res.HasException)
                         {
                             throw new Exception("Building entity scenes failed. There were exceptions during the entity scene imports.");
                         }
@@ -147,9 +142,6 @@ namespace Unity.Scenes.Editor
                 }
             }
 
-            sceneBuildConfigGuids.Dispose();
-            artifactHashes.Dispose();
-
             if (content.CustomAssets.Count <= 0)
                 return;
 
@@ -159,7 +151,11 @@ namespace Unity.Scenes.Editor
             var status = ContentPipeline.BuildAssetBundles(parameters, content, out IBundleBuildResults result, CreateTaskList(), explicitLayout);
             PostBuildCallback?.Invoke(dependencyMapping);
             foreach (var bundleName in bundleNames)
+            {
+                // Console.WriteLine("Copy bundle: " + bundleName);
                 DoCopy(RegisterFileCopy, outputStreamingAssetsDirectory, buildWorkingDirectory + "/" + bundleName, "SubScenes/" + bundleName);
+            }
+
 
             foreach (var ssIter in subScenePaths)
             {
@@ -183,87 +179,6 @@ namespace Unity.Scenes.Editor
             var succeeded = status >= ReturnCode.Success;
             if (!succeeded)
                 throw new InvalidOperationException($"BuildAssetBundles failed with status '{status}'.");
-        }
-
-        private enum LogType
-        {
-            Exception,
-            Error,
-            Warning,
-            Assert,
-            Log,
-            Line
-        }
-
-        private static bool PrintConversionLogToUnityConsole(string conversionLogPath)
-        {
-            bool hasException = false;
-
-            foreach (var (type, content) in ParseConversionLog(conversionLogPath))
-            {
-                switch (type)
-                {
-                    case LogType.Warning:
-                        Debug.LogWarning(content);
-                        break;
-                    case LogType.Error:
-                        Debug.LogError(content);
-                        break;
-                    case LogType.Exception:
-                        Debug.LogError(content);
-                        hasException = true;
-                        break;
-                }
-            }
-            return hasException;
-        }
-
-        private static IEnumerable<(LogType Type, string Content)> ParseConversionLog(string conversionLogPath)
-        {
-            (LogType logType, string)[] allLogTypes =
-                Enum.GetValues(typeof(LogType)).Cast<LogType>().Select(logType => (logType, $"{logType.ToString()}:")).ToArray();
-
-            LogType GetLogType(string currentLine)
-            {
-                foreach (var (logType, logString) in allLogTypes)
-                {
-                    if (currentLine.StartsWith(logString))
-                    {
-                        return logType;
-                    }
-                }
-                return LogType.Line;
-            }
-
-            var conversionLogLines = File.ReadLines(conversionLogPath);
-
-            var currentLog = new StringBuilder();
-            LogType currentLogType = LogType.Line;
-
-            foreach (string line in conversionLogLines)
-            {
-                LogType logType = GetLogType(line);
-
-                if (logType == LogType.Line)
-                {
-                    currentLog.AppendLine(line);
-                }
-                else
-                {
-                    if (currentLog.Length > 0)
-                    {
-                        yield return (currentLogType, currentLog.ToString());
-                        currentLog.Clear();
-                    }
-                    currentLogType = logType;
-                    currentLog.AppendLine(line);
-                }
-            }
-
-            if (currentLog.Length > 0 && currentLogType != LogType.Line)
-            {
-                yield return (currentLogType, currentLog.ToString());
-            }
         }
 
         public static Action<Dictionary<Hash128, Dictionary<SceneSection, List<Hash128>>>> PostBuildCallback;
@@ -327,7 +242,7 @@ namespace Unity.Scenes.Editor
             //TODO: cache this dependency data
             var dependencies = ContentBuildInterface.GetPlayerDependenciesForObjects(objectIds, target, scriptInfo);
             var depTypes = ContentBuildInterface.GetTypeForObjects(dependencies);
-            var paths = dependencies.Select(i => AssetDatabase.GUIDToAssetPath(i.guid.ToString())).ToArray();
+            var paths = dependencies.Select(i => AssetDatabaseCompatibility.GuidToPath(i.guid)).ToArray();
             return new SectionDependencyInfo() { Dependencies = dependencies, Paths = paths, Types = depTypes };
         }
 
@@ -431,7 +346,7 @@ namespace Unity.Scenes.Editor
             }
 
             sw.Stop();
-            Debug.Log($"CreateAssetLayoutData time: {sw.Elapsed}");
+            Console.WriteLine($"CreateAssetLayoutData time: {sw.Elapsed}");
         }
 
         public static bool ValidateInput(Dictionary<SceneSection, SectionDependencyInfo> dependencyInputData, out string firstError)

@@ -42,6 +42,52 @@ namespace Unity.Entities.CodeGen
             }
         }
 
+        public static bool IsOrHasReferenceTypeField(TypeReference type, HashSet<TypeReference> validatedTypes, MethodDefinition method, List<DiagnosticMessage> diagnosticMessages, out string fieldDescription)
+        {
+            fieldDescription = null;
+            if (!type.IsValueType())
+                return true;
+
+            if (validatedTypes.Contains(type))
+                return false;
+
+            validatedTypes.Add(type);
+
+            if (type.IsGenericInstance)
+            {
+                var isBlobArray = type.GetElementType().TypeReferenceEquals(typeof(BlobArray<>));
+                if (isBlobArray || type.GetElementType().TypeReferenceEquals(typeof(BlobPtr<>)))
+                {
+                    var instance = (GenericInstanceType) type;
+                    if (instance.GenericArguments.Count == 1 && IsOrHasReferenceTypeField(instance.GenericArguments[0],
+                        validatedTypes, method, diagnosticMessages, out var fieldInGenericArg))
+                    {
+                        var genericIdentifier = isBlobArray ? "[]" : ".Value";
+                        fieldDescription = genericIdentifier + fieldInGenericArg;
+                        return true;
+                    }
+                }
+            }
+
+            // Allow this if we fail resolve but generate warning (in TryResolve)
+            if (!TryResolve(type, method, diagnosticMessages, out var typeDefinition))
+                return false;
+
+            foreach (var field in typeDefinition.Fields)
+            {
+                if(field.IsStatic)
+                    continue;
+
+                if (IsOrHasReferenceTypeField(field.FieldType, validatedTypes, method, diagnosticMessages, out var fieldInFieldType))
+                {
+                    fieldDescription = "." + field.Name + fieldInFieldType;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public static List<DiagnosticMessage> VerifyMethod(MethodDefinition method, HashSet<TypeReference> _nonRestrictedTypes)
         {
             var diagnosticMessages = new List<DiagnosticMessage>();
@@ -69,16 +115,9 @@ namespace Unity.Entities.CodeGen
                         anr.Name == "System.Private.CoreLib")
                         return false;
 
-                // Don't do a CheckedResolve here. If we somehow fail we don't want to block the user.
-                var td = tr.Resolve();
-                if (td == null)
+                if (!TryResolve(tr, method, diagnosticMessages, out var td))
                 {
-                    diagnosticMessages.Add(
-                        UserError.MakeWarning("ResolveFailureWarning",
-                            $"Unable to resolve type {tr.FullName} for verification.",
-                            method, method.Body.Instructions.FirstOrDefault()));
                     _nonRestrictedTypes.Add(tr);
-
                     return false;
                 }
 
@@ -102,6 +141,22 @@ namespace Unity.Entities.CodeGen
 
             foreach (var instruction in method.Body.Instructions)
             {
+                if (instruction.IsInvocation(out var targetMethod) &&
+                    targetMethod.DeclaringType.TypeReferenceEquals(typeof(BlobBuilder)) &&
+                    targetMethod.Name == nameof(BlobBuilder.ConstructRoot) &&
+                    targetMethod is GenericInstanceMethod genericTargetMethod)
+                {
+                    foreach (var arg in genericTargetMethod.GenericArguments)
+                    {
+                        var validatedTypes = new HashSet<TypeReference>();
+                        if (IsOrHasReferenceTypeField(arg, validatedTypes, method, diagnosticMessages, out var fieldDescription))
+                        {
+                            string errorFieldPath = fieldDescription == null ? arg.Name : arg.Name + fieldDescription;
+                            var message = $"You may not build a type {arg.Name} with {nameof(BlobBuilder.Construct)} as {errorFieldPath} is a reference or pointer.  Only non-reference types are allowed in Blobs.";
+                            diagnosticMessages.Add(UserError.MakeError("ConstructBlobWithRefTypeViolation", message, method, instruction));
+                        }
+                    }
+                }
                 if (instruction.OpCode == OpCodes.Ldfld)
                 {
                     var fieldReference = (FieldReference)instruction.Operand;
@@ -143,6 +198,22 @@ namespace Unity.Entities.CodeGen
             }
 
             return diagnosticMessages;
+        }
+
+        // Don't do a CheckedResolve here. If we somehow fail we don't want to block the user.
+        static bool TryResolve(TypeReference tr, MethodDefinition method, List<DiagnosticMessage> diagnosticMessages, out TypeDefinition td)
+        {
+            td = tr.Resolve();
+            if (td == null)
+            {
+                diagnosticMessages.Add(
+                    UserError.MakeWarning("ResolveFailureWarning",
+                        $"Unable to resolve type {tr.FullName} for verification.",
+                        method, method.Body.Instructions.FirstOrDefault()));
+                return false;
+            }
+
+            return true;
         }
 
         private static string FancyNameFor(TypeReference typeReference)

@@ -230,7 +230,7 @@ namespace Unity.Entities
             }
             else
             {
-#if UNITY_DOTSRUNTIME_IL2CPP
+#if UNITY_DOTSRUNTIME_IL2CPP || ENABLE_IL2CPP
                 // Tiny IL2CPP does not handle reverse pinvoke wrapping for lambda functions
                 // and since try/catch isn't supported in Tiny IL2CPP either, there is no need
                 // to wrap the managedFn here.

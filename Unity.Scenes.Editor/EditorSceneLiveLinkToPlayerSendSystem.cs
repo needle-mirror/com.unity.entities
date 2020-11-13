@@ -144,7 +144,7 @@ namespace Unity.Scenes.Editor
 
                 try
                 {
-                    connection.Update(_ChangeSets, _LoadScenes, _UnloadScenes, LiveLinkMode.LiveConvertGameView);
+                    connection.Update(_ChangeSets, _LoadScenes, _UnloadScenes, LiveLinkMode.LiveConvertStandalonePlayer);
 
                     // Load scenes that are not being edited live
                     SendLoadScenes(_LoadScenes.AsArray(), c.Key);

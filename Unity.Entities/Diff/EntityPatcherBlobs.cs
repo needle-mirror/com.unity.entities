@@ -159,13 +159,17 @@ namespace Unity.Entities
             s_ApplyBlobAssetChangesProfilerMarker.End();
 
 #if !UNITY_DOTSRUNTIME
-            var managedObjectPatcher = new ManagedObjectEntityBlobAssetReferencePatcher();
+            var managedObjectPatcher = new ManagedObjectBlobAssetReferencePatcher(patcherBlobAssetSystem);
 
             // Apply all managed entity patches
             using (var keys = managedObjectBlobAssetReferencePatches.GetKeyArray(Allocator.Temp))
             {
-                foreach (var pair in keys)
+                keys.Sort();
+                var uniqueCount = keys.Unique();
+
+                for (var i = 0; i < uniqueCount; i++)
                 {
+                    var pair = keys[i];
                     var patches = managedObjectBlobAssetReferencePatches.GetValuesForKey(pair);
 
                     if (pair.Component.IsManagedComponent)
@@ -192,23 +196,45 @@ namespace Unity.Entities
         }
 
 #if !UNITY_DOTSRUNTIME
-        class ManagedObjectEntityBlobAssetReferencePatcher : PropertyVisitor, Properties.Adapters.IVisit<BlobAssetReferenceData>
+        class ManagedObjectBlobAssetReferencePatcher : PropertyVisitor, Properties.Adapters.IVisit<BlobAssetReferenceData>
         {
+            EntityPatcherBlobAssetSystem m_EntityPatcherBlobAssetSystem;
             NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator Patches;
 
-            public ManagedObjectEntityBlobAssetReferencePatcher()
+            public ManagedObjectBlobAssetReferencePatcher(EntityPatcherBlobAssetSystem entityPatcherBlobAssetSystem)
             {
+                m_EntityPatcherBlobAssetSystem = entityPatcherBlobAssetSystem;
                 AddAdapter(this);
             }
 
             public void ApplyPatches(ref object obj, NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator patches)
             {
                 Patches = patches;
-                PropertyContainer.Visit(obj, this);
+                PropertyContainer.Visit(ref obj, this);
             }
 
             VisitStatus Properties.Adapters.IVisit<BlobAssetReferenceData>.Visit<TContainer>(Property<TContainer, BlobAssetReferenceData> property, ref TContainer container, ref BlobAssetReferenceData value)
             {
+                // Make a copy for we can re-use the enumerator
+                var patches = Patches;
+                
+                foreach (var patch in patches)
+                {
+                    if (value.m_Align8Union == patch.Id)
+                    {
+                        if (m_EntityPatcherBlobAssetSystem.TryGetBlobAsset(patch.Target, out var blobAssetPtr))
+                        {
+                            value = new BlobAssetReferenceData {m_Ptr = (byte*) blobAssetPtr.Data};
+                        }
+                        else
+                        {
+                            value = new BlobAssetReferenceData();
+                        }
+                        
+                        break;
+                    }
+                }
+                
                 return VisitStatus.Stop;
             }
         }

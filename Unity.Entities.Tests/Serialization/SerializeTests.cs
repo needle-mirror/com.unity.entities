@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests
 
     public unsafe class TestBinaryWriter : BinaryWriter
     {
-        internal NativeList<byte> content = new NativeList<byte>(Allocator.TempJob);
+        public NativeList<byte> content = new NativeList<byte>(Allocator.TempJob);
 
         public void Dispose()
         {

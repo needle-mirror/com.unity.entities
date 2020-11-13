@@ -66,7 +66,8 @@ When this executes, the following happens:
 
 The benefit is that this allows the system to exclude entities based on a type that is unknown to the system and might live in a different package.
 
-**Note:** For more examples, see the `Unity.Transforms` code, which uses write groups for every component it updates, including `LocalToWorld`.
+> [!NOTE]
+> For more examples, see the `Unity.Transforms` code, which uses write groups for every component it updates, including `LocalToWorld`.
 
 ## Creating write groups
 To create write groups, add the `WriteGroup` attribute to the declarations of each component type in the write group. The `WriteGroup` attribute takes one parameter, which is the type of component that the components in the group uses to update. A single component can be a member of more than one write group.
@@ -92,7 +93,8 @@ public struct B : IComponentData
 }
 ```
 
-**Note:** You do not add the target of the write group (component `W` in the example above) to its own write group.
+> [!NOTE]
+> You do not add the target of the write group (component `W` in the example above) to its own write group.
 
 ## Enabling write group filtering
 
@@ -188,7 +190,10 @@ public class RotationAngleAxisSystem : SystemBase
 
 If you want to extend another system rather than override it, or if you want to allow future systems to override or extend your system, then you can enable write group filtering on your own system. However, when you do this, neither system handles no combinations of components by default. You must explicitly query for and process each combination.
 
-In the previous example, it defined a write group that contains components `A` and `B` that targets component `W`. If you add a new component, called `C`, to the write group, then the new system that knows about `C` can query for entities that contain `C` and it does not matter if those entities also have components `A` or `B`. However, if the new system also enables write group filtering, that is no longer true. If you only require component `C`, then write group filtering excludes any entities with either `A` or `B`. Instead, you must explicitly query for each combination of components that make sense. **Note:** You can use the `Any` clause of the query when appropriate.
+In the previous example, it defined a write group that contains components `A` and `B` that targets component `W`. If you add a new component, called `C`, to the write group, then the new system that knows about `C` can query for entities that contain `C` and it does not matter if those entities also have components `A` or `B`. However, if the new system also enables write group filtering, that is no longer true. If you only require component `C`, then write group filtering excludes any entities with either `A` or `B`. Instead, you must explicitly query for each combination of components that make sense. 
+
+> [!NOTE]
+> You can use the `Any` clause of the query when appropriate.
 
 ```csharp
 var query = new EntityQueryDesc

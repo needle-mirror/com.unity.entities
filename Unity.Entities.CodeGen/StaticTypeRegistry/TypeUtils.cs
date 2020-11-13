@@ -175,8 +175,12 @@ namespace Unity.Entities.CodeGen
                 return AlignAndSizeOfType(MetadataType.IntPtr, bits);
             }
 
-            ValueTypeAlignment[bits].Add(typeRef, AlignAndSize.Sentinel);
-            PreprocessTypeFields(typeRef, bits);
+            if (!ValueTypeAlignment[bits].ContainsKey(typeRef))
+            {
+                ValueTypeAlignment[bits].Add(typeRef, AlignAndSize.Sentinel);
+                PreprocessTypeFields(typeRef, bits);
+            }
+
             return ValueTypeAlignment[bits][typeRef];
         }
 

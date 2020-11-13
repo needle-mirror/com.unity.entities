@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Build;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Conversion;
 using Unity.Profiling;
 using UnityEditor;
@@ -17,7 +17,9 @@ namespace Unity.Scenes.Editor
     //@TODO: Live link currently force loads all sections. It should only live link sections that are marked for loading.
     class LiveLinkDiffGenerator : IDisposable
     {
+#if !UNITY_2020_2_OR_NEWER
         public int                  LiveLinkDirtyID = -1;
+#endif
 
         World                       _GameObjectWorld;
 
@@ -25,69 +27,125 @@ namespace Unity.Scenes.Editor
         EntityQuery                 _MissingRenderDataQuery;
         EntityQuery                 _MissingSceneQuery;
         EntityManagerDiffer         _LiveLinkDiffer;
-        UnsafeHashMap<GUID, byte>   m_AssetDependencies;
 
-        HashSet<GameObject>         _ChangedGameObjects = new HashSet<GameObject>();
+#if UNITY_2020_2_OR_NEWER
+        IncrementalConversionDebug _IncrementalConversionDebug;
+#endif
+        IncrementalConversionChangeTracker _IncrementalConversionChangeTracker;
+        GameObjectConversionMappingSystem _MappingSystem;
         bool                        _RequestCleanConversion;
         bool                        _LiveLinkEnabled;
 
-        string                      _SceneName;
+        Scene                       _Scene;
+        GUID                        _buildConfigurationGUID;
+        BuildConfiguration          _buildConfiguration;
+        readonly Hash128            _SceneGUID;
+        readonly BlobAssetStore     _BlobAssetStore = new BlobAssetStore();
 
-        BlobAssetStore     m_BlobAssetStore = new BlobAssetStore();
+#if !UNITY_2020_2_OR_NEWER
+        readonly HashSet<GameObject> m_ChangedGameObjects = new HashSet<GameObject>();
+#endif
 
-        public void AddChanged(GameObject gameObject)
+#if UNITY_2020_2_OR_NEWER
+        struct IncrementalConversionDebug
         {
-            // Debug.Log("AddChanged");
-            _ChangedGameObjects.Add(gameObject);
+            public World World;
+            public BlobAssetCache BlobAssets;
+            public EntityQuery MissingRenderDataQuery;
+            public EntityQuery MissingSceneQuery;
+            public BlobAssetStore BlobAssetStore;
+            public bool NeedsUpdate;
+            public GameObjectConversionUtility.ConversionFlags LastConversionFlags;
+
+            public void Dispose()
+            {
+                if (World == null)
+                    return;
+                MissingRenderDataQuery.Dispose();
+                MissingSceneQuery.Dispose();
+                BlobAssets.Dispose();
+                World.Dispose();
+                BlobAssetStore.Dispose();
+            }
+        }
+#endif
+
+        internal IncrementalConversionChangeTracker ChangeTracker => _IncrementalConversionChangeTracker;
+
+        internal bool HasAssetDependencies()
+        {
+            if (_GameObjectWorld == null)
+                return false;
+            return _MappingSystem.Dependencies.AssetDependencyTracker.HasDependencies();
         }
 
-        internal void MarkAssetChanged(GUID asset)
+#if !UNITY_2020_2_OR_NEWER
+        internal void MarkChanged(GameObject go)
         {
-            if (!_RequestCleanConversion && m_AssetDependencies.ContainsKey(asset))
-                RequestCleanConversion();
+            m_ChangedGameObjects.Add(go);
         }
+#endif
 
         public void RequestCleanConversion()
         {
-            // Debug.Log("RequestCleanConversion");
             _RequestCleanConversion = true;
         }
 
         public bool DidRequestUpdate()
         {
-            return _RequestCleanConversion || _ChangedGameObjects.Count != 0;
+#if UNITY_2020_2_OR_NEWER
+            return _RequestCleanConversion || _IncrementalConversionChangeTracker.HasAnyChanges();
+#else
+            return _RequestCleanConversion || _IncrementalConversionChangeTracker.HasAnyChanges() || m_ChangedGameObjects.Count > 0;
+#endif
         }
 
-        internal bool HasAssetDependencies => m_AssetDependencies.Count() > 0;
-
-        public LiveLinkDiffGenerator(Hash128 sceneGUID, bool liveLinkEnabled)
+        LiveLinkDiffGenerator(Scene scene, Hash128 sceneGUID, GUID buildConfigGUID, BuildConfiguration buildConfig, bool liveLinkEnabled)
         {
-            _SceneName = Path.GetFileNameWithoutExtension(AssetDatabase.GUIDToAssetPath(sceneGUID.ToString()));
+            _SceneGUID = sceneGUID;
+            _Scene = scene;
+            _buildConfigurationGUID = buildConfigGUID;
+            _buildConfiguration = buildConfig;
 
             _LiveLinkEnabled = liveLinkEnabled;
-            _ConvertedWorld = new World($"Converted Scene: '{_SceneName}", WorldFlags.Editor | WorldFlags.Conversion | WorldFlags.Staging);
+            var worldFlags = WorldFlags.Editor | WorldFlags.Conversion | WorldFlags.Staging;
+            _ConvertedWorld = new World($"Converted Scene: '{_Scene.name}", worldFlags);
             _LiveLinkDiffer = new EntityManagerDiffer(_ConvertedWorld.EntityManager, Allocator.Persistent);
+            _IncrementalConversionChangeTracker = new IncrementalConversionChangeTracker();
+#if UNITY_2020_2_OR_NEWER
+            _IncrementalConversionDebug.World = new World($"Incremental Conversion Debug: '{_Scene.name}'", worldFlags);
+            _IncrementalConversionDebug.BlobAssets = new BlobAssetCache(Allocator.Persistent);
+            _IncrementalConversionDebug.BlobAssetStore = new BlobAssetStore();
+#endif
             _RequestCleanConversion = true;
-            m_AssetDependencies = new UnsafeHashMap<GUID, byte>(100, Allocator.Persistent);
 
-            _MissingRenderDataQuery = _ConvertedWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
+            var missingRenderDataQueryDesc = new EntityQueryDesc
             {
-                All = new ComponentType[] {typeof(SceneTag)},
-                None = new ComponentType[] {typeof(EditorRenderData)},
+                All = new ComponentType[] { typeof(SceneTag) },
+                None = new ComponentType[] { typeof(EditorRenderData) },
                 Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
-            });
+            };
+            var missingSceneDataQueryDesc = new EntityQueryDesc
+            {
+                None = new ComponentType[] { typeof(SceneTag) },
+                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
+            };
 
-            _MissingSceneQuery = _ConvertedWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
-            {
-                None = new ComponentType[] {typeof(SceneTag)},
-                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
-            });
+            _MissingRenderDataQuery = _ConvertedWorld.EntityManager.CreateEntityQuery(missingRenderDataQueryDesc);
+            _MissingSceneQuery = _ConvertedWorld.EntityManager.CreateEntityQuery(missingSceneDataQueryDesc);
+#if UNITY_2020_2_OR_NEWER
+            _IncrementalConversionDebug.MissingRenderDataQuery = _IncrementalConversionDebug.World.EntityManager.CreateEntityQuery(missingRenderDataQueryDesc);
+            _IncrementalConversionDebug.MissingSceneQuery = _IncrementalConversionDebug.World.EntityManager.CreateEntityQuery(missingSceneDataQueryDesc);
+#endif
         }
 
         public void Dispose()
         {
-            m_BlobAssetStore.Dispose();
-            m_AssetDependencies.Dispose();
+            _BlobAssetStore.Dispose();
+            _IncrementalConversionChangeTracker.Dispose();
+#if UNITY_2020_2_OR_NEWER
+            _IncrementalConversionDebug.Dispose();
+#endif
 
             try
             {
@@ -121,70 +179,214 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        static void AddAssetDependencies(ConversionDependencies dependencies, ref UnsafeHashMap<GUID, byte> assets)
-        {
-            using (var keys = dependencies.AssetDependentsByInstanceId.GetKeyArray(Allocator.Temp))
-            {
-                for (int i = 0; i < keys.Length; i++)
-                {
-                    AssetDatabase.TryGetGUIDAndLocalFileIdentifier(keys[i], out var guid, out long _);
-                    assets.TryAdd(new GUID(guid), 1);
-                }
-            }
-        }
+        static readonly ProfilerMarker LiveLinkConvertMarker = new ProfilerMarker("LiveLink.Convert");
+        static readonly ProfilerMarker IncrementalConversionMarker = new ProfilerMarker("IncrementalConversion");
+        static readonly ProfilerMarker DebugConversionMarker = new ProfilerMarker("DebugConversion");
+        static readonly ProfilerMarker CleanConversionMarker = new ProfilerMarker("CleanConversion");
 
-        static ProfilerMarker m_ConvertMarker = new ProfilerMarker("LiveLink.Convert");
-        void Convert(Scene scene, Hash128 sceneGUID, GameObjectConversionUtility.ConversionFlags flags, BuildConfiguration config)
+        void Convert(GameObjectConversionUtility.ConversionFlags flags)
         {
-            using (m_ConvertMarker.Auto())
+            using (LiveLinkConvertMarker.Auto())
             {
+                var mode = LiveConversionSettings.Mode;
+#if UNITY_2020_2_OR_NEWER
+                if (mode == LiveConversionSettings.ConversionMode.AlwaysCleanConvert)
+                    _RequestCleanConversion = true;
+                _IncrementalConversionDebug.LastConversionFlags = flags;
+#endif
+
                 // Try incremental conversion
                 if (!_RequestCleanConversion)
                 {
-                    // Debug.Log("Incremental convert");
                     try
                     {
-                        GameObjectConversionUtility.ConvertIncremental(_GameObjectWorld, _ChangedGameObjects, flags);
-                        _ChangedGameObjects.Clear();
+                        using (IncrementalConversionMarker.Auto())
+                        {
+#if UNITY_2020_2_OR_NEWER
+                            _IncrementalConversionDebug.NeedsUpdate = true;
+                            var batch = new IncrementalConversionBatch();
+                            _IncrementalConversionChangeTracker.FillBatch(ref batch);
+                            GameObjectConversionUtility.ConvertIncremental(_GameObjectWorld, flags, ref batch);
+#else
+                            GameObjectConversionUtility.ConvertIncremental(_GameObjectWorld, m_ChangedGameObjects, _IncrementalConversionChangeTracker.ChangedAssets, flags);
+#endif
+                            AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery);
+                        }
                     }
-                    #pragma warning disable 168
+#if UNITY_2020_2_OR_NEWER
                     catch (Exception e)
                     {
                         _RequestCleanConversion = true;
-
-                        // Debug.Log("Incremental conversion failed. Performing full conversion instead\n" + e.ToString());
+                        if (LiveConversionSettings.TreatIncrementalConversionFailureAsError)
+                            throw;
+                        if (mode != LiveConversionSettings.ConversionMode.AlwaysCleanConvert)
+                            Debug.Log("Incremental conversion failed. Performing full conversion instead\n" + e);
                     }
-                    #pragma warning restore 168
+#else
+                    catch (Exception)
+
+                    {
+
+                        _RequestCleanConversion = true;
+                    }
+#endif
                 }
 
                 // If anything failed, fall back to clean conversion
                 if (_RequestCleanConversion)
                 {
-                    // Debug.Log("Clean convert");
-                    _ConvertedWorld.EntityManager.DestroyEntity(_ConvertedWorld.EntityManager.UniversalQuery);
-                    var conversionSettings = new GameObjectConversionSettings(_ConvertedWorld, flags);
-                    conversionSettings.BuildConfiguration = config;
-                    conversionSettings.SceneGUID = sceneGUID;
-                    conversionSettings.DebugConversionName = _SceneName;
-                    conversionSettings.BlobAssetStore = m_BlobAssetStore;
-                    conversionSettings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
-
-                    if (_GameObjectWorld != null && _GameObjectWorld.IsCreated)
+#if UNITY_2020_2_OR_NEWER
+                    _IncrementalConversionDebug.NeedsUpdate = false;
+#endif
+                    using (CleanConversionMarker.Auto())
                     {
-                        _GameObjectWorld.Dispose();
-                        _GameObjectWorld = null;
+                        if (_GameObjectWorld != null && _GameObjectWorld.IsCreated)
+                        {
+                            _GameObjectWorld.Dispose();
+                            _GameObjectWorld = null;
+                        }
+
+                        var settings = PrepareConversion(_ConvertedWorld, flags, _buildConfigurationGUID, _buildConfiguration);
+                        _GameObjectWorld = GameObjectConversionUtility.InitializeIncrementalConversion(_Scene, settings);
+                        _MappingSystem = _GameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
+                        AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery);
                     }
-                    _GameObjectWorld = GameObjectConversionUtility.ConvertIncrementalInitialize(scene, conversionSettings);
-                    m_AssetDependencies.Clear();
-                    AddAssetDependencies(_GameObjectWorld.GetExistingSystem<GameObjectConversionMappingSystem>().Dependencies, ref m_AssetDependencies);
                 }
 
-                _ChangedGameObjects.Clear();
+                _IncrementalConversionChangeTracker.Clear();
                 _RequestCleanConversion = false;
             }
         }
 
-        public static LiveLinkChangeSet UpdateLiveLink(Scene scene, Hash128 sceneGUID, ref LiveLinkDiffGenerator liveLinkData, int sceneDirtyID, LiveLinkMode mode, BuildConfiguration config)
+#if UNITY_2020_2_OR_NEWER
+        internal bool DidRequestDebugConversion() => _IncrementalConversionDebug.NeedsUpdate;
+
+        internal void DebugIncrementalConversion()
+        {
+            if (!_IncrementalConversionDebug.NeedsUpdate)
+                return;
+            _IncrementalConversionDebug.NeedsUpdate = false;
+            var flags = _IncrementalConversionDebug.LastConversionFlags;
+            using (DebugConversionMarker.Auto())
+            {
+                // use this to compare the results of incremental conversion with the results of a clean conversion.
+                var settings = PrepareConversion(_IncrementalConversionDebug.World, flags, _buildConfigurationGUID, _buildConfiguration);
+                GameObjectConversionUtility.InitializeIncrementalConversion(_Scene, settings).Dispose();
+                AddMissingData(_IncrementalConversionDebug.World, _IncrementalConversionDebug.MissingSceneQuery,
+                    _IncrementalConversionDebug.MissingRenderDataQuery);
+                const EntityManagerDifferOptions options =
+                    EntityManagerDifferOptions.IncludeForwardChangeSet |
+                    EntityManagerDifferOptions.ValidateUniqueEntityGuid |
+                    EntityManagerDifferOptions.UseReferentialEquality;
+
+                unsafe
+                {
+                    if (_IncrementalConversionDebug.BlobAssets.BlobAssetBatch != null)
+                        _IncrementalConversionDebug.BlobAssets.Dispose();
+                }
+
+                _IncrementalConversionDebug.BlobAssets = new BlobAssetCache(Allocator.Persistent);
+                EntityDiffer.PrecomputeBlobAssetCache(_ConvertedWorld.EntityManager,
+                    EntityManagerDiffer.EntityGuidQueryDesc, _IncrementalConversionDebug.BlobAssets);
+
+                var changes = EntityDiffer.GetChanges(
+                    _IncrementalConversionDebug.World.EntityManager,
+                    _ConvertedWorld.EntityManager,
+                    options,
+                    EntityManagerDiffer.EntityGuidQueryDesc,
+                    _IncrementalConversionDebug.BlobAssets,
+                    Allocator.TempJob
+                );
+                using (changes)
+                {
+                    if (!changes.AnyChanges)
+                        return;
+
+                    var fwdChanges = changes.ForwardChangeSet;
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+                    {
+                        // Remove all companion link object changes.
+                        // Companion objects will always be different between different conversions, so this is
+                        // absolutely expected.
+                        // It is unlikely that a diff will ever only consist of changes to hybrid components, and even
+                        // in that case pointing out that the companion link changed is not exactly helpful for the user
+                        // either.
+                        var managedComponents = fwdChanges.SetManagedComponents;
+                        int numCompanionLinkObjects = 0;
+                        var types = fwdChanges.TypeHashes;
+                        var companionLinkIndex = TypeManager.GetTypeIndex<CompanionLink>();
+                        int last = managedComponents.Length - 1;
+                        for (int i = last; i >= 0; i--)
+                        {
+                            // We need to go through the type index to correctly handle null Companion Links
+                            int packedTypeIdx = managedComponents[i].Component.PackedTypeIndex;
+                            var idx = TypeManager.GetTypeIndexFromStableTypeHash(types[packedTypeIdx].StableTypeHash);
+                            if (idx == companionLinkIndex)
+                            {
+                                managedComponents[i] = managedComponents[last - numCompanionLinkObjects];
+                                numCompanionLinkObjects += 1;
+                            }
+                        }
+
+                        if (numCompanionLinkObjects > 0)
+                        {
+                            // throw away the companion link changes
+                            Array.Resize(ref managedComponents, last + 1 - numCompanionLinkObjects);
+                            fwdChanges = new EntityChangeSet(fwdChanges.CreatedEntityCount,
+                                fwdChanges.DestroyedEntityCount, fwdChanges.Entities, fwdChanges.TypeHashes,
+                                fwdChanges.Names, fwdChanges.AddComponents, fwdChanges.RemoveComponents,
+                                fwdChanges.SetComponents, fwdChanges.ComponentData, fwdChanges.EntityReferenceChanges,
+                                fwdChanges.BlobAssetReferenceChanges,
+                                managedComponents, // <- this changes
+                                fwdChanges.SetSharedComponents, fwdChanges.LinkedEntityGroupAdditions,
+                                fwdChanges.LinkedEntityGroupRemovals, fwdChanges.CreatedBlobAssets,
+                                fwdChanges.DestroyedBlobAssets, fwdChanges.BlobAssetData);
+                            if (!fwdChanges.HasChanges)
+                                return;
+                        }
+                    }
+#endif
+                    _RequestCleanConversion = true;
+                    var sb = new StringBuilder();
+                    fwdChanges.PrintSummary(sb);
+                    var errorString =
+                        "The result of incrementally converting changes and a clean conversion didn't match, are you missing some dependencies?\n" +
+                        "This is what was added/removed/changed by the clean conversion relative to the incremental conversion:\n" +
+                        sb;
+                    if (LiveConversionSettings.TreatIncrementalConversionFailureAsError)
+                        throw new Exception(errorString);
+                    Debug.LogWarning(errorString);
+                }
+            }
+        }
+#endif
+
+        GameObjectConversionSettings PrepareConversion(World dstWorld, GameObjectConversionUtility.ConversionFlags flags, GUID buildConfigurationGUID, BuildConfiguration buildConfig)
+        {
+            dstWorld.EntityManager.DestroyEntity(dstWorld.EntityManager.UniversalQuery);
+            var conversionSettings = new GameObjectConversionSettings(dstWorld, flags)
+            {
+                BuildConfigurationGUID = buildConfigurationGUID,
+                BuildConfiguration = buildConfig,
+                SceneGUID = _SceneGUID,
+                DebugConversionName = _Scene.name,
+                BlobAssetStore = _BlobAssetStore
+            };
+            if (LiveConversionSettings.AdditionalConversionSystems.Count != 0)
+                conversionSettings.ExtraSystems = LiveConversionSettings.AdditionalConversionSystems.ToArray();
+            return conversionSettings;
+        }
+
+        static void AddMissingData(World world, EntityQuery missingSceneQuery, EntityQuery missingRenderDataQuery)
+        {
+            var em = world.EntityManager;
+            // We don't know the scene tag of the destination world, so we create a null Scene Tag.
+            // In the patching code this will be translated into the final scene entity.
+            em.AddSharedComponentData(missingSceneQuery, new SceneTag { SceneEntity = Entity.Null });
+            em.AddSharedComponentData(missingRenderDataQuery, new EditorRenderData { SceneCullingMask = UnityEditor.SceneManagement.SceneCullingMasks.GameViewObjects, PickableObject = null });
+        }
+
+        public static LiveLinkChangeSet UpdateLiveLink(Scene scene, Hash128 sceneGUID, ref LiveLinkDiffGenerator liveLinkData, int sceneDirtyID, LiveLinkMode mode, GUID configGUID, BuildConfiguration config)
         {
             //Debug.Log("ApplyLiveLink: " + scene.SceneName);
 
@@ -199,7 +401,14 @@ namespace Unity.Scenes.Editor
 
             var unloadAllPreviousEntities = liveLinkData == null;
             if (liveLinkData == null)
-                liveLinkData = new LiveLinkDiffGenerator(sceneGUID, liveLinkEnabled);
+                liveLinkData = new LiveLinkDiffGenerator(scene, sceneGUID, configGUID, config, liveLinkEnabled);
+            else if (liveLinkData._Scene != scene || !ReferenceEquals(liveLinkData._buildConfiguration, config) || liveLinkData._buildConfigurationGUID != configGUID)
+            {
+                liveLinkData._Scene = scene;
+                liveLinkData._buildConfigurationGUID = configGUID;
+                liveLinkData._buildConfiguration = config;
+                liveLinkData._RequestCleanConversion = true;
+            }
 
             if (!liveLinkEnabled)
             {
@@ -215,22 +424,12 @@ namespace Unity.Scenes.Editor
             var flags = GameObjectConversionUtility.ConversionFlags.AddEntityGUID | GameObjectConversionUtility.ConversionFlags.AssignName | GameObjectConversionUtility.ConversionFlags.GameViewLiveLink;
             if (mode == LiveLinkMode.LiveConvertSceneView)
                 flags |= GameObjectConversionUtility.ConversionFlags.SceneViewLiveLink;
+            if (mode == LiveLinkMode.LiveConvertStandalonePlayer)
+                flags |= GameObjectConversionUtility.ConversionFlags.IsBuildingForPlayer;
 
-            liveLinkData.Convert(scene, sceneGUID, flags, config);
-
-            var convertedEntityManager = liveLinkData._ConvertedWorld.EntityManager;
-
-            // We don't know the scene tag of the destination world, so we create a null Scene Tag.
-            // In the patching code this will be translated into the final scene entity.
-            convertedEntityManager.AddSharedComponentData(liveLinkData._MissingSceneQuery, new SceneTag { SceneEntity = Entity.Null });
-
-#if UNITY_2020_1_OR_NEWER
-            convertedEntityManager.AddSharedComponentData(liveLinkData._MissingRenderDataQuery, new EditorRenderData { SceneCullingMask = UnityEditor.SceneManagement.SceneCullingMasks.GameViewObjects, PickableObject = null });
-#else
-            convertedEntityManager.AddSharedComponentData(liveLinkData._MissingRenderDataQuery, new EditorRenderData { SceneCullingMask = EditorRenderData.LiveLinkEditGameViewMask, PickableObject = null });
-#endif
-
-            var options = EntityManagerDifferOptions.IncludeForwardChangeSet |
+            liveLinkData.Convert(flags);
+            const EntityManagerDifferOptions options =
+                EntityManagerDifferOptions.IncludeForwardChangeSet |
                 EntityManagerDifferOptions.FastForwardShadowWorld |
                 EntityManagerDifferOptions.ValidateUniqueEntityGuid |
                 EntityManagerDifferOptions.ClearMissingReferences;
@@ -244,8 +443,9 @@ namespace Unity.Scenes.Editor
                 FramesToRetainBlobAssets = framesToRetainBlobAssets
             };
 
-
+#if !UNITY_2020_2_OR_NEWER
             liveLinkData.LiveLinkDirtyID = sceneDirtyID;
+#endif
             // convertedEntityManager.Debug.CheckInternalConsistency();
 
             return changes;

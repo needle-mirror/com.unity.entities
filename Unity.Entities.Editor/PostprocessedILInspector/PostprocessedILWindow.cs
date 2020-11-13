@@ -102,11 +102,7 @@ namespace Unity.Entities.Editor
             var generatedTypesListView = rootVisualElement.Q<ListView>("Scripts ListView");
             SetupListView(generatedTypesListView, FilteredTypes, 15, MakeScriptLabel, BindScriptLabel);
             generatedTypesListView.selectionType = SelectionType.Single;
-#if UNITY_2020_1_OR_NEWER
             generatedTypesListView.onSelectionChange += OnScriptSelected;
-#else
-            generatedTypesListView.onSelectionChanged += OnScriptSelected;
-#endif
 
             var searchField = rootVisualElement.Q<ToolbarSearchField>("Script Search Field");
             searchField.RegisterCallback<ChangeEvent<string>, ListView>(OnFilter, generatedTypesListView);

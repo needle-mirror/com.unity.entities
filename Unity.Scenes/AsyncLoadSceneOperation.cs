@@ -98,6 +98,8 @@ namespace Unity.Scenes
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             _Data.PostLoadCommandBuffer?.Dispose();
 #endif
+            if (_Data.Dependencies.IsCreated)
+                _Data.Dependencies.Dispose();
         }
 
         struct AsyncLoadSceneJob : IJob
@@ -150,7 +152,7 @@ namespace Unity.Scenes
 
 #if !UNITY_DOTSRUNTIME
         ReferencedUnityObjects  _ResourceObjRefs;
-        List<SceneBundleHandle> _SceneBundleHandles;
+        SceneBundleHandle[]     _SceneBundleHandles;
         AssetBundleRequest      _AssetRequest;
 #endif
 
@@ -191,7 +193,7 @@ namespace Unity.Scenes
         public Exception Exception => _LoadingException;
 
 #if !UNITY_DOTSRUNTIME
-        public List<SceneBundleHandle> StealBundles()
+        public SceneBundleHandle[] StealBundles()
         {
             var tmp = _SceneBundleHandles;
             _SceneBundleHandles = null;
@@ -231,7 +233,7 @@ namespace Unity.Scenes
                     if (SceneBundleHandle.UseAssetBundles)
                     {
                         _SceneBundleHandles = SceneBundleHandle.LoadSceneBundles(_ResourcesPathObjRefs, _Data.Dependencies, true);
-                        if(_SceneBundleHandles.Count > 0)
+                        if(_SceneBundleHandles.Length > 0)
                             _ResourceObjRefs = _SceneBundleHandles[0].AssetBundle?.LoadAsset<ReferencedUnityObjects>(Path.GetFileName(_ResourcesPathObjRefs));
                     }
                     else

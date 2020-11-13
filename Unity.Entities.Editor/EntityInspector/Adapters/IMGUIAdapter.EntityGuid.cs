@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
             GUI.enabled = enabled;
             EditorGUI.indentLevel++;
             EditorGUILayout.TextField("Originating Id", value.OriginatingId.ToString());
-            EditorGUILayout.TextField("Namespace Id", value.NamespaceId.ToString());
+            EditorGUILayout.TextField("Namespace Id", value.FullNamespaceId.ToString());
             EditorGUILayout.TextField("Serial", value.Serial.ToString());
             EditorGUI.indentLevel--;
             return VisitStatus.Stop;

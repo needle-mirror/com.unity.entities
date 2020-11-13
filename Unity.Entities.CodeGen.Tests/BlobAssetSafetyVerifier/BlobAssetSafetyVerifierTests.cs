@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.Entities.CodeGen.Tests.TestTypes;
 
@@ -161,6 +162,127 @@ namespace Unity.Entities.CodeGen.Tests
         {
             AssertProducesNoError(typeof(ClassWithValidBlobReferenceUsage));
         }
+
+        struct ManagedBlob
+        {
+            public string s;
+        }
+
+        class WithManagedRefsInBlob_Class
+        {
+            void Method()
+            {
+                var builder = new BlobBuilder(Allocator.Temp);
+                ref var root = ref builder.ConstructRoot<ManagedBlob>();
+                root.s = "foo";
+                EnsureNotOptimizedAway(root);
+            }
+        }
+
+        [Test]
+        public void ManagedRefsInBlobThrows()
+        {
+            AssertProducesError(
+                typeof(WithManagedRefsInBlob_Class),
+                "error ConstructBlobWithRefTypeViolation: You may not build a type ManagedBlob with Construct as ManagedBlob.s is a reference or pointer.  Only non-reference types are allowed in Blobs.");
+        }
+
+        unsafe struct BlobWithPointer
+        {
+            public int* p;
+        }
+
+        class WithPointerInBlob_Class
+        {
+            unsafe void Method()
+            {
+                var builder = new BlobBuilder(Allocator.Temp);
+                ref var root = ref builder.ConstructRoot<BlobWithPointer>();
+                root.p = null;
+                EnsureNotOptimizedAway(root);
+            }
+        }
+
+        [Test]
+        public void PointerInBlobThrows()
+        {
+            AssertProducesError(
+                typeof(WithPointerInBlob_Class),
+                "error ConstructBlobWithRefTypeViolation: You may not build a type BlobWithPointer with Construct as BlobWithPointer.p is a reference or pointer.  Only non-reference types are allowed in Blobs.");
+        }
+
+        struct UnmanagedPtrInBlobPtr
+        {
+            public BlobPtr<BlobWithPointer> ptr;
+        }
+
+        class WithUnmanagedPtrInBlobPtr_Class
+        {
+            unsafe void Method()
+            {
+                var builder = new BlobBuilder(Allocator.Temp);
+                ref var root = ref builder.ConstructRoot<UnmanagedPtrInBlobPtr>();
+                ref var blobWithPtr = ref builder.Allocate(ref root.ptr);
+                blobWithPtr.p = null;
+                EnsureNotOptimizedAway(ref root);
+            }
+        }
+
+        [Test]
+        public void NestedPointerInBlobThrows()
+        {
+            AssertProducesError(
+                typeof(WithUnmanagedPtrInBlobPtr_Class),
+                "error ConstructBlobWithRefTypeViolation: You may not build a type UnmanagedPtrInBlobPtr with Construct as UnmanagedPtrInBlobPtr.ptr.Value.p is a reference or pointer.  Only non-reference types are allowed in Blobs.");
+        }
+
+        struct ManagedRefInBlobArray
+        {
+            public BlobArray<ManagedBlob> array;
+        }
+
+        class WithManagedRefInBlobArray_Class
+        {
+            unsafe void Method()
+            {
+                var builder = new BlobBuilder(Allocator.Temp);
+                ref var root = ref builder.ConstructRoot<ManagedRefInBlobArray>();
+                builder.Construct(ref root.array, new[] {new ManagedBlob {s = "foo"}});
+                EnsureNotOptimizedAway(ref root);
+            }
+        }
+
+        [Test]
+        public void ManagedRefInBlobArrayThrows()
+        {
+            AssertProducesError(
+                typeof(WithManagedRefInBlobArray_Class),
+                "error ConstructBlobWithRefTypeViolation: You may not build a type ManagedRefInBlobArray with Construct as ManagedRefInBlobArray.array[].s is a reference or pointer.  Only non-reference types are allowed in Blobs.");
+        }
+
+        struct ManagedRefInStaticField
+        {
+            public static string s_ManagedString;
+            public int i;
+        }
+
+        class WithManagedRefInStaticField_Class
+        {
+            void Method()
+            {
+                var builder = new BlobBuilder(Allocator.Temp);
+                ref var root = ref builder.ConstructRoot<ManagedRefInStaticField>();
+                root.i = 42;
+                EnsureNotOptimizedAway(ref root);
+            }
+        }
+
+        [Test]
+        public void ManagedRefInStaticField_Doesnt_Throw()
+        {
+            AssertProducesNoError(typeof(WithManagedRefInStaticField_Class));
+        }
+
 
         void AssertProducesNoError(Type typeWithCodeUnderTest)
         {

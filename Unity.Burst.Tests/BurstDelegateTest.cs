@@ -4,6 +4,7 @@ using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Entities;
 
 [BurstCompile]
 public unsafe class BurstDelegateTest
@@ -69,4 +70,43 @@ public unsafe class BurstDelegateTest
     {
         Assert.Throws<InvalidOperationException>(() => BurstCompiler.CompileFunctionPointer<DoThingDelegate>(DoThingMissingBurstCompile));
     }
+
+#if UNITY_2020_1_OR_NEWER
+    [BurstCompile]
+    private struct DivideByZeroJob : IJobBurstSchedulable
+    {
+        [NativeDisableUnsafePtrRestriction]
+        public int I;
+
+        public void Execute()
+        {
+            I = 42 / I;
+
+            // This is never hit because the above throws an exception.
+            I = 13;
+        }
+    }
+
+    private delegate void CallJobDelegate(ref DivideByZeroJob job);
+
+    [BurstCompile(CompileSynchronously = true)]
+    private static void CallJob(ref DivideByZeroJob job)
+	{
+        job.Run();
+
+        // Even though job.Run() throws an exception in its body, the job system catches
+        // that exception and handles it. So this statement is hit.
+        job.I++;
+	}
+
+    [Test, Ignore("DOTS-2992")]
+    public void CallJobFromFunctionPointer()
+    {
+        IJobBurstSchedulableExtensions.JobStruct<DivideByZeroJob>.Initialize();
+        var funcPtr = BurstCompiler.CompileFunctionPointer<CallJobDelegate>(CallJob);
+        var job = new DivideByZeroJob { I = 0 };
+        funcPtr.Invoke(ref job);
+        Assert.AreEqual(job.I, 1);
+    }
+#endif
 }

@@ -6,7 +6,7 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
-    class SystemBaseSingletonAccessTests : ECSTestsFixture
+    partial class SystemBaseSingletonAccessTests : ECSTestsFixture
     {
         SystemBase_TestSystem TestSystem;
 
@@ -16,7 +16,7 @@ namespace Unity.Entities.Tests
             TestSystem = World.GetOrCreateSystem<SystemBase_TestSystem>();
         }
 
-        public class SystemBase_TestSystem : SystemBase
+        public partial class SystemBase_TestSystem : SystemBase
         {
             protected override void OnUpdate() {}
 
@@ -184,6 +184,18 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(3, query.GetSingleton<EcsTestData>().value);
             }
 
+            public struct GenericDataType<T> : IComponentData where T : unmanaged
+            {
+                public T value;
+            }
+            public void GetSingletonWithGenericThrows()
+            {
+                EntityManager.CreateEntity(typeof(GenericDataType<int>));
+
+                SetSingleton(new GenericDataType<int>() { value = 10 });
+                Assert.AreEqual(10, GetSingleton<GenericDataType<int>>().value);
+            }
+
     #if !UNITY_DISABLE_MANAGED_COMPONENTS
             public void GetSetSingleton_ManagedComponents()
             {
@@ -282,6 +294,13 @@ namespace Unity.Entities.Tests
             TestSystem.GetSingletonThroughQueryWorks();
         }
 
+        [Test]
+        public void SystemBase_GetSingletonWithGenericThrows()
+        {
+            // Will now throw exception around not knowing component types at compile time instead of crashing
+            Assert.Throws<ArgumentException>(()=>TestSystem.GetSingletonWithGenericThrows());
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void SystemBase_GetSetSingleton_ManagedComponents()
@@ -298,3 +317,5 @@ namespace Unity.Entities.Tests
 #endif
     }
 }
+
+

@@ -8,40 +8,109 @@ using Unity.Jobs;
 
 namespace Unity.Entities.PerformanceTests
 {
-    public class LambdaJobsTestFixture : ECSTestsFixture
+    public partial class LambdaJobsTestFixture : ECSTestsFixture
     {
-        protected class TestComponentSystem : JobComponentSystem
+        public enum ScheduleType
         {
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            Run,
+            Schedule,
+            ScheduleParallel
+        }
+
+        protected partial class TestComponentSystem : SystemBase
+        {
+            protected override void OnUpdate()
             {
-                return default;
             }
 
-            public void OneDataLambda()
+            public void OneComponentLambda(ScheduleType scheduleType)
             {
+                switch (scheduleType)
+            {
+                    case ScheduleType.Run:
                 Entities.ForEach((Entity entity, ref EcsTestFloatData d1) =>
                 {
                     d1.Value++;
                 }).Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        Entities.ForEach((Entity entity, ref EcsTestFloatData d1) =>
+                        {
+                            d1.Value++;
+                        }).Schedule();
+                        CompleteDependency();
+                        break;
+                    case ScheduleType.ScheduleParallel:
+                        Entities.ForEach((Entity entity, ref EcsTestFloatData d1) =>
+                        {
+                            d1.Value++;
+                        }).ScheduleParallel();
+                        CompleteDependency();
+                        break;
+                }
             }
 
-            public void TwoDataLambda()
+            public void TwoComponentLambda(ScheduleType scheduleType)
             {
+                switch (scheduleType)
+            {
+                    case ScheduleType.Run:
                 Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2) =>
                 {
                     d1.Value++;
                     d2.Value0++;
                 }).Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2) =>
+                        {
+                            d1.Value++;
+                            d2.Value0++;
+                        }).Schedule();
+                        CompleteDependency();
+                        break;
+                    case ScheduleType.ScheduleParallel:
+                        Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2) =>
+                        {
+                            d1.Value++;
+                            d2.Value0++;
+                        }).ScheduleParallel();
+                        CompleteDependency();
+                        break;
+                }
             }
 
-            public void ThreeDataLambda()
+            public void ThreeComponentLambda(ScheduleType scheduleType)
             {
+                switch (scheduleType)
+                {
+                    case ScheduleType.Run:
                 Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2, ref EcsTestFloatData3 d3) =>
                 {
                     d1.Value++;
                     d2.Value0++;
                     d3.Value0++;
                 }).Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2, ref EcsTestFloatData3 d3) =>
+                        {
+                            d1.Value++;
+                            d2.Value0++;
+                            d3.Value0++;
+                        }).Schedule();
+                        CompleteDependency();
+                        break;
+                    case ScheduleType.ScheduleParallel:
+                        Entities.ForEach((Entity entity, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2, ref EcsTestFloatData3 d3) =>
+                        {
+                            d1.Value++;
+                            d2.Value0++;
+                            d3.Value0++;
+                        }).ScheduleParallel();
+                        CompleteDependency();
+                        break;
+                }
             }
 
             public void SimpleLambda()
@@ -63,39 +132,6 @@ namespace Unity.Entities.PerformanceTests
                             d1.Value = d2.Value0 + d3.Value0;
                     }).Run();
             }
-
-#pragma warning disable 618
-            [BurstCompile]
-            public struct OneDataJob : IJobForEachWithEntity<EcsTestFloatData>
-            {
-                public void Execute(Entity entity, int index, ref EcsTestFloatData d1)
-                {
-                    d1.Value++;
-                }
-            }
-
-            [BurstCompile]
-            public struct TwoDataJob : IJobForEachWithEntity<EcsTestFloatData, EcsTestFloatData2>
-            {
-                public void Execute(Entity entity, int index, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2)
-                {
-                    d1.Value++;
-                    d2.Value0++;
-                }
-            }
-
-            [BurstCompile]
-            public struct ThreeDataJob : IJobForEachWithEntity<EcsTestFloatData, EcsTestFloatData2, EcsTestFloatData3>
-            {
-                public int count;
-                public void Execute(Entity entity, int index, ref EcsTestFloatData d1, ref EcsTestFloatData2 d2, ref EcsTestFloatData3 d3)
-                {
-                    d1.Value++;
-                    d2.Value0++;
-                    d3.Value0++;
-                }
-            }
-#pragma warning restore 618
 
             public void StructuralChangesWithECB(EntityManager manager)
             {
@@ -140,84 +176,46 @@ namespace Unity.Entities.PerformanceTests
     }
 
     [Category("Performance")]
-    class LambdaJobsPerformanceTests : LambdaJobsTestFixture
+    partial class LambdaJobsPerformanceTests : LambdaJobsTestFixture
     {
         // Tests the performance of the LambdaJobs ForEach & ForEach on ReadOnly components
         // No structural change expected
         [Test, Performance]
         [Category("Performance")]
-        public void LambdaJobsForEach_Performance_LJ_vs_IJFE([Values(1, 1000, 100000)] int entityCount, [Range(1, 3)] int componentCount)
+        public void LambdaJobsForEach_Performance_OneComponent(
+            [Values(ScheduleType.Run, ScheduleType.Schedule, ScheduleType.ScheduleParallel)] ScheduleType scheduleType, [Values(1, 1000, 100000)] int entityCount)
         {
-            EntityArchetype archetype = new EntityArchetype();
-            switch (componentCount)
-            {
-                case 1: archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData)); break;
-                case 2: archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData), typeof(EcsTestFloatData2)); break;
-                case 3: archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData), typeof(EcsTestFloatData2), typeof(EcsTestFloatData3)); break;
-            }
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData));
             using (var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob))
             {
                 m_Manager.CreateEntity(archetype, entities);
-                switch (componentCount)
+                Measure.Method(() => { TestSystem.OneComponentLambda(scheduleType); }).WarmupCount(5).MeasurementCount(100).Run();
+            }
+            }
+
+        [Test, Performance]
+        [Category("Performance")]
+        public void LambdaJobsForEach_Performance_TwoComponents(
+            [Values(ScheduleType.Run, ScheduleType.Schedule, ScheduleType.ScheduleParallel)] ScheduleType scheduleType, [Values(1, 1000, 100000)] int entityCount)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData), typeof(EcsTestFloatData2));
+            using (var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob))
+            {
+                m_Manager.CreateEntity(archetype, entities);
+                Measure.Method(() => { TestSystem.TwoComponentLambda(scheduleType); }).WarmupCount(5).MeasurementCount(100).Run();
+            }
+        }
+
+        [Test, Performance]
+        [Category("Performance")]
+        public void LambdaJobsForEach_Performance_ThreeComponents(
+            [Values(ScheduleType.Run, ScheduleType.Schedule, ScheduleType.ScheduleParallel)] ScheduleType scheduleType, [Values(1, 1000, 100000)] int entityCount)
                 {
-                    case 1:
-                        Measure.Method(() =>
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestFloatData), typeof(EcsTestFloatData2), typeof(EcsTestFloatData3));
+            using (var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob))
                         {
-                            TestSystem.OneDataLambda();
-                        })
-                            .WarmupCount(5)
-                            .MeasurementCount(100)
-                            .SampleGroup("LambdaJobForEach")
-                            .Run();
-                        Measure.Method(() =>
-                        {
-                            var job = new TestComponentSystem.OneDataJob();
-                            job.Run(TestSystem);
-                        })
-                            .WarmupCount(5)
-                            .MeasurementCount(100)
-                            .SampleGroup("IJobForEachWithEntity")
-                            .Run();
-                        break;
-                    case 2:
-                        Measure.Method(() =>
-                        {
-                            TestSystem.TwoDataLambda();
-                        })
-                            .WarmupCount(5)
-                            .MeasurementCount(100)
-                            .SampleGroup("LambdaJobForEach")
-                            .Run();
-                        Measure.Method(() =>
-                        {
-                            var job = new TestComponentSystem.TwoDataJob();
-                            job.Run(TestSystem);
-                        })
-                            .WarmupCount(5)
-                            .MeasurementCount(100)
-                            .SampleGroup("IJobForEachWithEntity")
-                            .Run();
-                        break;
-                    case 3:
-                        Measure.Method(() =>
-                        {
-                            TestSystem.ThreeDataLambda();
-                        })
-                            .WarmupCount(5)
-                            .MeasurementCount(100)
-                            .SampleGroup("LambdaJobForEach")
-                            .Run();
-                        Measure.Method(() =>
-                        {
-                            var job = new TestComponentSystem.ThreeDataJob();
-                            job.Run(TestSystem);
-                        })
-                            .WarmupCount(5)
-                            .MeasurementCount(100)
-                            .SampleGroup("IJobForEachWithEntity")
-                            .Run();
-                        break;
-                }
+                m_Manager.CreateEntity(archetype, entities);
+                Measure.Method(() => { TestSystem.ThreeComponentLambda(scheduleType); }).WarmupCount(5).MeasurementCount(100).Run();
             }
         }
 

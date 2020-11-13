@@ -166,7 +166,7 @@ namespace Unity.Entities.Tests
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        [Test, Ignore("Unstable - DOTS-2621")]
+        [Test]
         public void JobWithMissingDependency()
         {
             m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));

@@ -61,7 +61,6 @@ namespace Unity.Scenes.Editor
         public const string k_BundleExtension = "bundle";
         public const string k_ManifestExtension = "manifest";
 
-        const string k_PrefabExtension = ".prefab";
         const string k_SceneExtension = ".unity";
 
         [Serializable]
@@ -162,15 +161,7 @@ namespace Unity.Scenes.Editor
 
         void AddImportDependencies(AssetImportContext ctx, IEnumerable<Hash128> dependencies, IEnumerable<Type> types)
         {
-            ctx.DependsOnSourceAsset(ctx.assetPath);
-            var extension = Path.GetExtension(ctx.assetPath).ToLower();
-            if (extension.EndsWith(k_PrefabExtension) || extension.EndsWith(k_SceneExtension))
-            {
-                // We care about prefabs as they are baked in at build time and impact the result
-                var prefabs = AssetDatabase.GetDependencies(ctx.assetPath).Where(x => x.ToLower().EndsWith(k_PrefabExtension));
-                foreach (var prefab in prefabs)
-                    ctx.DependsOnSourceAsset(prefab);
-            }
+            EditorEntityScenes.DependOnSceneGameObjects(AssetDatabaseCompatibility.PathToGUID(ctx.assetPath), ctx);
 
             // All dependencies impact the build result until new SBP APIs land in 2020.1
             foreach (var dependency in dependencies)
@@ -183,8 +174,7 @@ namespace Unity.Scenes.Editor
                 if (LiveLinkBuildPipeline.TryRemapBuiltinExtraGuid(ref dependencyGuid, out _))
                     continue;
 
-                var path = AssetDatabase.GUIDToAssetPath(dependencyGuid.ToString());
-                ctx.DependsOnSourceAsset(path);
+                ctx.DependsOnArtifact(dependencyGuid);
             }
 
             foreach (var type in types)

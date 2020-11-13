@@ -114,36 +114,37 @@ namespace Unity.Entities
             {
                 if (Enabled && ShouldRunSystem())
                 {
-                    if (!state->m_PreviouslyEnabled)
+                    if (!state->PreviouslyEnabled)
                     {
-                        state->m_PreviouslyEnabled = true;
+                        state->PreviouslyEnabled = true;
                         OnStartRunning();
                     }
 
                     var inputJob = BeforeOnUpdate();
                     JobHandle outputJob = new JobHandle();
 
-                    var oldExecutingSystem = ms_ExecutingSystem;
-                    ms_ExecutingSystem = this;
+                    var world = World.Unmanaged;
+                    var oldExecutingSystem = world.ExecutingSystem;
+                    world.ExecutingSystem = state->m_Handle;
                     try
                     {
                         outputJob = OnUpdate(inputJob);
                     }
                     catch
                     {
-                        ms_ExecutingSystem = oldExecutingSystem;
-
                         AfterOnUpdate(outputJob, false);
                         throw;
                     }
-
-                    ms_ExecutingSystem = oldExecutingSystem;
+                    finally
+                    {
+                        world.ExecutingSystem = oldExecutingSystem;
+                    }
 
                     AfterOnUpdate(outputJob, true);
                 }
-                else if (state->m_PreviouslyEnabled)
+                else if (state->PreviouslyEnabled)
                 {
-                    state->m_PreviouslyEnabled = false;
+                    state->PreviouslyEnabled = false;
                     OnStopRunning();
                 }
             }

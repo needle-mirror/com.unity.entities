@@ -1,44 +1,9 @@
 using NUnit.Framework;
-using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-    [DisallowMultipleComponent]
-    [AddComponentMenu("")]
-    public class EcsFooTestProxy : ComponentDataProxy<EcsFooTest> {}
-
-    [DisallowMultipleComponent]
-    [AddComponentMenu("")]
-    public class EcsTestProxy : ComponentDataProxy<EcsTestData> {}
-#pragma warning restore 618
-
     class EntityManagerTests : HybridRuntimeTestFixture
     {
-        [Test]
-        public void GetComponentObjectReturnsTheCorrectType()
-        {
-            var go = new GameObject();
-            MarkForAutoDestructionAfterTest(go);
-            go.AddComponent<EcsTestProxy>();
-
-            var component = m_Manager.GetComponentObject<Transform>(go.GetComponent<GameObjectEntity>().Entity);
-
-            Assert.NotNull(component, "EntityManager.GetComponentObject returned a null object");
-            Assert.AreEqual(typeof(Transform), component.GetType(), "EntityManager.GetComponentObject returned the wrong component type.");
-            Assert.AreEqual(go.transform, component, "EntityManager.GetComponentObject returned a different copy of the component.");
-        }
-
-        [Test]
-        public void GetComponentObjectThrowsIfComponentDoesNotExist()
-        {
-            var go = new GameObject();
-            MarkForAutoDestructionAfterTest(go);
-            go.AddComponent<EcsTestProxy>();
-
-            Assert.Throws<System.ArgumentException>(() => m_Manager.GetComponentObject<Rigidbody>(go.GetComponent<GameObjectEntity>().Entity));
-        }
-
         [Test]
         public unsafe void ArchetypeIsManaged()
         {

@@ -24,9 +24,21 @@ namespace Unity.Entities
         }
 
         [BurstMonoInteropMethod(MakePublic = true)]
+        static void _AddComponentsEntitiesBatch(EntityComponentStore* entityComponentStore, UnsafeList* entityBatchList, ref ComponentTypes types)
+        {
+            entityComponentStore->AddComponents(entityBatchList, ref types);
+        }
+
+        [BurstMonoInteropMethod(MakePublic = true)]
         static bool _AddComponentEntity(EntityComponentStore* entityComponentStore, Entity* entity, int typeIndex)
         {
             return entityComponentStore->AddComponent(*entity, ComponentType.FromTypeIndex(typeIndex));
+        }
+
+        [BurstMonoInteropMethod(MakePublic = true)]
+        static void _AddComponentsEntity(EntityComponentStore* entityComponentStore, Entity* entity, ref ComponentTypes types)
+        {
+            entityComponentStore->AddComponents(*entity, types);
         }
 
         [BurstMonoInteropMethod(MakePublic = true)]
@@ -48,9 +60,21 @@ namespace Unity.Entities
         }
 
         [BurstMonoInteropMethod(MakePublic = true)]
+        static void _RemoveComponentsEntity(EntityComponentStore* entityComponentStore, Entity* entity, ref ComponentTypes types)
+        {
+            entityComponentStore->RemoveComponents(*entity, types);
+        }
+
+        [BurstMonoInteropMethod(MakePublic = true)]
         static void _RemoveComponentEntitiesBatch(EntityComponentStore* entityComponentStore, UnsafeList* entityBatchList, int typeIndex)
         {
             entityComponentStore->RemoveComponent(entityBatchList, ComponentType.FromTypeIndex(typeIndex));
+        }
+
+        [BurstMonoInteropMethod(MakePublic = true)]
+        static void _RemoveComponentsEntitiesBatch(EntityComponentStore* entityComponentStore, UnsafeList* entityBatchList, ref ComponentTypes types)
+        {
+            entityComponentStore->RemoveComponents(entityBatchList, ref types);
         }
 
         [BurstMonoInteropMethod(MakePublic = true)]
@@ -90,6 +114,12 @@ namespace Unity.Entities
         }
 
         [BurstMonoInteropMethod(MakePublic = true)]
+        static void _DestroyEntity(EntityComponentStore* entityComponentStore, Entity* entities, int count)
+        {
+            entityComponentStore->DestroyEntities(entities, count);
+        }
+
+        [BurstMonoInteropMethod(MakePublic = true)]
         static void _InstantiateEntities(EntityComponentStore* entityComponentStore, Entity* srcEntity, Entity* outputEntities, int instanceCount)
         {
             entityComponentStore->InstantiateEntities(*srcEntity, outputEntities, instanceCount);
@@ -106,6 +136,10 @@ namespace Unity.Entities
         /// Adds a component to an entity.
         /// </summary>
         /// <remarks>
+        /// This method can add any kind of component except chunk components and component objects. For chunk
+        /// components, use <see cref="AddChunkComponentData"/>.  For component objects, use
+        /// <see cref="AddComponentObject"/>.
+        ///
         /// Adding a component changes the entity's archetype and results in the entity being moved to a different
         /// chunk.
         ///
@@ -135,6 +169,10 @@ namespace Unity.Entities
         /// Adds a component to an entity.
         /// </summary>
         /// <remarks>
+        /// This method can add any kind of component except chunk components and component objects. For chunk
+        /// components, use <see cref="AddChunkComponentData"/>.  For component objects, use
+        /// <see cref="AddComponentObject"/>.
+        ///
         /// Adding a component changes the entity's archetype and results in the entity being moved to a different
         /// chunk.
         ///
@@ -298,7 +336,6 @@ namespace Unity.Entities
         /// <param name="entities">An array of Entity objects.</param>
         /// <param name="componentType">The type of component to add.</param>
         [StructuralChangeMethod]
-        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void AddComponent(NativeArray<Entity> entities, ComponentType componentType)
         {
             var access = GetCheckedEntityDataAccess();
@@ -310,34 +347,30 @@ namespace Unity.Entities
             if (entities.Length == 0)
                 return;
 
-            ecs->AssertEntitiesExist((Entity*)entities.GetUnsafeReadOnlyPtr(), entities.Length);
+            ecs->AssertCanAddComponent(entities, componentType);  // also checks that the entities exist
 
-            bool useBatches = entities.Length > 10;
+            // must get entity batch list before BeforeStructuralChange()
             NativeList<EntityBatchInChunk> entityBatchList = default;
-            if (useBatches)
-                useBatches = ecs->CreateEntityBatchListForAddComponent(entities, componentType, out entityBatchList);
-            if (useBatches)
-                ecs->AssertCanAddComponent(entityBatchList, componentType);
-            else
-            {
-                for (int i = 0; i < entities.Length; i++)
-                    ecs->AssertCanAddComponent(entities[i], componentType);
-            }
+            bool useBatches = (entities.Length > EntityDataAccess.FASTER_TO_BATCH_THRESHOLD
+                               && ecs->CreateEntityBatchList(entities, componentType.IsSharedComponent ? 1 : 0, out entityBatchList));
+
 
             BeforeStructuralChange();
             var archetypeChanges = ecs->BeginArchetypeChangeTracking();
-            if (!useBatches)
+
+            if (useBatches)
+            {
+                StructuralChange.AddComponentEntitiesBatch(ecs,
+                        (UnsafeList*)NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(ref entityBatchList), componentType.TypeIndex);
+                entityBatchList.Dispose();
+            }
+            else
             {
                 for (int i = 0; i < entities.Length; i++)
                 {
                     var entity = entities[i];
                     StructuralChange.AddComponentEntity(ecs, &entity, componentType.TypeIndex);
                 }
-            }
-            else
-            {
-                StructuralChange.AddComponentEntitiesBatch(ecs, (UnsafeList*)NativeListUnsafeUtility.GetInternalListDataPtrUnchecked(ref entityBatchList), componentType.TypeIndex);
-                entityBatchList.Dispose();
             }
 
             ecs->EndArchetypeChangeTracking(archetypeChanges, access->EntityQueryManager);
@@ -376,10 +409,10 @@ namespace Unity.Entities
             BeforeStructuralChange();
             var archetypeChanges = ecs->BeginArchetypeChangeTracking();
 
-            bool useBatches = entities.Length > 10;
+            bool useBatches = entities.Length > EntityDataAccess.FASTER_TO_BATCH_THRESHOLD;
             NativeList<EntityBatchInChunk> entityBatchList = default;
             if (useBatches)
-                useBatches = ecs->CreateEntityBatchListForRemoveComponent(entities, componentType, out entityBatchList);
+                useBatches = ecs->CreateEntityBatchList(entities, 0 , out entityBatchList);
             if (useBatches)
             {
                 // For many entities, resort data into batches.
@@ -824,6 +857,9 @@ namespace Unity.Entities
         /// Adding a component changes an entity's archetype and results in the entity being moved to a different
         /// chunk.
         ///
+        /// (You can add a buffer component with the regular AddComponent methods, but unlike those methods, this
+        /// method conveniently also returns the new buffer.)
+        ///
         /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
         /// currently running Jobs to complete before adding the buffer and no additional Jobs can start before
         /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
@@ -837,7 +873,7 @@ namespace Unity.Entities
         [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         public DynamicBuffer<T> AddBuffer<T>(Entity entity) where T : struct, IBufferElementData
         {
-            AddComponent(entity, ComponentType.ReadWrite<T>());
+            AddComponent<T>(entity);
             return GetBuffer<T>(entity);
         }
 
@@ -930,7 +966,6 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
-            var mcs = access->ManagedComponentStore;
 
             Unity.Entities.EntityComponentStore.AssertValidEntityQuery(entityQuery, ecs);
 
@@ -942,9 +977,9 @@ namespace Unity.Entities
             {
                 if (chunks.Length == 0)
                     return;
-                var newSharedComponentDataIndex = mcs.InsertSharedComponent(componentData);
+                var newSharedComponentDataIndex = access->InsertSharedComponent(componentData);
                 access->AddSharedComponentData(chunks, newSharedComponentDataIndex, componentType);
-                mcs.RemoveReference(newSharedComponentDataIndex);
+                access->RemoveSharedComponentReference(newSharedComponentDataIndex);
             }
         }
 

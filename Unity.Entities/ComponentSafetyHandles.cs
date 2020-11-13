@@ -19,7 +19,6 @@ namespace Unity.Entities
 
         ushort*                m_TypeArrayIndices;
         const ushort           NullTypeIndex = 0xFFFF;
-#if UNITY_2020_1_OR_NEWER
         // Per-component-type Static safety IDs are shared across all Worlds.
         static int* m_StaticSafetyIdsForComponentDataFromEntity;
         static int* m_StaticSafetyIdsForArchetypeChunkArrays;
@@ -61,13 +60,13 @@ namespace Unity.Entities
                 {
                     m_StaticSafetyIdsForComponentDataFromEntity[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "BufferFromEntity<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
+                            "BufferFromEntity<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
                 }
                 else
                 {
                     m_StaticSafetyIdsForComponentDataFromEntity[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "ComponentDataFromEntity<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
+                            "ComponentDataFromEntity<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
                 }
             }
             if (m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] == 0)
@@ -76,19 +75,19 @@ namespace Unity.Entities
                 {
                     m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "BufferTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
+                            "BufferTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
                 }
-                else if (TypeManager.IsSharedComponent(typeIndex))
+                else if (TypeManager.IsSharedComponentType(typeIndex))
                 {
                     m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "SharedComponentTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
+                            "SharedComponentTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
                 }
                 else
                 {
                     m_StaticSafetyIdsForArchetypeChunkArrays[typeIndexWithoutFlags] =
                         CreateStaticSafetyId(
-                            "ComponentTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).Debug.TypeName + ">");
+                            "ComponentTypeHandle<" + TypeManager.GetTypeInfo(typeIndex).DebugTypeName + ">");
                 }
             }
         }
@@ -117,7 +116,6 @@ namespace Unity.Entities
             AtomicSafetyHandle.SetStaticSafetyId(ref handle, staticSafetyId);
         }
 
-#endif
         ushort GetTypeArrayIndex(int typeIndex)
         {
             var typeIndexWithoutFlags = typeIndex & TypeManager.ClearFlagsMask;
@@ -134,13 +132,11 @@ namespace Unity.Entities
             m_ComponentSafetyHandles[arrayIndex].BufferHandle = AtomicSafetyHandle.Create();
             AtomicSafetyHandle.SetBumpSecondaryVersionOnScheduleWrite(m_ComponentSafetyHandles[arrayIndex].BufferHandle, true);
 
-#if UNITY_2020_1_OR_NEWER
             // Create static safety IDs for this type if they don't already exist.
             CreateStaticSafetyIdsForType(typeIndex);
             // Set default static safety IDs for handles
             SetStaticSafetyIdForHandle_ArchetypeChunk(ref m_ComponentSafetyHandles[arrayIndex].SafetyHandle, typeIndex, false);
             SetStaticSafetyIdForHandle_ArchetypeChunk(ref m_ComponentSafetyHandles[arrayIndex].BufferHandle, typeIndex, false);
-#endif
             return arrayIndex;
         }
 
@@ -163,7 +159,6 @@ namespace Unity.Entities
             m_ComponentSafetyHandlesCount = 0;
 
             m_InvalidateArraysMarker = new ProfilerMarker("InvalidateArrays");
-#if UNITY_2020_1_OR_NEWER
             if (m_StaticSafetyIdsForComponentDataFromEntity == null)
             {
                 m_StaticSafetyIdsForComponentDataFromEntity =
@@ -188,7 +183,6 @@ namespace Unity.Entities
                 m_CustomDeallocatedErrorMessageBytes);
             SetCustomErrorMessage(m_StaticSafetyIdForEntityTypeHandle, AtomicSafetyErrorType.DeallocatedFromJob,
                 m_CustomDeallocatedFromJobErrorMessageBytes);
-#endif
         }
 
         public AtomicSafetyHandle ExclusiveTransactionSafety;
@@ -279,10 +273,8 @@ namespace Unity.Entities
         public AtomicSafetyHandle GetSafetyHandleForComponentDataFromEntity(int type, bool isReadOnly)
         {
             var handle = GetSafetyHandle(type, isReadOnly);
-#if UNITY_2020_1_OR_NEWER
             // Override the handle's default static safety ID
             SetStaticSafetyIdForHandle_FromEntity(ref handle, type);
-#endif
             return handle;
         }
 
@@ -290,10 +282,8 @@ namespace Unity.Entities
         {
             Assert.IsTrue(TypeManager.IsBuffer(type));
             var handle = GetBufferSafetyHandle(type);
-#if UNITY_2020_1_OR_NEWER
             // Override the handle's default static safety ID
             SetStaticSafetyIdForHandle_FromEntity(ref handle, type);
-#endif
             return handle;
         }
 
@@ -307,10 +297,8 @@ namespace Unity.Entities
         public AtomicSafetyHandle GetSafetyHandleForDynamicComponentTypeHandle(int type, bool isReadOnly)
         {
             var handle = GetSafetyHandle(type, isReadOnly);
-#if UNITY_2020_1_OR_NEWER
             // We need to override the handle's default static safety ID to use the DynamicComponentTypeHandle version.
             SetStaticSafetyIdForHandle_ArchetypeChunk(ref handle, type, true);
-#endif
             return handle;
         }
 
@@ -331,7 +319,7 @@ namespace Unity.Entities
 
         public AtomicSafetyHandle GetSafetyHandleForSharedComponentTypeHandle(int type)
         {
-            Assert.IsTrue(TypeManager.IsSharedComponent(type));
+            Assert.IsTrue(TypeManager.IsSharedComponentType(type));
             var handle = GetSafetyHandle(type, false);
             // safety handles are configured with the static safety ID for ArchetypeChunk*Type by default,
             // so no further static safety ID setup is necessary in this path.

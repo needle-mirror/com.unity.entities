@@ -11,7 +11,10 @@ using Unity.Collections.LowLevel.Unsafe;
 using Assert = NUnit.Framework.Assert;
 using Unity.Mathematics;
 using System.IO;
+using Unity.Entities.Serialization;
+using Unity.Entities.LowLevel.Unsafe;
 using Unity.IO.LowLevel.Unsafe;
+
 #if UNITY_DOTSRUNTIME
 using Unity.Tiny;
 using Unity.Tiny.IO;
@@ -520,31 +523,25 @@ public class BlobTests : ECSTestsFixture
         return entities;
     }
 
+    const int kVersion = 51;
+    const int kIncorrectVersion = 13;
+
 #if !UNITY_DOTSRUNTIME
+
     [Test]
     public void BlobAssetReferenceTryRead()
     {
-        const int kVersion = 42;
-        const int kIncorrectVersion = 13;
-        Assert.AreNotEqual(kVersion, kIncorrectVersion);
-
         string path = "BlobAssetReferenceIOTestData.blob";
         if (File.Exists(path))
             File.Delete(path);
-
         try
         {
-            bool result = false;
             var blobBuilder = ConstructBlobBuilder();
             BlobAssetReference<MyData>.Write(blobBuilder, path, kVersion);
-
-            result = BlobAssetReference<MyData>.TryRead(path, kIncorrectVersion, out var incorrectBlobResult);
-            Assert.IsTrue(!result);
-
-            result = BlobAssetReference<MyData>.TryRead(path, kVersion, out var correctBlobResult);
-            Assert.IsTrue(result);
-            ValidateBlobData(ref correctBlobResult.Value);
-            correctBlobResult.Dispose();
+            using(var reader = new StreamBinaryReader(path))
+                Assert.IsFalse(BlobAssetReferenceTryReadVersion(reader, kIncorrectVersion));
+            using(var reader = new StreamBinaryReader(path))
+                Assert.IsTrue(BlobAssetReferenceTryReadVersion(reader, kVersion));
         }
         finally
         {
@@ -552,40 +549,31 @@ public class BlobTests : ECSTestsFixture
                 File.Delete(path);
         }
     }
-#else
 
-    #if !UNITY_WEBGL // https://unity3d.atlassian.net/browse/DOTSR-2030
-    [Test]
-    public unsafe void BlobAssetReferenceTryRead()
-    {
-        const int kVersion = 42;
-        const int kIncorrectVersion = 13;
-        Assert.AreNotEqual(kVersion, kIncorrectVersion);
-
-        string path = "BlobAssetReferenceIOTestData.blob";
-        var startTime = Time.realtimeSinceStartup;
-        var op = IOService.RequestAsyncRead(path);
-        while (op.GetStatus() <= AsyncOp.Status.InProgress)
-        {
-            if ((Time.realtimeSinceStartup - startTime) > 5.0 /*seconds*/)
-                break;
-        }
-        Assert.IsTrue(op.GetStatus() == AsyncOp.Status.Success);
-
-        bool result = false;
-        op.GetData(out var data, out var dataSize);
-        result = BlobAssetReference<MyData>.TryRead(data, kIncorrectVersion, out var incorrectBlobResult);
-        Assert.IsTrue(!result);
-
-        result = BlobAssetReference<MyData>.TryRead(data, kVersion, out var correctBlobResult);
-        Assert.IsTrue(result);
-        ValidateBlobData(ref correctBlobResult.Value);
-
-        correctBlobResult.Dispose();
-        op.Dispose();
-    }
-    #endif
 #endif
+
+    bool BlobAssetReferenceTryReadVersion<T>(T reader, int version) where T : Unity.Entities.Serialization.BinaryReader
+    {
+        var result = BlobAssetReference<MyData>.TryRead(reader, version, out var blobResult);
+        if(result == false)
+            return false;
+        ValidateBlobData(ref blobResult.Value);
+        blobResult.Dispose();
+        return true;
+    }
+
+    [Test]
+    public void BlobAssetReferenceTryReadNoFile()
+    {
+        unsafe
+        {
+            var writer = new MemoryBinaryWriter();
+            var blobBuilder = ConstructBlobBuilder();
+            BlobAssetReference<MyData>.Write(writer, blobBuilder, kVersion);
+            Assert.IsFalse(BlobAssetReferenceTryReadVersion(new MemoryBinaryReader(writer.Data), kIncorrectVersion));
+            Assert.IsTrue(BlobAssetReferenceTryReadVersion(new MemoryBinaryReader(writer.Data), kVersion));
+        }
+    }
 
     public struct Node
     {
@@ -670,5 +658,23 @@ public class BlobTests : ECSTestsFixture
             var child = new Node();
             builder.SetPointer(ref rootNode.parent, ref child);
             });
+    }
+
+    [Test]
+    unsafe public void UnsafeUntypedBlobCasting()
+    {
+        var blobData = ConstructBlobData();
+
+        var untyped = UnsafeUntypedBlobAssetReference.Create(blobData);
+
+        var reinterpreted = untyped.Reinterpret<MyData>();
+
+        ValidateBlobData(ref reinterpreted.Value);
+        Assert.IsTrue(reinterpreted.GetUnsafePtr() == blobData.GetUnsafePtr());
+        Assert.IsTrue(UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref blobData), UnsafeUtility.AddressOf(ref untyped), UnsafeUtility.SizeOf<UnsafeUntypedBlobAssetReference>()) == 0);
+        Assert.IsTrue(UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref blobData), UnsafeUtility.AddressOf(ref reinterpreted), UnsafeUtility.SizeOf<UnsafeUntypedBlobAssetReference>()) == 0);
+        Assert.AreEqual(UnsafeUtility.SizeOf<UnsafeUntypedBlobAssetReference>(), UnsafeUtility.SizeOf<BlobAssetReference<MyData>>());
+
+        blobData.Dispose();
     }
 }

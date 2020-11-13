@@ -4,7 +4,6 @@ using System.Threading;
 using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Assertions;
-using Unity.Collections;
 
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<int>))]
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<float>))]
@@ -91,6 +90,11 @@ namespace Unity.Entities.Tests
         }
 
         public int GetValue() => value0;
+    }
+
+    public struct EcsTestNonComponent
+    {
+        public int Value;
     }
 
     public struct EcsTestFloatData : IComponentData
@@ -276,6 +280,20 @@ namespace Unity.Entities.Tests
         public BlobAssetReference<int> value;
     }
 
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    public class EcsTestDataBlobAssetRefClass : IComponentData
+    {
+        public BlobAssetReference<int> value;
+        public BlobAssetReference<int> value2;
+    }
+#endif
+
+    public struct EcsTestDataBlobAssetRefShared : ISharedComponentData
+    {
+        public BlobAssetReference<int> value;
+        public BlobAssetReference<int> value2;
+    }
+
     public struct EcsTestDataBlobAssetRef2 : IComponentData
     {
         public BlobAssetReference<int> value;
@@ -314,6 +332,16 @@ namespace Unity.Entities.Tests
         public int Value;
 
         public EcsState1(int value)
+        {
+            Value = value;
+        }
+    }
+
+    public struct EcsStateShared1 : ISystemStateSharedComponentData
+    {
+        public int Value;
+
+        public EcsStateShared1(int value)
         {
             Value = value;
         }
@@ -437,11 +465,11 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 
-    public class ClassWithString
+    sealed public class ClassWithString
     {
         public string String;
     }
-    public class ClassWithClassFields
+    sealed public class ClassWithClassFields
     {
         public ClassWithString ClassWithString;
     }

@@ -30,7 +30,8 @@ namespace Unity.Scenes
             uwrFile.SendWebRequest();
             while (!uwrFile.isDone) {}
 
-            return !uwrFile.isNetworkError && !uwrFile.isHttpError;
+            return uwrFile.result != UnityWebRequest.Result.ConnectionError &&
+                   uwrFile.result != UnityWebRequest.Result.ProtocolError;
 #else
             return File.Exists(path);
 #endif

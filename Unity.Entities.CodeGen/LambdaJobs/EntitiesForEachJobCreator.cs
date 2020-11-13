@@ -163,7 +163,7 @@ namespace Unity.Entities.CodeGen
         }
 
         // Create a DisposeOnJobCompletion method if needed.  The is needed for fields where both of following are true:
-        // 1. It is included in an invocation to WithDeallocateOnJobCompletion or WithDisposeOnCompletion
+        // 1. It is included in an invocation to WithDisposeOnCompletion
         // 2. It is NOT marked with NativeContainerSupportsDeallocateOnJobCompletionAttribute and we are executing as a job.  In this case we just
         // mark the field with DeallocateOnJobCompletionAttribute in ApplyFieldAttributes and let the native job system handle it's cleanup (which is faster).
         void MakeDisposeOnCompletionMethod()
@@ -193,10 +193,6 @@ namespace Unity.Entities.CodeGen
                                         typeof(DeallocateOnJobCompletionAttribute).GetConstructor(Array.Empty<Type>()))));
                                 continue;
                             }
-#pragma warning disable 0618
-                            else if (constructionMethod.MethodName == nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion))
-#pragma warning restore 0618
-                                UserError.DC0035(LambdaJobDescriptionConstruction.ContainingMethod, field.Name, field.FieldType, constructionMethod.InstructionInvokingMethod).Throw();
                         }
 
                         fieldDefinitions.Add(field);
@@ -210,12 +206,8 @@ namespace Unity.Entities.CodeGen
             var fieldsToDispose = new List<FieldDefinition>();
             var fieldToInstructionInvokingConstructionMethod = new Dictionary<FieldDefinition, Instruction>();
 
-            // Check fields invoked with WithDeallocateOnJobCompletion or WithDisposeOnCompletion and either add
+            // Check fields invoked with WithDisposeOnCompletion and either add
             // them as fields to handle in Dispose method or just mark them with [DeallocateOnJobCompletion] when possible
-#pragma warning disable 0618
-            UpdateFieldsToDisposeOrMarkAsDeallocate(fieldsToDispose, fieldToInstructionInvokingConstructionMethod,
-                nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion));
-#pragma warning restore 0618
             UpdateFieldsToDisposeOrMarkAsDeallocate(fieldsToDispose, fieldToInstructionInvokingConstructionMethod,
                 nameof(LambdaJobDescriptionConstructionMethods.WithDisposeOnCompletion));
 

@@ -299,6 +299,7 @@ internal class FooAuthoring : MonoBehaviour, IConvertGameObjectToEntity,
 
 Note the following restrictions:
 
+* Generated authoring types _will_ overwrite existing types with the same names. E.g., if you have an `IComponentData` type named `MyAwesomeComponent` with the `[GenerateAuthoringComponent]` attribute, your own implementation of `MyAwesomeComponentAuthoring` will be overwritten by the generated `MyAwesomeComponentAuthoring`.
 * Only one component in a single C# file can have a generated authoring component, and the C# file must not have another MonoBehaviour in it.
 * The file doesn't have to follow any naming convention, i.e. it doesn't have to be named after the generated authoring component.
 * ECS only reflects public fields and they have the same name as that specified in the component.

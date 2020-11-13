@@ -35,7 +35,9 @@ namespace Unity.Entities.Tests.Conversion
         };
 
         protected static readonly IEnumerable<Type> k_CommonComponents = new[] { typeof(Translation), typeof(Rotation), typeof(LocalToWorld) };
+        protected static readonly IEnumerable<Type> k_StaticComponents = new[] {typeof(LocalToWorld), typeof(Static)};
         protected static readonly IEnumerable<Type> k_RootComponents = k_CommonComponents.Append(typeof(LinkedEntityGroup));
+        protected static readonly IEnumerable<Type> k_StaticRootComponents = k_StaticComponents.Append(typeof(LinkedEntityGroup));
         protected static readonly IEnumerable<Type> k_ChildComponents  = k_CommonComponents.Concat(new[] { typeof(Parent), typeof(LocalToParent) });
 
         [TearDown]

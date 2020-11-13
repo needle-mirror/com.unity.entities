@@ -1,3 +1,4 @@
+#if !ROSLYN_SOURCEGEN_ENABLED // Still need to add error reporting for lambda jobs source generation
 using System;
 using System.Linq;
 using NUnit.Framework;
@@ -1112,16 +1113,6 @@ namespace Unity.Entities.CodeGen.Tests
         {
             AssertProducesNoError(typeof(CorrectDeallocateOnJobCompletionUsageWithStruct));
         }
-        [Test]
-        public void DeallocateOnJobCompletionWarnsAboutArgumentType_IncorrectDeallocateOnJobCompletionUsageWithStruct()
-        {
-            AssertProducesError(typeof(IncorrectDeallocateOnJobCompletionUsageWithStruct), nameof(UserError.DC0035), "structWithPrimitiveType");
-        }
-        [Test]
-        public void DeallocateOnJobCompletionWarnsAboutArgumentType_IncorrectDeallocateOnJobCompletionUsageWithPrimitiveType()
-        {
-            AssertProducesError(typeof(IncorrectDeallocateOnJobCompletionUsageWithPrimitiveType), nameof(UserError.DC0035), "myVar");
-        }
 
         class CorrectDeallocateOnJobCompletionUsageWithNativeContainer : TestSystemBase
         {
@@ -1149,27 +1140,6 @@ namespace Unity.Entities.CodeGen.Tests
                 }).Schedule();
             }
         }
-
-#pragma warning disable 0618
-        class IncorrectDeallocateOnJobCompletionUsageWithStruct : TestSystemBase
-        {
-            void Test()
-            {
-                StructWithPrimitiveType structWithPrimitiveType = default;
-                structWithPrimitiveType.field = default;
-                Entities.WithDeallocateOnJobCompletion(structWithPrimitiveType).ForEach((ref Translation t) => { t.Value += structWithPrimitiveType.field; }).Schedule();
-            }
-        }
-
-        class IncorrectDeallocateOnJobCompletionUsageWithPrimitiveType : TestSystemBase
-        {
-            void Test()
-            {
-                int myVar = 0;
-                Entities.WithDeallocateOnJobCompletion(myVar).ForEach((ref Translation t) => { t.Value += myVar; }).Schedule();
-            }
-        }
-#pragma warning restore 0618
 
         [Test]
         public void DisableContainerSafetyRestrictionWarnsAboutArgumentType_CorrectDisableContainerSafetyRestrictionUsageWithNativeContainer()
@@ -1800,6 +1770,24 @@ namespace Unity.Entities.CodeGen.Tests
         public class InvalidWithAnyInLambdaParamComponentGeneratesError_System : SystemBase {
             protected override void OnUpdate() { Entities.WithAny<Translation>().ForEach((ref Translation translation) => { }).Run(); }
         }
+
+        public class JobWithCodeCapturingFieldInSystem_System : SystemBase
+        {
+            public int _someField;
+            protected override void OnUpdate()
+            {
+                Job.WithCode(() =>
+                {
+                    _someField = 123;
+                }).Run();
+            }
+        }
+
+        [Test]
+        public void JobWithCodeCapturingFieldInSystem()
+        {
+            AssertProducesError(typeof(JobWithCodeCapturingFieldInSystem_System), nameof(UserError.DC0001), "_someField");
+        }
     }
 
     public static class TestSystemBaseExtensionMethods
@@ -1810,3 +1798,4 @@ namespace Unity.Entities.CodeGen.Tests
         public static void MyTestExtensionInterface(this ITestInterface test) {}
     }
 }
+#endif

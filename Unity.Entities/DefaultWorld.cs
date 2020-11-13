@@ -58,7 +58,7 @@ namespace Unity.Entities
             }
         }
 
-        [Obsolete("MaximumDeltaTime is now specified at the World level as World.MaximumDeltaTime (RemovedAfter 2020-012-26)")]
+        [Obsolete("MaximumDeltaTime is now specified at the World level as World.MaximumDeltaTime (RemovedAfter 2020-12-26)")]
         public float MaximumDeltaTime
         {
             get => World.MaximumDeltaTime;

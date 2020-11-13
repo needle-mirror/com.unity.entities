@@ -70,16 +70,14 @@ namespace Unity.Entities
         {
             var components = gameObject.GetComponents<Component>();
 
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
             for (var i = 0; i != components.Length; i++)
             {
                 var component = components[i];
-                if (component == null || component is ComponentDataProxyBase || component is GameObjectEntity || component.IsComponentDisabled())
+                if (component == null || component is GameObjectEntity || component.IsComponentDisabled())
                     continue;
 
                 entityManager.AddComponentObject(entity, component);
             }
-#pragma warning restore 618
         }
 
         void Initialize()
@@ -110,16 +108,9 @@ namespace Unity.Entities
             m_Entity = Entity.Null;
         }
 
+        [Obsolete("This function is a no-op since there are no proxy components any more. (RemovedAfter 2020-11-30)")]
         public static void CopyAllComponentsToEntity(GameObject gameObject, EntityManager entityManager, Entity entity)
         {
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-            foreach (var proxy in gameObject.GetComponents<ComponentDataProxyBase>())
-            {
-                var type = proxy.GetComponentType();
-                entityManager.AddComponent(entity, type);
-                proxy.UpdateComponentData(entityManager, entity);
-            }
-#pragma warning restore 618
         }
     }
 }

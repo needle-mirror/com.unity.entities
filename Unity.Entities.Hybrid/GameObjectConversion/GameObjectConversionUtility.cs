@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Entities.Conversion;
 using Unity.Profiling;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityObject = UnityEngine.Object;
@@ -33,19 +35,23 @@ namespace Unity.Entities
             AssignName = 1 << 2,
             SceneViewLiveLink = 1 << 3,
             GameViewLiveLink = 1 << 4,
+            IsBuildingForPlayer = 1 << 5
         }
 
-        internal static World CreateConversionWorld(GameObjectConversionSettings settings)
+        internal static World CreateConversionWorld(GameObjectConversionSettings settings, Scene scene = default)
         {
             using (s_CreateConversionWorld.Auto())
             {
                 var gameObjectWorld = new World($"GameObject -> Entity Conversion '{settings.DebugConversionName}'", WorldFlags.Live | WorldFlags.Conversion | WorldFlags.Staging);
-                gameObjectWorld.AddSystem(new GameObjectConversionMappingSystem(settings));
+                var mappingSystem = new GameObjectConversionMappingSystem(settings);
+                gameObjectWorld.AddSystem(mappingSystem);
+                if (mappingSystem.IsLiveLink)
+                    mappingSystem.PrepareForLiveLink(scene);
 
                 var systemTypes = settings.Systems ?? DefaultWorldInitialization.GetAllSystems(settings.FilterFlags);
 
                 var includeExport = settings.SupportsExporting;
-                AddConversionSystems(gameObjectWorld, systemTypes.Concat(settings.ExtraSystems), includeExport);
+                AddConversionSystems(gameObjectWorld, systemTypes.Concat(settings.ExtraSystems), includeExport, mappingSystem.IsLiveLink);
 
                 settings.ConversionWorldCreated?.Invoke(gameObjectWorld);
 
@@ -163,42 +169,80 @@ namespace Unity.Entities
             }
         }
 
+        [Obsolete("ConvertIncremental is no longer supported. Incremental conversion is not meant for API consumers. (RemovedAfter 2020-11-20).")]
         public static void ConvertIncremental(World conversionWorld, IEnumerable<GameObject> gameObjects, ConversionFlags flags)
+            => ConvertIncremental(conversionWorld, gameObjects, default, flags);
+
+        internal static void ConvertIncremental(World conversionWorld, IEnumerable<GameObject> gameObjects, NativeList<int> changedAssetInstanceIds, ConversionFlags flags)
+        {
+#if UNITY_2020_2_OR_NEWER
+            var args = new IncrementalConversionBatch
+            {
+                ReconvertHierarchyInstanceIds = new NativeArray<int>(gameObjects.Select(go => go.GetInstanceID()).ToArray(), Allocator.TempJob),
+                ChangedComponents = new List<Component>()
+            };
+            if (changedAssetInstanceIds.IsCreated)
+                args.ChangedAssets = changedAssetInstanceIds;
+            ConvertIncremental(conversionWorld, flags, ref args);
+            args.ReconvertHierarchyInstanceIds.Dispose();
+#else
+            using (var conversion = new Conversion(conversionWorld))
+            {
+                conversion.MappingSystem.PrepareIncrementalConversion(gameObjects, changedAssetInstanceIds, flags);
+                FinishConvertIncremental(conversionWorld, conversion);
+            }
+#endif
+        }
+
+#if UNITY_2020_2_OR_NEWER
+        internal static void ConvertIncremental(World conversionWorld, ConversionFlags flags, ref IncrementalConversionBatch batch)
         {
             using (var conversion = new Conversion(conversionWorld))
             {
-                conversion.MappingSystem.PrepareIncrementalConversion(gameObjects, flags);
+                conversion.MappingSystem.BeginIncrementalConversionPreparation(flags, ref batch);
+                conversionWorld.GetExistingSystem<ConversionSetupGroup>().Update();
+                conversion.MappingSystem.FinishIncrementalConversionPreparation();
 
-                using (s_UpdateConversionSystems.Auto())
-                {
-                    conversionWorld.GetExistingSystem<GameObjectBeforeConversionGroup>().Update();
-                    conversionWorld.GetExistingSystem<GameObjectConversionGroup>().Update();
-                    conversionWorld.GetExistingSystem<GameObjectAfterConversionGroup>().Update();
-                }
-
-                using (s_GenerateLinkedEntityGroups.Auto())
-                    conversion.MappingSystem.GenerateLinkedEntityGroups();
-
-#if !UNITY_DISABLE_MANAGED_COMPONENTS
-                using (s_CreateCompanionGameObjects.Auto())
-                    conversion.MappingSystem.CreateCompanionGameObjects();
-#endif
-
-                conversionWorld.EntityManager.DestroyEntity(conversionWorld.EntityManager.UniversalQuery);
-
-                // @TODO: Eventually we need to do incremental conversion of prefabs
-                // mappingSystem.AddPrefabComponentDataTag();
-
-                // @TODO: Eventually we need to figure out how to handle hybrid components incrementally
-                // mappingSystem.AddHybridComponents();
+                FinishConvertIncremental(conversionWorld, conversion);
             }
         }
+#endif
 
+        static void FinishConvertIncremental(World conversionWorld, Conversion conversion)
+        {
+            using (s_UpdateConversionSystems.Auto())
+            {
+                conversionWorld.GetExistingSystem<GameObjectBeforeConversionGroup>().Update();
+                conversionWorld.GetExistingSystem<GameObjectConversionGroup>().Update();
+                conversionWorld.GetExistingSystem<GameObjectAfterConversionGroup>().Update();
+            }
+
+            using (s_GenerateLinkedEntityGroups.Auto())
+                conversion.MappingSystem.GenerateLinkedEntityGroups();
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            using (s_CreateCompanionGameObjects.Auto())
+                conversion.MappingSystem.CreateCompanionGameObjects();
+#endif
+
+            conversionWorld.EntityManager.DestroyEntity(conversionWorld.EntityManager.UniversalQuery);
+
+            // @TODO: Eventually we need to do incremental conversion of prefabs
+            // mappingSystem.AddPrefabComponentDataTag();
+
+            // @TODO: Eventually we need to figure out how to handle hybrid components incrementally
+            // mappingSystem.AddHybridComponents();
+        }
+
+        [Obsolete("ConvertIncrementalInitialize is no longer supported. Incremental conversion is not meant for API consumers. (RemovedAfter 2020-11-20).")]
         public static World ConvertIncrementalInitialize(Scene scene, GameObjectConversionSettings settings)
+            => InitializeIncrementalConversion(scene, settings);
+
+        internal static World InitializeIncrementalConversion(Scene scene, GameObjectConversionSettings settings)
         {
             using (s_ConvertScene.Auto())
             {
-                var conversionWorld = CreateConversionWorld(settings);
+                var conversionWorld = CreateConversionWorld(settings, scene);
                 using (var conversion = new Conversion(conversionWorld))
                 {
                     using (s_CreateEntitiesForGameObjects.Auto())
@@ -247,7 +291,7 @@ namespace Unity.Entities
         {
             using (s_ConvertScene.Auto())
             {
-                using (var conversionWorld = CreateConversionWorld(settings))
+                using (var conversionWorld = CreateConversionWorld(settings, scene))
                 using (var conversion = new Conversion(conversionWorld))
                 {
                     using (s_CreateEntitiesForGameObjects.Auto())
@@ -263,14 +307,18 @@ namespace Unity.Entities
             }
         }
 
-        static void AddConversionSystems(World gameObjectWorld, IEnumerable<Type> systemTypes, bool includeExport)
+        static void AddConversionSystems(World gameObjectWorld, IEnumerable<Type> systemTypes, bool includeExport, bool isLiveLink)
         {
+            var incremental = isLiveLink ? gameObjectWorld.GetOrCreateSystem<ConversionSetupGroup>() : null;
             var declareConvert = gameObjectWorld.GetOrCreateSystem<GameObjectDeclareReferencedObjectsGroup>();
             var earlyConvert = gameObjectWorld.GetOrCreateSystem<GameObjectBeforeConversionGroup>();
             var convert = gameObjectWorld.GetOrCreateSystem<GameObjectConversionGroup>();
             var lateConvert = gameObjectWorld.GetOrCreateSystem<GameObjectAfterConversionGroup>();
 
             var export = includeExport ? gameObjectWorld.GetOrCreateSystem<GameObjectExportGroup>() : null;
+
+            if (isLiveLink)
+                AddSystemAndLogException(gameObjectWorld, incremental, typeof(IncrementalChangesSystem));
 
             foreach (var systemType in systemTypes)
             {
@@ -306,6 +354,11 @@ namespace Unity.Entities
                             if (export != null)
                                 AddSystemAndLogException(gameObjectWorld, export, systemType);
                         }
+                        else if (groupType == typeof(ConversionSetupGroup))
+                        {
+                            if (incremental != null)
+                                AddSystemAndLogException(gameObjectWorld, incremental, systemType);
+                        }
                         else
                         {
                             Debug.LogWarning($"{systemType} has invalid UpdateInGroup[typeof({groupType}]");
@@ -314,6 +367,7 @@ namespace Unity.Entities
                 }
             }
 
+            incremental?.SortSystems();
             declareConvert.SortSystems();
             earlyConvert.SortSystems();
             convert.SortSystems();
@@ -337,6 +391,7 @@ namespace Unity.Entities
             }
             catch (Exception e)
             {
+                Debug.LogError($"Failed to add conversion system {type}, exception following");
                 Debug.LogException(e);
             }
         }
@@ -351,7 +406,7 @@ namespace Unity.Entities
 
         // MIGRATE
 
-        //@TODO(scobi): publish this method from UnityEngineExtensions
+        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09)")]
         public static EntityGuid GetEntityGuid(GameObject gameObject, int index) =>
             gameObject.ComputeEntityGuid(0, index);
     }

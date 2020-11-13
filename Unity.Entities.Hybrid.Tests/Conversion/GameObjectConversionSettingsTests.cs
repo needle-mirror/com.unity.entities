@@ -9,6 +9,7 @@ namespace Unity.Entities.Tests.Conversion
     class GameObjectConversionSettingsTests
     {
         [Test]
+        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
         public void Fork_WithZeroNamespaceID_Throws()
         {
             var settings = new GameObjectConversionSettings();
@@ -19,6 +20,7 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
+        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
         public void Fork_CopiesOnlyForkedFields()
         {
             using (var world = new World("test world"))
@@ -94,7 +96,9 @@ namespace Unity.Entities.Tests.Conversion
                     BuildConfiguration        = BuildConfiguration.CreateInstance(),
 #endif
                     Systems                   = new List<Type> {typeof(TestConversionSystem)},
+#pragma warning disable 0618
                     NamespaceID               = 123,
+#pragma warning restore 0618
                     ConversionWorldCreated    = _ => {},
                     ConversionWorldPreDispose = _ => {},
                 };

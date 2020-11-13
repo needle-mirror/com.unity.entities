@@ -38,7 +38,7 @@ namespace Unity.Entities
         /// <remarks>The Enabled property is intended for debugging so that you can easily turn on and off systems
         /// from the Entity Debugger window. A system with Enabled set to false will not update, even if its
         /// <see cref="ShouldRunSystem"/> function returns true.</remarks>
-        public bool Enabled { get => CheckedState()->m_Enabled; set => CheckedState()->m_Enabled = value; }
+        public bool Enabled { get => CheckedState()->Enabled; set => CheckedState()->Enabled = value; }
 
         /// <summary>
         /// The query objects cached by this system.
@@ -111,11 +111,9 @@ namespace Unity.Entities
         // ============
 
 
-        internal void CreateInstance(World world)
+        internal void CreateInstance(World world, SystemState* statePtr)
         {
-            m_StatePtr = SystemState.Allocate();
-            m_StatePtr->InitManaged(world, GetType());
-
+            m_StatePtr = statePtr;
             OnBeforeCreateInternal(world);
             try
             {
@@ -211,10 +209,6 @@ namespace Unity.Entities
 
         // ===================
 
-        internal static ComponentSystemBase ms_ExecutingSystem;
-
-        public static Type ExecutingSystemType => ms_ExecutingSystem?.GetType();
-
         internal ComponentSystemBase GetSystemFromSystemID(World world, int systemID)
         {
             foreach (var system in world.Systems)
@@ -269,9 +263,7 @@ namespace Unity.Entities
         internal void OnAfterDestroyInternal()
         {
             var state = CheckedState();
-
-            state->Dispose();
-            SystemState.Deallocate(state);
+            World.Unmanaged.DestroyManagedSystem(state);
             m_StatePtr = null;
         }
 
@@ -293,9 +285,9 @@ namespace Unity.Entities
         {
             var state = CheckedState();
 
-            if (state->m_PreviouslyEnabled)
+            if (state->PreviouslyEnabled)
             {
-                state->m_PreviouslyEnabled = false;
+                state->PreviouslyEnabled = false;
                 OnStopRunning();
             }
         }
@@ -374,7 +366,18 @@ namespace Unity.Entities
         public SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>()
             where T : struct, ISharedComponentData
         {
-            return EntityManager.GetSharedComponentTypeHandle<T>();
+            return CheckedState()->GetSharedComponentTypeHandle<T>();
+        }
+
+        /// <summary>
+        /// Gets the run-time type information required to access a shared component data in a chunk.
+        /// </summary>
+        /// <param name="componentType">The component type to get access to.</param>
+        /// <returns>An object representing the type information required to safely access shared component data stored in a
+        /// chunk.</returns>
+        public DynamicSharedComponentTypeHandle GetDynamicSharedComponentTypeHandle(ComponentType componentType)
+        {
+            return CheckedState()->GetDynamicSharedComponentTypeHandle(componentType);
         }
 
         /// <summary>
@@ -384,7 +387,7 @@ namespace Unity.Entities
         /// chunk.</returns>
         public EntityTypeHandle GetEntityTypeHandle()
         {
-            return EntityManager.GetEntityTypeHandle();
+            return CheckedState()->GetEntityTypeHandle();
         }
 
         /// <summary>
@@ -397,8 +400,7 @@ namespace Unity.Entities
         public ComponentDataFromEntity<T> GetComponentDataFromEntity<T>(bool isReadOnly = false)
             where T : struct, IComponentData
         {
-            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
-            return EntityManager.GetComponentDataFromEntity<T>(isReadOnly);
+            return CheckedState()->GetComponentDataFromEntity<T>(isReadOnly);
         }
 
         /// <summary>
@@ -413,8 +415,7 @@ namespace Unity.Entities
         /// <seealso cref="ComponentDataFromEntity{T}"/>
         public BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
         {
-            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
-            return EntityManager.GetBufferFromEntity<T>(isReadOnly);
+            return CheckedState()->GetBufferFromEntity<T>(isReadOnly);
         }
 
         /// <summary>
@@ -428,13 +429,7 @@ namespace Unity.Entities
         /// vice versa.</remarks>
         public void RequireForUpdate(EntityQuery query)
         {
-            var state = CheckedState();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (state->m_AlwaysUpdateSystem)
-                throw new InvalidOperationException($"Cannot require {nameof(EntityQuery)} for update on a system with {nameof(AlwaysUpdateSystemAttribute)}");
-#endif
-
-            state->RequiredEntityQueries.Add(query);
+            CheckedState()->RequireForUpdate(query);
         }
 
         /// <summary>
@@ -443,9 +438,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
         public void RequireSingletonForUpdate<T>()
         {
-            var type = ComponentType.ReadOnly<T>();
-            var query = GetSingletonEntityQueryInternal(type);
-            RequireForUpdate(query);
+            CheckedState()->RequireSingletonForUpdate<T>();
         }
 
         /// <summary>
@@ -454,11 +447,8 @@ namespace Unity.Entities
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
         /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
         public bool HasSingleton<T>()
-            where T : struct, IComponentData
         {
-            var type = ComponentType.ReadOnly<T>();
-            var query = GetSingletonEntityQueryInternal(type);
-            return query.CalculateEntityCount() == 1;
+            return CheckedState()->HasSingleton<T>();
         }
 
         /// <summary>
@@ -470,9 +460,19 @@ namespace Unity.Entities
         public T GetSingleton<T>()
             where T : struct, IComponentData
         {
-            var type = ComponentType.ReadOnly<T>();
-            var query = GetSingletonEntityQueryInternal(type);
-            return query.GetSingleton<T>();
+            return CheckedState()->GetSingleton<T>();
+        }
+
+        /// <summary>
+        /// Gets the value of a singleton component, and returns whether or not a singleton component of the specified type exists in the <see cref="World"/>.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <typeparam name="value">The component. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</typeparam>
+        /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+        public bool TryGetSingleton<T>(out T value)
+            where T : struct, IComponentData
+        {
+            return CheckedState()->TryGetSingleton<T>(out value);
         }
 
         /// <summary>
@@ -484,9 +484,7 @@ namespace Unity.Entities
         public void SetSingleton<T>(T value)
             where T : struct, IComponentData
         {
-            var type = ComponentType.ReadWrite<T>();
-            var query = GetSingletonEntityQueryInternal(type);
-            query.SetSingleton(value);
+            CheckedState()->SetSingleton<T>(value);
         }
 
         /// <summary>
@@ -497,27 +495,19 @@ namespace Unity.Entities
         /// <seealso cref="EntityQuery.GetSingletonEntity"/>
         public Entity GetSingletonEntity<T>()
         {
-            var type = ComponentType.ReadOnly<T>();
-            var query = GetSingletonEntityQueryInternal(type);
-            return query.GetSingletonEntity();
+            return CheckedState()->GetSingletonEntity<T>();
         }
 
-        internal void AddReaderWriter(ComponentType componentType)
+        /// <summary>
+        /// Gets the singleton Entity, and returns whether or not a singleton <see cref="Entity"/> of the specified type exists in the <see cref="World"/>.
+        /// </summary>
+        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
+        /// <typeparam name="value">The <see cref="Entity"/> associated with the specified singleton component.
+        ///  If a singleton of the specified types does not exist in the current <see cref="World"/>, this is set to Entity.Null</typeparam>
+        /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+        public bool TryGetSingletonEntity<T>(out Entity value)
         {
-            var state = CheckedState();
-            if (CalculateReaderWriterDependency.Add(componentType, ref state->m_JobDependencyForReadingSystems, ref state->m_JobDependencyForWritingSystems))
-            {
-                CompleteDependencyInternal();
-            }
-        }
-
-        internal void AddReaderWriters(EntityQuery query)
-        {
-            var state = CheckedState();
-            if (query.AddReaderWritersToLists(ref state->m_JobDependencyForReadingSystems, ref state->m_JobDependencyForWritingSystems))
-            {
-                CompleteDependencyInternal();
-            }
+            return CheckedState()->TryGetSingletonEntity<T>(out value);
         }
 
         // Fast path for singletons

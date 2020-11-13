@@ -17,7 +17,6 @@ namespace Unity.Entities.Tests
     [TestFixture("CompleteJob1")]
     [TestFixture("CompleteJob2")]
     [TestFixture("CompleteNoJobs")]
-    [DotsRuntimeFixme]
     class EntityQuerySyncChangeFilterTypesTests : ECSTestsFixture
     {
         bool completeJob1;

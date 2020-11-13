@@ -90,7 +90,8 @@ For example, here’s the typical procedure of a custom `MyCustomBootstrap.Initi
     4. Optionally add them to one of the default world groups
 4. Return list of unhandled systems to DefaultWorldInitialization.
 
-**Note:** the ECS framework finds your ICustomBootstrap implementation by reflection.
+> [!NOTE]
+> The ECS framework finds your ICustomBootstrap implementation by reflection.
 
 ## Tips and Best Practices
 

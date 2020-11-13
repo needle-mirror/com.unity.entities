@@ -49,17 +49,43 @@ namespace Unity.Entities.CodeGen
 
         public static bool IsEntityType(this TypeReference typeRef)
         {
-            return (typeRef.FullName == "Unity.Entities.Entity");
+            return typeRef.Name == "Entity" && typeRef.Namespace == "Unity.Entities";
         }
 
-        public static bool IsManagedType(this TypeReference typeRef)
+        public static bool IsBlobAssetReferenceType(this TypeReference typeRef)
         {
-            // We must check this before calling Resolve() as cecil loses this property otherwise
+            return typeRef.Name == "BlobAssetReferenceData" && typeRef.Namespace == "Unity.Entities";
+        }
+
+        public static bool IsManagedType(this TypeReference typeRef, ref bool hasEntityRefs, ref bool hasBlobRefs)
+        {
+            var seenTypes = new HashSet<TypeReference>(new Cecil.Awesome.Comparers.TypeReferenceEqualityComparer());
+            return IsManagedTypeInternal(typeRef, ref hasEntityRefs, ref hasBlobRefs, seenTypes);
+        }
+
+        static bool IsManagedTypeInternal(TypeReference typeRef, ref bool hasEntityRefs, ref bool hasBlobRefs, HashSet<TypeReference> seenTypes)
+        {
+            seenTypes.Add(typeRef);
             if (typeRef.IsPointer)
                 return false;
 
-            if (typeRef.IsArray || typeRef.IsGenericParameter)
+            if (typeRef.IsArray)
+            {
+                var elementType = typeRef.GetElementType();
+                if (elementType.IsEntityType())
+                    hasEntityRefs = true;
+                else if (elementType.IsBlobAssetReferenceType())
+                    hasBlobRefs = true;
+
                 return true;
+            }
+
+            if(typeRef.IsGenericParameter)
+            {
+                var gp = (GenericParameter)typeRef;
+                bool _ = false, __ = false;
+                return gp.Constraints.FirstOrDefault(c => c.IsManagedType(ref _, ref __)) != null;
+            }
 
             var type = typeRef.Resolve();
 
@@ -77,24 +103,36 @@ namespace Unity.Entities.CodeGen
             if (type.IsEnum)
                 return false;
 
-            if (type.IsValueType)
+            // if none of the above check the type's fields
+            bool isManaged = !type.IsValueType;
+            var typeResolver = TypeResolver.For(typeRef);
+            foreach (var field in type.Fields)
             {
-                // if none of the above check the type's fields
-                var typeResolver = TypeResolver.For(typeRef);
-                foreach (var field in type.Fields)
-                {
-                    if (field.IsStatic)
-                        continue;
+                if (field.IsStatic)
+                    continue;
 
-                    var fieldType = typeResolver.Resolve(field.FieldType);
-                    if (fieldType.IsManagedType())
-                        return true;
+                var fieldType = typeResolver.Resolve(field.FieldType);
+                if(seenTypes.Contains(fieldType))
+                    continue;
+
+                var fieldTypeDef = fieldType.Resolve();
+
+                if (fieldType.IsEntityType())
+                    hasEntityRefs = true;
+                else if (fieldType.IsBlobAssetReferenceType())
+                    hasBlobRefs = true;
+
+                if (!fieldTypeDef.IsSealed)
+                {
+                    hasEntityRefs = true;
+                    hasBlobRefs = true;
                 }
 
-                return false;
+                if (IsManagedTypeInternal(fieldType, ref hasEntityRefs, ref hasBlobRefs, seenTypes))
+                    isManaged = true;
             }
 
-            return true;
+            return isManaged;
         }
 
         public static bool IsComplex(this TypeReference typeRef)

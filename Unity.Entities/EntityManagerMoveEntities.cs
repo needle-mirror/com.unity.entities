@@ -399,7 +399,7 @@ namespace Unity.Entities
             srcManagedComponentStore.Playback(ref srcEntityComponentStore->ManagedChangesTracker);
 
             k_ProfileMoveSharedComponents.Begin();
-            var remapShared = mcs.MoveSharedComponents(srcManagedComponentStore, chunks, Allocator.TempJob);
+            var remapShared = access->MoveSharedComponents(srcManagedComponentStore, chunks, Allocator.TempJob);
             k_ProfileMoveSharedComponents.End();
 
             if (managedComponentCount > 0)
@@ -508,7 +508,7 @@ namespace Unity.Entities
                     {srcArchetype = srcArchetype, dstArchetype = dstArchetype};
 
                     srcEntityComponentStore->m_ChunkListChangesTracker.TrackArchetype(srcArchetype);
-                    ecs->m_ChunkListChangesTracker.TrackArchetype(srcArchetype);
+                    ecs->m_ChunkListChangesTracker.TrackArchetype(dstArchetype);
 
                     for (var j = 0; j < srcArchetype->Chunks.Count; ++j)
                     {
@@ -528,7 +528,7 @@ namespace Unity.Entities
             srcManagedComponentStore.Playback(ref srcEntityComponentStore->ManagedChangesTracker);
 
             k_ProfileMoveSharedComponents.Begin();
-            var remapShared = mcs.MoveAllSharedComponents(srcManagedComponentStore, Allocator.TempJob);
+            var remapShared = access->MoveAllSharedComponents(srcManagedComponentStore, Allocator.TempJob);
             k_ProfileMoveSharedComponents.End();
 
             gatherManagedComponentIndices.Complete();
@@ -620,7 +620,7 @@ namespace Unity.Entities
                 for (int i = 0; i < chunkCount; ++i)
                 {
                     var chunk = chunks[i].m_Chunk;
-                    dstEntityComponentStore->AllocateEntitiesForRemapping(chunk, ref entityRemapping);
+                    dstEntityComponentStore->AllocateEntitiesForRemapping(chunk, srcEntityComponentStore, ref entityRemapping);
                     srcEntityComponentStore->FreeEntities(chunk);
                 }
             }
@@ -914,7 +914,7 @@ namespace Unity.Entities
             public void Execute()
             {
                 dstEntityComponentStore->AllocateEntitiesForRemapping(srcEntityComponentStore, ref entityRemapping);
-                srcEntityComponentStore->FreeAllEntities();
+                srcEntityComponentStore->FreeAllEntities(false);
             }
         }
     }

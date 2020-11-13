@@ -68,6 +68,7 @@ namespace Unity.Entities
 #endif
 
                 m_NextFreeEntityIndex = entityIndexInChunk;
+                m_EntityCreateDestroyVersion++;
             }
         }
 
@@ -93,6 +94,7 @@ namespace Unity.Entities
             }
 
             m_NextFreeEntityIndex = freeIndex;
+            m_EntityCreateDestroyVersion++;
 
             // Compute the number of things that need to moved and patched.
             int patchCount = Math.Min(batchCount, chunk->Count - indexInChunk - batchCount);

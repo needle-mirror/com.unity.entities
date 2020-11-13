@@ -18,10 +18,7 @@ namespace Unity.Entities.Tests
         {
             var parent = new GameObject($"{TestContext.CurrentContext.Test.Name}-PARENT");
             m_TestObjects[ActivateTestObject.Parent] = parent;
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-            m_GameObjectEntity =
-                new GameObject(TestContext.CurrentContext.Test.Name, typeof(GameObjectEntity), typeof(MockDataProxy)).GetComponent<GameObjectEntity>();
-#pragma warning restore 618 // remove once ComponentDataProxyBase is removed
+            m_GameObjectEntity = new GameObject(TestContext.CurrentContext.Test.Name, typeof(GameObjectEntity)).GetComponent<GameObjectEntity>();
             m_GameObjectEntity.gameObject.transform.SetParent(parent.transform);
             m_TestObjects[ActivateTestObject.Child] = m_GameObjectEntity.gameObject;
         }
@@ -56,8 +53,6 @@ namespace Unity.Entities.Tests
 
             m_TestObjects[testObject].SetActive(true);
             Assume.That(manager.Exists(Entity), Is.True, $"Entity does not exist after reactivating {testObject}");
-
-            Assert.That(manager.HasComponent(Entity, typeof(MockData)), Is.True, $"MockData not exist after reactivating {testObject}.");
         }
     }
 }

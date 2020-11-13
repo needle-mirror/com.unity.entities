@@ -10,11 +10,7 @@ namespace Unity.Entities
         [BurstCompile]
         struct ClearMissingReferencesJob : IJobParallelFor
         {
-            [NativeDisableUnsafePtrRestriction] public TypeManager.TypeInfo* TypeInfo;
-            [NativeDisableUnsafePtrRestriction] public TypeManager.EntityOffsetInfo* EntityOffsetInfo;
-            [ReadOnly] public uint GlobalSystemVersion;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [ReadOnly, NativeDisableUnsafePtrRestriction] public EntityComponentStore* EntityComponentStore;
 
             public void Execute(int index)
             {
@@ -28,11 +24,7 @@ namespace Unity.Entities
         {
             jobHandle = new ClearMissingReferencesJob
             {
-                TypeInfo = TypeManager.GetTypeInfoPointer(),
-                EntityOffsetInfo = TypeManager.GetEntityOffsetsPointer(),
-                GlobalSystemVersion = entityManager.GlobalSystemVersion,
                 Chunks = chunks,
-                EntityComponentStore = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
             }.Schedule(chunks.Length, 64, dependsOn);
         }
     }

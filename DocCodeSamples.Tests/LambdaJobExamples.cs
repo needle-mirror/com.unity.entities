@@ -9,7 +9,8 @@ namespace Doc.CodeSamples.Tests
     using Random = Unity.Mathematics.Random;
 
     #region entities-foreach-example
-    class ApplyVelocitySystem : SystemBase
+
+    partial class ApplyVelocitySystem : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -24,7 +25,8 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
     #region job-with-code-example
-    public class RandomSumJob : SystemBase
+
+    public partial class RandomSumJob : SystemBase
     {
         private uint seed = 1;
 
@@ -70,7 +72,7 @@ namespace Doc.CodeSamples.Tests
     #endregion
 
     //Used to verify the BuffersByEntity example (not shown in docs)
-    public class MakeData : SystemBase
+    public partial class MakeData : SystemBase
     {
         protected override void OnCreate()
         {
@@ -100,7 +102,8 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region dynamicbuffer
-    public class BufferSum : SystemBase
+
+    public partial class BufferSum : SystemBase
     {
         private EntityQuery query;
 
@@ -158,11 +161,12 @@ namespace Doc.CodeSamples.Tests
         public int Value;
     }
 
-    public class WithAllExampleSystem : SystemBase
+    public partial class WithAllExampleSystem : SystemBase
     {
         protected override void OnUpdate()
         {
             #region entity-query
+
             Entities.WithAll<LocalToWorld>()
                 .WithAny<Rotation, Translation, Scale>()
                 .WithNone<LocalToParent>()
@@ -179,9 +183,10 @@ namespace Doc.CodeSamples.Tests
     {
         public float Value;
     }
-    public class WithStoreQuerySystem : SystemBase
+    public partial class WithStoreQuerySystem : SystemBase
     {
         #region store-query
+
         private EntityQuery query;
         protected override void OnUpdate()
         {
@@ -209,11 +214,12 @@ namespace Doc.CodeSamples.Tests
         #endregion
     }
 
-    public class WithChangeExampleSystem : SystemBase
+    public partial class WithChangeExampleSystem : SystemBase
     {
         protected override void OnUpdate()
         {
             #region with-change-filter
+
             Entities
                 .WithChangeFilter<Source>()
                 .ForEach((ref Destination outputData,
@@ -241,7 +247,8 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region with-shared-component
-    public class ColorCycleJob : SystemBase
+
+    public partial class ColorCycleJob : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -258,11 +265,12 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
 
-    public class ReadWriteModExample : SystemBase
+    public partial class ReadWriteModExample : SystemBase
     {
         protected override void OnUpdate()
         {
             #region read-write-modifiers
+
             Entities.ForEach(
                 (ref Destination outputData,
                     in Source inputData) =>
@@ -275,7 +283,8 @@ namespace Doc.CodeSamples.Tests
     }
 
     #region basic-ecb
-    public class MyJobSystem : SystemBase
+
+    public partial class MyJobSystem : SystemBase
     {
         private EndSimulationEntityCommandBufferSystem commandBufferSystem;
 
@@ -301,11 +310,12 @@ namespace Doc.CodeSamples.Tests
         public float3 Value;
     }
 
-    public class EFESystem : SystemBase
+    public partial class EFESystem : SystemBase
     {
         protected override void OnUpdate()
         {
             #region lambda-params
+
             Entities.ForEach(
                 (Entity entity,
                     int entityInQueryIndex,
@@ -334,7 +344,7 @@ namespace Doc.CodeSamples.Tests
     struct Data9 : IComponentData{}
     struct Data10 : IComponentData{}
     struct Data11 : IComponentData{}
-    
+
     #region lambda-params-many
 
     static class BringYourOwnDelegate
@@ -353,7 +363,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     // A system that uses the custom delegate and overload
-    public class MayParamsSystem : SystemBase
+    public partial class MayParamsSystem : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -374,13 +384,14 @@ namespace Doc.CodeSamples.Tests
                 .Run();
         }
     }
-    
+
     #endregion
 }
 
 namespace Doc.CodeSamples.Tests
 {
     #region full-ecb-pt-one
+
     // ParticleSpawner.cs
     using Unity.Entities;
     using Unity.Jobs;
@@ -397,7 +408,7 @@ namespace Doc.CodeSamples.Tests
         public float LifeLeft;
     }
 
-    public class ParticleSpawner : SystemBase
+    public partial class ParticleSpawner : SystemBase
     {
         private EndSimulationEntityCommandBufferSystem commandBufferSystem;
 
@@ -498,6 +509,7 @@ namespace Doc.CodeSamples.Tests
 namespace Doc.CodeSamples.Tests
 {
     #region full-ecb-pt-two
+
     // SpawnParticles.cs
     using Unity.Entities;
     using Unity.Mathematics;

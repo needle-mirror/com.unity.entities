@@ -1,4 +1,3 @@
-using Bee.Core;
 using NUnit.Framework;
 using System;
 using System.IO;
@@ -6,6 +5,7 @@ using Unity.Build;
 using Unity.Build.Classic;
 using Unity.Build.Classic.Private;
 using Unity.Build.Common;
+using Unity.Build.Tests;
 using Unity.Scenes.Editor.Build;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -164,26 +164,12 @@ namespace Unity.Entities.Editor.Tests
             public int SortingIndex { get; }
         }
 
-        [HideInInspector]
-        class MockPlatform : Platform
-        {
-            public override bool HasPosix { get; }
-        }
-
         // This class is not directly referenced, but it is instanciated nonetheless.
         // It's used when running tests, to compensate for missing platform packages.
         class MockClassicNonIncrementalPipeline : ClassicNonIncrementalPipelineBase
         {
-            readonly Platform m_Platform;
-
             protected override RunResult OnRun(RunContext context) => throw new NotImplementedException();
-            protected override BuildTarget BuildTarget { get; } = BuildTarget.NoTarget;
-            public override Platform Platform => m_Platform;
-
-            public MockClassicNonIncrementalPipeline()
-            {
-                m_Platform = new MockPlatform();
-            }
+            public override Platform Platform { get; } = new TestPlatform();
         }
     }
 }

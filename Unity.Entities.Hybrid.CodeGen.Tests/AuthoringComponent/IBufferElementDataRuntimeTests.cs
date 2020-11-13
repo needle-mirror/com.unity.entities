@@ -1,3 +1,4 @@
+#if !ROSLYN_SOURCEGEN_ENABLED
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
@@ -141,3 +142,4 @@ namespace Unity.Entities.Hybrid.CodeGen.Tests
         }
     }
 }
+#endif

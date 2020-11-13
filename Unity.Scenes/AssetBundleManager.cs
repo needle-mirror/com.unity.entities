@@ -1,7 +1,10 @@
+//#define LOG_BUNDLES
+
 #if !UNITY_DOTSRUNTIME
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -37,7 +40,7 @@ namespace Unity.Scenes
         {
             get
             {
-                if (_assetBundle == null)
+                if (_assetBundle == null && _assetBundleCreateRequest != null)
                 {
                     _assetBundle = _assetBundleCreateRequest.assetBundle;
                     _assetBundleCreateRequest = null;
@@ -52,6 +55,10 @@ namespace Unity.Scenes
             _refCount = 0;
             _bundlePath = bundlePath;
             _assetBundleCreateRequest = AssetBundle.LoadFromFileAsync(_bundlePath);
+            if (_assetBundleCreateRequest == null)
+                LogBundle($"Failed AssetBundle.LoadFromFileAsync {bundlePath}");
+            else
+                LogBundle($"AssetBundle.LoadFromFileAsync {bundlePath}");
         }
 
         internal bool IsReady()
@@ -92,24 +99,25 @@ namespace Unity.Scenes
         }
         private static readonly Dictionary<string, SceneBundleHandle> LoadedBundles = new Dictionary<string, SceneBundleHandle>();
         private static readonly ConcurrentDictionary<string, SceneBundleHandle> UnloadingBundles = new ConcurrentDictionary<string, SceneBundleHandle>();
-        internal static List<SceneBundleHandle> LoadSceneBundles(string mainBundlePath, NativeArray<Entities.Hash128> sharedBundles, bool blocking)
+        internal static SceneBundleHandle[] LoadSceneBundles(string mainBundlePath, NativeArray<Entities.Hash128> sharedBundles, bool blocking)
         {
-            var bundles = new List<SceneBundleHandle>();
+            var hasMainBundle = !string.IsNullOrEmpty(mainBundlePath);
+            var bundles = new SceneBundleHandle[sharedBundles.Length + (hasMainBundle ? 1 : 0)];
+            if (hasMainBundle)
+                LogBundle($"Request main bundle {mainBundlePath}");
 
             if (sharedBundles.IsCreated)
             {
                 for (int i = 0; i < sharedBundles.Length; i++)
                 {
                     var path = $"{Application.streamingAssetsPath}/{EntityScenesPaths.RelativePathFolderFor(sharedBundles[i], EntityScenesPaths.PathType.EntitiesSharedReferencesBundle, -1)}";
-                    bundles.Add(CreateOrRetainBundle(path));
+                    LogBundle($"Request dependency {mainBundlePath}");
+                    bundles[i + 1] = CreateOrRetainBundle(path);
                 }
-                sharedBundles.Dispose();
             }
 
-            if (!string.IsNullOrEmpty(mainBundlePath))
-            {
-                bundles.Insert(0, CreateOrRetainBundle(mainBundlePath));
-            }
+            if (hasMainBundle)
+                bundles[0] = CreateOrRetainBundle(mainBundlePath);
 
             if (blocking)
             {
@@ -125,7 +133,7 @@ namespace Unity.Scenes
             return bundles;
         }
 
-        internal static bool CheckLoadingStatus(List<SceneBundleHandle> bundles, ref string error)
+        internal static bool CheckLoadingStatus(SceneBundleHandle[] bundles, ref string error)
         {
             if (bundles == null)
                 return true;
@@ -185,11 +193,19 @@ namespace Unity.Scenes
             {
                 if (sceneBundleHandle.Value.IsReady())
                 {
+                    LogBundle($"Unload {sceneBundleHandle.Key}");
+
                     sceneBundleHandle.Value.AssetBundle?.Unload(true);
 
                     UnloadingBundles.TryRemove(sceneBundleHandle.Key, out _);
                 }
             }
+        }
+
+        [Conditional("LOG_BUNDLES")]
+        private static void LogBundle(string s)
+        {
+            Console.WriteLine(s);
         }
 
         internal static int GetLoadedCount()

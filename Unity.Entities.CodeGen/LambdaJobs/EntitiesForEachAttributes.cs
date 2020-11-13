@@ -33,10 +33,6 @@ namespace Unity.Entities.CodeGen
         public static readonly List<AttributeData> Attributes = new List<AttributeData>
         {
             new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithReadOnly), typeof(ReadOnlyAttribute), CheckReadOnly),
-
-            // DeallocateOnJobCompletionAttribute is now applied in JobStructForLambdaJob.InsertMethodAndAttributesToDisposeContainerFields
-            //new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithDeallocateOnJobCompletion), typeof(DeallocateOnJobCompletionAttribute), CheckDeallocateOnJobCompletion),
-
             new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableContainerSafetyRestriction), typeof(NativeDisableContainerSafetyRestrictionAttribute), CheckNativeDisableContainerSafetyRestriction),
             new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableUnsafePtrRestriction), typeof(NativeDisableUnsafePtrRestrictionAttribute)),
             new AttributeData(nameof(LambdaJobDescriptionConstructionMethods.WithNativeDisableParallelForRestriction), typeof(NativeDisableParallelForRestrictionAttribute), CheckNativeDisableParallelForRestriction),

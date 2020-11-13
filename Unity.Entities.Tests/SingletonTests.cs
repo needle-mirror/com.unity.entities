@@ -157,6 +157,46 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(entity, singletonEntity);
         }
 
+        [Test]
+        public void TryGetSingletonEntity()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            var hasEntity = EmptySystem.TryGetSingletonEntity<EcsTestData>(out var singletonEntity);
+
+            Assert.True(hasEntity);
+            Assert.AreEqual(entity, singletonEntity);
+        }
+
+        [Test]
+        public void TryGetSingletonEntityNoSingleton()
+        {
+            var hasEntity = EmptySystem.TryGetSingletonEntity<EcsTestData>(out var singletonEntity);
+
+            Assert.IsFalse(hasEntity);
+            Assert.AreEqual(default(Entity), singletonEntity);
+        }
+
+        [Test]
+        public void TryGetSingleton()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+
+            EmptySystem.SetSingleton(new EcsTestData(10));
+            var hasSingleTon = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
+            Assert.IsTrue(hasSingleTon);
+            Assert.AreEqual(10, ecsTestData.value);
+
+        }
+
+        [Test]
+        public void TryGetSingletonNoSingleton()
+        {
+            var hasSingleTon = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
+            Assert.IsFalse(hasSingleTon);
+            Assert.AreEqual(default(EcsTestData).value, ecsTestData.value);
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void GetSetSingleton_ManagedComponents()

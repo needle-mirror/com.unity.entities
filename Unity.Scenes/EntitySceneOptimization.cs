@@ -12,13 +12,6 @@ namespace Unity.Entities.Streaming
 
     public static class EntitySceneOptimization
     {
-        static void MarkStaticFrozen(EntityManager entityManager)
-        {
-            var staticGroup = entityManager.CreateEntityQuery(typeof(Static));
-            entityManager.AddComponent(staticGroup, ComponentType.ReadWrite<Frozen>());
-            staticGroup.Dispose();
-        }
-
         static void RemoveSystemState(EntityManager entityManager)
         {
             foreach (var s in TypeManager.AllTypes)
@@ -53,7 +46,6 @@ namespace Unity.Entities.Streaming
             group.Update();
 
             RemoveSystemState(entityManager);
-            MarkStaticFrozen(entityManager);
         }
 
         static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)

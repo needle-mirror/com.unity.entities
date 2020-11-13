@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Unity.Burst;
@@ -262,23 +263,33 @@ namespace Unity.Entities.CodeGen
             return IsSystemBase(baseTypeRef.Resolve());
         }
 
-        public static bool IsComponentSystem(this TypeDefinition arg)
+        public static bool IsComponentSystem(this TypeDefinition arg, bool isFirstIteration = true)
         {
-            var baseTypeRef = arg.BaseType;
+            while (true)
+            {
+                var baseTypeRef = arg.BaseType;
 
-            if (baseTypeRef == null)
-                return false;
+                if (baseTypeRef == null) return false;
 
-            if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == nameof(ComponentSystemBase))
-                return true;
+                if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == nameof(ComponentSystemBase)) return true;
 
-            if (baseTypeRef.Name == "Object" && baseTypeRef.Namespace == "System")
-                return false;
+                // Early out if we can count on source generators adding this attribute to every system
+#if ROSLYN_SOURCEGEN_ENABLED
+                if (isFirstIteration && arg.CustomAttributes.All(a => a.Constructor.DeclaringType.Name != nameof(CompilerGeneratedAttribute)))
+                    return false;
+#endif
 
-            if (baseTypeRef.Name == "ValueType" && baseTypeRef.Namespace == "System")
-                return false;
-
-            return IsComponentSystem(baseTypeRef.Resolve());
+                switch (baseTypeRef.Name)
+                {
+                    case "Object" when baseTypeRef.Namespace == "System":
+                    case "ValueType" when baseTypeRef.Namespace == "System":
+                        return false;
+                    default:
+                        arg = baseTypeRef.Resolve();
+                        isFirstIteration = false;
+                        break;
+                }
+            }
         }
 
         public static bool IsUnityEngineObject(this TypeDefinition typeDefinition)
@@ -586,6 +597,7 @@ namespace Unity.Entities.CodeGen
         }
 
         public static bool IsLoadFieldOrLoadFieldAddress(this Instruction instruction) => (instruction.OpCode == OpCodes.Ldfld || instruction.OpCode == OpCodes.Ldflda);
+        public static bool IsLoadField(this Instruction instruction) => (instruction.OpCode == OpCodes.Ldfld || instruction.OpCode == OpCodes.Ldflda);
         public static bool IsStoreField(this Instruction instruction) => (instruction.OpCode == OpCodes.Stfld);
 
         public static bool IsLoadConstantInt(this Instruction instruction, out int intValue)

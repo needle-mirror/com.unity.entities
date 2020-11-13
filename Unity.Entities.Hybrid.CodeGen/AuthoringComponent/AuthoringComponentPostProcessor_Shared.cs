@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Mono.Cecil;
@@ -9,23 +11,31 @@ namespace Unity.Entities.Hybrid.CodeGen
 {
     internal partial class AuthoringComponentPostProcessor : EntitiesILPostProcessor
     {
-        private bool HasGenerateAuthoringComponentAttribute(TypeDefinition typeDefinition)
+#if !ROSLYN_SOURCEGEN_ENABLED
+        private bool _isRunningTests;
+        private TypeDefinition _typeToTest;
+#endif
+
+        private enum Interface
         {
-            return typeDefinition.HasCustomAttributes
-                && typeDefinition.CustomAttributes.Any(
-                c => c.AttributeType.Name == nameof(GenerateAuthoringComponentAttribute));
+            IComponentData,
+            IBufferElementData,
+            None
         }
 
-        private bool ShouldGenerateAuthoringComponentForBufferElementData(TypeDefinition typeDefinition)
+        private static Interface GetAuthoringComponentTypeInterface(TypeDefinition typeDefinition)
         {
-            return typeDefinition.Interfaces.Any(i => i.InterfaceType.Name == nameof(IBufferElementData)) &&
-                HasGenerateAuthoringComponentAttribute(typeDefinition);
-        }
+            if (typeDefinition.Interfaces.Any(i => i.InterfaceType.Name == nameof(IBufferElementData)))
+            {
+                return Interface.IBufferElementData;
+            }
 
-        private bool ShouldGenerateComponentDataAuthoringComponent(TypeDefinition typeDefinition)
-        {
-            return typeDefinition.Interfaces.Any(i => i.InterfaceType.Name == nameof(IComponentData)) &&
-                HasGenerateAuthoringComponentAttribute(typeDefinition);
+            if (typeDefinition.Interfaces.Any(i => i.InterfaceType.Name == nameof(IComponentData)))
+            {
+                return Interface.IComponentData;
+            }
+
+            return Interface.None;
         }
 
         static TypeDefinition CreateAuthoringType(TypeDefinition componentType)
@@ -45,31 +55,63 @@ namespace Unity.Entities.Hybrid.CodeGen
             return authoringType;
         }
 
-        protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
+#if !ROSLYN_SOURCEGEN_ENABLED
+        private static AuthoringComponentPostProcessor TestPostProcessor(TypeDefinition typeDefinition)
         {
-            var mainModule = AssemblyDefinition.MainModule;
+            return new AuthoringComponentPostProcessor
+            {
+                _isRunningTests = true,
+                _typeToTest = typeDefinition
+            };
+        }
 
-            TypeDefinition[] componentDataTypesRequiringAuthoringComponent =
-                mainModule.Types.Where(ShouldGenerateComponentDataAuthoringComponent).ToArray();
-            TypeDefinition[] bufferElementTypesRequiringAuthoringComponent =
-                mainModule.Types.Where(ShouldGenerateAuthoringComponentForBufferElementData).ToArray();
+        internal static bool RunTest(TypeDefinition typeDefinitionToTest)
+        {
+            return TestPostProcessor(typeDefinitionToTest).PostProcessImpl(new TypeDefinition[0]);
+        }
+#endif
 
-            if (componentDataTypesRequiringAuthoringComponent.Length == 0
-                && bufferElementTypesRequiringAuthoringComponent.Length == 0)
+        protected override bool PostProcessImpl(TypeDefinition[] _)
+        {
+#if ROSLYN_SOURCEGEN_ENABLED
+            return false;
+#else
+            TypeDefinition[] typesWithGenerateAuthoringComponentAttribute =
+                 _isRunningTests
+                     ? new []{_typeToTest}
+                     : AssemblyDefinition.MainModule.Types.Where(HasGenerateAuthoringComponentAttribute).ToArray();
+
+            if (typesWithGenerateAuthoringComponentAttribute.Length == 0)
             {
                 return false;
             }
 
-            foreach (var componentDataType in componentDataTypesRequiringAuthoringComponent)
+            foreach (TypeDefinition typeDefinition in typesWithGenerateAuthoringComponentAttribute)
             {
-                CreateComponentDataAuthoringType(componentDataType);
-            }
-
-            foreach (var bufferElementType in bufferElementTypesRequiringAuthoringComponent)
-            {
-                CreateBufferElementDataAuthoringType(bufferElementType);
+                Interface @interface = GetAuthoringComponentTypeInterface(typeDefinition);
+                switch (@interface)
+                {
+                    case Interface.IComponentData:
+                        CreateComponentDataAuthoringType(typeDefinition);
+                        break;
+                    case Interface.IBufferElementData:
+                        CreateBufferElementDataAuthoringType(typeDefinition);
+                        break;
+                    default:
+                        UserError.DC3003(typeDefinition).Throw();
+                        break;
+                }
             }
             return true;
+
+
+            bool HasGenerateAuthoringComponentAttribute(TypeDefinition typeDefinition)
+            {
+                return typeDefinition.HasCustomAttributes
+                       && typeDefinition.CustomAttributes.Any(c =>
+                           c.AttributeType.Name == nameof(GenerateAuthoringComponentAttribute));
+            }
+#endif
         }
 
         static MethodDefinition CreateEmptyConvertMethod(ModuleDefinition componentDataModule, TypeDefinition authoringType)

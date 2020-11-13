@@ -110,10 +110,8 @@ namespace Unity.Entities
             var entity = mappingSystem.GetPrimaryEntity(transform.gameObject);
             foreach (var com in transform.GetComponents<Component>())
             {
-                #pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-                if (com is GameObjectEntity || com is ConvertToEntity || com is ComponentDataProxyBase || com is StopConvertToEntity)
+                if (com is GameObjectEntity || com is ConvertToEntity || com is StopConvertToEntity)
                     continue;
-                #pragma warning restore 618
 
                 mappingSystem.DstEntityManager.AddComponentObject(entity, com);
             }

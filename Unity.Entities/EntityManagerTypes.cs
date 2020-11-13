@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
@@ -52,9 +53,20 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var access = GetCheckedEntityDataAccess();
-            return new DynamicComponentTypeHandle(componentType,
-                access->DependencyManager->Safety.GetSafetyHandleForDynamicComponentTypeHandle(componentType.TypeIndex, componentType.AccessModeType == ComponentType.AccessMode.ReadOnly),
-                GlobalSystemVersion);
+            if (!componentType.IsBuffer)
+            {
+                return new DynamicComponentTypeHandle(componentType,
+                    access->DependencyManager->Safety.GetSafetyHandleForDynamicComponentTypeHandle(componentType.TypeIndex, componentType.AccessModeType == ComponentType.AccessMode.ReadOnly),
+                    default(AtomicSafetyHandle), GlobalSystemVersion);
+            }
+            else
+            {
+                return new DynamicComponentTypeHandle(componentType,
+                    access->DependencyManager->Safety.GetSafetyHandleForDynamicComponentTypeHandle(componentType.TypeIndex, componentType.AccessModeType == ComponentType.AccessMode.ReadOnly),
+                    access->DependencyManager->Safety.GetBufferHandleForBufferTypeHandle(componentType.TypeIndex),
+                    GlobalSystemVersion);
+            }
+
 #else
             return new DynamicComponentTypeHandle(componentType, GlobalSystemVersion);
 #endif
@@ -101,6 +113,30 @@ namespace Unity.Entities
             return new SharedComponentTypeHandle<T>(access->DependencyManager->Safety.GetSafetyHandleForSharedComponentTypeHandle(typeIndex));
 #else
             return new SharedComponentTypeHandle<T>(false);
+#endif
+        }
+
+        /// <summary>
+        /// Gets the dynamic type object required to access a shared component of the given type.
+        /// </summary>
+        /// <remarks>
+        /// To access a component stored in a chunk, you must have the type registry information for the component.
+        /// This function provides that information for shared components. Use the returned
+        /// <see cref="DynamicSharedComponentTypeHandle"/> object with the functions of an <see cref="ArchetypeChunk"/>
+        /// object to get information about the components in that chunk and to access the component values.
+        /// </remarks>
+        /// <param name="componentType">The component type to get access to.</param>
+        /// <returns>The run-time type information of the shared component.</returns>
+        public DynamicSharedComponentTypeHandle GetDynamicSharedComponentTypeHandle(ComponentType componentType)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var access = GetCheckedEntityDataAccess();
+            return new DynamicSharedComponentTypeHandle(componentType,
+                access->DependencyManager->Safety.GetSafetyHandleForDynamicComponentTypeHandle(componentType.TypeIndex,
+                    // Only read only mode supported for DynamicSharedComponentTypeHandle
+                    true));
+#else
+            return new DynamicSharedComponentTypeHandle(componentType);
 #endif
         }
 

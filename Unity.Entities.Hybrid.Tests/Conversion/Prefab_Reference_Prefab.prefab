@@ -46,6 +46,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Value: {fileID: 2931377328982524470, guid: a2963d3875aa64f57a25391305f4bc29, type: 3}
+  AdditionalEntityCount: 0
+  DeclareLinkedEntityGroup: 0
 --- !u!114 &-5807820220115599494
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -70,5 +72,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d85176e9153349648a01d1578e91620, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_SerializedData:
-    Value: 1
+  Value: 1

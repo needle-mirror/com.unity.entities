@@ -22,7 +22,7 @@ namespace Unity.Entities
      unsafe partial struct ECBInterop
     {
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
 
         [BurstDiscard]
         private static void CheckDelegate(ref bool useDelegate)
@@ -54,7 +54,7 @@ namespace Unity.Entities
         [NotBurstCompatible]
         internal static void Initialize()
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (Managed._initialized)
                 return;
             Managed._initialized = true;
@@ -68,7 +68,7 @@ namespace Unity.Entities
 
         internal static void RemoveManagedReferences (EntityDataAccess* mgr, int* sharedIndex, int count)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (!UseDelegate())
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -84,7 +84,7 @@ namespace Unity.Entities
             _RemoveManagedReferences(mgr, sharedIndex, count);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [MonoPInvokeCallback(typeof(Managed._dlg_RemoveManagedReferences))]
 #endif
         private static void _wrapper_RemoveManagedReferences (IntPtr mgr, IntPtr sharedIndex, int count)

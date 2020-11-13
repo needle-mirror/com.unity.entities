@@ -57,19 +57,11 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
-        public void ConversionOfComponentDataProxy()
+        public void ConversionIsBuildingForEditor()
         {
-            var gameObject = CreateGameObject();
-            gameObject.AddComponent<EcsTestProxy>().Value = new EcsTestData(5);
-
-            var entity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                // this is the converted gameobject we created above
-                EntityMatch.Exact(entity, new EcsTestData(5), k_RootComponents),
-                // ComponentDataProxyBase requires GameObjectEntity which creates this redundant Entity into the destination world from its OnEnable
-                // TODO: is this ^^ behavior right?
-                EntityMatch.Exact<EcsTestData, Transform>());
+            var gameObject = CreateGameObject("", typeof(TestComponentAuthoringIsBuildingForEditor));
+            ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
+            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Partial(new IntTestData(1)));
         }
 
         [Test]
@@ -254,21 +246,12 @@ namespace Unity.Entities.Tests.Conversion
         public void DisabledBehaviourStripping()
         {
             var gameObject = new GameObject();
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-            gameObject.AddComponent<MockDataProxy>().enabled = false;
-#pragma warning restore 618
+            gameObject.AddComponent<MockDataAuthoring>().enabled = false;
             gameObject.AddComponent<EntityRefTestDataAuthoring>().enabled = false;
 
             var strippedEntity = ConvertGameObjectHierarchy(gameObject, MakeDefaultSettings());
 
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact(strippedEntity, k_RootComponents),
-                EntityMatch.Exact<Transform>());
-
-            UnityObject.DestroyImmediate(gameObject);
-
-            EntitiesAssert.ContainsOnly(m_Manager,
-                EntityMatch.Exact(strippedEntity, k_RootComponents));
+            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact(strippedEntity, k_RootComponents));
         }
 
         [Test]
@@ -386,6 +369,16 @@ namespace Unity.Entities.Tests.Conversion
                 EntityMatch.Exact(new TestEntityData(1)),
                 EntityMatch.Exact(new TestEntityData(2))
             );
+        }
+
+        [Test]
+        public void PrefabHierarchy_WithStaticOptimizeEntity_ActuallyIsStatic()
+        {
+            var entity = ConvertGameObjectHierarchy(LoadPrefab("Prefab_Hierarchy_With_StaticOptimizeEntity"), MakeDefaultSettings());
+
+            EntitiesAssert.ContainsOnly(m_Manager,
+                EntityMatch.Exact<Prefab, Disabled>(entity, k_StaticRootComponents),
+                EntityMatch.Exact<Prefab, Disabled>(k_StaticComponents));
         }
     }
 }

@@ -81,7 +81,7 @@ namespace Unity.Scenes.Editor
 
             for (int i = 1; i < typeCount; ++i)
             {
-                var typeInfo = TypeManager.GetTypeInfo(i);
+                ref readonly var typeInfo = ref TypeManager.GetTypeInfo(i);
                 var hash = typeInfo.StableTypeHash;
                 AssetDatabaseCompatibility.RegisterCustomDependency(TypeString(typeInfo.Type),
                     new UnityEngine.Hash128(hash, hash));

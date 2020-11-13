@@ -4,7 +4,7 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests
 {
-    class ChangeVersionTests : ECSTestsFixture
+    partial class ChangeVersionTests : ECSTestsFixture
     {
 #if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
         class BumpVersionSystemInJob : ComponentSystem
@@ -147,7 +147,7 @@ namespace Unity.Entities.Tests
             Assert.AreNotEqual(0, system.LastSystemVersion);
         }
 
-        class DidChangeTestSystem : SystemBase
+        partial class DidChangeTestSystem : SystemBase
         {
             protected override void OnUpdate()
             {
@@ -164,7 +164,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class ChangeEntitiesWithTag : SystemBase
+        partial class ChangeEntitiesWithTag : SystemBase
         {
             protected override void OnUpdate()
             {

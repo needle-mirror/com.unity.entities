@@ -11,7 +11,7 @@ using NUnit.Framework;
 namespace Doc.CodeSamples.Tests
 {
     #region lookup-foreach
-    public class TrackingSystem : SystemBase
+    public partial class TrackingSystem : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -46,11 +46,12 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
     #region lookup-foreach-buffer
+
     public struct BufferData : IBufferElementData
     {
         public float Value;
     }
-    public class BufferLookupSystem : SystemBase
+    public partial class BufferLookupSystem : SystemBase
     {
         protected override void OnUpdate()
         {
@@ -84,12 +85,13 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
     #region lookup-ijobchunk
+
     public class MoveTowardsEntitySystem : SystemBase
     {
         private EntityQuery query;
 
         [BurstCompile]
-        private struct MoveTowardsJob : IJobChunk
+        private struct MoveTowardsJob : IJobEntityBatch
         {
             // Read-write data in the current chunk
             public ComponentTypeHandle<Translation> PositionTypeHandleAccessor;
@@ -105,15 +107,13 @@ namespace Doc.CodeSamples.Tests
             // Non-entity data
             public float deltaTime;
 
-            public void Execute(ArchetypeChunk chunk,
-                int chunkIndex,
-                int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
                 // Get arrays of the components in chunk
                 NativeArray<Translation> positions
-                    = chunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
+                    = batchInChunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
                 NativeArray<Target> targets
-                    = chunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
+                    = batchInChunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
 
                 for (int i = 0; i < positions.Length; i++)
                 {
@@ -165,7 +165,7 @@ namespace Doc.CodeSamples.Tests
             job.deltaTime = this.Time.DeltaTime;
 
             // Schedule the job using Dependency property
-            this.Dependency = job.Schedule(query, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, 1, this.Dependency);
         }
     }
     #endregion
@@ -180,7 +180,7 @@ namespace Doc.CodeSamples.Tests
         }
 
         [BurstCompile]
-        private struct ChaserSystemJob : IJobChunk
+        private struct ChaserSystemJob : IJobEntityBatch
         {
             // Read-write data in the current chunk
             public ComponentTypeHandle<Translation> PositionTypeHandleAccessor;
@@ -191,6 +191,7 @@ namespace Doc.CodeSamples.Tests
 
             // Read-only data stored (potentially) in other chunks
             #region lookup-ijobchunk-declare
+
             [ReadOnly]
             public ComponentDataFromEntity<LocalToWorld> EntityPositions;
             #endregion
@@ -198,13 +199,13 @@ namespace Doc.CodeSamples.Tests
             // Non-entity data
             public float deltaTime;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
                 // Get arrays of the components in chunk
                 NativeArray<Translation> positions
-                    = chunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
+                    = batchInChunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
                 NativeArray<Target> targets
-                    = chunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
+                    = batchInChunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
 
                 for (int i = 0; i < positions.Length; i++)
                 {
@@ -217,6 +218,7 @@ namespace Doc.CodeSamples.Tests
 
                     // Update translation to move the chasing enitity toward the target
                     #region lookup-ijobchunk-read
+
                     float3 targetPosition = EntityPositions[targetEntity].Position;
                     #endregion
                     float3 chaserPosition = positions[i].Value;
@@ -231,6 +233,7 @@ namespace Doc.CodeSamples.Tests
         {
             // Create the job
             #region lookup-ijobchunk-set
+
             var job = new ChaserSystemJob();
             job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
             #endregion
@@ -243,7 +246,7 @@ namespace Doc.CodeSamples.Tests
             job.deltaTime = this.Time.DeltaTime;
 
             // Schedule the job using Dependency property
-            this.Dependency = job.Schedule(query, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, 1, this.Dependency);
         }
     }
 }

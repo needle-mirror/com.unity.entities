@@ -3,16 +3,18 @@ using Unity.Transforms;
 using UnityEngine;
 
 [UpdateInGroup(typeof(GameObjectBeforeConversionGroup))]
-[ConverterVersion("joe", 1)]
+[ConverterVersion("joe", 2)]
 class TransformConversion : GameObjectConversionSystem
 {
     private void Convert(Transform transform)
     {
         var entity = GetPrimaryEntity(transform);
 
-        //@TODO: This is not a great dependency to introduce as it results in everything getting rebuilt when moving the root,
-        // although we only need to recompute localtoworld... (I predict this won't scale on megacity...)
+#if !UNITY_2020_2_OR_NEWER
+        // We have a dependency, but don't need to add it on 2020.2.
+        // We special-case transforms there and can get away without it.
         DeclareDependency(transform, transform.parent);
+#endif
 
         DstEntityManager.AddComponentData(entity, new LocalToWorld { Value = transform.localToWorldMatrix });
         if (DstEntityManager.HasComponent<Static>(entity))

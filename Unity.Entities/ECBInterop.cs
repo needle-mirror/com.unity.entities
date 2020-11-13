@@ -15,7 +15,7 @@ namespace Unity.Entities
             {
                 for (var i = 0; i < count; i++)
                 {
-                    mgr->ManagedComponentStore.RemoveReference(sharedIndex[i]);
+                    mgr->ManagedComponentStore.RemoveSharedComponentReference_Managed(sharedIndex[i]);
                 }
             }
             catch (Exception e)

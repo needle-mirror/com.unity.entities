@@ -153,6 +153,9 @@ namespace Unity.Entities
         static Profiling.ProfilerMarker s_GetChangedManagedComponentsProfilerMarker = new Profiling.ProfilerMarker(nameof(GetChangedManagedComponents));
         static Profiling.ProfilerMarker s_GetChangedSharedComponentsProfilerMarker = new Profiling.ProfilerMarker(nameof(GetChangedSharedComponents));
         static Profiling.ProfilerMarker s_CopyAndReplaceChunksProfilerMarker = new Profiling.ProfilerMarker(nameof(CopyAndReplaceChunks));
+        static Profiling.ProfilerMarker s_DestroyChunksProfilerMarker = new Profiling.ProfilerMarker(nameof(DestroyChunks));
+        static Profiling.ProfilerMarker s_CloneAndAddChunksProfilerMarker = new Profiling.ProfilerMarker(nameof(CloneAndAddChunks));
+        static Profiling.ProfilerMarker s_GetBlobAssetsWithDistinctHash = new Profiling.ProfilerMarker(nameof(GetBlobAssetsWithDistinctHash));
 
         /// <summary>
         /// Generates a detailed change set between <see cref="srcEntityManager"/> and <see cref="dstEntityManager"/>.
@@ -342,60 +345,8 @@ namespace Unity.Entities
                             if (CheckOption(options, EntityManagerDifferOptions.FastForwardShadowWorld))
                             {
                                 CopyAndReplaceChunks(srcEntityManager, dstEntityManager, dstEntityQuery, archetypeChunkChanges);
-
-                                var batch = blobAssetCache.BlobAssetBatch;
-                                var remap = blobAssetCache.BlobAssetRemap;
-
-                                using (var createdBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
-                                using (var destroyedBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
-                                {
-                                    new GatherCreatedAndDestroyedBlobAssets
-                                    {
-                                        CreatedBlobAssets = createdBlobAssets,
-                                        DestroyedBlobAssets = destroyedBlobAssets,
-                                        AfterBlobAssets = srcBlobAssetsWithDistinctHash.BlobAssets,
-                                        BeforeBlobAssets = dstBlobAssetsWithDistinctHash
-                                    }.Schedule().Complete();
-
-                                    for (var i = 0; i < destroyedBlobAssets.Length; i++)
-                                    {
-                                        if (!batch->TryGetBlobAsset(destroyedBlobAssets[i].Hash, out _))
-                                        {
-                                            throw new Exception($"Failed to destroy a BlobAsset to the shadow world. A BlobAsset with the Hash=[{createdBlobAssets[i].Header->Hash}] does not exists.");
-                                        }
-
-                                        batch->ReleaseBlobAssetImmediately(destroyedBlobAssets[i].Hash);
-
-                                        using (var keys = remap.GetKeyArray(Allocator.Temp))
-                                        using (var values = remap.GetValueArray(Allocator.Temp))
-                                        {
-                                            for (var remapIndex = 0; remapIndex < values.Length; remapIndex++)
-                                            {
-                                                if (destroyedBlobAssets[i].Data != values[remapIndex].Data)
-                                                    continue;
-
-                                                remap.Remove(keys[remapIndex]);
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    for (var i = 0; i < createdBlobAssets.Length; i++)
-                                    {
-                                        if (batch->TryGetBlobAsset(createdBlobAssets[i].Header->Hash, out _))
-                                        {
-                                            throw new Exception($"Failed to copy a BlobAsset to the shadow world. A BlobAsset with the Hash=[{createdBlobAssets[i].Header->Hash}] already exists.");
-                                        }
-
-                                        var blobAssetPtr = batch->AllocateBlobAsset(createdBlobAssets[i].Data, createdBlobAssets[i].Length, createdBlobAssets[i].Header->Hash);
-                                        remap.TryAdd(createdBlobAssets[i], blobAssetPtr);
-                                    }
-
-                                    if (destroyedBlobAssets.Length > 0 || createdBlobAssets.Length > 0)
-                                    {
-                                        batch->SortByHash();
-                                    }
-                                }
+                                UpdateBlobAssetCache(blobAssetCache, srcBlobAssetsWithDistinctHash.BlobAssets,
+                                    dstBlobAssetsWithDistinctHash);
                             }
                         }
                         finally
@@ -414,6 +365,84 @@ namespace Unity.Entities
 
             s_GetChangesProfilerMarker.End();
             return changes;
+        }
+
+        internal static void PrecomputeBlobAssetCache(EntityManager entityManager, EntityQueryDesc entityQueryDesc, BlobAssetCache blobAssetCache)
+        {
+            CheckEntityGuidComponent(entityQueryDesc);
+            entityManager.CompleteAllJobs();
+            var srcEntityQuery = entityManager.CreateEntityQuery(entityQueryDesc);
+            // Gather a set of a chunks to consider for diffing in both the src and dst worlds.
+            using (var srcChunks = srcEntityQuery.CreateArchetypeChunkArray(Allocator.TempJob))
+            {
+                using (var srcBlobAssetsWithDistinctHash = GetBlobAssetsWithDistinctHash(
+                    entityManager.GetCheckedEntityDataAccess()->ManagedComponentStore,
+                    srcChunks, Allocator.TempJob))
+                using (var dstBlobAssets = new NativeList<BlobAssetPtr>(Allocator.TempJob))
+                {
+                    UpdateBlobAssetCache(blobAssetCache, srcBlobAssetsWithDistinctHash.BlobAssets, dstBlobAssets);
+                }
+            }
+        }
+
+        static void UpdateBlobAssetCache(BlobAssetCache blobAssetCache, NativeList<BlobAssetPtr> srcBlobAssets, NativeList<BlobAssetPtr> dstBlobAssets)
+        {
+            var batch = blobAssetCache.BlobAssetBatch;
+            var remap = blobAssetCache.BlobAssetRemap;
+
+            using (var createdBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
+            using (var destroyedBlobAssets = new NativeList<BlobAssetPtr>(1, Allocator.TempJob))
+            {
+                new GatherCreatedAndDestroyedBlobAssets
+                {
+                    CreatedBlobAssets = createdBlobAssets,
+                    DestroyedBlobAssets = destroyedBlobAssets,
+                    AfterBlobAssets = srcBlobAssets,
+                    BeforeBlobAssets = dstBlobAssets
+                }.Run();
+
+                for (var i = 0; i < destroyedBlobAssets.Length; i++)
+                {
+                    if (!batch->TryGetBlobAsset(destroyedBlobAssets[i].Hash, out _))
+                    {
+                        throw new Exception(
+                            $"Failed to destroy a BlobAsset to the shadow world. A BlobAsset with the Hash=[{createdBlobAssets[i].Header->Hash}] does not exists.");
+                    }
+
+                    batch->ReleaseBlobAssetImmediately(destroyedBlobAssets[i].Hash);
+
+                    using (var keys = remap.GetKeyArray(Allocator.Temp))
+                    using (var values = remap.GetValueArray(Allocator.Temp))
+                    {
+                        for (var remapIndex = 0; remapIndex < values.Length; remapIndex++)
+                        {
+                            if (destroyedBlobAssets[i].Data != values[remapIndex].Data)
+                                continue;
+
+                            remap.Remove(keys[remapIndex]);
+                            break;
+                        }
+                    }
+                }
+
+                for (var i = 0; i < createdBlobAssets.Length; i++)
+                {
+                    if (batch->TryGetBlobAsset(createdBlobAssets[i].Header->Hash, out _))
+                    {
+                        throw new Exception(
+                            $"Failed to copy a BlobAsset to the shadow world. A BlobAsset with the Hash=[{createdBlobAssets[i].Header->Hash}] already exists.");
+                    }
+
+                    var blobAssetPtr = batch->AllocateBlobAsset(createdBlobAssets[i].Data,
+                        createdBlobAssets[i].Length, createdBlobAssets[i].Header->Hash);
+                    remap.TryAdd(createdBlobAssets[i], blobAssetPtr);
+                }
+
+                if (destroyedBlobAssets.Length > 0 || createdBlobAssets.Length > 0)
+                {
+                    batch->SortByHash();
+                }
+            }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]

@@ -190,16 +190,15 @@ namespace Unity.Entities
                     return;
 
                 var ecs = GetCheckedEntityDataAccess();
-                var mcs = ecs->ManagedComponentStore;
 
                 ecs->BeforeStructuralChange();
 
                 var type = ComponentType.ReadWrite<T>();
                 ecs->RemoveComponent(chunks, type);
 
-                int sharedComponentIndex = mcs.InsertSharedComponent(componentData);
+                int sharedComponentIndex = ecs->InsertSharedComponent(componentData);
                 ecs->AddSharedComponentData(chunks, sharedComponentIndex, type);
-                mcs.RemoveReference(sharedComponentIndex);
+                ecs->RemoveSharedComponentReference(sharedComponentIndex);
             }
         }
 
@@ -213,8 +212,7 @@ namespace Unity.Entities
         public T GetSharedComponentData<T>(Entity entity) where T : struct, ISharedComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
-            var mcs = ecs->ManagedComponentStore;
-            return ecs->GetSharedComponentData<T>(entity, mcs);
+            return ecs->GetSharedComponentData<T>(entity);
         }
 
         [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
@@ -244,8 +242,15 @@ namespace Unity.Entities
         public T GetSharedComponentData<T>(int sharedComponentIndex) where T : struct, ISharedComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
+            return ecs->GetSharedComponentData<T>(sharedComponentIndex);
+        }
+
+        [NotBurstCompatible]
+        public object GetSharedComponentDataBoxed(int sharedComponentIndex, int typeIndex)
+        {
+            var ecs = GetCheckedEntityDataAccess();
             var mcs = ecs->ManagedComponentStore;
-            return mcs.GetSharedComponentData<T>(sharedComponentIndex);
+            return mcs.GetSharedComponentDataBoxed(sharedComponentIndex, typeIndex);
         }
 
         /// <summary>
@@ -264,8 +269,7 @@ namespace Unity.Entities
             where T : struct, ISharedComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
-            var mcs = ecs->ManagedComponentStore;
-            mcs.GetAllUniqueSharedComponents(sharedComponentValues);
+            ecs->GetAllUniqueSharedComponents(sharedComponentValues);
         }
 
         /// <summary>
@@ -289,8 +293,7 @@ namespace Unity.Entities
             where T : struct, ISharedComponentData
         {
             var ecs = GetCheckedEntityDataAccess();
-            var mcs = ecs->ManagedComponentStore;
-            mcs.GetAllUniqueSharedComponents(sharedComponentValues, sharedComponentIndices);
+            ecs->GetAllUniqueSharedComponents(sharedComponentValues, sharedComponentIndices);
         }
 
         /// <summary>

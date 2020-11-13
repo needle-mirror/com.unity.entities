@@ -32,6 +32,9 @@ namespace Unity.Entities
 
         public static ForEachLambdaJobDescription WithEntityQueryOptions(this ForEachLambdaJobDescription description, EntityQueryOptions options) => description;
         public static ForEachLambdaJobDescription WithSharedComponentFilter<T>(this ForEachLambdaJobDescription description, [AllowDynamicValue] T sharedComponent) where T : struct, ISharedComponentData => description;
+#if ROSLYN_SOURCEGEN_ENABLED
+        public static ForEachLambdaJobDescription WithFilter(this ForEachLambdaJobDescription description, [AllowDynamicValue]Unity.Collections.NativeArray<Entity> entities)  => description;
+#endif
 
         /// <summary>
         /// You can use this method to store the EntityQuery generated for this Entities.ForEach invocation in a variable that you can then reuse for other purposes,
@@ -69,6 +72,9 @@ namespace Unity.Entities
         public static LambdaJobChunkDescription WithEntityQueryOptions(this LambdaJobChunkDescription description, EntityQueryOptions options) => description;
         public static LambdaJobChunkDescription WithSharedComponentFilter<T>(this LambdaJobChunkDescription description, [AllowDynamicValue] T sharedComponent) where T : struct, ISharedComponentData => description;
         public static LambdaJobChunkDescription WithStoreEntityQueryInField(this LambdaJobChunkDescription description, [AllowDynamicValue] ref EntityQuery query) => description;
+#if ROSLYN_SOURCEGEN_ENABLED
+        public static LambdaJobChunkDescription WithFilter(this LambdaJobChunkDescription description, [AllowDynamicValue]Unity.Collections.NativeArray<Entity> entities)  => description;
+#endif
 
         //Start of query creating functions for ForEachLambdaJobDescriptionJCS.  Unfortunately there's no C# way to use generics to make these work for multiple jobdescription types, so we're lowteching it with t4 here.
         [AllowMultipleInvocationsAttribute]
@@ -97,5 +103,9 @@ namespace Unity.Entities
         public static ForEachLambdaJobDescriptionJCS WithEntityQueryOptions(this ForEachLambdaJobDescriptionJCS description, EntityQueryOptions options) => description;
         public static ForEachLambdaJobDescriptionJCS WithSharedComponentFilter<T>(this ForEachLambdaJobDescriptionJCS description, [AllowDynamicValue] T sharedComponent) where T : struct, ISharedComponentData => description;
         public static ForEachLambdaJobDescriptionJCS WithStoreEntityQueryInField(this ForEachLambdaJobDescriptionJCS description, [AllowDynamicValue] ref EntityQuery query) => description;
+#if ROSLYN_SOURCEGEN_ENABLED
+        public static ForEachLambdaJobDescriptionJCS WithFilter(this ForEachLambdaJobDescriptionJCS description, [AllowDynamicValue]Unity.Collections.NativeArray<Entity> entities)  => description;
+#endif
+
     }
 }

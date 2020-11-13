@@ -26,7 +26,10 @@ In this example, only the Destination and Source components can be accessed insi
 
 ### Accessing the EntityQuery object 
 
-To access the [EntityQuery] object that [Entities.ForEach] creates, use [WithStoreEntityQueryInField(ref query)] with the ref parameter modifier. This function assigns a reference to the query to the field you provide. **Note:** The EntityQuery is created in OnCreate. This method gives a copy of that query that can be used at any time (even before the Entities.ForEach is invoked). Also, this EntityQuery does not have any of the filters that the Entities.ForEach invocation sets up.
+To access the [EntityQuery] object that [Entities.ForEach] creates, use [WithStoreEntityQueryInField(ref query)] with the ref parameter modifier. This function assigns a reference to the query to the field you provide. 
+
+> [!NOTE]
+> The EntityQuery is created in OnCreate. This method gives a copy of that query that can be used at any time (even before the Entities.ForEach is invoked). Also, this EntityQuery does not have any of the filters that the Entities.ForEach invocation sets up.
 
 The following example illustrates how to access the EntityQuery object implicitly created for an [Entities.ForEach] construction. In this case, the example uses the EntityQuery object to invoke the [CalculateEntityCount()] method. The example uses this count to create a native array with enough space to store one value per entity selected by the query:
 
@@ -91,7 +94,8 @@ You can declare the three [special, named parameters](#named-parameters) `entity
 
 [!code-cs[lambda-params](../DocCodeSamples.Tests/LambdaJobExamples.cs#lambda-params-many)]
 
-**Note:** The default limit of eight arguments for a ForEach lambda function was chosen because declaring too many delegates and overloads has a negative effect on IDE performance. A unique delegate type and ForEach overload is required for each combination of ref/in/value and number of arguments. 
+> [!NOTE]
+> The default limit of eight arguments for a ForEach lambda function was chosen because declaring too many delegates and overloads has a negative effect on IDE performance. A unique delegate type and ForEach overload is required for each combination of ref/in/value and number of arguments. 
 
 <a name="component-parameters"></a>
 ### Component parameters
@@ -102,13 +106,15 @@ To update a component value, you must pass it to the lambda function by referenc
 
 To designate a component passed to the lambda function as read-only, use the `in` keyword in the parameter list.
 
-**Note:** Using `ref` means that the components in the current chunk are marked as changed, even if the lambda function does not actually modify them. For efficiency, always designate components that your lambda function does not modify as read only using the `in` keyword.
+> [!NOTE]
+> Using `ref` means that the components in the current chunk are marked as changed, even if the lambda function does not actually modify them. For efficiency, always designate components that your lambda function does not modify as read only using the `in` keyword.
 
 The following example passes a Source component parameter to the job as read-only, and a Destination component parameter as writable: 
 
 [!code-cs[read-write-modifiers](../DocCodeSamples.Tests/LambdaJobExamples.cs#read-write-modifiers)]
 
-**Note:** Currently, you cannot pass chunk components to the Entities.ForEach lambda function.
+> [!NOTE]
+> Currently, you cannot pass chunk components to the Entities.ForEach lambda function.
 
 For dynamic buffers, use DynamicBuffer&lt;T&gt; rather than the Component type stored in the buffer:
 
@@ -136,7 +142,8 @@ See [SystemBase.Entities] for more information about setting attributes for capt
 
 You can also indicate that you want captured NativeContainers or types that contain NativeContainers to be Disposed of after your [Entities.ForEach] runs by using `WithDisposeOnCompletion(variable)`.  This will either Dispose of the types immediately after the lambda runs (in the case of `Run()`) or schedule them to be Diposed later with a Job and return the JobHandle (in the case of `Schedule()`/`ScheduleParallel()`).
 
-**Note:** When executing the function with `Run()` you can write to captured variables that are not native containers. However, you should still use blittable types where possible so that the function can be compiled with [Burst].
+> [!NOTE]
+> When executing the function with `Run()` you can write to captured variables that are not native containers. However, you should still use blittable types where possible so that the function can be compiled with [Burst].
 
 ## Supported Features
 

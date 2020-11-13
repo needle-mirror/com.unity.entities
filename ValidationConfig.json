@@ -1,0 +1,20 @@
+{
+    "FileContentKeywordValidation":
+    {
+        "Keywords":
+        [
+            {
+                "Targets": "+Switch,+XboxOne",
+                "Files":
+                [
+                    "Unity.Entities.Editor/LiveLink/StartLiveLinkWindow.cs"
+                ],
+                "Patterns":
+                [
+                    "KnownPlatforms\\.Switch",
+                    "KnownPlatforms\\.XboxOne"
+                ]
+            }
+        ]
+    }
+}

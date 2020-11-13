@@ -6,7 +6,7 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests.ForEachCodegen
 {
-    class ForEachBufferAccessTests : ECSTestsFixture
+    partial class ForEachBufferAccessTests : ECSTestsFixture
     {
         SystemBase_TestSystem TestSystem;
         static Entity TestEntity1;
@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             ScheduleParallel
         }
 
-        public class SystemBase_TestSystem : SystemBase
+        public partial class SystemBase_TestSystem : SystemBase
         {
             protected override void OnUpdate() {}
 
@@ -155,21 +155,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     tde.value0 += GetBuffer<EcsIntElement>(tde.value1)[0].Value;
                     tde.value0 += GetBuffer<EcsIntElement>(tde.value1)[0].Value;
                 }).Schedule();
-                Dependency.Complete();
-            }
-
-            public void GetBufferOnOtherSystemInVar_GetsValueFromBuffer(Entity entity)
-            {
-                var otherSystem = new SystemBase_TestSystem();
-                Entities.ForEach((ref EcsTestData td) => { td.value = otherSystem.GetBuffer<EcsIntElement>(entity)[0].Value; }).Schedule();
-                Dependency.Complete();
-            }
-
-            SystemBase_TestSystem otherSystemField;
-            public void GetBufferOnOtherSystemInField_GetsValueFromBuffer(Entity entity)
-            {
-                var systemField = otherSystemField;
-                Entities.ForEach((ref EcsTestData td) => { td.value = systemField.GetBuffer<EcsIntElement>(entity)[0].Value; }).Schedule();
                 Dependency.Complete();
             }
 
@@ -319,20 +304,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.GetSameBufferInTwoEntitiesForEach_GetsValueFromBuffer();
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestDataEntity>(TestEntity1).value0);
-        }
-
-        [Test]
-        public void GetBufferOnOtherSystemInVar_GetsValueFromBuffer()
-        {
-            TestSystem.GetBufferOnOtherSystemInVar_GetsValueFromBuffer(TestEntity2);
-            Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
-        }
-
-        [Test]
-        public void GetBufferOnOtherSystemInField_GetsValueFromBuffer()
-        {
-            TestSystem.GetBufferOnOtherSystemInField_GetsValueFromBuffer(TestEntity2);
-            Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
         [Test]

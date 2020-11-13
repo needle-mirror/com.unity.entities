@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Tests;
+using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
@@ -13,6 +14,8 @@ using UnityEngine;
 
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<int>))]
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<short>))]
+[assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<Entity>))]
+[assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<BlobAssetReference<float>>))]
 
 namespace Unity.Entities
 {
@@ -31,6 +34,15 @@ namespace Unity.Entities.Tests
         {
             int empty;
         }
+        struct TestTypeWithEntity : IComponentData
+        {
+            Entity Entity;
+        }
+        struct TestTypeWithBlobRef : IComponentData
+        {
+            BlobAssetReference<float> Blobb;
+        }
+
         struct TestType2 : IComponentData
         {
             int empty;
@@ -103,6 +115,24 @@ namespace Unity.Entities.Tests
             var index2 = TypeManager.GetTypeIndex<GenericComponent<short>>();
 
             Assert.AreNotEqual(index1, index2);
+        }
+
+        [Test]
+        public void TestEntityRef()
+        {
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestTypeWithEntity>()));
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<GenericComponent<Entity>>()));
+            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<GenericComponent<short>>()));
+            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestType1>()));
+        }
+
+        [Test]
+        public void TestBlobRef()
+        {
+            Assert.IsTrue(TypeManager.GetTypeInfo<TestTypeWithBlobRef>().HasBlobAssetRefs);
+            Assert.IsTrue(TypeManager.GetTypeInfo<GenericComponent<BlobAssetReference<float>>>().HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.GetTypeInfo<GenericComponent<short>>().HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.GetTypeInfo<TestType1>().HasBlobAssetRefs);
         }
 
         [Test]
@@ -361,6 +391,23 @@ namespace Unity.Entities.Tests
             Assert.AreEqual("Unity.Entities.Tests.TypeManagerTests+TestComponentSystem", TypeManager.GetSystemName(typeof(TestComponentSystem)));
         }
 
+
+        // Warnings will be thrown about redundant attributes since all systems are disabled in this assembly
+        // [DisableAutoCreation]
+        class DisabledSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        class ChildOfDisabledSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+            }
+        }
+
         [Test]
         public void TestGetSystemAttributes()
         {
@@ -371,6 +418,14 @@ namespace Unity.Entities.Tests
             var updateAfterAttributes = TypeManager.GetSystemAttributes(typeof(TestComponentSystem), typeof(UpdateAfterAttribute));
             Assert.AreEqual(1, updateAfterAttributes.Length);
             Assert.AreEqual(typeof(InitializationSystemGroup), ((UpdateAfterAttribute)updateAfterAttributes[0]).SystemType);
+
+            var disableAttributes = TypeManager.GetSystemAttributes(typeof(DisabledSystem), typeof(DisableAutoCreationAttribute));
+            Assert.AreEqual(1, disableAttributes.Length);
+
+            // Annoyingly we cannot test this without adding a new dependent assembly to this test assembly. This is because all systems are disabled (rightfully so)
+            // for this test assembly via [assembly: DisableAutoCreation] so we cannot check that a child system defined in this assembly is _not_ disabled
+            //var inheritedDisableAttributes = TypeManager.GetSystemAttributes(typeof(ChildOfDisabledSystem), typeof(DisableAutoCreationAttribute));
+            //Assert.AreEqual(0, inheritedDisableAttributes.Length); // we should not inherit DisableAutoCreation attributes
         }
 
         [Test]
@@ -476,12 +531,49 @@ namespace Unity.Entities.Tests
             );
         }
 
+        struct UnmanagedSharedComponent : ISharedComponentData
+        {
+            int a;
+        }
+
+        struct ManagedSharedComponent : ISharedComponentData, IEquatable<ManagedSharedComponent>
+        {
+            private string a;
+
+            public bool Equals(ManagedSharedComponent other)
+            {
+                return a == other.a;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is ManagedSharedComponent other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return (a != null ? a.GetHashCode() : 0);
+            }
+        }
+
+        [Test]
+        public void SharedComponent_ManagedFlagCorrectlySet()
+        {
+            Assert.IsTrue(TypeManager.IsManagedType(TypeManager.GetTypeIndex<ManagedSharedComponent>()));
+            Assert.IsTrue(TypeManager.IsSharedComponentType(TypeManager.GetTypeIndex<ManagedSharedComponent>()));
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<ManagedSharedComponent>()));
+
+
+            Assert.IsFalse(TypeManager.IsManagedType(TypeManager.GetTypeIndex<UnmanagedSharedComponent>()));
+            Assert.IsTrue(TypeManager.IsSharedComponentType(TypeManager.GetTypeIndex<UnmanagedSharedComponent>()));
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<UnmanagedSharedComponent>()));
+        }
+
         [Test]
         public void ManagedFieldLayoutWorks()
         {
             var t  = TypeManager.GetTypeInfo<EcsStringSharedComponent>();
             var layout = TypeManager.GetFastEqualityTypeInfo(t);
-            Assert.IsNull(layout.Layouts);
             Assert.IsNotNull(layout.GetHashFn);
             Assert.IsNotNull(layout.EqualFn);
         }
@@ -699,7 +791,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(expected.Type, actual.Type);
                 Assert.AreEqual(expected.IsZeroSized, actual.IsZeroSized);
                 Assert.AreEqual(expected.HasWriteGroups, actual.HasWriteGroups);
-                Assert.AreEqual(expected.HasEntities, actual.HasEntities);
+                Assert.AreEqual(expected.EntityOffsetCount, actual.EntityOffsetCount);
             }
 
             foreach (var ti in TypeManager.AllTypes)
@@ -748,7 +840,7 @@ namespace Unity.Entities.Tests
         public unsafe void TypeInfo_EntityReferenceOffsets_AreSortedAndCorrect()
         {
             var typeInfo = TypeManager.GetTypeInfo<EcsTestDataEntity2>();
-            Assert.IsTrue(typeInfo.HasEntities);
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<EcsTestDataEntity2>()));
             Assert.AreEqual(2, typeInfo.EntityOffsetCount);
             var offsets = TypeManager.GetEntityOffsets(typeInfo);
             int offsetA = offsets[0].Offset;
@@ -772,8 +864,93 @@ namespace Unity.Entities.Tests
         }
 #endif
 
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-#if !UNITY_DOTSRUNTIME // No UnityEngine in DOTS Runtime
+        interface IBaseInterface
+        {
+        }
+        class BaseClass
+        {
+        }
+
+        sealed class SealedNothing
+        {
+            private float value;
+        }
+
+        sealed class ClassWithBlobAndEntity : BaseClass
+        {
+            BlobAssetReference<float> blob;
+            Entity entity;
+        }
+
+
+        class TestNoRef : IComponentData
+        {
+            float3 blah;
+            SealedNothing nothing;
+            float[] floatArray;
+            SealedNothing[] nothingArray;
+        }
+
+        class TestEmbedInterface : IComponentData
+        {
+            private IBaseInterface baseInterface;
+        }
+
+        class TestTestEmbedBaseClass : IComponentData
+        {
+            private BaseClass baseClass;
+        }
+
+        class TestHasBlobRefAndEntityRef : IComponentData
+        {
+            ClassWithBlobAndEntity reference;
+        }
+        class TestEntityArray : IComponentData
+        {
+            Entity[] entityArray;
+        }
+        class TestBlobArray : IComponentData
+        {
+            BlobAssetReference<float>[] entityArray;
+        }
+        class TestEntityInClass : IComponentData
+        {
+            Entity entityRef;
+        }
+
+        [Test]
+        public void TestHasEntityReferencedManaged()
+        {
+            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestNoRef>()));
+            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestBlobArray>()));
+
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEmbedInterface>()));
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestTestEmbedBaseClass>()));
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestHasBlobRefAndEntityRef>()));
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEntityInClass>()));
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEntityArray>()));
+        }
+
+        [Test]
+        public void TestHasBlobReferencesManaged()
+        {
+            Assert.IsFalse(TypeManager.GetTypeInfo<TestNoRef>().HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityInClass>().HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityArray>().HasBlobAssetRefs);
+
+            Assert.IsTrue(TypeManager.GetTypeInfo<TestEmbedInterface>().HasBlobAssetRefs);
+            Assert.IsTrue(TypeManager.GetTypeInfo<TestTestEmbedBaseClass>().HasBlobAssetRefs);
+            Assert.IsTrue(TypeManager.GetTypeInfo<TestHasBlobRefAndEntityRef>().HasBlobAssetRefs);
+            Assert.IsTrue(TypeManager.GetTypeInfo<TestHasBlobRefAndEntityRef>().HasBlobAssetRefs);
+        }
+
+#endif
+
+
+// Tests including Unityengine
+#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
         [DisableAutoTypeRegistration]
         class ManagedComponentDataNoDefaultConstructor : IComponentData, IEquatable<ManagedComponentDataNoDefaultConstructor>
         {
@@ -825,7 +1002,6 @@ namespace Unity.Entities.Tests
             });
         }
 
-#endif
 #endif
     }
 }

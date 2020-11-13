@@ -1,44 +1,23 @@
-using System.Collections.Generic;
+using System;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace Unity.Entities
 {
     public static class EntityManagerExtensions
     {
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-        static readonly List<ComponentDataProxyBase> s_ReusableComponentList = new List<ComponentDataProxyBase>(32);
-#pragma warning restore 618
-
-        public static unsafe Entity Instantiate(this EntityManager entityManager, GameObject srcGameObject)
+        [Obsolete("This function is equivalent to creating an empty entity since there are no proxy components any more. (RemovedAfter 2020-11-30)")]
+        public static Entity Instantiate(this EntityManager entityManager, GameObject srcGameObject)
         {
-            srcGameObject.GetComponents(s_ReusableComponentList);
-            var count = s_ReusableComponentList.Count;
-            ComponentType* componentTypes = stackalloc ComponentType[count];
-
-            for (var t = 0; t != count; ++t)
-                componentTypes[t] = s_ReusableComponentList[t].GetComponentType();
-
-            var srcEntity = entityManager.CreateEntity(entityManager.CreateArchetype(componentTypes, count));
-            for (var t = 0; t != count; ++t)
-                s_ReusableComponentList[t].UpdateComponentData(entityManager, srcEntity);
-
-            s_ReusableComponentList.Clear();
-
-            return srcEntity;
+            return entityManager.CreateEntity();
         }
 
-        public static unsafe void Instantiate(this EntityManager entityManager, GameObject srcGameObject, NativeArray<Entity> outputEntities)
+        [Obsolete("This function is equivalent to creating an empty entities since there are no proxy components any more. (RemovedAfter 2020-11-30)")]
+        public static void Instantiate(this EntityManager entityManager, GameObject srcGameObject, NativeArray<Entity> outputEntities)
         {
             if (outputEntities.Length == 0)
                 return;
-
-            var entity = entityManager.Instantiate(srcGameObject);
-
-            outputEntities[0] = entity;
-            var entityPtr = (Entity*)outputEntities.GetUnsafePtr();
-            entityManager.GetCheckedEntityDataAccess()->InstantiateInternal(entity, entityPtr + 1, outputEntities.Length - 1);
+            entityManager.CreateEntity(entityManager.CreateArchetype(), outputEntities);
         }
 
         public static unsafe T GetComponentObject<T>(this EntityManager entityManager, Entity entity) where T : Component

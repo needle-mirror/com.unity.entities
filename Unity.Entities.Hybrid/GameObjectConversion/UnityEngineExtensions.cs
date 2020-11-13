@@ -24,32 +24,12 @@ namespace Unity.Entities.Conversion
             return hash;
         }
 
-        public static T GetComponentInParentIncludeInactive<T>(this GameObject go)
-            where T : Component
-        {
-            if (go.activeInHierarchy)
-                return go.GetComponentInParent<T>();
-            else
-            {
-                var transform = go.transform;
-                while (transform != null)
-                {
-                    if (transform.TryGetComponent<T>(out var com))
-                        return com;
-
-                    transform = transform.parent;
-                }
-
-                return null;
-            }
-        }
-
         /// <summary>
         /// Returns an EntityGuid that can be used as a guid within a (non-persistent) session to refer to an entity generated
         /// from a UnityEngine.Object. The primary entity will be index 0, and additional entities will have increasing
         /// indices.
         /// </summary>
-        public static EntityGuid ComputeEntityGuid(this UnityObject @this, byte namespaceId, int serial)
+        public static EntityGuid ComputeEntityGuid(this UnityObject @this, uint namespaceId, int serial)
         {
             if (@this is Component component)
                 @this = component.gameObject;
@@ -127,11 +107,7 @@ namespace Unity.Entities.Conversion
                     LogWarning($"The referenced script is missing on {@this.name}", @this);
                 else if (!component.IsComponentDisabled() && !(component is GameObjectEntity))
                 {
-#pragma warning disable 618 // remove once ComponentDataProxyBase is removed
-                    var componentType =
-                        (component as ComponentDataProxyBase)?.GetComponentType() ?? component.GetType();
-#pragma warning restore 618
-
+                    var componentType = component.GetType();
                     var isUniqueType = true;
                     for (var j = 0; j < outputIndex; ++j)
                     {

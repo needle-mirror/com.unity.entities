@@ -50,12 +50,12 @@ namespace Unity.Scenes.Hybrid.Tests
                 m_BuildConfigurationGUID = new GUID(AssetDatabase.AssetPathToGUID(m_BuildConfigPath));
                 m_SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(m_SubScenePath));
 
-                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(m_SceneGUID, m_BuildConfigurationGUID,
+                var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(m_SceneGUID, m_BuildConfigurationGUID, true,
                     out var requestRefresh);
                 if (requestRefresh)
                     AssetDatabase.Refresh();
-                m_SceneWithBuildSettingsPath = SceneWithBuildConfigurationGUIDs.GetSceneWithBuildSettingsPath(ref guid);
-                EntityScenesPaths.GetSubSceneArtifactHash(m_SceneGUID, m_BuildConfigurationGUID,
+                m_SceneWithBuildSettingsPath = SceneWithBuildConfigurationGUIDs.GetSceneWithBuildSettingsPath(guid);
+                EntityScenesPaths.GetSubSceneArtifactHash(m_SceneGUID, m_BuildConfigurationGUID, true,
                     ImportMode.Synchronous);
             }
             catch

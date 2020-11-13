@@ -55,7 +55,7 @@ namespace Unity.Entities
         ///
         public static ComponentSystemBase ConstructSystem(Type systemType)
         {
-#if !UNITY_DOTSRUNTIME
+#if !NET_DOTS
             if (!typeof(ComponentSystemBase).IsAssignableFrom(systemType))
                 throw new ArgumentException($"'{systemType.FullName}' cannot be constructed as it does not inherit from ComponentSystemBase");
             return (ComponentSystemBase)Activator.CreateInstance(systemType);
@@ -135,7 +135,7 @@ namespace Unity.Entities
         internal static WorldSystemFilterFlags GetSystemFilterFlags(Type type)
         {
             WorldSystemFilterFlags systemFlags = WorldSystemFilterFlags.Default;
-#if !UNITY_DOTSRUNTIME
+#if !NET_DOTS
             if (Attribute.IsDefined(type, typeof(WorldSystemFilterAttribute), true))
                 systemFlags = type.GetCustomAttribute<WorldSystemFilterAttribute>(true).FilterFlags;
 
@@ -159,7 +159,7 @@ namespace Unity.Entities
 
         public static string GetSystemName(Type t)
         {
-#if !UNITY_DOTSRUNTIME
+#if !NET_DOTS
             return t.FullName;
 #else
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
@@ -190,7 +190,7 @@ namespace Unity.Entities
 
         public static bool IsSystemAGroup(Type t)
         {
-#if !UNITY_DOTSRUNTIME
+#if !NET_DOTS
             return t.IsSubclassOf(typeof(ComponentSystemGroup));
 #else
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
@@ -208,14 +208,42 @@ namespace Unity.Entities
         {
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
 
-#if !UNITY_DOTSRUNTIME
-            var objArr = systemType.GetCustomAttributes(attributeType, true);
-            var attr = new Attribute[objArr.Length];
-            for (int i = 0; i < objArr.Length; i++)
+#if !NET_DOTS
+            Attribute[] attributes;
+            var kDisabledCreationAttribute = typeof(DisableAutoCreationAttribute);
+            if (attributeType == kDisabledCreationAttribute)
             {
-                attr[i] = objArr[i] as Attribute;
+                // We do not want to inherit DisableAutoCreation from some parent type (as that attribute explicitly states it should not be inherited)
+                var objArr = systemType.GetCustomAttributes(attributeType, false);
+                var attrList = new List<Attribute>();
+
+                var alreadyDisabled = false;
+                for (int i = 0; i < objArr.Length; i++)
+                {
+                    var attr = objArr[i] as Attribute;
+                    attrList.Add(attr);
+
+                    if (attr.GetType() == kDisabledCreationAttribute)
+                        alreadyDisabled = true;
+                }
+
+                if (!alreadyDisabled && systemType.Assembly.GetCustomAttribute(attributeType) != null)
+                {
+                    attrList.Add(new DisableAutoCreationAttribute());
+                }
+                attributes = attrList.ToArray();
             }
-            return attr;
+            else
+            {
+                var objArr = systemType.GetCustomAttributes(attributeType, true);
+                attributes = new Attribute[objArr.Length];
+                for (int i = 0; i < objArr.Length; i++)
+                {
+                    attributes[i] = objArr[i] as Attribute;
+                }
+            }           
+
+            return attributes;
 #else
             Attribute[] attr = GetSystemAttributes(systemType);
             int count = 0;

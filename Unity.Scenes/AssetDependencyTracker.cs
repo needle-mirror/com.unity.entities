@@ -54,6 +54,7 @@ namespace Unity.Scenes
         bool _UpdateProgressBar;
         int _TotalProgressAssets;
         string _ProgressSummary;
+        bool _IsAssetWorker;
 
         public AssetDependencyTracker(Type importerType, string progressSummary)
         {
@@ -64,6 +65,7 @@ namespace Unity.Scenes
              _AllAssets = new NativeMultiHashMap<GUID, ReportedValue>(1024, Allocator.Persistent);
              _InProgress = new NativeList<GUID>(1024, Allocator.Persistent);
             _ArtifactCache = new NativeList<Hash128>(1024, Allocator.Persistent);
+            _IsAssetWorker = AssetDatabaseCompatibility.IsAssetImportWorkerProcess();
         }
 
         public void Dispose()
@@ -138,6 +140,13 @@ namespace Unity.Scenes
         /// <returns></returns>
         public bool AddCompleted(NativeList<Completed> completed)
         {
+            if (_IsAssetWorker && _AllAssets.IsEmpty)
+            {
+                // This requires special codepaths declaring dependencies / changes in asset pipeline / tests to work correctly.
+                // For now just disallow it for clarity.
+                throw new System.ArgumentException("Importing dependent assets on an import workers is currently not supported");
+            }
+
             // LogDependencyTracker("AssetDependencyTracker.GetCompleted");
 
             if (_RequestRefresh)

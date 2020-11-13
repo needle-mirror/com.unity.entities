@@ -32,7 +32,8 @@ namespace Unity.Entities.Editor
                 var targetProxy = (EntitySelectionProxy)target;
                 if (!targetProxy.Exists)
                     return;
-                targetProxy.OnEntityControlSelectButton(targetProxy.World, entity);
+
+                EntitySelectionProxy.SelectEntity(targetProxy.World, entity);
             },
                 entity => currentEntityManager.GetName(entity));
 
@@ -67,11 +68,11 @@ namespace Unity.Entities.Editor
 
             GUI.enabled = true;
             var entity = targetProxy.Entity;
-            var entityName = targetProxy.EntityManager.GetName(entity);
+            var entityName = targetProxy.World.EntityManager.GetName(entity);
             var newName = EditorGUILayout.DelayedTextField(entityName);
             if (newName != entityName)
             {
-                targetProxy.EntityManager.SetName(entity, newName);
+                targetProxy.World.EntityManager.SetName(entity, newName);
                 EditorWindow.GetWindow<EntityDebugger>().Repaint();
             }
             GUI.enabled = false;
@@ -98,7 +99,7 @@ namespace Unity.Entities.Editor
 
             var container = targetProxy.Container;
 
-            currentEntityManager = targetProxy.EntityManager;
+            currentEntityManager = targetProxy.World.EntityManager;
             PropertyContainer.Visit(ref container, visitor);
 
             GUI.enabled = true;

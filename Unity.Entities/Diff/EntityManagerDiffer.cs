@@ -8,7 +8,7 @@ namespace Unity.Entities
     /// </summary>
     public struct EntityManagerDiffer : IDisposable
     {
-        static EntityQueryDesc EntityGuidQueryDesc { get; } = new EntityQueryDesc
+        internal static EntityQueryDesc EntityGuidQueryDesc { get; } = new EntityQueryDesc
         {
             All = new ComponentType[]
             {

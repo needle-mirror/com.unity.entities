@@ -178,6 +178,12 @@ namespace Unity.Entities.CodeGen
 
             foreach (var m in componentSystemTypes.SelectMany(m => m.Methods).ToList())
             {
+#if ROSLYN_SOURCEGEN_ENABLED
+                // Early out for source generated partial classes
+                if (m.DeclaringType.CustomAttributes.Any(c => c.AttributeType.Name == nameof(CompilerGeneratedAttribute)))
+                    continue;
+#endif
+
                 LambdaJobDescriptionConstruction[] lambdaJobDescriptionConstructions;
                 try
                 {
@@ -236,11 +242,11 @@ namespace Unity.Entities.CodeGen
                 // Sometimes roslyn emits the lambda as an instance method in the same type of the method that contains the lambda expression.
                 // it does this only in the situation where the lambda captures a field _and_ does not capture any locals. In this case
                 // there's no displayclass being created. We should figure out exactly what instruction caused this behaviour, and tell the user
-                // she can't read a field like that.
+                // she can't read or write a field like that.
                 // Here is an example: https://sharplab.io/#v2:D4AQTAjAsAUCDMACciDCiDetE8QMwBsB7AQwBd8BLAUwIBNEBeReAOgAY8BubXXnBMgAsiACoALSgGcA4tQB21AE7lqUgLLUAtgCNlIAKxlKReVIAUASiwwAkLYD0DsZKmICJXXRKIA7pQICRABzBWVVRB8tbT0lfABXeQBjY1NENLJxamQwNFYXbKVqEik06QAuWHsnHABaAvdPHW90+QIAT0QkkgAHMniitx88Gnp8gEkzMmKGIjwu3v6lSnlgxEzpRGoADx6CSiTKMg6AGirHZ1xfbO75ELCVacjEaMyiWbv0MiJEPS3t6hJeLTBgrKTTEh0fi4HAAESIIAgYHMViYAD4bDCsThUKZSgRqKwAOrLabmEa0OiWLiIaEwgC+1LpfBg2JwNQkmw8Xh8/kC90Uj2yURiygSyVSdwyWRyeQaRRKZSklVZbJqiHqEmy3OaPlMHUQRQAjvFKINEAByDZSC2ReQMHolKRqRBHdY/YaJFImeSsZlwhFIlGWdGYtm4eGc1YWa1M1XYxk8eOIelVaGCEAiTmyB6qKQAQVQHikFhDNmqzi1zvWvh+Ou8biyRQF4SePnA+S1huKpTumxK+CIgSIvmV53V9Uy2WdSVMDHrPm6fQGLp8xG6QRI9vW4nIg6USRdU66RC0PQCYu+Wy0R3Hlxw7dyV5IKXiJECnXEQ4Yx/BETmO7akQG53nUgFUEo4KNDyrQGkuSyrlQlJ2j+MqzmeF5xLW8T0Ig8RSG+H6IAAVvhZCgbg2huiKuhingXqSpEbgrOBIyQRQ3TOicvzAogUgrIegHNu+Cp0J00gUQ+sp4EQcQLkM8jtL4JDtNxbp8kE/FngaRT4dkmR7qYhLnPCiLIqijAYucti4mYQ6EiSRzUOSoxUjS/opnG4YeSsFDbEwiDsEm4amUGFlWXY9i2fiDmks5FL0NStKRTZeL2cScXmNsXlsom0Kpsm6YiKFyJmZEKRlgVMLphAABswiIJGkjRuY6BJJVsD0kAA=
-                var illegalFieldRead = methodLambdaWasEmittedAs.Body.Instructions.FirstOrDefault(IsIllegalFieldRead);
-                if (illegalFieldRead != null)
-                    UserError.DC0001(methodContainingLambdaJob, illegalFieldRead, (FieldReference)illegalFieldRead.Operand).Throw();
+                var illegalFieldReadOrWrite = methodLambdaWasEmittedAs.Body.Instructions.FirstOrDefault(IsIllegalFieldReadOrWrite);
+                if (illegalFieldReadOrWrite != null)
+                    UserError.DC0001(methodContainingLambdaJob, illegalFieldReadOrWrite, (FieldReference)illegalFieldReadOrWrite.Operand).Throw();
 
                 // Similarly, we could end up here because the lambda captured neither a field nor a local but simply
                 // uses the this-reference. This could be the case if the user calls a function that takes this as a
@@ -267,13 +273,12 @@ namespace Unity.Entities.CodeGen
                 if (!lambdaJobDescriptionConstruction.HasAllowedMethodInvokedWithThis)
                     InternalCompilerError.DCICE001(methodContainingLambdaJob).Throw();
 
-                bool IsIllegalFieldRead(Instruction i)
+                bool IsIllegalFieldReadOrWrite(Instruction i)
                 {
-                    if (i.Previous == null)
+                    if (!i.IsLoadField() && !i.IsStoreField())
                         return false;
-                    if (i.OpCode != OpCodes.Ldfld && i.OpCode != OpCodes.Ldflda)
-                        return false;
-                    return i.Previous.OpCode == OpCodes.Ldarg_0;
+
+                    return i.Operand is FieldReference fieldReference && !fieldReference.DeclaringType.IsValueType;
                 }
 
                 bool IsIllegalInvocation(Instruction i)

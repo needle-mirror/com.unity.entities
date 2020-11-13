@@ -60,17 +60,6 @@ namespace Unity.Entities
 
 #endif
 
-        [Obsolete("Use HasComponent() instead. Exists() will be (RemovedAfter 2020-08-20). (UnityUpgradable) -> HasComponent(*)")]
-        public bool Exists(Entity entity)
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
-#endif
-            //@TODO: out of bounds index checks...
-
-            return m_EntityComponentStore->HasComponent(entity, m_TypeIndex);
-        }
-
         /// <summary>
         /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
         /// buffer component of type T.

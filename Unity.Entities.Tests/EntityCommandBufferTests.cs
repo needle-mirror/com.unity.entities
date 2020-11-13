@@ -123,10 +123,9 @@ namespace Unity.Entities.Tests
 
         // These tests require:
         // - JobsDebugger support for static safety IDs (added in 2020.1)
-#if UNITY_2020_1_OR_NEWER && !UNITY_DOTSRUNTIME
+#if !UNITY_DOTSRUNTIME
         [Test]
-        [DotsRuntimeFixme]  // Static safety IDs
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
+        [DotsRuntimeFixme("Static safety IDs - DOTSR-1432")]
         [IgnoreInPortableTests("There are Assert.Throws which the runner doesn't find or support.")]
         public void EntityCommandBufferConcurrent_PlaybackDuringWrite_UsesCustomOwnerTypeName()
         {
@@ -844,7 +843,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void AddComponentToEntityQuery()
+        public void AddComponentForEntityQuery_CaptureAtPlayback()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
 
@@ -866,6 +865,331 @@ namespace Unity.Entities.Tests
             entityQuery.Dispose();
             m_Manager.DestroyEntity(entities);
             entities.Dispose();
+        }
+
+        [Test]
+        public void AddComponentForEntityQuery_CaptureAtRecord()
+        {
+            var entity = m_Manager.CreateEntity();
+            var entity2 = m_Manager.CreateEntity();
+            var data1 = new EcsTestData();
+            m_Manager.AddComponentData(entity, data1);
+            m_Manager.AddComponentData(entity2, data1);
+
+            // these entities don't match the query and so should remain unaffected
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestData2));
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData2)))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, entities.Length, "Wrong number of entities with added component.");
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var e = entities[i];
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                }
+            }
+        }
+
+        [Test]
+        public void AddComponentForEntityQuery_CaptureAtRecord_SetValue()
+        {
+            var entity = m_Manager.CreateEntity();
+            var entity2 = m_Manager.CreateEntity();
+            var data1 = new EcsTestData();
+            m_Manager.AddComponentData(entity, data1);
+            m_Manager.AddComponentData(entity2, data1);
+            m_Manager.AddComponentData(entity2, new EcsTestData2(8));  // entity that already has the component should have it set
+
+            // these entities don't match the query and so should remain unaffected
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            var testVal = new EcsTestData2(5);
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                cmds.AddComponentForEntityQuery(entityQuery, testVal);
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData2)))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, entities.Length, "Wrong number of entities with added component.");
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var e = entities[i];
+                    Assert.AreEqual(testVal, m_Manager.GetComponentData<EcsTestData2>(e),
+                        "A component did not have the correct value.");
+
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                }
+            }
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void AddComponentForEntityQuery_CaptureAtRecord_ManagedComponent()
+        {
+            var entity = m_Manager.CreateEntity();
+            var entity2 = m_Manager.CreateEntity();
+            var data1 = new EcsTestData();
+            m_Manager.AddComponentData(entity, data1);
+            m_Manager.AddComponentData(entity2, data1);
+
+            // these entities don't match the query and so should remain unaffected
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestManagedComponent));
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent)))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, entities.Length, "Wrong number of entities with added component.");
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var e = entities[i];
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                }
+            }
+        }
+#endif
+
+        [Test]
+        public void AddComponentForEntityQuery_CaptureAtRecord_SharedComponent()
+        {
+            var entity = m_Manager.CreateEntity();
+            var entity2 = m_Manager.CreateEntity();
+            var data1 = new EcsTestData();
+            m_Manager.AddComponentData(entity, data1);
+            m_Manager.AddComponentData(entity2, data1);
+
+            // these entities don't match the query and so should remain unaffected
+            var entity3 = m_Manager.CreateEntity();
+            var entity4 = m_Manager.CreateEntity(typeof(EcsTestData3));
+            var entity5 = m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                cmds.AddComponentForEntityQuery(entityQuery, typeof(EcsTestSharedComp));
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, entities.Length, "Wrong number of entities with added component.");
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var e = entities[i];
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                }
+            }
+        }
+
+        [Test]
+        public void AddComponentForEntityQuery_CaptureAtRecord_MultipleComponents()
+        {
+            var entity = m_Manager.CreateEntity();
+            var entity2 = m_Manager.CreateEntity();
+            var data1 = new EcsTestData();
+            m_Manager.AddComponentData(entity, data1);
+            m_Manager.AddComponentData(entity2, data1);
+
+            // these entities don't match the query and so should remain unaffected
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                var types = new ComponentTypes(typeof(EcsTestData2), typeof(EcsTestData3));
+                cmds.AddComponentForEntityQuery(entityQuery, types);
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData2), typeof(EcsTestData3)))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, entities.Length, "Wrong number of entities with added components.");
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var e = entities[i];
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                }
+            }
+        }
+
+        [Test]
+        public void RemoveComponentForEntityQuery_CaptureAtRecord()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+
+            // these entities don't match the query and so should remain unaffected
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                cmds.RemoveComponentForEntityQuery(entityQuery, typeof(EcsTestData2));
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
+                {
+                    All = new ComponentType[] {typeof(EcsTestData)},
+                    None = new ComponentType[] {typeof(EcsTestData2)},
+                }))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, entities.Length, "Wrong number of entities with removed component.");
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var e = entities[i];
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                }
+            }
+        }
+
+        [Test]
+        public void RemoveComponentForEntityQuery_CaptureAtRecord_SharedComponent()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var entity = m_Manager.CreateEntity(archetype);
+            var entity2 = m_Manager.CreateEntity(archetype);
+
+            // these entities don't match the query and so should remain unaffected
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                cmds.RemoveComponentForEntityQuery(entityQuery, typeof(EcsTestSharedComp));
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[] {typeof(EcsTestData)},
+                None = new ComponentType[] {typeof(EcsTestSharedComp)},
+            }))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, entities.Length, "Wrong number of entities with removed component.");
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var e = entities[i];
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                }
+            }
+        }
+
+        [Test]
+        public void RemoveComponentForEntityQuery_CaptureAtRecord_MultipleComponents()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3));
+            var entity = m_Manager.CreateEntity(archetype);
+            var entity2 = m_Manager.CreateEntity(archetype);
+
+            // these entities don't match the query and so should remain unaffected
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                var types = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestData3));
+                cmds.RemoveComponentForEntityQuery(entityQuery, types);
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[] {typeof(EcsTestData2)},
+                None = new ComponentType[] {typeof(EcsTestData), typeof(EcsTestData3)},
+            }))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(2, entities.Length, "Wrong number of entities with removed component.");
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    var e = entities[i];
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                    Assert.IsTrue(e == entity || e == entity2, "Wrong entity.");
+                }
+            }
+        }
+
+        [Test]
+        public void DestroyEntitiesForEntityQuery_CaptureAtRecord()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            m_Manager.CreateEntity(archetype, 5);
+
+            // these entities don't match the query and so should remain unaffected
+            m_Manager.CreateEntity();
+            m_Manager.CreateEntity(typeof(EcsTestData3));
+            m_Manager.CreateEntity(typeof(EcsTestData4));
+
+            using (var cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                cmds.DestroyEntitiesForEntityQuery(entityQuery);
+                cmds.Playback(m_Manager);
+            }
+
+            using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            using (var entities = entityQuery.ToEntityArray(Allocator.TempJob))
+            {
+                Assert.AreEqual(0, entities.Length, "Wrong number of entities destroyed.");
+            }
+
+            using (var entities = m_Manager.GetAllEntities(Allocator.TempJob))
+            {
+                Assert.AreEqual(3, entities.Length, "Wrong number of entities remaining.");
+            }
         }
 
         [Test]
@@ -1531,6 +1855,22 @@ namespace Unity.Entities.Tests
 
             Assert.IsFalse(m_Manager.Exists(e));
         }
+
+        [Test]
+        public void AddSharedComponent_WhenComponentHasEntityField_DoesNotRemap()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            var es = m_Manager.CreateEntity();
+
+            cmds.AddSharedComponent(es, new EcsTestSharedCompEntity(es));
+
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            Assert.AreEqual(es, m_Manager.GetSharedComponentData<EcsTestSharedCompEntity>(es).value);
+        }
+
 
 #if UNITY_2020_2_OR_NEWER
 // 2020.2 no longer leaks strings when using Burst Abort
@@ -2343,21 +2683,6 @@ namespace Unity.Entities.Tests
 #endif
 
         [Test]
-        public void AddSharedComponent_WhenComponentHasEntityField_ThrowsArgumentException()
-        {
-            var cmds = new EntityCommandBuffer(Allocator.TempJob);
-
-            var es = m_Manager.CreateEntity();
-
-            Assert.Throws<ArgumentException>(() =>
-            {
-                cmds.AddSharedComponent(es, new EcsTestSharedCompEntity(es));
-            });
-
-            cmds.Dispose();
-        }
-
-        [Test]
         public void AddComponent_WhenDataContainsDeferredEntity_ThrowsOnMultiplePlaybacks()
         {
             var cmds = new EntityCommandBuffer(Allocator.TempJob);
@@ -2396,17 +2721,10 @@ namespace Unity.Entities.Tests
             cmds.Playback(m_Manager);
             cmds.Dispose();
 
+            using (var group = m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity)))
             {
-                var group = m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity));
-                var arr = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob);
-
-                Assert.AreEqual(1, arr.Length);
-                var e0real = arr[0].value1;
-                EcsTestDataEntity v0 = m_Manager.GetComponentData<EcsTestDataEntity>(e0real);
-                Assert.AreEqual(v0.value1, e0real);
-
-                arr.Dispose();
-                group.Dispose();
+                var e = group.GetSingletonEntity();
+                Assert.AreEqual(e, m_Manager.GetComponentData<EcsTestDataEntity>(e).value1);
             }
         }
 
@@ -2420,17 +2738,10 @@ namespace Unity.Entities.Tests
             cmds.Playback(m_Manager);
             cmds.Dispose();
 
+            using (var group = m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity)))
             {
-                var group = m_Manager.CreateEntityQuery(typeof(EcsTestDataEntity));
-                var arr = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob);
-
-                Assert.AreEqual(1, arr.Length);
-                var e0real = arr[0].value1;
-                EcsTestDataEntity v0 = m_Manager.GetComponentData<EcsTestDataEntity>(e0real);
-                Assert.AreEqual(v0.value1, e0real);
-
-                arr.Dispose();
-                group.Dispose();
+                var e = group.GetSingletonEntity();
+                Assert.AreEqual(e, m_Manager.GetComponentData<EcsTestDataEntity>(e).value1);
             }
         }
 
@@ -2821,37 +3132,29 @@ namespace Unity.Entities.Tests
             cmds.Playback(m_Manager2);
             cmds.Dispose();
 
+            using(var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent)))
             {
-                var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent));
-                var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
-                Assert.AreEqual(1, arr.Length);
-                Assert.AreEqual("SomeString", arr[0].value);
-                group.Dispose();
+                var component = EntityQueryManagedComponentExtensions.GetSingleton<EcsTestManagedComponent>(group);
+                Assert.AreEqual("SomeString", component.value);
             }
 
+            using(var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent2)))
             {
-                var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedComponent2));
-                var arr = group.ToComponentDataArray<EcsTestManagedComponent2>();
-                Assert.AreEqual(1, arr.Length);
-                Assert.AreEqual("SomeString", arr[0].value);
-                Assert.AreEqual("SomeOtherString", arr[0].value2);
-                group.Dispose();
+                var component = EntityQueryManagedComponentExtensions.GetSingleton<EcsTestManagedComponent2>(group);
+                Assert.AreEqual("SomeString", component.value);
+                Assert.AreEqual("SomeOtherString", component.value2);
             }
+            using(var group = m_Manager2.CreateEntityQuery(typeof(EcsTestManagedComponent)))
             {
-                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestManagedComponent));
-                var arr = group.ToComponentDataArray<EcsTestManagedComponent>();
-                Assert.AreEqual(1, arr.Length);
-                Assert.AreEqual("SomeString", arr[0].value);
-                group.Dispose();
+                var component = EntityQueryManagedComponentExtensions.GetSingleton<EcsTestManagedComponent>(group);
+                Assert.AreEqual("SomeString", component.value);
             }
 
+            using (var group = m_Manager2.CreateEntityQuery(typeof(EcsTestManagedComponent2)))
             {
-                var group = m_Manager2.CreateEntityQuery(typeof(EcsTestManagedComponent2));
-                var arr = group.ToComponentDataArray<EcsTestManagedComponent2>();
-                Assert.AreEqual(1, arr.Length);
-                Assert.AreEqual("SomeString", arr[0].value);
-                Assert.AreEqual("SomeOtherString", arr[0].value2);
-                group.Dispose();
+                var component = EntityQueryManagedComponentExtensions.GetSingleton<EcsTestManagedComponent2>(group);
+                Assert.AreEqual("SomeString", component.value);
+                Assert.AreEqual("SomeOtherString", component.value2);
             }
         }
 
@@ -3348,6 +3651,24 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, managedComponentArray.Length);
             Assert.AreEqual("SomeString", managedComponentArray[0].value);
             managedGroup.Dispose();
+        }
+
+        [Test]
+        public void AddManagedComponent_WithEntityPatch()
+        {
+            var cmds = new EntityCommandBuffer(Allocator.TempJob);
+
+            Entity e0 = cmds.CreateEntity();
+            cmds.AddComponent(e0, new EcsTestManagedDataEntity {value1 = e0});
+
+            cmds.Playback(m_Manager);
+            cmds.Dispose();
+
+            using(var group = m_Manager.CreateEntityQuery(typeof(EcsTestManagedDataEntity)))
+            {
+                var e = group.GetSingletonEntity();
+                Assert.AreEqual(e, m_Manager.GetComponentData<EcsTestManagedDataEntity>(e).value1);
+            }
         }
 
 #endif

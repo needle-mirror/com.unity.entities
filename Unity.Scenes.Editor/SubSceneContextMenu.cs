@@ -1,11 +1,11 @@
+using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using System.Linq;
-using System.Reflection;
-using System;
 
 namespace Unity.Scenes.Editor
 {
@@ -82,7 +82,7 @@ namespace Unity.Scenes.Editor
             return CreateNewSubScene(gameObject.name, args, interactionMode);
         }
 
-        internal static void AddExtraGameObjectContextMenuItems(GenericMenu menu, GameObject target)
+        static void AddNewSubSceneMenuItems(GenericMenu menu, GameObject target)
         {
             var validTarget = GetValidSelectedGameObjectsForSubSceneCreation(target) != null;
 
@@ -101,6 +101,16 @@ namespace Unity.Scenes.Editor
                 menu.AddItem(addSubSceneContent, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(target, default(Scene), NewSubSceneMode.MoveSelectionToScene));
             else
                 menu.AddDisabledItem(addSubSceneContent);
+        }
+
+        internal static void AddExtraGameObjectContextMenuItems(GenericMenu menu, GameObject target)
+        {
+            AddNewSubSceneMenuItems(menu, target);
+        }
+
+        internal static void AddExtraItemsToCreateDropdown(GenericMenu menu)
+        {
+            AddNewSubSceneMenuItems(menu, Selection.activeGameObject);
         }
 
         internal static void AddExtraSceneHeaderContextMenuItems(GenericMenu menu, Scene target)
@@ -180,29 +190,39 @@ namespace Unity.Scenes.Editor
             if (!startFolderExisted)
                 Directory.CreateDirectory(startFolder);
 
-            var savePath = EditorUtility.SaveFilePanelInProject("Create new Sub Scene", Path.GetFileNameWithoutExtension(startPath), "unity", "", startFolder);
+            string savePath = string.Empty;
+            while(true)
+            {
+                savePath = EditorUtility.SaveFilePanelInProject("Create new Sub Scene", Path.GetFileNameWithoutExtension(startPath), "unity", "", startFolder);
+                if (string.IsNullOrEmpty(savePath))
+                    break;
+
+                if (SubScene.AllSubScenes.Any(x => x.EditableScenePath == savePath))
+                {
+                    EditorUtility.DisplayDialog(L10n.Tr("Sub Scene Found"), L10n.Tr("Cannot overwrite a Sub Scene that is already part of the Hierarchy. Select another file path"), L10n.Tr("Ok"));
+                }
+                else if (SceneManager.GetSceneByPath(savePath).IsValid())
+                {
+                    EditorUtility.DisplayDialog(L10n.Tr("Scene Already Open"), L10n.Tr("Cannot overwrite a Scene that is already open in the Hierarchy. Select another file path"), L10n.Tr("Ok"));
+                }
+                else
+                {
+                    break;
+                }
+            }
 
             if (!startFolderExisted)
                 DeleteCreatedStartFolderIfNotUsed(startFolder, savePath);
 
             if (!string.IsNullOrEmpty(savePath))
-                CreateNewSubSceneAtPath(savePath, args, InteractionMode.UserAction);
-        }
+            {
+                // If a file exists at 'savePath' the user has already accepted to overwrite that file
+                // during the SaveFilePanelInProject() call above.
+                if (File.Exists(savePath))
+                    AssetDatabase.DeleteAsset(savePath);
 
-        static string CheckNameCallback(string name, object userData)
-        {
-            try
-            {
-                var newSubSceneArgs = (NewSubSceneArgs)userData;
-                ThrowIfInvalidSubSceneFileName(name);
-                var dstPath = GetSubSceneFilePathUnderParentSceneFilePath(newSubSceneArgs.parentScene, name);
-                ThrowIfFileExists(dstPath);
+                CreateNewSubSceneAtPath(savePath, args, InteractionMode.UserAction);
             }
-            catch (ArgumentException e)
-            {
-                return e.Message;
-            }
-            return null;
         }
 
         static string GetSubSceneFilePathUnderParentSceneFilePath(Scene parentScene, string newSubSceneName)

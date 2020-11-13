@@ -7,6 +7,7 @@ using Unity.Transforms;
 namespace Doc.CodeSamples.Tests
 {
     #region singleton-type-example
+
     public struct Singlet : IComponentData
     {
         public int Value;
@@ -20,11 +21,12 @@ namespace Doc.CodeSamples.Tests
     public struct RotationQuaternion : IComponentData { public quaternion Value; }
     public struct Displacement : IComponentData { public float3 Value; }
 
-    public class EntityQueryExamples : SystemBase
+    public partial class EntityQueryExamples : SystemBase
     {
         void queryFromList()
         {
             #region query-from-list
+
             EntityQuery query = GetEntityQuery(typeof(Rotation),
                 ComponentType.ReadOnly<RotationSpeed>());
             #endregion
@@ -33,11 +35,12 @@ namespace Doc.CodeSamples.Tests
         void queryFromDescription()
         {
             #region query-from-description
+
             EntityQueryDesc description = new EntityQueryDesc
             {
                 None = new ComponentType[]
                 {
-                    typeof(Frozen)
+                    typeof(Static)
                 },
                 All = new ComponentType[]
                 {
@@ -85,6 +88,7 @@ namespace Doc.CodeSamples.Tests
 
 
             #region set-singleton
+
             queryForSingleton.SetSingleton<Singlet>(new Singlet {Value = 1});
             #endregion
         }
@@ -93,6 +97,7 @@ namespace Doc.CodeSamples.Tests
         {
             {
             #region define-query
+
             EntityQuery query
                 = GetEntityQuery(typeof(RotationQuaternion),
                                  ComponentType.ReadOnly<RotationSpeed>());
@@ -100,9 +105,10 @@ namespace Doc.CodeSamples.Tests
             }
             {
                 #region query-desc
+
                 var queryDescription = new EntityQueryDesc
                 {
-                    None = new ComponentType[] { typeof(Frozen) },
+                    None = new ComponentType[] { typeof(Static) },
                     All = new ComponentType[]{ typeof(RotationQuaternion),
                                            ComponentType.ReadOnly<RotationSpeed>() }
                 };
@@ -111,6 +117,7 @@ namespace Doc.CodeSamples.Tests
             }
             {
                 #region combine-query
+
                 var desc1 = new EntityQueryDesc
                 {
                     All = new ComponentType[] { typeof(RotationQuaternion) }
@@ -129,16 +136,18 @@ namespace Doc.CodeSamples.Tests
             {
                 EntityManager entityManager = World.EntityManager;
                 #region create-query
+
                 EntityQuery query =
                     entityManager.CreateEntityQuery(typeof(RotationQuaternion),
                                         ComponentType.ReadOnly<RotationSpeed>());
                 #endregion
             }
 
-            
+
         }
     }
     #region query-writegroup
+
     public struct C1 : IComponentData { }
 
     [WriteGroup(typeof(C1))]
@@ -168,7 +177,8 @@ namespace Doc.CodeSamples.Tests
     #endregion
 
     #region get-query
-    public class RotationSpeedSys : SystemBase
+
+    public partial class RotationSpeedSys : SystemBase
     {
         private EntityQuery query;
 
@@ -193,6 +203,7 @@ namespace Doc.CodeSamples.Tests
     #endregion
 
     #region get-query-ijobchunk
+
     public class RotationSystem : SystemBase
     {
         private EntityQuery query;
@@ -210,6 +221,7 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
     #region shared-component-filter
+
     struct SharedGrouping : ISharedComponentData
     {
         public int Group;
@@ -247,6 +259,7 @@ namespace Doc.CodeSamples.Tests
     class UpdateSystem : SystemBase
     {
         #region change-filter
+
         EntityQuery query;
 
         protected override void OnCreate()

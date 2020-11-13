@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Unity.Collections;
 using NUnit.Framework;
 using Unity.Burst;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
@@ -83,48 +85,6 @@ namespace Unity.Entities.Tests
             var array = new NativeArray<Entity>(0, Allocator.Temp);
             m_Manager.AddComponent(array, typeof(EcsTestData));
             array.Dispose();
-        }
-
-        [Test]
-        public void TestIsCreatedProperty()
-        {
-            EntityManager testy;
-            using (var world = new World("Temp"))
-            {
-                testy = world.EntityManager;
-#pragma warning disable 618
-                Assert.IsTrue(testy.IsCreated);
-#pragma warning restore 618
-            }
-#pragma warning disable 618
-            Assert.IsFalse(testy.IsCreated);
-#pragma warning restore 618
-        }
-
-        [Test]
-        public void TestCompareToNullLegacy()
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            EntityManager testy = default;
-            Assert.IsTrue(testy == null);
-            using (var world = new World("Temp"))
-            {
-                testy = world.EntityManager;
-                Assert.IsTrue(testy != null);
-            }
-#pragma warning restore CS0618 // Type or member is obsolete
-        }
-
-        [Test]
-        public void TestNullableCompare()
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            using (var world = new World("Temp"))
-            {
-                var testy = world?.EntityManager;
-                Assert.IsTrue(testy != null);
-            }
-#pragma warning restore CS0618 // Type or member is obsolete
         }
 
         unsafe public bool IndexInChunkIsValid(Entity entity)
@@ -268,6 +228,43 @@ namespace Unity.Entities.Tests
             }
         }
 
+        // test for DOTS-3479: changing a chunk's archetype in-place temporarily leaves the new archetype's chunks-with-empty-slots
+        // list in an inconsistent state.
+        [Test]
+        public void ChangeArchetypeInPlace_WithSharedComponents_ChunkIsInFreeSlotList()
+        {
+            var srcArchetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp), typeof(EcsTestTag));
+            var dstArchetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            // Create two chunks in srcArchetype with different shared component values
+            var ent0 = m_Manager.CreateEntity(srcArchetype);
+            m_Manager.SetSharedComponentData(ent0, new EcsTestSharedComp {value = 17});
+            var ent1 = m_Manager.CreateEntity(srcArchetype);
+            m_Manager.SetSharedComponentData(ent1, new EcsTestSharedComp {value = 42});
+
+            // move ent1's chunk to dstArchetype
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestTag), typeof(EcsTestSharedComp)))
+            {
+                query.SetSharedComponentFilter(new EcsTestSharedComp {value = 42});
+                m_Manager.RemoveComponent<EcsTestTag>(query);
+            }
+            var archetypeChunk = m_Manager.GetChunk(ent1);
+            Assert.AreEqual(dstArchetype, archetypeChunk.Archetype);
+
+            // entity's chunk should have plenty of empty slots available
+            Assert.AreEqual(1, archetypeChunk.Count);
+            Assert.IsFalse(archetypeChunk.Full);
+
+            var ent2 = m_Manager.CreateEntity(dstArchetype);
+            // Changing ent2 to the same shared component values as ent1 should move ent2 to the same chunk as ent1.
+            // If these asserts fail, it means ent1's chunk wasn't correctly added to dstArchetype's
+            // FreeChunksBySharedComponents list (specifically, it was added under a hash of the wrong shared component
+            // values), and a new chunk was created for ent2 instead.
+            m_Manager.SetSharedComponentData(ent2, new EcsTestSharedComp {value = 42});
+            Assert.AreEqual(2, archetypeChunk.Count); // ent1's chunk should contain both entities
+            Assert.AreEqual(archetypeChunk, m_Manager.GetChunk(ent2)); // ent1 and ent2 should have the same chunk
+        }
+
         [Test]
         public unsafe void ComponentsWithBool()
         {
@@ -307,10 +304,6 @@ namespace Unity.Entities.Tests
             hash.Dispose();
         }
 
-// We want these types registered with in DOTS Runtime by default
-#if !UNITY_DOTSRUNTIME
-        [DisableAutoTypeRegistration]
-#endif
         [TypeManager.ForcedMemoryOrderingAttribute(1)]
         struct BigComponentWithAlign1 : IComponentData
         {
@@ -342,10 +335,6 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(EcsTestTag))]
         public unsafe void ChunkComponentRunIsAligned(Type maxCapacityTagType)
         {
-        // TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
-#if !UNITY_DOTSRUNTIME
-            TypeManager.AddNewComponentTypes(new []{typeof(BigComponentWithAlign1)});
-#endif
             // Create an entity
             var archetype = m_Manager.CreateArchetype(typeof(BigComponentWithAlign1), typeof(ComponentWithAlign8), maxCapacityTagType);
             var entity = m_Manager.CreateEntity(archetype);
@@ -363,10 +352,6 @@ namespace Unity.Entities.Tests
 
 #endif
 
-// We want these types registered with in DOTS Runtime by default
-#if !UNITY_DOTSRUNTIME
-        [DisableAutoTypeRegistration]
-#endif
         struct WillFitWithAlign : IComponentData
         {
             // sizeof(T) is not a constant
@@ -380,10 +365,6 @@ namespace Unity.Entities.Tests
             unsafe fixed byte val[kWillFitSize];
         }
 
-// We want these types registered with in DOTS Runtime by default
-#if !UNITY_DOTSRUNTIME
-        [DisableAutoTypeRegistration]
-#endif
         struct WontFitWithAlign : IComponentData
         {
             // Make component one byte larger than would fit in chunk
@@ -394,11 +375,6 @@ namespace Unity.Entities.Tests
         [Test]
         public unsafe void CreatingArchetypeWithToLargeEntityThrows()
         {
-// TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
-#if !UNITY_DOTSRUNTIME
-            TypeManager.AddNewComponentTypes(new []{typeof(WillFitWithAlign), typeof(WontFitWithAlign), typeof(BigComponentWithAlign1)});
-#endif
-
             Assert.DoesNotThrow(() => m_Manager.CreateArchetype(typeof(BigComponentWithAlign1), typeof(WillFitWithAlign)));
             Assert.Throws<ArgumentException>(() => m_Manager.CreateArchetype(typeof(BigComponentWithAlign1), typeof(WontFitWithAlign)));
         }
@@ -678,6 +654,121 @@ namespace Unity.Entities.Tests
             m_Manager.Debug.CheckInternalConsistency();
         }
 
+        [StructLayout(LayoutKind.Explicit, Size = 3)]
+        public struct ComponentDataByteThen2PaddingBytes : IComponentData
+        {
+            [FieldOffset(0)]
+            public byte mByte;
+        }
+
+        [StructLayout(LayoutKind.Explicit, Size = 3)]
+        public struct ComponentPaddingByteThenDataByteThenPaddingByte: IComponentData
+        {
+            [FieldOffset(1)]
+            public byte mByte;
+        }
+
+        /// <summary>
+        /// This test is to ensure we can rely on padding bytes being zero-initialized such that memory comparisons
+        /// of chunks written to using SetComponent or by storing structs via chunk pointers is fine. A user will
+        /// only encounter problems where default(c) != default(c) if they explicitly alter the padding bytes of the struct
+        /// they copy into chunk memory, to which we say, they must intend for this struct to be different than one that
+        /// didn't have it's padding bytes explicitly altered.
+        ///
+        /// Relevant part of the standard that ensures types are by default zero initialized:
+        /// ECMA-335 I.12.6.8
+        /// All memory allocated for static variables (other than those assigned RVAs within a PE
+        /// file, see Partition II) and objects shall be zeroed before they are made visible to any user code.
+        /// </summary>
+        [Test]
+        public unsafe void ValidatePaddingBytesAreOverwrittenWhenReusingChunks()
+        {
+            const byte kPaddingValue = 0xFF;
+            const byte kMemoryInitPattern = 0xAA;
+            Assertions.Assert.AreNotEqual(kMemoryInitPattern, kPaddingValue);
+            Assertions.Assert.AreNotEqual(0, kPaddingValue);
+
+            m_ManagerDebug.UseMemoryInitPattern = true;
+            m_ManagerDebug.MemoryInitPattern = kMemoryInitPattern;
+
+            NativeHashSet<ulong> seenChunkBuffers = new NativeHashSet<ulong>(8, Allocator.TempJob);
+            var dppArchetype = m_Manager.CreateArchetype(typeof(ComponentDataByteThen2PaddingBytes));
+            var pdpArchetype = m_Manager.CreateArchetype(typeof(ComponentPaddingByteThenDataByteThenPaddingByte));
+            Assert.AreEqual(dppArchetype.ChunkCapacity, pdpArchetype.ChunkCapacity);
+
+            // Allocate entities to fill multiple chunks with components with known "bad" padding bytes
+            var entityCount = dppArchetype.ChunkCapacity * 2;
+            var entities = new NativeArray<Entity>(entityCount, Allocator.TempJob);
+            for (int i = 0; i < entityCount; ++i)
+            {
+                var entity = m_Manager.CreateEntity(dppArchetype);
+                entities[i] = entity;
+
+                var component = new ComponentDataByteThen2PaddingBytes();
+                var pData = (byte*) UnsafeUtility.AddressOf(ref component);
+                pData[0] = (byte) entity.Index; // data byte
+                pData[1] = kPaddingValue;       // padding byte
+                pData[2] = kPaddingValue;       // padding byte
+
+                m_Manager.SetComponentData(entity, component);
+            }
+
+            Assert.AreEqual(2, dppArchetype.ChunkCount);
+            for (int i = 0; i < dppArchetype.Archetype->Chunks.Count; ++i)
+                seenChunkBuffers.Add((ulong)dppArchetype.Archetype->Chunks[i]->Buffer);
+
+            // Validate the components have the byte pattern we expect
+            foreach (var entity in entities)
+            {
+                var component = m_Manager.GetComponentData<ComponentDataByteThen2PaddingBytes>(entity);
+                var pData = (byte*) UnsafeUtility.AddressOf(ref component);
+                Assert.AreEqual((byte) entity.Index, pData[0]);
+                Assert.AreEqual(kPaddingValue, pData[1] );
+                Assert.AreEqual(kPaddingValue, pData[2]);
+            }
+
+            // Delete all entities in the second chunk, pushing the chunk back on the freelist
+            for (int i = dppArchetype.ChunkCapacity; i < entityCount; ++i)
+                m_Manager.DestroyEntity(entities[i]);
+            Assert.AreEqual(1, dppArchetype.ChunkCount);
+
+            // Allocate a new archetype with the opposite stripping pattern
+            // and ensure the chunk retrieved is a chunk we've seen already
+            var newEntityCount = pdpArchetype.ChunkCapacity;
+            var newEntities = new NativeArray<Entity>(newEntityCount, Allocator.TempJob);
+            for (int i = 0; i < newEntityCount; ++i)
+            {
+                var entity = m_Manager.CreateEntity(pdpArchetype);
+                newEntities[i] = entity;
+
+                var component = new ComponentPaddingByteThenDataByteThenPaddingByte();
+                var pData = (byte*) UnsafeUtility.AddressOf(ref component);
+                Assertions.Assert.AreEqual(0, pData[0]); // pData[0] -- padding byte left uninitialized
+                pData[1] = (byte) entity.Index; // data byte
+                Assertions.Assert.AreEqual(0, pData[0]); // pData[2] -- padding byte left uninitialized
+
+                m_Manager.SetComponentData(entity, component);
+            }
+            Assert.AreEqual(1, pdpArchetype.ChunkCount);
+            Assert.IsTrue(seenChunkBuffers.Contains((ulong)pdpArchetype.Archetype->Chunks[0]->Buffer));
+
+            // Validate the components have zero initialized padding bytes and not the poisoned padding
+            // i.e. what you store to chunk memory is what you get. You are not affected by the
+            // non-zero-initialized chunk memory state
+            foreach (var entity in newEntities)
+            {
+                var component = m_Manager.GetComponentData<ComponentPaddingByteThenDataByteThenPaddingByte>(entity);
+                var pData = (byte*) UnsafeUtility.AddressOf(ref component);
+                Assert.AreEqual((byte)0, pData[0] );
+                Assert.AreEqual((byte) entity.Index, pData[1]);
+                Assert.AreEqual((byte)0, pData[2]);
+            }
+
+            newEntities.Dispose();
+            entities.Dispose();
+            seenChunkBuffers.Dispose();
+        }
+
         [Test]
         [Ignore("Fix had to be reverted, check issue #2996")]
         public void Fix1602()
@@ -699,7 +790,7 @@ namespace Unity.Entities.Tests
         // These tests require:
         // - JobsDebugger support for static safety IDs (added in 2020.1)
         // - Asserting throws
-#if UNITY_2020_1_OR_NEWER && !UNITY_DOTSRUNTIME
+#if !UNITY_DOTSRUNTIME
         [Test,DotsRuntimeFixme]
         public void EntityManager_DoubleDispose_UsesCustomOwnerTypeName()
         {

@@ -27,11 +27,19 @@ namespace Unity.Entities
             b = serial | ((ulong)namespaceId << 32);
         }
 
+        internal EntityGuid(int originatingId, uint namespaceId, uint serial)
+        {
+            a = (ulong)originatingId;
+            b = serial | ((ulong)namespaceId << 32);
+        }
+
         /// <summary>Session-unique ID for originating object (typically the authoring GameObject's InstanceID).</summary>
         public int OriginatingId => (int)a;
         /// <summary>An ID that supports multiple primary groupings of converted Entities with the same originating object.
         /// ID zero is reserved for default conversions. Nonzero ID's are for the developer to manage.</summary>
+        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
         public byte NamespaceId => (byte)(b >> 32);
+        internal uint FullNamespaceId => (uint) (b >> 32);
         /// <summary>A unique number used to differentiate Entities associated with the same originating object and namespace.</summary>
         public uint Serial => (uint)b;
 
@@ -60,7 +68,7 @@ namespace Unity.Entities
             return 0;
         }
 
-        public override string ToString() => $"{OriginatingId}:{NamespaceId:x2}:{Serial:x8}";
+        public override string ToString() => $"{OriginatingId}:{FullNamespaceId:x8}:{Serial:x8}";
     }
 
     public readonly struct EntityChanges : IDisposable
@@ -431,5 +439,173 @@ namespace Unity.Entities
             foreach (var managed in SetManagedComponents)
                 (managed.BoxedValue as IDisposable)?.Dispose();
         }
+
     }
+
+#if !NET_DOTS
+    internal static class EntityChangeSetFormatter {
+        internal static string PrintSummary(this EntityChangeSet changeSet)
+        {
+            var sb = new System.Text.StringBuilder();
+            PrintSummary(changeSet, sb);
+            return sb.ToString();
+        }
+
+        internal static void PrintSummary(this EntityChangeSet changeSet, System.Text.StringBuilder sb)
+        {
+            sb.AppendLine("Change Summary:");
+            if (changeSet.CreatedEntityCount > 0)
+                sb.AppendLine("\tEntities created: " + changeSet.CreatedEntityCount);
+            if (changeSet.DestroyedEntityCount > 0)
+                sb.AppendLine("\tEntities destroyed: " + changeSet.DestroyedEntityCount);
+            if (changeSet.EntityReferenceChanges.Length > 0)
+                sb.AppendLine("\tEntity references changed: " + changeSet.EntityReferenceChanges.Length);
+            if (changeSet.AddComponents.Length > 0)
+                sb.AppendLine("\tComponents added: " + changeSet.AddComponents.Length);
+            if (changeSet.RemoveComponents.Length > 0)
+                sb.AppendLine("\tComponents removed: " + changeSet.RemoveComponents.Length);
+            if (changeSet.SetComponents.Length > 0)
+                sb.AppendLine("\tUnmanaged components changed: " + changeSet.SetComponents.Length);
+            if (changeSet.SetManagedComponents.Length > 0)
+                sb.AppendLine("\tManaged components changed: " + changeSet.SetManagedComponents.Length);
+            if (changeSet.SetSharedComponents.Length > 0)
+                sb.AppendLine("\tShared components changed: " + changeSet.SetSharedComponents.Length);
+            if (changeSet.CreatedBlobAssets.Length > 0)
+                sb.AppendLine("\tBlob assets created: " + changeSet.CreatedBlobAssets.Length);
+            if (changeSet.DestroyedBlobAssets.Length > 0)
+                sb.AppendLine("\tBlob assets destroyed: " + changeSet.DestroyedBlobAssets.Length);
+            if (changeSet.BlobAssetReferenceChanges.Length > 0)
+                sb.AppendLine("\tBlob asset references changed: " + changeSet.BlobAssetReferenceChanges.Length);
+            if (changeSet.LinkedEntityGroupAdditions.Length > 0)
+                sb.AppendLine("\tLinked entity group additions: " + changeSet.LinkedEntityGroupAdditions.Length);
+            if (changeSet.LinkedEntityGroupRemovals.Length > 0)
+                sb.AppendLine("\tLinked entity group removals: " + changeSet.LinkedEntityGroupRemovals.Length);
+            sb.AppendLine();
+
+            if (changeSet.CreatedEntityCount > 0)
+            {
+                sb.AppendLine("Entities created:");
+                for (int i = 0; i < changeSet.CreatedEntityCount; i++)
+                {
+                    sb.Append('\t');
+                    sb.Append(changeSet.Names[i].ToString());
+                    sb.Append(" - ");
+                    sb.AppendLine(changeSet.Entities[i].ToString());
+                }
+                sb.AppendLine();
+            }
+
+            if (changeSet.DestroyedEntityCount > 0)
+            {
+                sb.AppendLine("Entities destroyed:");
+                int d = changeSet.Names.Length - 1;
+                for (int i = 0; i < changeSet.DestroyedEntityCount; i++)
+                {
+                    sb.Append('\t');
+                    sb.Append(changeSet.Names[d - i].ToString());
+                    sb.Append(" - ");
+                    sb.AppendLine(changeSet.Entities[d - i].ToString());
+                }
+                sb.AppendLine();
+            }
+
+            if (changeSet.AddComponents.Length > 0)
+            {
+                sb.AppendLine("Components added:");
+                for (int i = 0; i < changeSet.AddComponents.Length; i++)
+                    FormatComponentChange(ref changeSet, changeSet.AddComponents[i], sb);
+                sb.AppendLine();
+            }
+
+            if (changeSet.RemoveComponents.Length > 0)
+            {
+                sb.AppendLine("Components removed:");
+                for (int i = 0; i < changeSet.RemoveComponents.Length; i++)
+                    FormatComponentChange(ref changeSet, changeSet.RemoveComponents[i], sb);
+                sb.AppendLine();
+            }
+
+            if (changeSet.SetComponents.Length > 0)
+            {
+                sb.AppendLine("Unmanaged components changed:");
+                for (int i = 0; i < changeSet.SetComponents.Length; i++)
+                    FormatComponentChange(ref changeSet, changeSet.SetComponents[i].Component, sb);
+                sb.AppendLine();
+            }
+
+            if (changeSet.SetManagedComponents.Length > 0)
+            {
+                sb.AppendLine("Managed components changed:");
+                for (int i = 0; i < changeSet.SetManagedComponents.Length; i++)
+                    FormatComponentChange(ref changeSet, changeSet.SetManagedComponents[i].Component, sb);
+                sb.AppendLine();
+            }
+
+            if (changeSet.SetSharedComponents.Length > 0)
+            {
+                sb.AppendLine("Shared components changed:");
+                for (int i = 0; i < changeSet.SetSharedComponents.Length; i++)
+                    FormatComponentChange(ref changeSet, changeSet.SetSharedComponents[i].Component, sb);
+                sb.AppendLine();
+            }
+
+            if (changeSet.EntityReferenceChanges.Length > 0)
+            {
+                sb.AppendLine("Entity references changed:");
+                for (int i = 0; i < changeSet.EntityReferenceChanges.Length; i++)
+                    FormatComponentChange(ref changeSet, changeSet.EntityReferenceChanges[i].Component, sb);
+                sb.AppendLine();
+            }
+
+            if (changeSet.BlobAssetReferenceChanges.Length > 0)
+            {
+                sb.AppendLine("Blob asset references changed:");
+                for (int i = 0; i < changeSet.BlobAssetReferenceChanges.Length; i++)
+                    FormatComponentChange(ref changeSet, changeSet.BlobAssetReferenceChanges[i].Component, sb);
+                sb.AppendLine();
+            }
+
+            if (changeSet.LinkedEntityGroupAdditions.Length > 0)
+            {
+                sb.AppendLine("Linked entity group additions:");
+                for (int i = 0; i < changeSet.LinkedEntityGroupAdditions.Length; i++)
+                {
+                    sb.Append('\t');
+                    sb.Append(changeSet.LinkedEntityGroupAdditions[i].ChildEntityGuid.ToString());
+                    sb.Append(" added to ");
+                    sb.Append(changeSet.LinkedEntityGroupAdditions[i].RootEntityGuid.ToString());
+                    sb.AppendLine();
+                }
+
+                sb.AppendLine();
+            }
+
+            if (changeSet.LinkedEntityGroupRemovals.Length > 0)
+            {
+                sb.AppendLine("Linked entity group removals:");
+                for (int i = 0; i < changeSet.LinkedEntityGroupRemovals.Length; i++)
+                {
+                    sb.Append('\t');
+                    sb.Append(changeSet.LinkedEntityGroupRemovals[i].ChildEntityGuid.ToString());
+                    sb.Append(" removed from ");
+                    sb.Append(changeSet.LinkedEntityGroupRemovals[i].RootEntityGuid.ToString());
+                    sb.AppendLine();
+                }
+
+                sb.AppendLine();
+            }
+        }
+
+        static void FormatComponentChange(ref EntityChangeSet changeSet, PackedComponent c, System.Text.StringBuilder sb)
+        {
+            int ti = TypeManager.GetTypeIndexFromStableTypeHash(changeSet.TypeHashes[c.PackedTypeIndex].StableTypeHash);
+            var typeName = TypeManager.GetTypeInfo(ti).DebugTypeName;
+            sb.Append("\t");
+            sb.Append(typeName);
+            sb.Append(" - ");
+            // Could also print out GUID here
+            sb.AppendLine(changeSet.Names[c.PackedEntityIndex].ToString());
+        }
+    }
+#endif
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -109,7 +110,14 @@ namespace Unity.Entities.CodeGen
                 // so we add that here until that is supported
                 var monoPInvokeCallbackAttributeConstructor = typeof(Jobs.MonoPInvokeCallbackAttribute).GetConstructor(Type.EmptyTypes);
                 methodDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructor)));
+#else
+                // Adding MonoPInvokeCallbackAttribute needed for IL2CPP to work when burst is disabled
+                var monoPInvokeCallbackAttributeConstructors = typeof(MonoPInvokeCallbackAttribute).GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                var monoPInvokeCallbackAttribute = new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructors[0]));
+                monoPInvokeCallbackAttribute.ConstructorArguments.Add(new CustomAttributeArgument(mod.ImportReference(typeof(Type)), mod.ImportReference(typeof(SystemBaseDelegates.Function))));
+                methodDef.CustomAttributes.Add(monoPInvokeCallbackAttribute);
 #endif
+
 
                 var processor = methodDef.Body.GetILProcessor();
 
@@ -142,9 +150,14 @@ namespace Unity.Entities.CodeGen
 #if !UNITY_DOTSRUNTIME
             if (!Defines.Contains("UNITY_EDITOR"))
             {
-                // Needs to run automatically in the player.
-                var attributeCtor = AssemblyDefinition.MainModule.ImportReference(typeof(UnityEngine.RuntimeInitializeOnLoadMethodAttribute).GetConstructor(Type.EmptyTypes));
-                funcDef.CustomAttributes.Add(new CustomAttribute(attributeCtor));
+                // Needs to run automatically in the player, but we need to
+                // exclude this attribute when building for the editor, or
+                // it will re-run the registration for every enter play mode.
+                var loadTypeEnumType = mod.ImportReference(typeof(UnityEngine.RuntimeInitializeLoadType));
+                var attributeCtor = mod.ImportReference(typeof(UnityEngine.RuntimeInitializeOnLoadMethodAttribute).GetConstructor(new[] { typeof(UnityEngine.RuntimeInitializeLoadType) }));
+                var attribute = new CustomAttribute(attributeCtor);
+                attribute.ConstructorArguments.Add(new CustomAttributeArgument(loadTypeEnumType, UnityEngine.RuntimeInitializeLoadType.AfterAssembliesLoaded));
+                funcDef.CustomAttributes.Add(attribute);
             }
 
             if (Defines.Contains("UNITY_EDITOR"))

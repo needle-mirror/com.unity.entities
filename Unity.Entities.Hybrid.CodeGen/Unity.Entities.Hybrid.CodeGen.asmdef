@@ -22,6 +22,12 @@
     "defineConstraints": [
         "!NET_DOTS"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+      {
+        "name": "com.unity.roslyn",
+        "expression": "0.0.0-preview.2",
+        "define": "ROSLYN_SOURCEGEN_ENABLED"
+      }
+    ],
     "noEngineReferences": false
 }

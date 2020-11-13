@@ -16,6 +16,7 @@ namespace Unity.Scenes
     public enum LiveLinkMode
     {
         Disabled = 0,
+        LiveConvertStandalonePlayer,
         LiveConvertGameView,
         LiveConvertSceneView,
     }

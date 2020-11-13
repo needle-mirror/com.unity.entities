@@ -265,7 +265,7 @@ namespace Unity.Scenes.Editor.Tests
 
         static Hash128 GetLiveLinkArtifactHash(string guid, ImportMode syncMode = ImportMode.NoImport) => AssetDatabaseCompatibility.GetArtifactHash(guid, typeof(LiveLinkBuildImporter), syncMode);
         static Hash128 GetLiveLinkArtifactHash(GUID guid, ImportMode syncMode = ImportMode.NoImport) => GetLiveLinkArtifactHash(guid.ToString(), syncMode);
-        static Hash128 GeEntitySceneArtifactHash(GUID guid, GUID buildConfig, ImportMode syncMode = ImportMode.NoImport) => EntityScenesPaths.GetSubSceneArtifactHash(guid, buildConfig, syncMode);
+        static Hash128 GeEntitySceneArtifactHash(GUID guid, GUID buildConfig, ImportMode syncMode = ImportMode.NoImport) => EntityScenesPaths.GetSubSceneArtifactHash(guid, buildConfig, false, syncMode);
 
         IEnumerable WaitForAssets(Dictionary<Hash128, Hash128> outHashesByGUID, int player = 1)
         {
@@ -482,7 +482,7 @@ namespace Unity.Scenes.Editor.Tests
             Assert.IsTrue(subSceneGuid.Guid.IsValid);
 
             // Force subscene to import so messages are deterministic
-            EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid.Guid, subSceneGuid.BuildConfigurationGuid, ImportMode.Synchronous);
+            EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid.Guid, subSceneGuid.BuildConfigurationGuid, false, ImportMode.Synchronous);
 
             s_Connection.PostMessageArray(1, LiveLinkMsg.PlayerRequestSubSceneTargetHash, new[] { subSceneGuid });
 
@@ -494,7 +494,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 Assert.AreEqual(1, assets.Length);
                 Assert.AreEqual(subSceneGuid, assets[0].SubSceneGUID);
-                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid.Guid, subSceneGuid.BuildConfigurationGuid, ImportMode.NoImport);
+                var hash = EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid.Guid, subSceneGuid.BuildConfigurationGuid, false, ImportMode.NoImport);
                 Assert.AreEqual(hash, assets[0].TargetHash);
             }
 
@@ -537,7 +537,7 @@ namespace Unity.Scenes.Editor.Tests
             var buildTarget = EditorUserBuildSettings.activeBuildTarget;
 
             // First SubScene artifact hash
-            var subSceneHash = EntityScenesPaths.GetSubSceneArtifactHash(subSceneGUID.Guid, subSceneGUID.BuildConfigurationGuid, ImportMode.Synchronous);
+            var subSceneHash = EntityScenesPaths.GetSubSceneArtifactHash(subSceneGUID.Guid, subSceneGUID.BuildConfigurationGuid, false, ImportMode.Synchronous);
 
             // Gather all top level dependencies
             var sceneDependencies = LiveLinkBuildPipeline.GetSubSceneDependencies(subSceneHash);
@@ -573,7 +573,7 @@ namespace Unity.Scenes.Editor.Tests
             var sentSubSceneId = new ResolvedSubSceneID
             {
                 SubSceneGUID = subSceneGuid,
-                TargetHash = EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid.Guid, subSceneGuid.BuildConfigurationGuid, ImportMode.Synchronous)
+                TargetHash = EntityScenesPaths.GetSubSceneArtifactHash(subSceneGuid.Guid, subSceneGuid.BuildConfigurationGuid, false, ImportMode.Synchronous)
             };
 
             s_Connection.PostMessageArray(1, LiveLinkMsg.PlayerRequestSubSceneTargetHash, new[] { subSceneGuid });

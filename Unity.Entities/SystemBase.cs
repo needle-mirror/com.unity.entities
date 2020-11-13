@@ -21,7 +21,7 @@ namespace Unity.Entities
     /// updates the Displacement based on the delta time elapsed since the last frame.
     ///
     /// <example>
-    /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="basic-system" title="Basic System Example"/>
+    /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="basic-system" title="Basic System Example" language="csharp"/>
     /// </example>
     ///
     /// #### System lifecycle callbacks
@@ -111,7 +111,7 @@ namespace Unity.Entities
         /// management. The function schedules three jobs, each depending on the previous one:
         ///
         /// <example>
-        /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="simple-dependency" title="Implicit Dependency Example"/>
+        /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="simple-dependency" title="Implicit Dependency Example" language="csharp"/>
         /// </example>
         ///
         /// You can opt out of this default dependency management by explicitly passing a [JobHandle] to
@@ -128,7 +128,7 @@ namespace Unity.Entities
         /// dependencies to subsequent systems.
         ///
         /// <example>
-        /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="manual-dependency" title="Manual Dependency Example"/>
+        /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="manual-dependency" title="Manual Dependency Example" language="csharp"/>
         /// </example>
         ///
         /// You can combine implicit and explicit dependency management (by using [JobHandle.CombineDependencies]);
@@ -159,7 +159,7 @@ namespace Unity.Entities
         /// executable code.
         ///
         /// <example>
-        /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="entities-foreach-basic" title="Basic ForEach Example"/>
+        /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="entities-foreach-basic" title="Basic ForEach Example" language="csharp"/>
         /// </example>
         ///
         /// ##### **Describing the entity query**
@@ -218,7 +218,7 @@ namespace Unity.Entities
         ///   lambda function. When you execute the lambda function using Run(), nativeThreadIndex is always zero.
         ///
         /// <example>
-        /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="lambda-params" title="Lambda Parameters"/>
+        /// <code source="../DocCodeSamples.Tests/SystemBaseExamples.cs" region="lambda-params" title="Lambda Parameters" language="csharp"/>
         /// </example>
         ///
         /// ##### **Capturing variables**
@@ -303,7 +303,7 @@ namespace Unity.Entities
         /// (optionally) runs in a background thread.
         ///
         /// <example>
-        /// <code source="../DocCodeSamples.Tests/LambdaJobExamples.cs" region="job-with-code-example" title="Basic Job Example"/>
+        /// <code source="../DocCodeSamples.Tests/LambdaJobExamples.cs" region="job-with-code-example" title="Basic Job Example" language="csharp"/>
         /// </example>
         ///
         /// Implement your lambda function inside the `Job.WithCode(lambda)` function. The lambda function cannot
@@ -336,8 +336,8 @@ namespace Unity.Entities
         ///
         /// * **`WithReadOnly(myvar)`** — restricts access to the variable as read-only.
         ///
-        /// * **`WithDeallocateOnJobCompletion(myvar)`** — deallocates the native container after the job is complete.
-        ///   See [DeallocateOnJobCompletionAttribute].
+        /// * **`WithDisposeOnCompletion(myvar)`** — indicates that you want captured NativeContainers or types that 
+        ///   contain NativeContainers to be Disposed of after your lambda runs.
         ///
         /// * **`WithNativeDisableParallelForRestriction(myvar)`** — permits multiple threads to access the same
         ///   writable native container. Parallel access is only safe when each thread only accesses its own, unique
@@ -384,24 +384,23 @@ namespace Unity.Entities
 
                 if (Enabled && ShouldRunSystem())
                 {
-                    if (!state->m_PreviouslyEnabled)
+                    if (!state->PreviouslyEnabled)
                     {
-                        state->m_PreviouslyEnabled = true;
+                        state->PreviouslyEnabled = true;
                         OnStartRunning();
                     }
 
                     state->BeforeOnUpdate();
 
-                    var oldExecutingSystem = ms_ExecutingSystem;
-                    ms_ExecutingSystem = this;
+                    var world = World.Unmanaged;
+                    var oldExecutingSystem = world.ExecutingSystem;
+                    world.ExecutingSystem = state->m_Handle;
                     try
                     {
                         OnUpdate();
                     }
                     catch
                     {
-                        ms_ExecutingSystem = oldExecutingSystem;
-
                         state->AfterOnUpdate();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -412,8 +411,10 @@ namespace Unity.Entities
 
                         throw;
                     }
-
-                    ms_ExecutingSystem = oldExecutingSystem;
+                    finally
+                    {
+                        world.ExecutingSystem = oldExecutingSystem;
+                    }
 
                     state->AfterOnUpdate();
 
@@ -429,9 +430,9 @@ namespace Unity.Entities
                     }
 #endif
                 }
-                else if (state->m_PreviouslyEnabled)
+                else if (state->PreviouslyEnabled)
                 {
-                    state->m_PreviouslyEnabled = false;
+                    state->PreviouslyEnabled = false;
                     OnStopRunning();
                 }
             }
@@ -452,9 +453,9 @@ namespace Unity.Entities
 
             if (state->Enabled && state->ShouldRunSystem())
             {
-                if (!state->m_PreviouslyEnabled)
+                if (!state->PreviouslyEnabled)
                 {
-                    state->m_PreviouslyEnabled = true;
+                    state->PreviouslyEnabled = true;
                     SystemBaseRegistry.CallOnStartRunning(state);
                 }
 
@@ -470,9 +471,9 @@ namespace Unity.Entities
                 errorDetails = details;
 #endif
             }
-            else if (state->m_PreviouslyEnabled)
+            else if (state->PreviouslyEnabled)
             {
-                state->m_PreviouslyEnabled = false;
+                state->PreviouslyEnabled = false;
                 SystemBaseRegistry.CallOnStopRunning(state);
             }
 #if ENABLE_PROFILER

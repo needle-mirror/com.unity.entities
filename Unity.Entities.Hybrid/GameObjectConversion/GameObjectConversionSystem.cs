@@ -1,5 +1,4 @@
 using System;
-using System.ComponentModel;
 using System.IO;
 using Unity.Collections;
 using Unity.Entities;
@@ -11,6 +10,7 @@ using UnityObject = UnityEngine.Object;
 //@TODO
 //namespace Unity.Entities
 //{
+
 [DisableAutoCreation]
 [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
 public class GameObjectDeclareReferencedObjectsGroup : ComponentSystemGroup {}
@@ -58,6 +58,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// then we need a way to avoid duplication of EntityGuids for these multiple prefabs. So we reserve space for a
     /// "namespace ID" in the EntityGuid, where if nonzero it is up to the developer to manage.
     /// </summary>
+    [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
     public GameObjectConversionSettings ForkSettings(byte entityGuidNamespaceID)
         => m_MappingSystem.ForkSettings(entityGuidNamespaceID);
 
@@ -108,8 +109,13 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// </summary>
     /// <param name="target">The GameObject that has a dependency.</param>
     /// <param name="dependsOn">The GameObject that the target depends on.</param>
-    public void DeclareDependency(GameObject target, GameObject dependsOn) =>
+    public void DeclareDependency(GameObject target, GameObject dependsOn)
+    {
+#if !UNITY_2020_2_OR_NEWER
+        m_MappingSystem.RegisterForInstanceIdMapping(target);
+#endif
         m_MappingSystem.Dependencies.DependOnGameObject(target, dependsOn);
+    }
 
     /// <summary>
     /// Declares that the conversion result of the target Component depends on another component. Any changes to the
@@ -118,10 +124,7 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// <param name="target">The Component that has a dependency.</param>
     /// <param name="dependsOn">The Component that the target depends on.</param>
     public void DeclareDependency(Component target, Component dependsOn)
-    {
-        if (target != null && dependsOn != null)
-            m_MappingSystem.Dependencies.DependOnGameObject(target.gameObject, dependsOn.gameObject);
-    }
+        => DeclareDependency(target?.gameObject, dependsOn);
 
     /// <summary>
     /// Declares that the conversion result of the target GameObject depends on a source asset. Any changes to the
@@ -131,6 +134,20 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// <param name="dependsOn">The Object that the target depends on. This must be an asset.</param>
     public void DeclareAssetDependency(GameObject target, UnityObject dependsOn) =>
         m_MappingSystem.Dependencies.DependOnAsset(target, dependsOn);
+
+    /// <summary>
+    /// Declares that the conversion result of the target GameObject depends on another component. Any changes to the
+    /// dependency should trigger a reconversion of the dependent component.
+    /// </summary>
+    /// <param name="target">The GameObject that has a dependency.</param>
+    /// <param name="dependsOn">The Component that the target depends on.</param>
+    public void DeclareDependency(GameObject target, Component dependsOn)
+    {
+#if !UNITY_2020_2_OR_NEWER
+        m_MappingSystem.RegisterForInstanceIdMapping(target);
+#endif
+        m_MappingSystem.Dependencies.DependOnComponent(target, dependsOn);
+    }
 
     // ** CONVERSION **
 
@@ -236,6 +253,23 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     public BlobAssetStore BlobAssetStore => m_MappingSystem.GetBlobAssetStore();
 
 #if UNITY_EDITOR
+    /// <summary>
+    /// Returns true if the conversion system is building data that will be loaded in the editor as opposed to in the standalone player.
+    /// </summary>
+    public bool IsBuildingForEditor
+    {
+        get
+        {
+            return m_MappingSystem.IsBuildingForEditor;
+        }
+    }
+
+
+    /// <summary>
+    /// Returns the GUID of the Build configuration of this conversion context.
+    /// </summary>
+    public UnityEditor.GUID BuildConfigurationGUID => m_MappingSystem.BuildConfigurationGUID;
+
     /// <summary>
     /// Get an <see cref="Unity.Build.IBuildComponent"/> of the given type from the current build configuration. If there are
     /// no current build configuration, the default value is returned. Otherwise, the component must exist

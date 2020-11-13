@@ -591,7 +591,7 @@ namespace Unity.Entities.Tests
                 Assert.Throws<ArgumentException>(() => w.AddSystem<BadUnmanagedSystem>());
             }
         }
-        
+
     }
 
     [BurstCompile]
@@ -602,7 +602,7 @@ namespace Unity.Entities.Tests
             public fixed byte Bytes[4097];
         }
 
-        private World.StateAllocator alloc;
+        private WorldUnmanagedImpl.StateAllocator alloc;
         private SystemDummy systems;
 
         [SetUp]
@@ -617,7 +617,7 @@ namespace Unity.Entities.Tests
             alloc.Dispose();
         }
 
-        internal static int CountLiveByBits(ref World.StateAllocator alloc)
+        internal static int CountLiveByBits(ref WorldUnmanagedImpl.StateAllocator alloc)
         {
             int live = 0;
 
@@ -629,7 +629,7 @@ namespace Unity.Entities.Tests
             return live;
         }
 
-        internal static int CountLiveByPointer(ref World.StateAllocator alloc)
+        internal static int CountLiveByPointer(ref WorldUnmanagedImpl.StateAllocator alloc)
         {
             int live = 0;
 
@@ -644,7 +644,7 @@ namespace Unity.Entities.Tests
             return live;
         }
 
-        internal static void SanityCheck(ref World.StateAllocator alloc)
+        internal static void SanityCheck(ref WorldUnmanagedImpl.StateAllocator alloc)
         {
         }
 
@@ -712,7 +712,7 @@ namespace Unity.Entities.Tests
         [BurstCompile(CompileSynchronously = true)]
         static void RunStressTest(IntPtr allocPtr, IntPtr sys_)
         {
-            var alloc = (World.StateAllocator*)allocPtr;
+            var alloc = (WorldUnmanagedImpl.StateAllocator*)allocPtr;
             var sys = (byte*)sys_;
             ushort* handles = stackalloc ushort[4096];
             ushort* versions = stackalloc ushort[4096];
@@ -768,7 +768,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void StressTestFromBurst()
         {
-            fixed(World.StateAllocator* p = &alloc)
+            fixed(WorldUnmanagedImpl.StateAllocator* p = &alloc)
             fixed(byte* s = systems.Bytes)
             {
                 BurstCompiler.CompileFunctionPointer<RunBurstTest>(RunStressTest).Invoke((IntPtr)p, (IntPtr)s);
@@ -778,7 +778,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void StressTestFromMono()
         {
-            fixed(World.StateAllocator* p = &alloc)
+            fixed(WorldUnmanagedImpl.StateAllocator* p = &alloc)
             fixed(byte* s = systems.Bytes)
             {
                 RunStressTest((IntPtr)p, (IntPtr)s);

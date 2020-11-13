@@ -6,7 +6,7 @@ using Unity.PerformanceTesting;
 namespace Unity.Entities.PerformanceTests
 {
     [Category("Performance")]
-    class ComponentDataFromEntityPerformanceTests : EntityQueryBuilderTestFixture
+    partial class ComponentDataFromEntityPerformanceTests : EntityQueryBuilderTestFixture
     {
 
         enum ScheduleMode
@@ -14,7 +14,7 @@ namespace Unity.Entities.PerformanceTests
             Parallel, Single, Run
         }
 
-        class PerfTestSystem : SystemBase
+        partial class PerfTestSystem : SystemBase
         {
             public bool ReadOnly;
             public ScheduleMode Schedule;

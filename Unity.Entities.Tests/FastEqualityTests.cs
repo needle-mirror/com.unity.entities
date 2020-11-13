@@ -6,9 +6,11 @@ using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
 using System;
 using System.Collections.Generic;
+using Unity.Burst;
 
 namespace Unity.Entities.Tests
 {
+    [BurstCompile]
     public class FastEqualityTests
     {
         [StructLayout(LayoutKind.Sequential)]
@@ -98,67 +100,12 @@ namespace Unity.Entities.Tests
             public Nephew nephew;
         }
 
-        int PtrAligned4Count = UnsafeUtility.SizeOf<FloatPointer>() / 4;
-
-        [Test]
-        public void SimpleLayout()
-        {
-            var res = FastEquality.CreateTypeInfo(typeof(Simple)).Layouts;
-            Assert.AreEqual(1, res.Length);
-            Assert.AreEqual(new FastEquality.Layout {offset = 0, count = 2, Aligned4 = true }, res[0]);
-        }
-
-        [Test]
-        public void PtrLayout()
-        {
-            var layout = FastEquality.CreateTypeInfo(typeof(FloatPointer)).Layouts;
-            Assert.AreEqual(1, layout.Length);
-            Assert.AreEqual(new FastEquality.Layout {offset = 0, count = PtrAligned4Count, Aligned4 = true }, layout[0]);
-        }
-
         [Test]
         public void ClassLayout()
         {
             var ti = FastEquality.CreateTypeInfo(typeof(ClassInStruct));
-            Assert.AreEqual(null, ti.Layouts);
             Assert.IsNotNull(ti.GetHashFn);
             Assert.IsNotNull(ti.EqualFn);
-        }
-
-        [Test]
-        public void SimpleEmbeddedLayout()
-        {
-            var layout = FastEquality.CreateTypeInfo(typeof(SimpleEmbedded)).Layouts;
-            Assert.AreEqual(1, layout.Length);
-            Assert.AreEqual(new FastEquality.Layout {offset = 0, count = 5, Aligned4 = true }, layout[0]);
-        }
-
-        [Test]
-        public void EndPaddingLayout()
-        {
-            var layout = FastEquality.CreateTypeInfo(typeof(EndPadding)).Layouts;
-            Assert.AreEqual(1, layout.Length);
-            Assert.AreEqual(new FastEquality.Layout {offset = 0, count = 3, Aligned4 = true }, layout[0]);
-        }
-
-        [Test]
-        public void AlignSplitLayout()
-        {
-            var layout = FastEquality.CreateTypeInfo(typeof(AlignSplit)).Layouts;
-            Assert.AreEqual(2, layout.Length);
-
-            Assert.AreEqual(new FastEquality.Layout {offset = 0, count = 3, Aligned4 = true }, layout[0]);
-            Assert.AreEqual(new FastEquality.Layout {offset = 16, count = 2, Aligned4 = true }, layout[1]);
-        }
-
-        [Test]
-        public void BytePaddding()
-        {
-            var layout = FastEquality.CreateTypeInfo(typeof(BytePadding)).Layouts;
-            Assert.AreEqual(2, layout.Length);
-
-            Assert.AreEqual(new FastEquality.Layout {offset = 0, count = 2, Aligned4 = false }, layout[0]);
-            Assert.AreEqual(new FastEquality.Layout {offset = 4, count = 1, Aligned4 = true }, layout[1]);
         }
 
         [Test]
@@ -186,8 +133,6 @@ namespace Unity.Entities.Tests
         public unsafe void EqualsFixedArray()
         {
             var typeInfo = FastEquality.CreateTypeInfo(typeof(FixedArrayStruct));
-            Assert.AreEqual(1, typeInfo.Layouts.Length);
-            Assert.AreEqual(3, typeInfo.Layouts[0].count);
 
             var a = new FixedArrayStruct();
             a.array[0] = 123;
@@ -213,25 +158,6 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(FastEquality.Equals(a, a, typeInfo));
             Assert.IsFalse(FastEquality.Equals(a, b, typeInfo));
-        }
-
-        [Test]
-        public void TypeHash()
-        {
-            int[] hashes =
-            {
-                FastEquality.CreateTypeInfo(typeof(Simple)).Hash,
-                FastEquality.CreateTypeInfo(typeof(SimpleEmbedded)).Hash,
-                FastEquality.CreateTypeInfo(typeof(BytePadding)).Hash,
-                FastEquality.CreateTypeInfo(typeof(AlignSplit)).Hash,
-                FastEquality.CreateTypeInfo(typeof(EndPadding)).Hash,
-                FastEquality.CreateTypeInfo(typeof(FloatPointer)).Hash,
-                FastEquality.CreateTypeInfo(typeof(ClassInStruct)).Hash,
-                FastEquality.CreateTypeInfo(typeof(FixedArrayStruct)).Hash,
-                FastEquality.CreateTypeInfo(typeof(EnumStruct)).Hash
-            };
-
-            Assert.AreEqual(hashes.Distinct().Count(), hashes.Length);
         }
 
         [DisableAutoTypeRegistration]
@@ -281,6 +207,61 @@ namespace Unity.Entities.Tests
             bool iseq = FastEquality.Equals<DoubleEquals>(a, b, typeInfo);
 
             Assert.IsTrue(iseq);
+        }
+
+        private unsafe delegate bool _dlg_CallsEquals(ref Entity a, ref Entity b);
+        private unsafe delegate int _dlg_CallsGetHashCode(ref Entity a);
+        private static readonly FunctionPointer<_dlg_CallsEquals> BurstedTestFuncCallingEquals;
+        private static readonly FunctionPointer<_dlg_CallsGetHashCode> BurstedTestFuncCallingGetHashCode;
+
+        static unsafe FastEqualityTests()
+        {
+            BurstedTestFuncCallingEquals = BurstCompiler.CompileFunctionPointer<_dlg_CallsEquals>(_mono_to_burst_CallEquals);
+            BurstedTestFuncCallingGetHashCode = BurstCompiler.CompileFunctionPointer<_dlg_CallsGetHashCode>(_mono_to_burst_CallGetHashCode);
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        private static unsafe bool _mono_to_burst_CallEquals(ref Entity a, ref Entity b)
+        {
+            return FastEquality.Equals(a, b);
+        }
+
+        [BurstCompile(CompileSynchronously = true)] 
+        private static unsafe int _mono_to_burst_CallGetHashCode(ref Entity a)
+        {
+            return FastEquality.GetHashCode(a);
+        }
+
+        [Test]
+        public void FastEqualityWorksFromBurst()
+        {
+            TypeManager.Initialize();
+
+            Entity a1 = new Entity() {Index = 1, Version = 2};
+            Entity a2 = a1;
+            Entity b = new Entity() {Index = 2, Version = 1};
+            var monoA1EqualsA2 = FastEquality.Equals(a1, a2);
+            var monoA1EqualsB = FastEquality.Equals(a1, b);
+            var burstA1EqualsA2 = BurstedTestFuncCallingEquals.Invoke(ref a1, ref a2);
+            var burstA1EqualsB = BurstedTestFuncCallingEquals.Invoke(ref a1, ref b);
+
+            Assert.IsTrue(monoA1EqualsA2);
+            Assert.IsTrue(burstA1EqualsA2);
+            Assert.IsFalse(monoA1EqualsB);
+            Assert.IsFalse(burstA1EqualsB);
+
+            var monoA1GetHashCode = FastEquality.GetHashCode(a1);
+            var monoA2GetHashCode = FastEquality.GetHashCode(a2);
+            var monoBGetHashCode = FastEquality.GetHashCode(b);
+            var burstA1GetHashCode = BurstedTestFuncCallingGetHashCode.Invoke(ref a1);
+            var burstA2GetHashCode = BurstedTestFuncCallingGetHashCode.Invoke(ref a2);
+            var burstBGetHashCode = BurstedTestFuncCallingGetHashCode.Invoke(ref b);
+
+            Assert.AreEqual(monoA1GetHashCode, burstA1GetHashCode);
+            Assert.AreEqual(monoA2GetHashCode, burstA2GetHashCode);
+            Assert.AreEqual(monoBGetHashCode, burstBGetHashCode);
+            Assert.AreEqual(monoA1GetHashCode, monoA2GetHashCode);
+            Assert.AreNotEqual(monoA1GetHashCode, monoBGetHashCode);
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

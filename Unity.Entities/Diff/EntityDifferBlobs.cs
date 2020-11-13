@@ -154,6 +154,7 @@ namespace Unity.Entities
             NativeArray<ArchetypeChunk> chunks,
             Allocator allocator)
         {
+            s_GetBlobAssetsWithDistinctHash.Begin();
             var blobAssetsWithDistinctHash = new BlobAssetsWithDistinctHash(allocator);
 
             var typeInfoPtr = TypeManager.GetTypeInfoPointer();
@@ -169,7 +170,7 @@ namespace Unity.Entities
                 var archetype = chunk->Archetype;
 
                 // skip this chunk only if we are _certain_ there are no blob asset refs.
-                if (archetype->NumManagedComponents == 0 && archetype->NumSharedComponents == 0 && !archetype->ContainsBlobAssetRefs)
+                if (!archetype->HasBlobAssetRefs)
                     continue;
 
                 var typesCount = archetype->TypesCount;
@@ -178,10 +179,12 @@ namespace Unity.Entities
                 for (var unorderedTypeIndexInArchetype = 0; unorderedTypeIndexInArchetype < typesCount; unorderedTypeIndexInArchetype++)
                 {
                     var typeIndexInArchetype = archetype->TypeMemoryOrder[unorderedTypeIndexInArchetype];
-
                     var componentTypeInArchetype = archetype->Types[typeIndexInArchetype];
-
                     if (componentTypeInArchetype.IsZeroSized)
+                        continue;
+
+                    ref var typeInfo = ref typeInfoPtr[componentTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
+                    if (!typeInfo.HasBlobAssetRefs)
                         continue;
 
                     var chunkBuffer = chunk->Buffer;
@@ -204,11 +207,7 @@ namespace Unity.Entities
                     }
                     else
                     {
-                        var typeInfo = typeInfoPtr[componentTypeInArchetype.TypeIndex & TypeManager.ClearFlagsMask];
                         var blobAssetRefCount = typeInfo.BlobAssetRefOffsetCount;
-
-                        if (blobAssetRefCount == 0)
-                            continue;
 
                         var blobAssetRefOffsets = blobAssetRefOffsetPtr + typeInfo.BlobAssetRefOffsetStartIndex;
 
@@ -254,8 +253,7 @@ namespace Unity.Entities
                 for (var i = 0; i < archetype->NumSharedComponents; i++)
                 {
                     var sharedComponentIndex = sharedComponentValues[i];
-
-                    if (sharedComponentIndex == 0)
+                    if (!managedComponentStore.HasBlobReferences(sharedComponentIndex))
                         continue;
 
                     var sharedComponentValue = managedComponentStore.GetSharedComponentDataNonDefaultBoxed(sharedComponentIndex);
@@ -291,6 +289,8 @@ namespace Unity.Entities
             {
                 Array = blobAssetsWithDistinctHash.BlobAssets.AsDeferredJobArray()
             }.Run();
+
+            s_GetBlobAssetsWithDistinctHash.End();
 
             return blobAssetsWithDistinctHash;
         }

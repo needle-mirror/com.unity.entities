@@ -7,7 +7,7 @@ using Unity.Jobs;
 namespace Unity.Entities.Tests.ForEachCodegen
 {
     [TestFixture]
-    public class ForEachWithDisposeOnCompletion : ECSTestsFixture
+    public partial class ForEachWithDisposeOnCompletion : ECSTestsFixture
     {
         TestSystemType TestSystem;
 
@@ -179,7 +179,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             }
         }
 
-        class TestSystemType : SystemBase
+        partial class TestSystemType : SystemBase
         {
             protected override void OnUpdate()
             {

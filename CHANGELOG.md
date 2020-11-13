@@ -1,5 +1,115 @@
 # Change log
 
+## [0.17.0] - 2020-11-13
+
+### Added
+
+* ISystemBase interface for making struct based systems that allow Burst compiling main thread update
+* New UnsafeBufferAccessor struct that permit to un-typed and unsafe access the dynamic buffers pointers.
+* New ArchetypeChunk.GetUnsafeAccessor public API that allow to retrieve dynamic buffers unsafe accessors using DynamicTypeHandle.
+* safety check in DynamicComponentDataArrayReinterpret<T> that throw an ArgumentException if used to access the component data for IBufferDataElement type
+* ComponentSystemBase.TryGetSingleton
+* ComponentSystemBase.TryGetSingletonEntity
+* Tests for Tiny.UI transformations.
+* Added documentation for incremental conversion and dependencies
+* New scheduling API for `IJobEntityBatch` which limits the resulting batches to an input `NativeArray<Entity>`
+* BlobAssetStore. AddUniqueBlobAsset. A much simpler approach to managing blob assets during conversion. BlobAssetComputationContext continues to be the recommended approach for scalable blob asset generation.
+* UnsafeUntypedBlobAsset gives a non-generic untyped blob that can be created and later casted to a specific BlobAssetType. This can be used for storing multiple types of blob assets in the same container.
+* GameObjectConversionSystem.IsBuildingForEditor returns true when building data that will be loaded by the editor (As opposed to building data that will be loaded by the standalone player). This can be used to strip out editor only debug data.
+* GameObjectConversionSystem.BuildConfigGUID returns the GUID of the build config that is used by this conversion context
+* Tiny.UI support for 9-Slice (including sprite sheet support)
+* `DynamicSharedComponentHandle` and related methods for accessing shared components without compile time type information.
+* The public static method `EntitySelectionProxy.CreateInstance` was added. It creates, configures, and returns a valid instance of `EntitySelectionProxy`.
+* The public static method `EntitySelectionProxy.SelectEntity` was added. It creates, configures, and selects an instance of `EntitySelectionProxy`, without returning it.
+* All the public properties and methods of `EntitySelectionProxy` have been documented.
+* Tiny.UI support for text alignment
+* Tiny.UI support for multi-line text
+* TypeManager will now store whether or not an `ISharedComponentData` is managed or unmanaged.
+* EntityScenesInBuild class that allows registering EntityScenes that are generated via a custom asset importer into the build. This is used by the Environment system to generate streamable tile data that is generated procedurally from tile inputs.
+* New EntityCommandBuffer methods that affect a set of entities matching a query. Unlike existing methods, these new methods 'capture' the entities from the query at record time rather than playback time: the array of entities is stored in the command, and then playback of the command affects all entities of the array. The methods are `AddComponentForEntityQuery(EntityQuery, ComponentType)`, `AddComponentForEntityQuery(EntityQuery, ComponentTypes)`, `RemoveComponentForEntityQuery(EntityQuery, ComponentType)`, `RemoveComponentForEntityQuery(EntityQuery, ComponentTypes)`, `DestroyEntitiesForEntityQuery(EntityQuery)`.
+* EntityManager.Debug.GetEntitiesForAuthoringObject and EntityManager.Debug.GetAuthoringObjectForEntity. They provide a convenient API to map game object authoring & entity runtime representation.
+* New `ComponentSystemGroup.EnableSystemSorting` property allows individual system groups to opt out of automatic system sorting. **PLEASE NOTE:** Certain system update order constraints are necessary for correct DOTS functionality. Disabling the automatic system sorting should be only be a last resort, and only on system groups with full control over which systems they contain.
+* Entities.WithFilter(NativeArray<Entity> filteredEntities) allows for filtering with a set of specific entities in addition to the EntityQuery requirements
+* Added Live Conversion debug logging to more easily see what is reconverted (enable from the menu `DOTS/LiveLink Mode/Incremental Conversion Logging`)
+
+### Changed
+
+* Update burst to 1.4.1.
+* Improved the performance of ILPostProcessor type resolution.
+* ProcessAfterLoadGroup is now public.  This group runs after a subscene is loaded.
+* `Unity.Transforms` systems now use `IJobEntityBatch` instead of `IJobChunk`. Expect modest performance gains due to the new job type's lower scheduling overhead, depending on the workload size.
+* When `DOTS/Live Link Mode/Live Conversion in Edit Mode` is active in 2020.2 or later, conversion is now incremental
+* Removed deprecated `Entities.ForEach.WithDeallocateOnJobCompletion`.  Please use `Entities.ForEach.WithDisposeOnCompletion` instead.
+* Fixed livelink patching for `BlobAssetReference<T>` fields in managed components and shared components.
+* Updated package `com.unity.platforms` to version `0.9.0-preview.15`.
+* `TypeManager.Equals` and `TypeManager.GetHashCode` performance has been improved when operating on blittable component types.
+* BlobAsset and entity patching for managed IComponentData & ISharedComponentData now use an early out if the class is known to not contain any blob assets or entity references
+* Managed class IComponentData now supports patching of entity references in EntityCommandBuffer.AddComponent.
+* Improved EntityManager.GetCreatedAndDestroyedEntities performance by introducing an internal entity creation / destruction version number that is used to early out when calling GetCreatedAndDestroyedEntities
+* TypeManger.TypeInfo.Debug has been removed. TypeName has been moved directly into TypeInfo and renamed to DebugTypeName.
+* Nested or variant prefabs used in a scene now correctly trigger reimports on subscenes when the parents parent prefab changes
+* Update minimum editor version to 2020.1.2f1
+* `EntitySelectionProxy` was streamlined to ensure that its usage does not override inspector locking behaviour and respects the Undo / Redo stack. With the new workflow, there is a 1:1 relationship between an Entity and its EntitySelectionProxy. Static utility methods were added to support this new workflow.
+* Rename `TypeManager.IsSharedComponent` to `IsSharedComponentType` and add `IsManagedType`
+*Enabled generic systems to be instantiated in non-tiny dots runtime
+* Updated platform packages to version `0.10.0-preview.1`.
+* Made SystemBase/JobComponentSystem classes partial in preparation of use of Roslyn source generators for code-generation (more to come).
+
+### Deprecated
+
+* Forking of `GameObjectConversionSettings` is no longer supported
+* The public delegate `EntitySelectionProxy.EntityControlSelectButtonHandler` has been deprecated.
+* The public event `EntitySelectionProxy.EntityControlSelectButton` has been deprecated.
+* The public method `EntitySelectionProxy.SetEntity` has been deprecated.
+* The public method `EntitySelectionProxy.OnEntityControlSelectButton` has been deprecated.
+* The public property `EntitySelectionProxy.EntityManager` has been deprecated. Use `EntitySelectionProxy.World.EntityManager` manager instead. This change was made to remove boilerplate checks in the code.
+* Deprecated `Frozen` component as it is no longer in use
+
+### Removed
+
+* Removed deprecated proxy component types. CopyTransformToGameObject, CopyTransformFromGameObject and CopyInitialTransformFromGameObject now use [GenerateAuthoringComponent] instead.
+* Removed expired `EntityManager.IsCreated` API
+* Removed expired API to compare `EntityManager` to `null` (`EntityManager` is a struct now)
+* Removed deprecated types and methods: `NativeArraySharedValue<S>`, implicit `EntityQuery` conversion to `null`,  `ComponentDataFromEntity.Exists` and `BufferFromEntity.Exists`, `ArchetypeChunkArray.GetComponentVersion`, `IJobEntityBatch.ScheduleSingle`, `IJobEntityBatch.ScheduleParallelBatch`, `EntityManager.LockChunk`, `EntityManager.UnlockChunk`, `World.AllWorlds`, `World.CreateSystem`, all `GetArchetypeChunkX` methods, `EntityCommandBuffer.ToConcurrent` and `EntityManager.CreateChunk`
+* `ComponentSystemBase.ExecutingSystemType` has been removed. With the introduction of unmanaged systems, this information has been incorrect. Furthermore, there cannot be a `static` global property for this since multiple worlds might execute at the same time. If you need this information, consider passing it manually.
+
+### Fixed
+
+* Wrong query and check in ACS_DynamicComponentDataArrayReinterpret
+* Fixed ICE (internal compiler error) thrown when storing into a field in reference type in bursted/scheduled lambda.
+* `EntityQuery.ToEntityArray` will work when temp memory is passed in an a parameter for allocator
+* `EntityQuery.ToComponentDataArrayAsync` and `EntityQuery.CopyFromComponentDataArrayAsync` will throw errors if user tries to use Temp memory containers.
+* Hybrid Component Lights flickering when LiveLink edited.
+* Fix crash when using singleton access methods with types with generic arguments.
+* Code generation for indexers in structs with [BurstCompatible] attribute.
+* Fixed potential `JobHandle` leak if an exception was thrown while scheduling an `IJobForEach`.
+* Fixed that `DynamicBuffer.RemoveAtSwapBack` only copied the first byte of its element data
+* Updating the shadow world via the EntityDiffer is now using Burst
+* The 'New Sub Scene' menu item is no longer missing in the 'Create' drop down of the Hierarchy .
+* Overwriting Sub Scene file when creating new Sub Scene no longer logs an error but instead overwrites the user selected file.
+* Fixed livelink patching for `BlobAssetReference<T>` fields in managed components and shared components.
+* Fixed entities getting lost during LiveLink when moving GameObjects between multiple subscenes
+* Deprecated call to UnityWebRequest.isNetworkError in Unity.Scenes.FileUtilityHybrid
+* Generic jobs now get reflection data generated in more cases
+* Generic jobs will always work to schedule in editor (but may require attributes in Burst scheduling cases)
+* Selecting entities in the Entity Debugger window will now respect the locked state of the inspector.
+* several bugs where writing EntityBinaryFiles was not resulting in deterministic files. It is now guranteed that if entities are constructed in the same order, it will result in the same binary exact file.
+* Fixed a case where LiveLink would sometimes leave dangling entities when a scene is opened and closed repeatedly
+* `TypeManager.InitializeAllComponentTypes` no longer uses `DateTime.Now`, which can be very slow in players
+* Structural changes right after scheduling a job in a `SystemBase` no longer crash a player
+* Sorting a `ComponentSystemGroup` now correctly sorts any child groups, even if the parent group is already sorted.
+* The subscene inspector no longer allows you to unload section 0 if another section is still loaded, and it also disallows loading any section before section 0 is loaded
+* `EntityManager.CopyAndReplaceEntitiesFrom` no longer fails when the Entity capacity of the destination is larger than the capacity of the source
+* Hybrid components on disabled GameObjects are now also converted
+* Children of a nested Parent not updating LocalToWorld if Parent's LocalToWorld was changed by a custom system with an archetype containing a WriteGroup for LocalToWorld
+* `EntityQuery` APIs which take an input `NativeArray<Entity>` for filtering (such as `ToEntityArray()`) can now be called with ReadOnly `NativeArray<Entity>` without throwing an exception.
+
+### Upgrade guide
+
+* managed class IComponentData now supports patching of entity references in EntityCommandBuffer.AddComponent. This can result in a significant performance regression if there might be an entity on the managed component when playing the command buffer. If a managed component has a reference to another class that is not sealed it is unprovable that there may or may not be entity references on it. Thus we have to walk the whole class data to apply it. If there is in fact no entity reference on a class referenced from a managed component, then it is recommended to mark the referenced class as sealed, so that the type manager can prove that there is no entity references present on the managed component and thus completely skip all relatively slow entity patching code.
+
+
+
 ## [0.16.0] - 2020-09-24
 
 ### Added
@@ -20,7 +130,6 @@
 
 * Improved performance of `EntityQuery.ToEntityArray()`
 * Platform packages updated to `0.9.0-preview.9`
-* Burst package updated to `1.3.7`
 * Properties packages updated to `1.5.0-preview`
 * The job safety system has be moved to NativeJobs as C++ code
 * The UnsafeUtility memory allocators have been moved to NativeJobs
@@ -93,7 +202,6 @@
 * Deprecated `RequiresEntityConversion` attribute since it is not used anymore
 
 ### Removed
-
 * Removed previously deprecated `LiveLinkBuildImporter.GetHash`
 
 ### Fixed
@@ -805,7 +913,7 @@ Removed the following deprecated API as announced in/before `0.1.1-preview`:
 * Moved `NativeString` code from Unity.Entities to Unity.Collections.
 * Updated dependencies for this package.
 * Significantly improved `Entity` instantiation performance when running in-Editor.
-* Added support for managed `IComponentData` types such as `class MyComponent : IComponentData {}` which allows managed types such as GameObjects or List<>s to be stored in components. Users should use managed components sparingly in production code when possible as these components cannot be used by the Job System or archetype chunk storage and thus will be significantly slower to work with. Refer to the documentation for [component data](../manual/component_data.html) for more details on managed component use, implications and prevention.
+* Added support for managed `IComponentData` types such as `class MyComponent : IComponentData {}` which allows managed types such as GameObjects or List<>s to be stored in components. Users should use managed components sparingly in production code when possible as these components cannot be used by the Job System or archetype chunk storage and thus will be significantly slower to work with. Refer to the documentation for [component data](xref:ecs-component-data) for more details on managed component use, implications and prevention.
 * 'SubSceneStreamingSystem' has been renamed to `SceneSectionStreamingSystem` and is now internal
 * Deprecated `_SceneEntities` in `SubScene.cs`. Please use `SceneSystem.LoadAsync` / `Unload` with the respective SceneGUID instead.
 * Updated `com.unity.serialization` to `0.6.3-preview`.

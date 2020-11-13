@@ -806,23 +806,67 @@ namespace Unity.Entities.Tests
             }
         }
 
+        [Test]
+        public void EntityPatcher_ApplyChanges_BlobAssets_CreateEntityWithBlobAssetReferenceSharedComponent()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var blobAssetReference = BlobAssetReference<int>.Create(11))
+            using (var blobAssetReference2 = BlobAssetReference<int>.Create(12))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                var entityGuid = CreateEntityGuid();
+
+                SrcEntityManager.SetComponentData(entity, entityGuid);
+                SrcEntityManager.AddSharedComponentData(entity, new EcsTestDataBlobAssetRefShared { value = blobAssetReference, value2 = blobAssetReference2});
+
+                PushChanges(differ, DstEntityManager);
+
+                Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
+                Assert.AreEqual(11, GetSharedComponentData<EcsTestDataBlobAssetRefShared>(DstEntityManager, entityGuid).value.Value);
+                Assert.AreEqual(12, GetSharedComponentData<EcsTestDataBlobAssetRefShared>(DstEntityManager, entityGuid).value2.Value);
+            }
+        }
+
+        [Test]
+        public void EntityPatcher_ApplyChanges_BlobAssets_CreateEntityWithBlobAssetReferenceClassComponent()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var blobAssetReference = BlobAssetReference<int>.Create(11))
+            using (var blobAssetReference2 = BlobAssetReference<int>.Create(12))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                var entityGuid = CreateEntityGuid();
+
+                SrcEntityManager.SetComponentData(entity, entityGuid);
+                SrcEntityManager.AddComponentData(entity, new EcsTestDataBlobAssetRefClass { value = blobAssetReference, value2 = blobAssetReference2});
+
+                PushChanges(differ, DstEntityManager);
+
+                Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
+                Assert.AreEqual(11, GetManagedComponentData<EcsTestDataBlobAssetRefClass>(DstEntityManager, entityGuid).value.Value);
+                Assert.AreEqual(12, GetManagedComponentData<EcsTestDataBlobAssetRefClass>(DstEntityManager, entityGuid).value2.Value);
+            }
+        }
+
 #endif
         [Test]
         public void EntityPatcher_ApplyChanges_BlobAssets_CreateEntityWithBlobAssetReference()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            using (var blobAssetReference = BlobAssetReference<int>.Create(11))
+            using (var blobAssetReference2 = BlobAssetReference<int>.Create(12))
             {
-                var blobAssetReference = BlobAssetReference<int>.Create(11);
-                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestDataBlobAssetRef));
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid));
                 var entityGuid = CreateEntityGuid();
 
                 SrcEntityManager.SetComponentData(entity, entityGuid);
-                SrcEntityManager.SetComponentData(entity, new EcsTestDataBlobAssetRef { value = blobAssetReference });
+                SrcEntityManager.AddComponentData(entity, new EcsTestDataBlobAssetRef2 { value = blobAssetReference, value2 = blobAssetReference2});
 
                 PushChanges(differ, DstEntityManager);
 
                 Assert.AreEqual(1, DstEntityManager.Debug.EntityCount);
-                Assert.AreEqual(11, GetComponentData<EcsTestDataBlobAssetRef>(DstEntityManager, entityGuid).value.Value);
+                Assert.AreEqual(11, GetComponentData<EcsTestDataBlobAssetRef2>(DstEntityManager, entityGuid).value.Value);
+                Assert.AreEqual(12, GetComponentData<EcsTestDataBlobAssetRef2>(DstEntityManager, entityGuid).value2.Value);
             }
         }
 
@@ -854,6 +898,56 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(dstLinkedEntityGroup.Length, 2);
                 Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstRootEntity);
                 Assert.AreEqual(dstLinkedEntityGroup[1].Value, dstChildEntity);
+            }
+        }
+
+        [Test]
+        public void EntityPatcher_ApplyChanges_LinkedEntityGroups_CombineTwoGroups()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var rootEntityGuid = CreateEntityGuid();
+                var childEntityGuid = CreateEntityGuid();
+
+                var srcChildEntity = SrcEntityManager.CreateEntity(typeof(EcsTestDataEntity), typeof(LinkedEntityGroup));
+                var srcRootEntity = SrcEntityManager.CreateEntity(typeof(EcsTestDataEntity), typeof(LinkedEntityGroup));
+
+                SrcEntityManager.AddComponentData(srcRootEntity, rootEntityGuid);
+                SrcEntityManager.AddComponentData(srcChildEntity, childEntityGuid);
+
+                SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcRootEntity).Add(srcRootEntity);
+                SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcChildEntity).Add(srcChildEntity);
+
+                // verify that we have two different groups in the output
+                PushChanges(differ, DstEntityManager);
+
+                var dstRootEntity = GetEntity(DstEntityManager, rootEntityGuid);
+                var dstChildEntity = GetEntity(DstEntityManager, childEntityGuid);
+
+                {
+                    var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootEntity);
+                    Assert.AreEqual(dstLinkedEntityGroup.Length, 1);
+                    Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstRootEntity);
+                }
+
+                {
+                    var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstChildEntity);
+                    Assert.AreEqual(dstLinkedEntityGroup.Length, 1);
+                    Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstChildEntity);
+                }
+
+                // now combine the two groups and verify that they are the same
+                SrcEntityManager.RemoveComponent<LinkedEntityGroup>(srcChildEntity);
+                SrcEntityManager.GetBuffer<LinkedEntityGroup>(srcRootEntity).Add(srcChildEntity);
+
+                PushChanges(differ, DstEntityManager);
+
+                {
+                    var dstLinkedEntityGroup = DstEntityManager.GetBuffer<LinkedEntityGroup>(dstRootEntity);
+                    Assert.AreEqual(dstLinkedEntityGroup.Length, 2);
+                    Assert.AreEqual(dstLinkedEntityGroup[0].Value, dstRootEntity);
+                    Assert.AreEqual(dstLinkedEntityGroup[1].Value, dstChildEntity);
+                }
             }
         }
 

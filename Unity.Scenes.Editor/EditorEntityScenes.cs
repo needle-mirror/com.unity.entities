@@ -44,6 +44,7 @@ namespace Unity.Scenes.Editor
         static readonly ProfilerMarker k_ProfileEntitiesSceneSaveConversionLog = new ProfilerMarker("EntitiesScene.WriteConversionLog");
         static readonly ProfilerMarker k_ProfileEntitiesSceneWriteObjRefs = new ProfilerMarker("EntitiesScene.WriteObjectReferences");
 
+        [Obsolete("IsEntitySubScene is deprecated, use Scene.isSubScene")]
         public static bool IsEntitySubScene(Scene scene)
         {
             return scene.isSubScene;
@@ -92,79 +93,43 @@ namespace Unity.Scenes.Editor
             manager.SetComponentData(entity, new RetainBlobAssets { FramesToRetainBlobAssets = framesToRetainBlobAssets });
         }
 
-        static void RegisterDependencies(AssetImportContext importContext, ConversionDependencies dependencies)
+        static void RegisterDependencies(AssetImportContext importContext, ref ConversionDependencies dependencies)
         {
-            using (var assets = dependencies.AssetDependentsByInstanceId.GetKeyArray(Allocator.Temp))
+            using (var assets = dependencies.AssetDependencyTracker.GetAllDependencies(Allocator.Temp))
             {
+                var goids = new GlobalObjectId[assets.Length];
+                GlobalObjectId.GetGlobalObjectIdsSlow(assets.ToArray(), goids);
                 for (int i = 0; i < assets.Length; i++)
                 {
-                    var asset = EditorUtility.InstanceIDToObject(assets[i]);
-                    if (asset == null)
-                    {
-                        var dependents = FormatDependents(assets[i]);
-                        string errorMsg =
-                            $"Invalid asset dependency on instance ID {assets[i]} - this instance ID does not correspond to an object.\n" +
-                            "This dependency was registered by: " + dependents;
-                        Debug.LogWarning(errorMsg);
-                        continue;
-                    }
 
-                    var path = AssetDatabase.GetAssetPath(asset);
-                    if (string.IsNullOrEmpty(path))
-                    {
-                        var dependents = FormatDependents(assets[i]);
-                        string errorMsg =
-                            $"Invalid asset dependency on object {asset.name}. This object does not have a valid asset path.\n" +
-                            "This dependency was registered by: " + dependents;
-                        Debug.LogWarning(errorMsg, asset);
-                        continue;
-                    }
-
-                    var guid = new GUID(AssetDatabase.AssetPathToGUID(path));
+                    var guid = goids[i].assetGUID;
                     if (GUIDHelper.IsBuiltin(in guid))
                     {
                         // AssetImportContext does not support dependencies on inbuilt assets
                         continue;
                     }
-
                     if (guid.Empty())
-                    {
-                        // This should never happen
-                        var dependents = FormatDependents(assets[i]);
-                        string errorMsg =
-                            $"Invalid asset dependency on object {asset.name} at path {path}. It doesn't have a valid GUID.\n" +
-                            "This dependency was registered by: " + dependents;
-                        Debug.LogWarning(errorMsg, asset);
                         continue;
-                    }
-
-                    importContext.DependsOnSourceAsset(path);
+                    importContext.DependsOnArtifact(guid);
                 }
-            }
-
-            string FormatDependents(int assetInstance)
-            {
-                var iter = dependencies.AssetDependentsByInstanceId.GetValuesForKey(assetInstance);
-                string deps = "";
-                while (iter.MoveNext())
-                {
-                    if (deps.Length > 0)
-                        deps += ", ";
-                    var obj = EditorUtility.InstanceIDToObject(iter.Current);
-                    deps += $"{(obj == null ? "NULL" : obj.name)}";
-                }
-
-                return deps;
             }
         }
 
-        //TODO: We should deprecate this method, it is unused internally
+        /// <summary>
+        /// Converts a loaded Unity scene to a temporarily constructed EntityManager and then writes it to disk as an Entity Section Bundle.
+        /// </summary>
+        /// <remarks>
+        /// That is a header + entity binary files for each section + hybrid reference objects for each section.
+        /// This format is loadable by the SceneSystem.
+        /// Automatically slices an the EntityManager into sections based on the SceneSection shared component and writes each section to disk seperately.
+        /// This method can only be used during asset import.
+        /// </remarks>
         public static SceneSectionData[] ConvertAndWriteEntityScene(Scene scene, GameObjectConversionSettings settings, List<ReferencedUnityObjects> sectionRefObjs = null)
         {
-            return ConvertAndWriteEntitySceneInternal(scene, settings, sectionRefObjs, new WriteEntitySceneSettings());
+            return ConvertAndWriteEntityScene(scene, settings, sectionRefObjs, new WriteEntitySceneSettings());
         }
 
-        internal static SceneSectionData[] ConvertAndWriteEntitySceneInternal(Scene scene, GameObjectConversionSettings settings, List<ReferencedUnityObjects> sectionRefObjs, WriteEntitySceneSettings writeEntitySettings)
+        internal static SceneSectionData[] ConvertAndWriteEntityScene(Scene scene, GameObjectConversionSettings settings, List<ReferencedUnityObjects> sectionRefObjs, WriteEntitySceneSettings writeEntitySettings)
         {
             var world = new World("ConversionWorld");
             settings.DestinationWorld = world;
@@ -181,7 +146,7 @@ namespace Unity.Scenes.Editor
             {
                 var mappingSystem = conversionWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
                 if (settings.AssetImportContext != null)
-                    RegisterDependencies(settings.AssetImportContext, mappingSystem.Dependencies);
+                    RegisterDependencies(settings.AssetImportContext, ref mappingSystem.Dependencies);
 
                 // Optimizing and writing the scene is done here to include potential log messages in the conversion log.
                 EntitySceneOptimization.Optimize(world);
@@ -208,8 +173,15 @@ namespace Unity.Scenes.Editor
             return sections;
         }
 
-        //TODO: We should deprecate this method, it is unused internally
-        public static SceneSectionData[] WriteEntityScene(EntityManager entityManager, Hash128 sceneGUID,
+        /// <summary>
+        /// Writes an EntityManager into a collection of Entity Section files.
+        /// This is referred to as an entity section bundle.
+        /// It is a header + entity binary files for each section + hybrid reference objects for each section,
+        /// this collection of files is loadable by the SceneSystem.
+        /// This function automatically slices an the EntityManager into sections based on the SceneSection shared component and writes each section to disk seperately.
+        /// This function can only be used during asset import.
+        /// </summary>
+        public static SceneSectionData[] WriteEntitySectionBundle(EntityManager entityManager, Hash128 sceneGUID,
             string sceneName, AssetImportContext importContext, int framesToRetainBlobAssets = 0,
             List<ReferencedUnityObjects> sectionRefObjs = null)
         {
@@ -284,6 +256,15 @@ namespace Unity.Scenes.Editor
             //Order sections by section id
             subSectionList.Sort(Comparer<SceneSection>.Create((a, b) => a.Section.CompareTo(b.Section)));
 
+            if (sceneGUID == default)
+                throw new ArgumentException("sceneGUID may not be default value");
+
+            for (int s = 1; s < subSectionList.Count; ++s)
+            {
+                if (subSectionList[s].SceneGUID != sceneGUID)
+                    throw new ArgumentException($"sceneGUID ({sceneGUID}) must match SceneSectionGUID (subSectionList[s].SceneGUID)");
+            }
+
             var extRefInfoEntities = new NativeArray<Entity>(subSectionList.Count, Allocator.Temp);
 
             NativeArray<Entity> entitiesInMainSection;
@@ -306,11 +287,13 @@ namespace Unity.Scenes.Editor
 
             {
                 var section = new SceneSection {SceneGUID = sceneGUID, Section = 0};
-                sectionQuery.SetSharedComponentFilter(new SceneSection { SceneGUID = sceneGUID, Section = 0 });
-                sectionBoundsQuery.SetSharedComponentFilter(new SceneSection { SceneGUID = sceneGUID, Section = 0 });
-                entitiesInMainSection = sectionQuery.ToEntityArray(Allocator.TempJob);
+
+                sectionQuery.SetSharedComponentFilter(section);
+                sectionBoundsQuery.SetSharedComponentFilter(section);
 
                 var bounds = GetBoundsAndRemove(entityManager, sectionBoundsQuery);
+
+                entitiesInMainSection = sectionQuery.ToEntityArray(Allocator.TempJob);
 
                 // Each section will be serialized in its own world, entities that don't have a section are part of the main scene.
                 // An entity that holds the array of external references to the main scene is required for each section.
@@ -363,6 +346,8 @@ namespace Unity.Scenes.Editor
 
                 if (objRefs != null)
                     sectionRefObjs?.Add(objRefs);
+                else
+                    UnityObject.DestroyImmediate(objRefs);
 
                 sceneSections.Add(new SceneSectionData
                 {
@@ -381,7 +366,7 @@ namespace Unity.Scenes.Editor
 
             {
                 // Index 0 is the default value of the shared component, not an actual section
-                for (int subSectionIndex = 0; subSectionIndex < subSectionList.Count; ++subSectionIndex)
+                for (int subSectionIndex = 1; subSectionIndex < subSectionList.Count; ++subSectionIndex)
                 {
                     var subSection = subSectionList[subSectionIndex];
                     if (subSection.Section == 0)
@@ -724,7 +709,7 @@ namespace Unity.Scenes.Editor
                 var type = types[i];
                 if (type == ComponentType.ReadWrite<SectionMetadataSetup>())
                     continue;
-                var typeInfo = TypeManager.GetTypeInfo(type.TypeIndex);
+                ref readonly var typeInfo = ref TypeManager.GetTypeInfo(type.TypeIndex);
                 bool simpleComponentData = !type.IsManagedComponent && !type.IsSystemStateComponent && typeInfo.Category == TypeManager.TypeCategory.ComponentData;
                 if (!simpleComponentData || typeInfo.EntityOffsetCount > 0 || typeInfo.BlobAssetRefOffsetCount > 0)
                 {
@@ -738,7 +723,7 @@ namespace Unity.Scenes.Editor
             for (int i = 0; i < componentCount; ++i)
             {
                 var typeIndex = types[i].TypeIndex;
-                var typeInfo = TypeManager.GetTypeInfo(typeIndex);
+                ref readonly var typeInfo = ref TypeManager.GetTypeInfo(typeIndex);
                 metadataArray[i].StableTypeHash = typeInfo.StableTypeHash;
                 if (types[i].IsZeroSized)
                     continue;
@@ -749,6 +734,45 @@ namespace Unity.Scenes.Editor
             }
             types.Dispose();
         }
+
+        public static void AddEntityBinaryFileDependencies(AssetImportContext ctx, Hash128 buildConfigurationGUID)
+        {
+            ctx.DependsOnCustomDependency("EntityBinaryFileFormatVersion");
+            ctx.DependsOnSourceAsset(EntitiesCacheUtility.globalEntitySceneDependencyPath);
+
+            //@TODO: This really needs to be way more precise.
+            //       When conversion code accesses a specific component it should depend on that specific piece of data
+            //       (Eg. adding a scene shouldn't invalidate all cached scenes...)
+            if (buildConfigurationGUID.IsValid)
+                ctx.DependsOnArtifact(buildConfigurationGUID);
+        }
+
+        internal static void DependOnSceneGameObjects(GUID sceneGUID, AssetImportContext context)
+        {
+            // Depend on with guid
+            context.DependsOnSourceAsset(sceneGUID);
+
+            // Do this guid based...
+            //@TODO: Expose a method to find all actual PrefabInstances, instead of this path based hack
+            var dependencies = AssetDatabase.GetDependencies(AssetDatabaseCompatibility.GuidToPath(sceneGUID));
+            foreach (var dependency in dependencies)
+            {
+                if (dependency.ToLower().EndsWith(".prefab"))
+                {
+                    GUID dependencyGUID = AssetDatabaseCompatibility.PathToGUID(dependency);
+                    context.DependsOnArtifact(dependencyGUID);
+                }
+            }
+        }
+
+        /// <summary>
+        /// For a given scene returns the sub scenes embedded in that scene
+        /// </summary>
+        public static Hash128[] GetSubScenes(GUID guid)
+        {
+            return GameObjectSceneMetaDataImporter.GetSubScenes(guid);
+        }
+
 
         internal static void WriteConversionLog(Hash128 sceneGUID, List<(int objectInstanceId, LogEventData eventData)> journalData, AssetImportContext ctx, string outputPath)
         {

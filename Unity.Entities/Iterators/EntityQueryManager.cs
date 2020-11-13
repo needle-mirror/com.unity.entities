@@ -126,7 +126,7 @@ namespace Unity.Entities
         {
             // Need to get "Clean" TypeIndex from Type. Since TypeInfo.TypeIndex is not actually the index of the
             // type. (It includes other flags.) What is stored in WriteGroups is the actual index of the type.
-            var excludedType = TypeManager.GetTypeInfo(writeGroupTypes[i]);
+            ref readonly var excludedType = ref TypeManager.GetTypeInfo(writeGroupTypes[i]);
             var excludedComponentType = ComponentType.ReadOnly(excludedType.TypeIndex);
             return excludedComponentType;
         }
@@ -390,7 +390,7 @@ namespace Unity.Entities
             return outRequiredComponents;
         }
 
-        public EntityQuery CreateEntityQuery(EntityDataAccess* access, EntityQueryDesc[] queryDesc)
+        public EntityQuery CreateEntityQuery(EntityDataAccess* access, params EntityQueryDesc[] queryDesc)
         {
             //@TODO: Support for CreateEntityQuery with queryDesc but using ComponentDataArray etc
             var buffer = stackalloc byte[1024];
@@ -693,8 +693,44 @@ namespace Unity.Entities
 
             return foundCount == allCount;
         }
-    }
 
+        public static int FindMatchingArchetypeIndexForArchetype(ref UnsafeMatchingArchetypePtrList matchingArchetypes,
+            Archetype* archetype)
+        {
+            for (int i = 0; i < matchingArchetypes.Length; ++i)
+            {
+                if (archetype == matchingArchetypes.Ptr[i]->Archetype)
+                    return i;
+            }
+
+            return -1;
+        }
+
+        public EntityQueryMask GetEntityQueryMask(EntityQueryData* query, EntityComponentStore* ecStore)
+        {
+            if (query->EntityQueryMask.IsCreated())
+                return query->EntityQueryMask;
+
+            if (m_EntityQueryMasksAllocated >= 1024)
+                throw new Exception("You have reached the limit of 1024 unique EntityQueryMasks, and cannot generate any more.");
+
+            var mask = new EntityQueryMask(
+                (byte)(m_EntityQueryMasksAllocated / 8),
+                (byte)(1 << (m_EntityQueryMasksAllocated % 8)),
+                ecStore);
+
+            m_EntityQueryMasksAllocated++;
+
+            for (var i = 0; i < query->MatchingArchetypes.Length; ++i)
+            {
+                query->MatchingArchetypes.Ptr[i]->Archetype->QueryMaskArray[mask.Index] |= mask.Mask;
+            }
+
+            query->EntityQueryMask = mask;
+
+            return mask;
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     unsafe struct MatchingArchetype
@@ -880,9 +916,8 @@ namespace Unity.Entities
                 var archetype = data->MatchingArchetypes.Ptr[archetypeIndex]->Archetype;
                 for (int chunkIndex = 0; chunkIndex < archetype->Chunks.Count; ++chunkIndex)
                 {
-                    if (chunkCounter < cache.MatchingChunks.Length - 1)
+                    if (chunkCounter >= cache.MatchingChunks.Length)
                         return false;
-
                     if(cache.MatchingChunks.Ptr[chunkCounter++] != archetype->Chunks[chunkIndex])
                         return false;
                 }

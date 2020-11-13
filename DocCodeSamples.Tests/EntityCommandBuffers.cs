@@ -7,12 +7,13 @@ using UnityEngine;
 namespace Doc.CodeSamples.Tests
 {
     #region ecb_concurrent
+
     struct Lifetime : IComponentData
     {
         public byte Value;
     }
 
-    class LifetimeSystem : SystemBase
+    partial class LifetimeSystem : SystemBase
     {
         EndSimulationEntityCommandBufferSystem m_EndSimulationEcbSystem;
         protected override void OnCreate()

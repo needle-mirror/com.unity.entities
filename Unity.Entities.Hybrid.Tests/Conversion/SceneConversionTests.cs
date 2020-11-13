@@ -75,7 +75,7 @@ namespace Unity.Entities.Tests.Conversion
             {
                 Systems = TestWorldSetup.GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags.GameObjectConversion).ToList()
             };
-            using (var conversionWorld = GameObjectConversionUtility.ConvertIncrementalInitialize(SceneManager.GetActiveScene(), settings))
+            using (var conversionWorld = GameObjectConversionUtility.InitializeIncrementalConversion(SceneManager.GetActiveScene(), settings))
             {
                 Entities.ForEach((ref EntityRefTestData data) =>
                     StringAssert.StartsWith("parent", m_Manager.GetName(data.Value)));
@@ -88,7 +88,9 @@ namespace Unity.Entities.Tests.Conversion
                 child.Value = child.gameObject;
                 child.AdditionalEntityCount = 1;
                 parent.Value = child.gameObject;
+#pragma warning disable 618
                 GameObjectConversionUtility.ConvertIncremental(conversionWorld, new[] { child.gameObject }, conversionFlags);
+#pragma warning restore 618
 
                 EntitiesAssert.ContainsOnly(m_Manager,
                     EntityMatch.Exact<EntityRefTestData>(entity, k_CommonComponents,

@@ -59,7 +59,8 @@ It's best practice to use standard MonoBehaviours to author, and use `IConvertGa
 
 You can use [IConvertGameObjectToEntity](xref:Unity.Entities.IConvertGameObjectToEntity) to customize the conversion of any GameObject in a SubScene, or a GameObject that has a `ConvertToEntity` MonoBehaviour, or one that is a child of a GameObject that has a `ConvertToEntity` MonoBehaviour.
 
-**Note:** The authoring workflow for DOTS-based applications is an area of active development. The general outlines are in place, but you should anticipate many changes in this area in the near future.
+> [!NOTE]
+> The authoring workflow for DOTS-based applications is an area of active development. The general outlines are in place, but you should anticipate many changes in this area in the near future.
 
 ## Generated authoring components
 

@@ -9,9 +9,14 @@ using UnityEngine.Assertions;
 
 namespace Unity.Scenes
 {
+    /// <summary>
+    /// The group of systems that runs after a scene is loaded
+    /// This allows for custom post processing of loaded SubScenes
+    /// ie scene offsetting
+    /// </summary>
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
-    class ProcessAfterLoadGroup : ComponentSystemGroup
+    public class ProcessAfterLoadGroup : ComponentSystemGroup
     {
     }
 

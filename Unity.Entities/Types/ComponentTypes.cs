@@ -56,7 +56,7 @@ namespace Unity.Entities
                     m_masks.m_BufferMask |= mask;
                 if (TypeManager.IsSystemStateComponent(typeIndex))
                     m_masks.m_SystemStateComponentMask |= mask;
-                if (TypeManager.IsSharedComponent(typeIndex))
+                if (TypeManager.IsSharedComponentType(typeIndex))
                     m_masks.m_SharedComponentMask |= mask;
                 if (TypeManager.IsZeroSized(typeIndex))
                     m_masks.m_ZeroSizedMask |= mask;
@@ -73,6 +73,22 @@ namespace Unity.Entities
             return m_sorted[index];
         }
 
+        internal int ChunkComponentCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < m_sorted.Length; i++)
+                {
+                    if (GetComponentType(i).IsChunkComponent)
+                    {
+                        count++;
+                    }
+                }
+                return count;
+            }
+        }
+
         /// <summary>
         /// Returns a ComponentType for the type stored at the index in the list.
         ///
@@ -82,7 +98,7 @@ namespace Unity.Entities
         /// <returns></returns>
         public ComponentType GetComponentType(int index)
         {
-            return ComponentType.ReadWrite(m_sorted[index]);
+            return ComponentType.FromTypeIndex(m_sorted[index]);
         }
 
         public ComponentTypes(ComponentType a)

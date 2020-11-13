@@ -69,9 +69,9 @@ namespace Unity.Scenes
         static Dictionary<Hash128, string> s_HashToString = new Dictionary<Hash128, string>();
 
 
-        public static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, ImportMode importMode)
+        public static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, ImportMode importMode)
         {
-            var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGUID, buildConfigurationGUID, out var mustRequestRefresh);
+            var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGUID, buildConfigurationGUID, isBuildingForEditor, out var mustRequestRefresh);
             if (mustRequestRefresh)
                 UnityEditor.AssetDatabase.Refresh();
 

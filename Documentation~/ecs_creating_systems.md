@@ -1,4 +1,7 @@
-## Creating a system
+---
+uid: ecs-creating-systems
+---
+# Creating a system
 
 Implement the abstract class [SystemBase] to create an ECS system.
 
@@ -21,7 +24,7 @@ All the system events run on the main thread. Ideally, your [OnUpdate()] functio
 
 * [Entities.ForEach] -- the simplest way to iterate over ECS component data.
 * [Job.WithCode] -- execute a lambda function as a single, background job.
-* [IJobChunk] -- a "lower level" mechanism for iterating over ECS component data chunk-by-chunk.
+* [IJobEntityBatch] -- a "lower level" mechanism for iterating over ECS component data chunk-by-chunk.
 * [C# Job System] -- create and schedule general purpose C# jobs.
 
 The following example illustrates using [Entities.ForEach] to implement a system that updates one component based on the value of another:
@@ -33,7 +36,7 @@ The following example illustrates using [Entities.ForEach] to implement a system
 [Job.WithCode]: xref:Unity.Entities.SystemBase.Job
 [EntityCommandBufferSystem]: xref:ecs-entity-command-buffer
 [EntityCommandBuffer]: xref:Unity.Entities.EntityCommandBuffer
-[IJobChunk]: xref:Unity.Entities.IJobChunk
+[IJobEntityBatch]: xref:Unity.Entities.IJobEntityBatch
 [OnCreate()]: xref:Unity.Entities.ComponentSystemBase.OnCreate*
 [OnDestroy()]: xref:Unity.Entities.ComponentSystemBase.OnDestroy*
 [OnStartRunning()]: xref:Unity.Entities.ComponentSystemBase.OnStartRunning*
@@ -55,7 +58,3 @@ The following example illustrates using [Entities.ForEach] to implement a system
 [System update order]: system_update_order.md
 [ShouldRunSystem()]: xref:Unity.Entities.ComponentSystemBase.ShouldRunSystem*
 
-<!--Note the following links are intentionally pointing to an old version-->
-[ComponentSystem]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entity_iteration_foreach.html
-[IJobForEach]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entity_iteration_job.html
-[JobComponentSystem]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entities_job_foreach.html

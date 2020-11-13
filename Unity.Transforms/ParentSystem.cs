@@ -10,10 +10,10 @@ namespace Unity.Transforms
 {
     public abstract class ParentSystem : JobComponentSystem
     {
-        EntityQuery m_NewParentsGroup;
-        EntityQuery m_RemovedParentsGroup;
-        EntityQuery m_ExistingParentsGroup;
-        EntityQuery m_DeletedParentsGroup;
+        EntityQuery m_NewParentsQuery;
+        EntityQuery m_RemovedParentsQuery;
+        EntityQuery m_ExistingParentsQuery;
+        EntityQuery m_DeletedParentsQuery;
 
         static readonly ProfilerMarker k_ProfileDeletedParents = new ProfilerMarker("ParentSystem.DeletedParents");
         static readonly ProfilerMarker k_ProfileRemoveParents = new ProfilerMarker("ParentSystem.RemoveParents");
@@ -46,7 +46,7 @@ namespace Unity.Transforms
         }
 
         [BurstCompile]
-        struct GatherChangedParents : IJobChunk
+        struct GatherChangedParents : IJobEntityBatch
         {
             public NativeMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToAdd;
             public NativeMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToRemove;
@@ -57,15 +57,15 @@ namespace Unity.Transforms
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
             public uint LastSystemVersion;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                if (chunk.DidChange(ParentTypeHandle, LastSystemVersion))
+                if (batchInChunk.DidChange(ParentTypeHandle, LastSystemVersion))
                 {
-                    var chunkPreviousParents = chunk.GetNativeArray(PreviousParentTypeHandle);
-                    var chunkParents = chunk.GetNativeArray(ParentTypeHandle);
-                    var chunkEntities = chunk.GetNativeArray(EntityTypeHandle);
+                    var chunkPreviousParents = batchInChunk.GetNativeArray(PreviousParentTypeHandle);
+                    var chunkParents = batchInChunk.GetNativeArray(ParentTypeHandle);
+                    var chunkEntities = batchInChunk.GetNativeArray(EntityTypeHandle);
 
-                    for (int j = 0; j < chunk.Count; j++)
+                    for (int j = 0; j < batchInChunk.Count; j++)
                     {
                         if (chunkParents[j].Value != chunkPreviousParents[j].Value)
                         {
@@ -181,7 +181,7 @@ namespace Unity.Transforms
 
         protected override void OnCreate()
         {
-            m_NewParentsGroup = GetEntityQuery(new EntityQueryDesc
+            m_NewParentsQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -195,7 +195,7 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_RemovedParentsGroup = GetEntityQuery(new EntityQueryDesc
+            m_RemovedParentsQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -207,7 +207,7 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_ExistingParentsGroup = GetEntityQuery(new EntityQueryDesc
+            m_ExistingParentsQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -218,8 +218,8 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_ExistingParentsGroup.SetChangedVersionFilter(typeof(Parent));
-            m_DeletedParentsGroup = GetEntityQuery(new EntityQueryDesc
+            m_ExistingParentsQuery.SetChangedVersionFilter(typeof(Parent));
+            m_DeletedParentsQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -235,19 +235,19 @@ namespace Unity.Transforms
 
         void UpdateNewParents()
         {
-            if (m_NewParentsGroup.IsEmptyIgnoreFilter)
+            if (m_NewParentsQuery.IsEmptyIgnoreFilter)
                 return;
 
-            EntityManager.AddComponent(m_NewParentsGroup, typeof(PreviousParent));
+            EntityManager.AddComponent(m_NewParentsQuery, typeof(PreviousParent));
         }
 
         void UpdateRemoveParents()
         {
-            if (m_RemovedParentsGroup.IsEmptyIgnoreFilter)
+            if (m_RemovedParentsQuery.IsEmptyIgnoreFilter)
                 return;
 
-            var childEntities = m_RemovedParentsGroup.ToEntityArray(Allocator.TempJob);
-            var previousParents = m_RemovedParentsGroup.ToComponentDataArray<PreviousParent>(Allocator.TempJob);
+            var childEntities = m_RemovedParentsQuery.ToEntityArray(Allocator.TempJob);
+            var previousParents = m_RemovedParentsQuery.ToComponentDataArray<PreviousParent>(Allocator.TempJob);
 
             for (int i = 0; i < childEntities.Length; i++)
             {
@@ -257,17 +257,17 @@ namespace Unity.Transforms
                 RemoveChildFromParent(childEntity, previousParentEntity);
             }
 
-            EntityManager.RemoveComponent(m_RemovedParentsGroup, typeof(PreviousParent));
+            EntityManager.RemoveComponent(m_RemovedParentsQuery, typeof(PreviousParent));
             childEntities.Dispose();
             previousParents.Dispose();
         }
 
         void UpdateChangeParents()
         {
-            if (m_ExistingParentsGroup.IsEmptyIgnoreFilter)
+            if (m_ExistingParentsQuery.IsEmptyIgnoreFilter)
                 return;
 
-            var count = m_ExistingParentsGroup.CalculateEntityCount() * 2; // Potentially 2x changed: current and previous
+            var count = m_ExistingParentsQuery.CalculateEntityCount() * 2; // Potentially 2x changed: current and previous
             if (count == 0)
                 return;
 
@@ -288,7 +288,7 @@ namespace Unity.Transforms
                 EntityTypeHandle = GetEntityTypeHandle(),
                 LastSystemVersion = LastSystemVersion
             };
-            var gatherChangedParentsJobHandle = gatherChangedParentsJob.Schedule(m_ExistingParentsGroup);
+            var gatherChangedParentsJobHandle = gatherChangedParentsJob.ScheduleParallel(m_ExistingParentsQuery, 1, default(JobHandle));
             gatherChangedParentsJobHandle.Complete();
 
             // 5. (Structural change) Add any missing Child to Parents
@@ -344,10 +344,10 @@ namespace Unity.Transforms
 
         void UpdateDeletedParents()
         {
-            if (m_DeletedParentsGroup.IsEmptyIgnoreFilter)
+            if (m_DeletedParentsQuery.IsEmptyIgnoreFilter)
                 return;
 
-            var previousParents = m_DeletedParentsGroup.ToEntityArray(Allocator.TempJob);
+            var previousParents = m_DeletedParentsQuery.ToEntityArray(Allocator.TempJob);
             var childEntities = new NativeList<Entity>(Allocator.TempJob);
             var gatherChildEntitiesJob = new GatherChildEntities
             {
@@ -361,7 +361,7 @@ namespace Unity.Transforms
             EntityManager.RemoveComponent(childEntities, typeof(Parent));
             EntityManager.RemoveComponent(childEntities, typeof(PreviousParent));
             EntityManager.RemoveComponent(childEntities, typeof(LocalToParent));
-            EntityManager.RemoveComponent(m_DeletedParentsGroup, typeof(Child));
+            EntityManager.RemoveComponent(m_DeletedParentsQuery, typeof(Child));
 
             childEntities.Dispose();
             previousParents.Dispose();

@@ -56,5 +56,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d85176e9153349648a01d1578e91620, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_SerializedData:
-    Value: 0
+  Value: 0

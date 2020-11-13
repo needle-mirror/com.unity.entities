@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Unity.Collections;
 using Unity.Entities;
 #if !UNITY_DOTSRUNTIME
 using UnityEngine.Scripting.APIUpdating;
@@ -81,21 +82,42 @@ namespace Unity.Scenes
         {
             for (int i = 0; i < paths.Length; i++)
             {
-                var origPath = paths[i].ToString();
-                if (path == origPath)
+                var currentPath = paths[i].ToString();
+                if (path == currentPath)
                     return resources[i].ResourceId;
-                var fpath = GetFileNameWithoutExtension(origPath);
-                if (path == fpath)
+
+                // TODO: All of these should die so we have a 100% consistent use of paths. Why do we need this at all?
+                // TODO: https://unity3d.atlassian.net/browse/DOTS-3330
+                var currentPathWithoutExtension = GetFileNameWithoutExtension(currentPath);
+                if (path == currentPathWithoutExtension)
+                {
+                    Debug.LogWarning("Deprecation Warning - Use of GetGUIDFromPath working without extensions is obsolete. (RemovedAfter 2021-02-05)");
                     return resources[i].ResourceId;
+                }
 #if !NET_DOTS
-                var lpath = fpath.ToLower();
+                var currentPathWithoutExtensionLower = currentPathWithoutExtension.ToLower();
+                var pathLower = path.ToLower();
 #else
                 // NET_DOTS doesn't have toLower so we just make sure we export lower case data
                 // as the user is already expected to pass in lowercase strings
-                var lpath = fpath;
+                var currentPathWithoutExtensionLower = currentPathWithoutExtension;
+                var pathLower = path;
 #endif
-                if (path == lpath)
+                if (pathLower == currentPathWithoutExtensionLower)
+                {
+                    Debug.LogWarning("Deprecation Warning - Use of GetGUIDFromPath working with lower-case paths is obsolete. (RemovedAfter 2021-02-05)");
                     return resources[i].ResourceId;
+                }
+            }
+            return default;
+        }
+
+        public string GetPathFromGUID(Hash128 guid)
+        {
+            for (int i = 0; i < paths.Length; i++)
+            {
+                if (resources[i].ResourceId == guid)
+                    return paths[i].ToString();
             }
             return default;
         }

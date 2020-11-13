@@ -22,7 +22,7 @@ namespace Unity.Entities
      unsafe partial struct ChunkIterationUtility
     {
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
 
         [BurstDiscard]
         private static void CheckDelegate(ref bool useDelegate)
@@ -50,6 +50,10 @@ namespace Unity.Entities
             public static _dlg_JoinChunks _bfp_JoinChunks;
             public delegate void _dlg_GatherEntities(IntPtr entities, ref EntityQuery entityQuery, ref EntityTypeHandle entityTypeHandle);
             public static _dlg_GatherEntities _bfp_GatherEntities;
+            public delegate Entity* _dlg_CreateEntityArrayFromEntityArray(IntPtr entities, int entityCount, Allocator allocator, IntPtr queryData, IntPtr ecs, ref EntityQueryMask mask, ref EntityTypeHandle typeHandle, ref EntityQueryFilter filter, out int outEntityArrayLength);
+            public static _dlg_CreateEntityArrayFromEntityArray _bfp_CreateEntityArrayFromEntityArray;
+            public delegate byte* _dlg_CreateComponentDataArrayFromEntityArray(IntPtr entities, int entityCount, Allocator allocator, IntPtr queryData, IntPtr ecs, int typeIndex, int typeSizeInChunk, int typeAlign, ref EntityQueryMask mask, ref EntityQueryFilter filter, out int outEntityArrayLength);
+            public static _dlg_CreateComponentDataArrayFromEntityArray _bfp_CreateComponentDataArrayFromEntityArray;
             public delegate void _dlg_GatherComponentData(IntPtr componentData, int typeIndex, ref ArchetypeChunkIterator chunkIter);
             public static _dlg_GatherComponentData _bfp_GatherComponentData;
             public delegate void _dlg_CopyComponentArrayToChunks(IntPtr componentData, int typeIndex, ref ArchetypeChunkIterator chunkIter);
@@ -60,8 +64,16 @@ namespace Unity.Entities
             public static _dlg_CalculateChunkCount _bfp_CalculateChunkCount;
             public delegate int _dlg_CalculateEntityCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter);
             public static _dlg_CalculateEntityCount _bfp_CalculateEntityCount;
+            public delegate int _dlg_CalculateEntityCountInEntityArray(IntPtr entities, int entityCount, IntPtr queryData, IntPtr ecs, ref EntityQueryMask mask, ref EntityQueryFilter filter);
+            public static _dlg_CalculateEntityCountInEntityArray _bfp_CalculateEntityCountInEntityArray;
+            public delegate bool _dlg_MatchesAnyInEntityArray(IntPtr entities, int entityCount, IntPtr queryData, IntPtr ecs, ref EntityQueryMask mask, ref EntityQueryFilter filter);
+            public static _dlg_MatchesAnyInEntityArray _bfp_MatchesAnyInEntityArray;
             public delegate void _dlg_RebuildChunkListCache(IntPtr queryData);
             public static _dlg_RebuildChunkListCache _bfp_RebuildChunkListCache;
+            public delegate void _dlg_FindFilteredBatchesForEntityArrayWithQuery(IntPtr query, IntPtr entities, int entityCount, ref Unity.Collections.LowLevel.Unsafe.UnsafeList batches);
+            public static _dlg_FindFilteredBatchesForEntityArrayWithQuery _bfp_FindFilteredBatchesForEntityArrayWithQuery;
+            public delegate void _dlg_FindBatchesForEntityArrayWithQuery(IntPtr ecs, IntPtr data, ref EntityQueryFilter filter, IntPtr entities, int entityCount, ref Unity.Collections.LowLevel.Unsafe.UnsafeList batches, ref UnsafeIntList perBatchMatchingArchetypeIndex);
+            public static _dlg_FindBatchesForEntityArrayWithQuery _bfp_FindBatchesForEntityArrayWithQuery;
         }
 
 
@@ -70,7 +82,7 @@ namespace Unity.Entities
         [NotBurstCompatible]
         internal static void Initialize()
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (Managed._initialized)
                 return;
             Managed._initialized = true;
@@ -78,19 +90,25 @@ namespace Unity.Entities
             Managed._bfp_GatherChunksWithFilter = BurstCompiler.CompileFunctionPointer<Managed._dlg_GatherChunksWithFilter>(_mono_to_burst_GatherChunksWithFilter).Invoke;
             Managed._bfp_JoinChunks = BurstCompiler.CompileFunctionPointer<Managed._dlg_JoinChunks>(_mono_to_burst_JoinChunks).Invoke;
             Managed._bfp_GatherEntities = BurstCompiler.CompileFunctionPointer<Managed._dlg_GatherEntities>(_mono_to_burst_GatherEntities).Invoke;
+            Managed._bfp_CreateEntityArrayFromEntityArray = BurstCompiler.CompileFunctionPointer<Managed._dlg_CreateEntityArrayFromEntityArray>(_mono_to_burst_CreateEntityArrayFromEntityArray).Invoke;
+            Managed._bfp_CreateComponentDataArrayFromEntityArray = BurstCompiler.CompileFunctionPointer<Managed._dlg_CreateComponentDataArrayFromEntityArray>(_mono_to_burst_CreateComponentDataArrayFromEntityArray).Invoke;
             Managed._bfp_GatherComponentData = BurstCompiler.CompileFunctionPointer<Managed._dlg_GatherComponentData>(_mono_to_burst_GatherComponentData).Invoke;
             Managed._bfp_CopyComponentArrayToChunks = BurstCompiler.CompileFunctionPointer<Managed._dlg_CopyComponentArrayToChunks>(_mono_to_burst_CopyComponentArrayToChunks).Invoke;
             Managed._bfp_CalculateChunkAndEntityCount = BurstCompiler.CompileFunctionPointer<Managed._dlg_CalculateChunkAndEntityCount>(_mono_to_burst_CalculateChunkAndEntityCount).Invoke;
             Managed._bfp_CalculateChunkCount = BurstCompiler.CompileFunctionPointer<Managed._dlg_CalculateChunkCount>(_mono_to_burst_CalculateChunkCount).Invoke;
             Managed._bfp_CalculateEntityCount = BurstCompiler.CompileFunctionPointer<Managed._dlg_CalculateEntityCount>(_mono_to_burst_CalculateEntityCount).Invoke;
+            Managed._bfp_CalculateEntityCountInEntityArray = BurstCompiler.CompileFunctionPointer<Managed._dlg_CalculateEntityCountInEntityArray>(_mono_to_burst_CalculateEntityCountInEntityArray).Invoke;
+            Managed._bfp_MatchesAnyInEntityArray = BurstCompiler.CompileFunctionPointer<Managed._dlg_MatchesAnyInEntityArray>(_mono_to_burst_MatchesAnyInEntityArray).Invoke;
             Managed._bfp_RebuildChunkListCache = BurstCompiler.CompileFunctionPointer<Managed._dlg_RebuildChunkListCache>(_mono_to_burst_RebuildChunkListCache).Invoke;
+            Managed._bfp_FindFilteredBatchesForEntityArrayWithQuery = BurstCompiler.CompileFunctionPointer<Managed._dlg_FindFilteredBatchesForEntityArrayWithQuery>(_mono_to_burst_FindFilteredBatchesForEntityArrayWithQuery).Invoke;
+            Managed._bfp_FindBatchesForEntityArrayWithQuery = BurstCompiler.CompileFunctionPointer<Managed._dlg_FindBatchesForEntityArrayWithQuery>(_mono_to_burst_FindBatchesForEntityArrayWithQuery).Invoke;
 
 #endif
         }
 
         private  static void GatherChunks (in UnsafeMatchingArchetypePtrList matchingArchetypesList, int* offsets, ArchetypeChunk* chunks)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_GatherChunks(in matchingArchetypesList, offsets, chunks);
@@ -101,7 +119,7 @@ namespace Unity.Entities
             _GatherChunks(in matchingArchetypesList, offsets, chunks);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_GatherChunks))]
         private static void _mono_to_burst_GatherChunks(in UnsafeMatchingArchetypePtrList matchingArchetypesList, IntPtr offsets, IntPtr chunks)
@@ -118,7 +136,7 @@ namespace Unity.Entities
 
         private  static void GatherChunksWithFilter (in UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, int* offsets, int* filteredCounts, ArchetypeChunk* sparseChunks)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_GatherChunksWithFilter(in matchingArchetypePtrList, ref filter, offsets, filteredCounts, sparseChunks);
@@ -129,7 +147,7 @@ namespace Unity.Entities
             _GatherChunksWithFilter(in matchingArchetypePtrList, ref filter, offsets, filteredCounts, sparseChunks);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_GatherChunksWithFilter))]
         private static void _mono_to_burst_GatherChunksWithFilter(in UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, IntPtr offsets, IntPtr filteredCounts, IntPtr sparseChunks)
@@ -146,7 +164,7 @@ namespace Unity.Entities
 
         private  static void JoinChunks (int* DestinationOffsets, ArchetypeChunk* SparseChunks, int* Offsets, ArchetypeChunk* JoinedChunks, int archetypeCount)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_JoinChunks(DestinationOffsets, SparseChunks, Offsets, JoinedChunks, archetypeCount);
@@ -157,7 +175,7 @@ namespace Unity.Entities
             _JoinChunks(DestinationOffsets, SparseChunks, Offsets, JoinedChunks, archetypeCount);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_JoinChunks))]
         private static void _mono_to_burst_JoinChunks(IntPtr DestinationOffsets, IntPtr SparseChunks, IntPtr Offsets, IntPtr JoinedChunks, int archetypeCount)
@@ -174,7 +192,7 @@ namespace Unity.Entities
 
         private  static void GatherEntities (Entity* entities, ref EntityQuery entityQuery, ref EntityTypeHandle entityTypeHandle)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_GatherEntities(entities, ref entityQuery, ref entityTypeHandle);
@@ -185,7 +203,7 @@ namespace Unity.Entities
             _GatherEntities(entities, ref entityQuery, ref entityTypeHandle);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_GatherEntities))]
         private static void _mono_to_burst_GatherEntities(IntPtr entities, ref EntityQuery entityQuery, ref EntityTypeHandle entityTypeHandle)
@@ -200,9 +218,67 @@ namespace Unity.Entities
         }
 #endif
 
+        public  static Entity* CreateEntityArrayFromEntityArray (Entity* entities, int entityCount, Allocator allocator, EntityQueryData* queryData, EntityComponentStore* ecs, ref EntityQueryMask mask, ref EntityTypeHandle typeHandle, ref EntityQueryFilter filter, out int outEntityArrayLength)
+        {
+#if !UNITY_IOS
+            if (UseDelegate())
+            {
+                var _retval = default(Entity*);
+                _forward_mono_CreateEntityArrayFromEntityArray(ref _retval, entities, entityCount, allocator, queryData, ecs, ref mask, ref typeHandle, ref filter, out outEntityArrayLength);
+                return _retval;
+            }
+#endif
+
+            return _CreateEntityArrayFromEntityArray(entities, entityCount, allocator, queryData, ecs, ref mask, ref typeHandle, ref filter, out outEntityArrayLength);
+        }
+
+#if !UNITY_IOS
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(Managed._dlg_CreateEntityArrayFromEntityArray))]
+        private static Entity* _mono_to_burst_CreateEntityArrayFromEntityArray(IntPtr entities, int entityCount, Allocator allocator, IntPtr queryData, IntPtr ecs, ref EntityQueryMask mask, ref EntityTypeHandle typeHandle, ref EntityQueryFilter filter, out int outEntityArrayLength)
+        {
+            return _CreateEntityArrayFromEntityArray((Entity*)entities, entityCount, allocator, (EntityQueryData*)queryData, (EntityComponentStore*)ecs, ref mask, ref typeHandle, ref filter, out outEntityArrayLength);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_CreateEntityArrayFromEntityArray(ref Entity* _retval, Entity* entities, int entityCount, Allocator allocator, EntityQueryData* queryData, EntityComponentStore* ecs, ref EntityQueryMask mask, ref EntityTypeHandle typeHandle, ref EntityQueryFilter filter, out int outEntityArrayLength)
+        {
+            _retval = Managed._bfp_CreateEntityArrayFromEntityArray((IntPtr) entities, entityCount, allocator, (IntPtr) queryData, (IntPtr) ecs, ref mask, ref typeHandle, ref filter, out outEntityArrayLength);
+        }
+#endif
+
+        public  static byte* CreateComponentDataArrayFromEntityArray (Entity* entities, int entityCount, Allocator allocator, EntityQueryData* queryData, EntityComponentStore* ecs, int typeIndex, int typeSizeInChunk, int typeAlign, ref EntityQueryMask mask, ref EntityQueryFilter filter, out int outEntityArrayLength)
+        {
+#if !UNITY_IOS
+            if (UseDelegate())
+            {
+                var _retval = default(byte*);
+                _forward_mono_CreateComponentDataArrayFromEntityArray(ref _retval, entities, entityCount, allocator, queryData, ecs, typeIndex, typeSizeInChunk, typeAlign, ref mask, ref filter, out outEntityArrayLength);
+                return _retval;
+            }
+#endif
+
+            return _CreateComponentDataArrayFromEntityArray(entities, entityCount, allocator, queryData, ecs, typeIndex, typeSizeInChunk, typeAlign, ref mask, ref filter, out outEntityArrayLength);
+        }
+
+#if !UNITY_IOS
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(Managed._dlg_CreateComponentDataArrayFromEntityArray))]
+        private static byte* _mono_to_burst_CreateComponentDataArrayFromEntityArray(IntPtr entities, int entityCount, Allocator allocator, IntPtr queryData, IntPtr ecs, int typeIndex, int typeSizeInChunk, int typeAlign, ref EntityQueryMask mask, ref EntityQueryFilter filter, out int outEntityArrayLength)
+        {
+            return _CreateComponentDataArrayFromEntityArray((Entity*)entities, entityCount, allocator, (EntityQueryData*)queryData, (EntityComponentStore*)ecs, typeIndex, typeSizeInChunk, typeAlign, ref mask, ref filter, out outEntityArrayLength);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_CreateComponentDataArrayFromEntityArray(ref byte* _retval, Entity* entities, int entityCount, Allocator allocator, EntityQueryData* queryData, EntityComponentStore* ecs, int typeIndex, int typeSizeInChunk, int typeAlign, ref EntityQueryMask mask, ref EntityQueryFilter filter, out int outEntityArrayLength)
+        {
+            _retval = Managed._bfp_CreateComponentDataArrayFromEntityArray((IntPtr) entities, entityCount, allocator, (IntPtr) queryData, (IntPtr) ecs, typeIndex, typeSizeInChunk, typeAlign, ref mask, ref filter, out outEntityArrayLength);
+        }
+#endif
+
         private  static void GatherComponentData (byte* componentData, int typeIndex, ref ArchetypeChunkIterator chunkIter)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_GatherComponentData(componentData, typeIndex, ref chunkIter);
@@ -213,7 +289,7 @@ namespace Unity.Entities
             _GatherComponentData(componentData, typeIndex, ref chunkIter);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_GatherComponentData))]
         private static void _mono_to_burst_GatherComponentData(IntPtr componentData, int typeIndex, ref ArchetypeChunkIterator chunkIter)
@@ -230,7 +306,7 @@ namespace Unity.Entities
 
         public  static void CopyComponentArrayToChunks (byte* componentData, int typeIndex, ref ArchetypeChunkIterator chunkIter)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_CopyComponentArrayToChunks(componentData, typeIndex, ref chunkIter);
@@ -241,7 +317,7 @@ namespace Unity.Entities
             _CopyComponentArrayToChunks(componentData, typeIndex, ref chunkIter);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_CopyComponentArrayToChunks))]
         private static void _mono_to_burst_CopyComponentArrayToChunks(IntPtr componentData, int typeIndex, ref ArchetypeChunkIterator chunkIter)
@@ -258,7 +334,7 @@ namespace Unity.Entities
 
         public  static int CalculateChunkAndEntityCount (ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, out int chunkCount)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 var _retval = default(int);
@@ -270,7 +346,7 @@ namespace Unity.Entities
             return _CalculateChunkAndEntityCount(ref matchingArchetypes, ref filter, out chunkCount);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_CalculateChunkAndEntityCount))]
         private static int _mono_to_burst_CalculateChunkAndEntityCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, out int chunkCount)
@@ -287,7 +363,7 @@ namespace Unity.Entities
 
         public  static int CalculateChunkCount (ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 var _retval = default(int);
@@ -299,7 +375,7 @@ namespace Unity.Entities
             return _CalculateChunkCount(ref matchingArchetypes, ref filter);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_CalculateChunkCount))]
         private static int _mono_to_burst_CalculateChunkCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
@@ -316,7 +392,7 @@ namespace Unity.Entities
 
         public  static int CalculateEntityCount (ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 var _retval = default(int);
@@ -328,7 +404,7 @@ namespace Unity.Entities
             return _CalculateEntityCount(ref matchingArchetypes, ref filter);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_CalculateEntityCount))]
         private static int _mono_to_burst_CalculateEntityCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter)
@@ -343,9 +419,67 @@ namespace Unity.Entities
         }
 #endif
 
+        public  static int CalculateEntityCountInEntityArray (Entity* entities, int entityCount, EntityQueryData* queryData, EntityComponentStore* ecs, ref EntityQueryMask mask, ref EntityQueryFilter filter)
+        {
+#if !UNITY_IOS
+            if (UseDelegate())
+            {
+                var _retval = default(int);
+                _forward_mono_CalculateEntityCountInEntityArray(ref _retval, entities, entityCount, queryData, ecs, ref mask, ref filter);
+                return _retval;
+            }
+#endif
+
+            return _CalculateEntityCountInEntityArray(entities, entityCount, queryData, ecs, ref mask, ref filter);
+        }
+
+#if !UNITY_IOS
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(Managed._dlg_CalculateEntityCountInEntityArray))]
+        private static int _mono_to_burst_CalculateEntityCountInEntityArray(IntPtr entities, int entityCount, IntPtr queryData, IntPtr ecs, ref EntityQueryMask mask, ref EntityQueryFilter filter)
+        {
+            return _CalculateEntityCountInEntityArray((Entity*)entities, entityCount, (EntityQueryData*)queryData, (EntityComponentStore*)ecs, ref mask, ref filter);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_CalculateEntityCountInEntityArray(ref int _retval, Entity* entities, int entityCount, EntityQueryData* queryData, EntityComponentStore* ecs, ref EntityQueryMask mask, ref EntityQueryFilter filter)
+        {
+            _retval = Managed._bfp_CalculateEntityCountInEntityArray((IntPtr) entities, entityCount, (IntPtr) queryData, (IntPtr) ecs, ref mask, ref filter);
+        }
+#endif
+
+        public  static bool MatchesAnyInEntityArray (Entity* entities, int entityCount, EntityQueryData* queryData, EntityComponentStore* ecs, ref EntityQueryMask mask, ref EntityQueryFilter filter)
+        {
+#if !UNITY_IOS
+            if (UseDelegate())
+            {
+                var _retval = default(bool);
+                _forward_mono_MatchesAnyInEntityArray(ref _retval, entities, entityCount, queryData, ecs, ref mask, ref filter);
+                return _retval;
+            }
+#endif
+
+            return _MatchesAnyInEntityArray(entities, entityCount, queryData, ecs, ref mask, ref filter);
+        }
+
+#if !UNITY_IOS
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(Managed._dlg_MatchesAnyInEntityArray))]
+        private static bool _mono_to_burst_MatchesAnyInEntityArray(IntPtr entities, int entityCount, IntPtr queryData, IntPtr ecs, ref EntityQueryMask mask, ref EntityQueryFilter filter)
+        {
+            return _MatchesAnyInEntityArray((Entity*)entities, entityCount, (EntityQueryData*)queryData, (EntityComponentStore*)ecs, ref mask, ref filter);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_MatchesAnyInEntityArray(ref bool _retval, Entity* entities, int entityCount, EntityQueryData* queryData, EntityComponentStore* ecs, ref EntityQueryMask mask, ref EntityQueryFilter filter)
+        {
+            _retval = Managed._bfp_MatchesAnyInEntityArray((IntPtr) entities, entityCount, (IntPtr) queryData, (IntPtr) ecs, ref mask, ref filter);
+        }
+#endif
+
         public  static void RebuildChunkListCache (EntityQueryData* queryData)
         {
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
             if (UseDelegate())
             {
                 _forward_mono_RebuildChunkListCache(queryData);
@@ -356,7 +490,7 @@ namespace Unity.Entities
             _RebuildChunkListCache(queryData);
         }
 
-#if !(UNITY_2020_1_OR_NEWER && UNITY_IOS)
+#if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_RebuildChunkListCache))]
         private static void _mono_to_burst_RebuildChunkListCache(IntPtr queryData)
@@ -368,6 +502,62 @@ namespace Unity.Entities
         private static void _forward_mono_RebuildChunkListCache(EntityQueryData* queryData)
         {
             Managed._bfp_RebuildChunkListCache((IntPtr) queryData);
+        }
+#endif
+
+        public  static void FindFilteredBatchesForEntityArrayWithQuery (EntityQueryImpl* query, Entity* entities, int entityCount, ref Unity.Collections.LowLevel.Unsafe.UnsafeList batches)
+        {
+#if !UNITY_IOS
+            if (UseDelegate())
+            {
+                _forward_mono_FindFilteredBatchesForEntityArrayWithQuery(query, entities, entityCount, ref batches);
+                return;
+            }
+#endif
+
+            _FindFilteredBatchesForEntityArrayWithQuery(query, entities, entityCount, ref batches);
+        }
+
+#if !UNITY_IOS
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(Managed._dlg_FindFilteredBatchesForEntityArrayWithQuery))]
+        private static void _mono_to_burst_FindFilteredBatchesForEntityArrayWithQuery(IntPtr query, IntPtr entities, int entityCount, ref Unity.Collections.LowLevel.Unsafe.UnsafeList batches)
+        {
+            _FindFilteredBatchesForEntityArrayWithQuery((EntityQueryImpl*)query, (Entity*)entities, entityCount, ref batches);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_FindFilteredBatchesForEntityArrayWithQuery(EntityQueryImpl* query, Entity* entities, int entityCount, ref Unity.Collections.LowLevel.Unsafe.UnsafeList batches)
+        {
+            Managed._bfp_FindFilteredBatchesForEntityArrayWithQuery((IntPtr) query, (IntPtr) entities, entityCount, ref batches);
+        }
+#endif
+
+        public  static void FindBatchesForEntityArrayWithQuery (EntityComponentStore* ecs, EntityQueryData* data, ref EntityQueryFilter filter, Entity* entities, int entityCount, ref Unity.Collections.LowLevel.Unsafe.UnsafeList batches, ref UnsafeIntList perBatchMatchingArchetypeIndex)
+        {
+#if !UNITY_IOS
+            if (UseDelegate())
+            {
+                _forward_mono_FindBatchesForEntityArrayWithQuery(ecs, data, ref filter, entities, entityCount, ref batches, ref perBatchMatchingArchetypeIndex);
+                return;
+            }
+#endif
+
+            _FindBatchesForEntityArrayWithQuery(ecs, data, ref filter, entities, entityCount, ref batches, ref perBatchMatchingArchetypeIndex);
+        }
+
+#if !UNITY_IOS
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(Managed._dlg_FindBatchesForEntityArrayWithQuery))]
+        private static void _mono_to_burst_FindBatchesForEntityArrayWithQuery(IntPtr ecs, IntPtr data, ref EntityQueryFilter filter, IntPtr entities, int entityCount, ref Unity.Collections.LowLevel.Unsafe.UnsafeList batches, ref UnsafeIntList perBatchMatchingArchetypeIndex)
+        {
+            _FindBatchesForEntityArrayWithQuery((EntityComponentStore*)ecs, (EntityQueryData*)data, ref filter, (Entity*)entities, entityCount, ref batches, ref perBatchMatchingArchetypeIndex);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_FindBatchesForEntityArrayWithQuery(EntityComponentStore* ecs, EntityQueryData* data, ref EntityQueryFilter filter, Entity* entities, int entityCount, ref Unity.Collections.LowLevel.Unsafe.UnsafeList batches, ref UnsafeIntList perBatchMatchingArchetypeIndex)
+        {
+            Managed._bfp_FindBatchesForEntityArrayWithQuery((IntPtr) ecs, (IntPtr) data, ref filter, (IntPtr) entities, entityCount, ref batches, ref perBatchMatchingArchetypeIndex);
         }
 #endif
 

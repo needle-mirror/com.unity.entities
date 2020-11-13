@@ -318,10 +318,9 @@ namespace Unity.Entities
             {
 #if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
                 IntPtr result = s_ReflectionData.Data;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (result == IntPtr.Zero)
-                    throw new InvalidOperationException("IJobChunk job reflection data has not been automatically computed - this is a bug");
-#endif
+
+                CheckReflectionDataBurst(result == IntPtr.Zero);
+
                 return result;
 #else
                 if (s_JobReflectionDataParallel == IntPtr.Zero)
@@ -329,6 +328,23 @@ namespace Unity.Entities
                 return s_JobReflectionDataParallel;
 #endif
             }
+
+#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
+            [BurstDiscard]
+            private static void CheckReflectionData(bool isNull)
+            {
+                if (isNull)
+                    throw new InvalidOperationException($"Job reflection data has not been initialized for job `{typeof(T).FullName}`. Generic jobs must either be fully qualified in normal code or be registered with `[assembly:RegisterGenericJobType(typeof(...))]`. See https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/ecs_generic_jobs.html");
+            }
+
+            private static void CheckReflectionDataBurst(bool isNull)
+            {
+                CheckReflectionData(isNull);
+
+                if (isNull)
+                    throw new InvalidOperationException($"Job reflection data has not been initialized for this job. Generic jobs must either be fully qualified in normal code or be registered with `[assembly:RegisterGenericJobType(typeof(...))]`. See https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/ecs_generic_jobs.html");
+            }
+#endif
 
             internal delegate void ExecuteJobFunction(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
 

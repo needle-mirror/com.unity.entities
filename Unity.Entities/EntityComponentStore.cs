@@ -148,28 +148,22 @@ namespace Unity.Entities
             UnsafeUtility.MemCpy(remapSrcCopy, remapSrc, remapSrcSize);
             UnsafeUtility.MemCpy(remapDstCopy, remapDst, remapDstSize);
 
-            var hasHybridComponents = archetype->HasHybridComponents;
-            var types = archetype->Types;
-
             var firstManagedComponent = archetype->FirstManagedComponent;
             for (int i = 0; i < numManagedComponents; ++i)
             {
-                int type = i + firstManagedComponent;
+                int indexInArchetype = i + firstManagedComponent;
 
-                if (hasHybridComponents && TypeManager.GetTypeInfo(types[type].TypeIndex).Category == TypeManager.TypeCategory.UnityEngineObject)
+                if (archetype->Types[indexInArchetype].HasEntityReferences)
                 {
+                    var a = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, indexInArchetype);
                     for (int ei = 0; ei < allocatedCount; ++ei)
-                    {
-                        managedComponents[ei * numManagedComponents + i] = 0; // 0 means do not remap
-                    }
+                        managedComponents[ei * numManagedComponents + i] = a[ei + indexInChunk];
                 }
                 else
                 {
-                    var a = (int*) ChunkDataUtility.GetComponentDataRO(chunk, 0, type);
                     for (int ei = 0; ei < allocatedCount; ++ei)
-                    {
-                        managedComponents[ei * numManagedComponents + i] = a[ei + indexInChunk];
-                    }
+                        managedComponents[ei * numManagedComponents + i] = 0; // 0 means do not remap
+
                 }
             }
 
@@ -293,7 +287,12 @@ namespace Unity.Entities
 
         ulong m_NextChunkSequenceNumber;
 
+        // Free list index for entity id allocation
         int  m_NextFreeEntityIndex;
+        // Any entity creation / destruction, bumps this version number
+        // Generally any write to m_NextFreeEntityIndex must also increment m_EntityCreateDestroyVersion
+        int  m_EntityCreateDestroyVersion;
+
         uint m_GlobalSystemVersion;
         int  m_EntitiesCapacity;
         int  m_IntentionallyInconsistent;
@@ -391,6 +390,7 @@ namespace Unity.Entities
         public void CopyNextFreeEntityIndex(EntityComponentStore* src)
         {
             m_NextFreeEntityIndex = src->m_NextFreeEntityIndex;
+            m_EntityCreateDestroyVersion++;
         }
 
         private void InitializeAdditionalCapacity(int start)
@@ -443,10 +443,6 @@ namespace Unity.Entities
             entities->m_ChunkListChangesTracker = new ChunkListChanges();
             entities->m_ChunkListChangesTracker.Init();
 
-#if USE_VIRTUAL_MEMORY
-            s_chunkStore.Data.Initialize(TotalChunkAddressSpaceInBytes);
-#endif
-
             // Sanity check a few alignments
 #if UNITY_ASSERTIONS
             // Buffer should be 16 byte aligned to ensure component data layout itself can guarantee being aligned
@@ -467,22 +463,14 @@ namespace Unity.Entities
             m_EntityOffsetInfos = TypeManager.GetEntityOffsetsPointer();
         }
 
-        public TypeManager.TypeInfo GetTypeInfo(int typeIndex)
+        public ref readonly TypeManager.TypeInfo GetTypeInfo(int typeIndex)
         {
-            return m_TypeInfos[typeIndex & TypeManager.ClearFlagsMask];
+            return ref m_TypeInfos[typeIndex & TypeManager.ClearFlagsMask];
         }
 
-        public TypeManager.EntityOffsetInfo* GetEntityOffsets(TypeManager.TypeInfo typeInfo)
+        public TypeManager.EntityOffsetInfo* GetEntityOffsets(in TypeManager.TypeInfo typeInfo)
         {
-            if (!typeInfo.HasEntities)
-                return null;
             return m_EntityOffsetInfos + typeInfo.EntityOffsetStartIndex;
-        }
-
-        public TypeManager.EntityOffsetInfo* GetEntityOffsets(int typeIndex)
-        {
-            var typeInfo = m_TypeInfos[typeIndex & TypeManager.ClearFlagsMask];
-            return GetEntityOffsets(typeInfo);
         }
 
         public int ChunkComponentToNormalTypeIndex(int typeIndex) => m_TypeInfos[typeIndex & TypeManager.ClearFlagsMask].TypeIndex;
@@ -539,24 +527,36 @@ namespace Unity.Entities
             m_ArchetypeChunkAllocator.Dispose();
             ManagedChangesTracker.Dispose();
             m_ManagedComponentFreeIndex.Dispose();
-            s_chunkStore.Data.Dispose();
         }
 
-        public void FreeAllEntities()
+        public void FreeAllEntities(bool resetVersion)
         {
             for (var i = 0; i != EntitiesCapacity; i++)
             {
                 m_EntityInChunkByEntity[i].IndexInChunk = i + 1;
-                m_VersionByEntity[i] += 1;
                 m_EntityInChunkByEntity[i].Chunk = null;
 #if UNITY_EDITOR
                 m_NameByEntity[i] = new NumberedWords();
 #endif
             }
 
+            if (resetVersion)
+            {
+                for (var i = 0; i != EntitiesCapacity; i++)
+                    m_VersionByEntity[i] = 1;
+            }
+            else
+            {
+                for (var i = 0; i != EntitiesCapacity; i++)
+                    m_VersionByEntity[i] += 1;
+            }
+
+
+
             // Last entity indexInChunk identifies that we ran out of space...
             m_EntityInChunkByEntity[EntitiesCapacity - 1].IndexInChunk = -1;
             m_NextFreeEntityIndex = 0;
+            m_EntityCreateDestroyVersion++;
         }
 
         public void FreeEntities(Chunk* chunk)
@@ -577,6 +577,7 @@ namespace Unity.Entities
             }
 
             m_NextFreeEntityIndex = freeIndex;
+            m_EntityCreateDestroyVersion++;
         }
 
 #if UNITY_EDITOR
@@ -798,6 +799,8 @@ namespace Unity.Entities
             int newCapacity = count + 1; // make room for Entity.Null
             EnsureCapacity(newCapacity + 1); // the last entity is used to indicate we ran out of space
             m_NextFreeEntityIndex = newCapacity;
+            m_EntityCreateDestroyVersion++;
+
             for (int i = 1; i < newCapacity; ++i)
             {
                 Assert.IsTrue(m_EntityInChunkByEntity[i].Chunk == null); //  Loading into non-empty entity manager is not supported.
@@ -823,8 +826,7 @@ namespace Unity.Entities
             }
         }
 
-        public void AllocateEntitiesForRemapping(EntityComponentStore* srcEntityComponentStore,
-            ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        public void AllocateEntitiesForRemapping(EntityComponentStore* srcEntityComponentStore, ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
         {
             var count = srcEntityComponentStore->EntitiesCapacity;
             for (var i = 0; i != count; i++)
@@ -839,17 +841,19 @@ namespace Unity.Entities
                     }
 
                     var entityVersion = m_VersionByEntity[m_NextFreeEntityIndex];
-
+#if UNITY_EDITOR
+                    m_NameByEntity[m_NextFreeEntityIndex] = srcEntityComponentStore->m_NameByEntity[i];
+#endif
                     EntityRemapUtility.AddEntityRemapping(ref entityRemapping,
                         new Entity {Version = srcEntityComponentStore->m_VersionByEntity[i], Index = i},
                         new Entity {Version = entityVersion, Index = m_NextFreeEntityIndex});
                     m_NextFreeEntityIndex = entityIndexInChunk;
+                    m_EntityCreateDestroyVersion++;
                 }
             }
         }
 
-        public void AllocateEntitiesForRemapping(Chunk* chunk,
-            ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        public void AllocateEntitiesForRemapping(Chunk* chunk, EntityComponentStore* srcComponentStore, ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
         {
             var count = chunk->Count;
             var entities = (Entity*)chunk->Buffer;
@@ -863,16 +867,19 @@ namespace Unity.Entities
                 }
 
                 var entityVersion = m_VersionByEntity[m_NextFreeEntityIndex];
+#if UNITY_EDITOR
+                m_NameByEntity[m_NextFreeEntityIndex] = srcComponentStore->m_NameByEntity[entities[i].Index];
+#endif
 
                 EntityRemapUtility.AddEntityRemapping(ref entityRemapping,
                     new Entity {Version = entities[i].Version, Index = entities[i].Index},
                     new Entity {Version = entityVersion, Index = m_NextFreeEntityIndex});
                 m_NextFreeEntityIndex = entityIndexInChunk;
+                m_EntityCreateDestroyVersion++;
             }
         }
 
-        public void RemapChunk(Archetype* arch, Chunk* chunk, int baseIndex, int count,
-            ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        public void RemapChunk(Archetype* arch, Chunk* chunk, int baseIndex, int count, ref NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
         {
             Assert.AreEqual(chunk->Archetype->Offsets[0], 0);
             Assert.AreEqual(chunk->Archetype->SizeOfs[0], sizeof(Entity));
@@ -907,27 +914,11 @@ namespace Unity.Entities
             RemoveComponent
         }
 
-        internal bool CreateEntityBatchListForAddComponent(NativeArray<Entity> entities,
-            ComponentType componentType,
-            out NativeList<EntityBatchInChunk> entityBatchList)
-        {
-            return CreateEntityBatchList(m_EntityInChunkByEntity, entities, ComponentOperation.AddComponent,
-                componentType, out entityBatchList);
-        }
-
-        internal bool CreateEntityBatchListForRemoveComponent(NativeArray<Entity> entities,
-            ComponentType componentType,
-            out NativeList<EntityBatchInChunk> entityBatchList)
-        {
-            return CreateEntityBatchList(m_EntityInChunkByEntity, entities, ComponentOperation.RemoveComponent,
-                componentType, out entityBatchList);
-        }
-
         [BurstMonoInteropMethod(MakePublic = false)]
         private static void _EntityBatchFromEntityChunkDataShared(in EntityInChunk* chunkData,
             int chunkCount,
             EntityBatchInChunk* entityBatchList, int* currentbatchIndex,
-            ComponentOperation operation, ref ComponentType componentType, int* foundError)
+            int nSharedComponentsToAdd, int* foundError)
         {
 
             *foundError = 0;
@@ -958,14 +949,10 @@ namespace Unity.Entities
                 if (runBreak && entityBatch.Chunk != null)
                 {
 
-                    if (operation == ComponentOperation.AddComponent)
+                    if (nSharedComponentsToAdd + entityBatch.Chunk->Archetype->NumSharedComponents > kMaxSharedComponentCount)
                     {
-                        if (componentType.IsSharedComponent &&
-                            (entityBatch.Chunk->Archetype->NumSharedComponents == kMaxSharedComponentCount))
-                        {
-                            *foundError = 1;
-                            return;
-                        }
+                        *foundError = 1;
+                        return;
                     }
 
                     entityBatchList[*currentbatchIndex] = entityBatch;
@@ -1001,14 +988,10 @@ namespace Unity.Entities
                 return;
 
             // Deleted Entity (not an error)
-            if (operation == ComponentOperation.AddComponent)
+            if (nSharedComponentsToAdd + entityBatch.Chunk->Archetype->NumSharedComponents > kMaxSharedComponentCount)
             {
-                if (componentType.IsSharedComponent &&
-                    (entityBatch.Chunk->Archetype->NumSharedComponents == kMaxSharedComponentCount))
-                {
-                    *foundError = 1;
-                    return;
-                }
+                *foundError = 1;
+                return;
             }
 
             entityBatchList[*currentbatchIndex] = entityBatch;
@@ -1044,8 +1027,15 @@ namespace Unity.Entities
             }
         }
 
+        internal bool CreateEntityBatchList(NativeArray<Entity> entities, int nSharedComponentsToAdd,
+            out NativeList<EntityBatchInChunk> entityBatchList)
+        {
+            return CreateEntityBatchList(m_EntityInChunkByEntity, entities,
+                nSharedComponentsToAdd, out entityBatchList);
+        }
+
         private static bool CreateEntityBatchList(EntityInChunk* entityInChunk, NativeArray<Entity> entities,
-            ComponentOperation componentOperation, ComponentType componentType,
+            int nSharedComponentsToAdd,
             out NativeList<EntityBatchInChunk> entityBatchList)
         {
             if (entities.Length == 0)
@@ -1072,7 +1062,7 @@ namespace Unity.Entities
 
             EntityBatchFromEntityChunkDataShared((EntityInChunk*)entityChunkData.GetUnsafePtr(),
                 entityChunkData.Length, (EntityBatchInChunk*)entityBatchList.GetUnsafePtr(),&finalBatchSize,
-                componentOperation,ref componentType,&foundError);
+                nSharedComponentsToAdd,&foundError);
 
             entityBatchList.Length = finalBatchSize;
 
@@ -1182,20 +1172,7 @@ namespace Unity.Entities
             static readonly int Log2ChunkSizeInBytesRoundedUpToPow2 = math.tzcnt(ChunkSizeInBytesRoundedUpToPow2);
             static readonly int MegachunkSizeInBytes = 1 << (Log2ChunkSizeInBytesRoundedUpToPow2 + 6);
 
-            int m_refCount;
-
-#if USE_VIRTUAL_MEMORY
-            uint m_MegachunkSizeInPages;
-            long m_pagesCommitted;
-            VMRange m_chunkAddressSpace;
-
-            public ulong ReservedBytes => m_chunkAddressSpace.SizeInBytes;
-            public ulong CommittedBytes => (ulong)(m_pagesCommitted * m_chunkAddressSpace.PageSizeInBytes);
-
-            public long ReservedPages => m_chunkAddressSpace.pageCount;
-            public long CommittedPages => m_pagesCommitted;
-            public long PageSizeInBytes => m_chunkAddressSpace.PageSizeInBytes;
-#endif
+//            int m_refCount;
 
             int AllocationFailed(int megachunkIndex, int offset, int count)
             {
@@ -1212,55 +1189,6 @@ namespace Unity.Entities
                         if (originalValue == Interlocked.CompareExchange(ref chunkInUse[megachunkIndex], newValue, originalValue))
                             return kErrorAllocationFailed; // report that the allocation itself failed (it did).
                     }
-                }
-            }
-
-            public int Initialize(ulong sizeOfAddressRangeInBytes)
-            {
-                m_refCount++;
-
-                if (m_refCount != 1)
-                {
-                    return kErrorNone;
-                }
-
-#if USE_VIRTUAL_MEMORY
-                m_pagesCommitted = 0;
-
-                BaselibErrorState errorState = default;
-                m_chunkAddressSpace = VirtualMemoryUtility.ReserveAddressSpace(sizeOfAddressRangeInBytes / VirtualMemoryUtility.DefaultPageSizeInBytes, VirtualMemoryUtility.DefaultPageSizeInBytes, out errorState);
-
-                VirtualMemoryUtility.ReportWrappedBaselibError(errorState);
-                if(errorState.OutOfMemory)
-                {
-                    FixedString512 error = "Failed to reserve ";
-                    error.Append(sizeOfAddressRangeInBytes);
-                    FixedString128 e2 = " bytes. System ran out of memory.";
-                    error.Append(e2);
-                    Debug.LogError(error);
-                }
-
-                m_MegachunkSizeInPages = (uint)(((MegachunkSizeInBytes + m_chunkAddressSpace.PageSizeInBytes - 1) & ~(m_chunkAddressSpace.PageSizeInBytes - 1)) / m_chunkAddressSpace.PageSizeInBytes);
-#endif
-                return kErrorNone;
-            }
-
-            public void Dispose()
-            {
-                m_refCount--;
-
-                if(m_refCount == 0)
-                {
-#if USE_VIRTUAL_MEMORY
-                    BaselibErrorState errorState = default;
-                    VirtualMemoryUtility.FreeAddressSpace(m_chunkAddressSpace, out errorState);
-                    VirtualMemoryUtility.ReportWrappedBaselibError(errorState);
-                    if(errorState.InvalidAddressRange)
-                    {
-                        FixedString512 error = "Failed to free address range because it is was never reserved.";
-                        Debug.LogError(error);
-                    }
-#endif
                 }
             }
 
@@ -1310,46 +1238,8 @@ namespace Unity.Entities
                                 {
                                     if (originalValue == 0) // we are the one who allocates this megachunk! we set the first bit in the mask
                                     {
-#if USE_VIRTUAL_MEMORY
-                                    BaselibErrorState errorState = default;
-
-                                    IntPtr allocationPtr =
- (IntPtr)((long)m_chunkAddressSpace.ptr + megachunkIndex * MegachunkSizeInBytes);
-                                    VMRange allocationRange = new VMRange { ptr = allocationPtr, log2PageSize =
- m_chunkAddressSpace.log2PageSize, pageCount = m_MegachunkSizeInPages };
-
-                                    if (m_pagesCommitted + m_MegachunkSizeInPages > m_chunkAddressSpace.pageCount)
-                                    {
-                                        FixedString512 error =
- "You have committed all virtual memory reserved for Chunks (";
-                                        error.Append(CommittedBytes);
-                                        FixedString128 e2 = " bytes). To allocate more than ";
-                                        error.Append(e2);
-                                        error.Append((CommittedBytes / (ulong)ChunkSizeInBytesRoundedUpToPow2));
-                                        e2 = " Chunks, you must reserve a larger virtual address range by setting ";
-                                        error.Append(e2);
-                                        e2 = nameof(TotalChunkAddressSpaceInBytes);
-                                        error.Append(e2);
-                                        e2 = " during World initialization.";
-                                        error.Append(e2);
-                                        Debug.LogError(error);
-                                    }
-
-                                    VirtualMemoryUtility.CommitMemory(allocationRange, out errorState);
-                                    VirtualMemoryUtility.ReportWrappedBaselibError(errorState);
-
-                                    long allocated = (long)allocationRange.ptr;
-                                    if (!errorState.Success)
-                                    {
-                                        AllocationFailed(megachunkIndex, bit);
-                                        return (int)errorState.code;
-                                    }
-
-                                    Interlocked.Add(ref m_pagesCommitted, m_MegachunkSizeInPages);
-#else
                                         long allocated = (long) Memory.Unmanaged.Allocate(MegachunkSizeInBytes,
                                             CollectionHelper.CacheLineSize, Allocator.Persistent);
-#endif
                                         if (allocated == 0) // if the allocation failed...
                                             return AllocationFailed(megachunkIndex, offset, actualCount);
                                         while (0L != Interlocked.CompareExchange(ref megachunk[megachunkIndex],
@@ -1414,21 +1304,7 @@ namespace Unity.Entities
                                         long allocated = Interlocked.Exchange(ref megachunk[megachunkIndex], 0L); // swap the pointer with null
                                         if (allocated == 0L) // but if it was already null,
                                             return kErrorChunkAlreadyFreed; // someone already freed our pointer? that's uncool
-#if USE_VIRTUAL_MEMORY
-                                        VMRange rangeToFree = new VMRange { ptr = (IntPtr)allocated, log2PageSize = m_chunkAddressSpace.log2PageSize, pageCount = m_MegachunkSizeInPages };
-                                        BaselibErrorState errorState = default;
-                                        VirtualMemoryUtility.DecommitMemory(rangeToFree, out errorState);
-                                        VirtualMemoryUtility.ReportWrappedBaselibError(errorState);
-
-                                        if (!errorState.Success)
-                                        {
-                                            return (int)errorState.code;
-                                        }
-
-                                        Interlocked.Add(ref m_pagesCommitted, -m_MegachunkSizeInPages);
-#else
                                         Memory.Unmanaged.Free((void*)allocated, Allocator.Persistent); // no need to hurry, nobody depends on this finishing
-#endif
                                     }
                                     return kErrorNone;
                                 }
@@ -1444,19 +1320,11 @@ namespace Unity.Entities
 
         public static void GetChunkMemoryStats(out long reservedPages, out long committedPages, out ulong reservedBytes, out ulong committedBytes, out long pageSizeInBytes)
         {
-#if USE_VIRTUAL_MEMORY
-            reservedPages = s_chunkStore.Data.ReservedPages;
-            reservedBytes = s_chunkStore.Data.ReservedBytes;
-            committedPages = s_chunkStore.Data.CommittedPages;
-            committedBytes = s_chunkStore.Data.CommittedBytes;
-            pageSizeInBytes = s_chunkStore.Data.PageSizeInBytes;
-#else
             reservedPages = 0;
             reservedBytes = 0;
             committedPages = 0;
             committedBytes = 0;
             pageSizeInBytes = 0;
-#endif
         }
 
         public Chunk* AllocateChunk()
@@ -1523,12 +1391,11 @@ namespace Unity.Entities
             // the same as the type count.
             var scalarEntityPatchCount = 0;
             var bufferEntityPatchCount = 0;
-            var managedEntityPatchCount = 0;
             var numManagedArrays = 0;
             var numSharedComponents = 0;
             for (var i = 0; i < count; ++i)
             {
-                var ct = GetTypeInfo(types[i].TypeIndex);
+                ref readonly var ct = ref GetTypeInfo(types[i].TypeIndex);
 
                 if (ct.Category == TypeManager.TypeCategory.ISharedComponentData)
                 {
@@ -1537,13 +1404,9 @@ namespace Unity.Entities
                 else if (TypeManager.IsManagedComponent(types[i].TypeIndex))
                 {
                     ++numManagedArrays;
-                    ++managedEntityPatchCount;
                 }
                 else
                 {
-                    if (!ct.HasEntities)
-                        continue;
-
                     if (ct.BufferCapacity >= 0)
                         bufferEntityPatchCount += ct.EntityOffsetCount;
                     else if (ct.SizeInChunk > 0)
@@ -1560,7 +1423,6 @@ namespace Unity.Entities
             ChunkAllocate<int>(&dstArchetype->TypeMemoryOrder, count);
             ChunkAllocate<EntityRemapUtility.EntityPatchInfo>(&dstArchetype->ScalarEntityPatches, scalarEntityPatchCount);
             ChunkAllocate<EntityRemapUtility.BufferEntityPatchInfo>(&dstArchetype->BufferEntityPatches, bufferEntityPatchCount);
-            ChunkAllocate<EntityRemapUtility.ManagedEntityPatchInfo>(&dstArchetype->ManagedEntityPatches, managedEntityPatchCount);
 
             dstArchetype->TypesCount = count;
             Memory.Array.Copy(dstArchetype->Types, types, count);
@@ -1597,17 +1459,19 @@ namespace Unity.Entities
             for (var i = 0; i < count; ++i)
             {
                 var typeIndex = types[i].TypeIndex;
-                var typeInfo = GetTypeInfo(typeIndex);
+                ref readonly var typeInfo = ref GetTypeInfo(typeIndex);
                 if (typeIndex == m_DisabledType)
                     dstArchetype->Flags |= ArchetypeFlags.Disabled;
                 if (typeIndex == m_PrefabType)
                     dstArchetype->Flags |= ArchetypeFlags.Prefab;
                 if (typeIndex == m_ChunkHeaderType)
                     dstArchetype->Flags |= ArchetypeFlags.HasChunkHeader;
-                if (typeInfo.BlobAssetRefOffsetCount > 0)
-                    dstArchetype->Flags |= ArchetypeFlags.ContainsBlobAssetRefs;
+                if (typeInfo.HasBlobAssetRefs)
+                    dstArchetype->Flags |= ArchetypeFlags.HasBlobAssetRefs;
                 if (!types[i].IsChunkComponent && types[i].IsManagedComponent && typeInfo.Category == TypeManager.TypeCategory.UnityEngineObject)
                     dstArchetype->Flags |= ArchetypeFlags.HasHybridComponents;
+                if (types[i].IsManagedComponent && TypeManager.HasEntityReferences(typeIndex))
+                    dstArchetype->Flags |= ArchetypeFlags.HasManagedEntityRefs;
             }
 
             if (dstArchetype->NumManagedComponents > 0)
@@ -1621,12 +1485,11 @@ namespace Unity.Entities
 
             dstArchetype->ScalarEntityPatchCount = scalarEntityPatchCount;
             dstArchetype->BufferEntityPatchCount = bufferEntityPatchCount;
-            dstArchetype->ManagedEntityPatchCount = managedEntityPatchCount;
 
             int maxCapacity = TypeManager.MaximumChunkCapacity;
             for (var i = 0; i < count; ++i)
             {
-                var cType = GetTypeInfo(types[i].TypeIndex);
+                ref readonly var cType = ref GetTypeInfo(types[i].TypeIndex);
                 if (i < dstArchetype->NonZeroSizedTypesCount)
                 {
                     if (cType.SizeInChunk > short.MaxValue)
@@ -1710,10 +1573,9 @@ namespace Unity.Entities
             // Fill in arrays of scalar, buffer and managed entity patches
             var scalarPatchInfo = dstArchetype->ScalarEntityPatches;
             var bufferPatchInfo = dstArchetype->BufferEntityPatches;
-            var managedPatchInfo = dstArchetype->ManagedEntityPatches;
             for (var i = 0; i != count; i++)
             {
-                var ct = GetTypeInfo(types[i].TypeIndex);
+                ref readonly var ct = ref GetTypeInfo(types[i].TypeIndex);
                 var offsets = GetEntityOffsets(ct);
                 var offsetCount = ct.EntityOffsetCount;
 
@@ -1723,8 +1585,6 @@ namespace Unity.Entities
                 }
                 else if (TypeManager.IsManagedComponent(ct.TypeIndex))
                 {
-                    var index = dstArchetype->TypeMemoryOrder[i];
-                    managedPatchInfo = EntityRemapUtility.AppendManagedEntityPatches(managedPatchInfo, ComponentType.FromTypeIndex(ct.TypeIndex));
                 }
                 else if (ct.SizeInChunk > 0)
                 {
@@ -1735,7 +1595,6 @@ namespace Unity.Entities
 
             dstArchetype->ScalarEntityPatchCount = scalarEntityPatchCount;
             dstArchetype->BufferEntityPatchCount = bufferEntityPatchCount;
-            dstArchetype->ManagedEntityPatchCount = managedEntityPatchCount;
             UnsafeUtility.MemClear(dstArchetype->QueryMaskArray, sizeof(byte) * 128);
 
             // Update the list of all created archetypes
@@ -1761,8 +1620,7 @@ namespace Unity.Entities
 
         private bool ArchetypeSystemStateCleanupComplete(Archetype* archetype)
         {
-            if (archetype->TypesCount == 2 && archetype->Types[1].TypeIndex == m_CleanupEntityType) return true;
-            return false;
+            return archetype->TypesCount == 2 && archetype->Types[1].TypeIndex == m_CleanupEntityType;
         }
 
         private bool ArchetypeSystemStateCleanupNeeded(Archetype* archetype)

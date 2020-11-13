@@ -7,9 +7,9 @@ using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
-    class SystemBaseDependencyTests : ECSTestsFixture
+    partial class SystemBaseDependencyTests : ECSTestsFixture
     {
-        public class ReadSystem1 : SystemBase
+        public partial class ReadSystem1 : SystemBase
         {
             protected override void OnUpdate()
             {
@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        public class ReadSystem2 : SystemBase
+        public partial class ReadSystem2 : SystemBase
         {
             public bool returnWrongJob = false;
             public bool ignoreInputDeps = false;
@@ -44,7 +44,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        public class ReadSystem3 : SystemBase
+        public partial class ReadSystem3 : SystemBase
         {
             public EntityQuery m_ReadGroup;
 
@@ -55,7 +55,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        public class WriteSystem : SystemBase
+        public partial class WriteSystem : SystemBase
         {
             public bool SkipJob = false;
 
@@ -72,6 +72,28 @@ namespace Unity.Entities.Tests
                 EntityManager.CreateEntity(typeof(EcsTestData));
             }
         }
+
+        public class GenericSystem<T> : SystemBase
+        {
+            public T thing;
+            public T thing2;
+
+            protected override void OnUpdate()
+            {
+                thing = thing2;
+            }
+        }
+
+#if !NET_DOTS
+        [Test]
+        public void CreatingGenericSystem_Works()
+        {
+            var system = (GenericSystem<int>)World.CreateSystem(typeof(GenericSystem<int>));
+            system.thing = 5;
+            system.Update();
+            Assert.AreEqual(system.thing, system.thing2);
+        }
+#endif
 
         [Test]
         public void ReturningWrongJobThrowsInCorrectSystemUpdate()
@@ -137,7 +159,7 @@ namespace Unity.Entities.Tests
             rs.Update();
         }
 
-        class UseEcsTestDataFromEntity : SystemBase
+        partial class UseEcsTestDataFromEntity : SystemBase
         {
             public struct MutateEcsTestDataJob : IJob
             {
@@ -168,14 +190,14 @@ namespace Unity.Entities.Tests
             systemB.Update();
         }
 
-        class EmptySystemBase : SystemBase
+        partial class EmptySystemBase : SystemBase
         {
             protected override void OnUpdate()
             {
             }
         }
 
-        class SystemBaseWithJobChunkJob : SystemBase
+        partial class SystemBaseWithJobChunkJob : SystemBase
         {
             public struct EmptyJob : IJobChunk
             {
@@ -206,7 +228,7 @@ namespace Unity.Entities.Tests
             systemB.Update();
         }
 
-        class SystemBaseEntitiesForEachDependencies : SystemBase
+        partial class SystemBaseEntitiesForEachDependencies : SystemBase
         {
             public bool DoRunToCompleteDependencies = false;
 
@@ -252,7 +274,7 @@ namespace Unity.Entities.Tests
             });
         }
 
-        class SystemBaseEntitiesForEachScheduling : SystemBase
+        partial class SystemBaseEntitiesForEachScheduling : SystemBase
         {
             public int ScheduleMode;
             public NativeArray<Entity> CreatedEntities;
@@ -319,7 +341,7 @@ namespace Unity.Entities.Tests
             system.CreatedEntities.Dispose();
         }
 
-        class SystemBaseEntitiesForEachComponentDataFromEntity : SystemBase
+        partial class SystemBaseEntitiesForEachComponentDataFromEntity : SystemBase
         {
             public bool RunScheduleParallel = false;
 
@@ -361,6 +383,29 @@ namespace Unity.Entities.Tests
                 else
                     Assert.DoesNotThrow(() => { system.Update(); });
             }
+        }
+
+        partial class SystemWithSyncPointAfterSchedule : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                Entities.ForEach((ref EcsTestData _) => { }).Schedule();
+
+                // this forces a sync-point and must finish the job we just scheduled
+                EntityManager.CreateEntity();
+            }
+
+            protected override void OnCreate()
+            {
+                EntityManager.CreateEntity(typeof(EcsTestData));
+            }
+        }
+
+        [Test]
+        public void SystemBase_CanHaveSyncPointAfterSchedule()
+        {
+            var s = World.CreateSystem<SystemWithSyncPointAfterSchedule>();
+            Assert.DoesNotThrow(() => s.Update());
         }
     }
 }

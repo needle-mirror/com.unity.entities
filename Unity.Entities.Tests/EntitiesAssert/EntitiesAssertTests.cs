@@ -91,7 +91,7 @@ namespace Unity.Entities.Tests
                 EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Partial<EcsTestData>(entity)));
         }
 
-        [Test]
+        [Test, Ignore("DOTS-2301")]
         public void ContainsOnly_WithNonEmptyEntity()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));

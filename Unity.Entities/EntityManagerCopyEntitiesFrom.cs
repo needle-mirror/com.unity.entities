@@ -79,7 +79,7 @@ namespace Unity.Entities
                     archetypeChunkChangesJob.Complete();
 
                     EntityDiffer.CopyAndReplaceChunks(srcEntityManager, this, selfAccess->m_UniversalQueryWithChunks, archetypeChunkChanges);
-                    Unity.Entities.EntityComponentStore.AssertSameEntities(srcAccess->EntityComponentStore, selfAccess->EntityComponentStore);
+                    Unity.Entities.EntityComponentStore.AssertAllEntitiesCopied(srcAccess->EntityComponentStore, selfAccess->EntityComponentStore);
                 }
             }
         }

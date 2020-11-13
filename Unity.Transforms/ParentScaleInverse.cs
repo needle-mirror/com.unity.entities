@@ -25,10 +25,10 @@ namespace Unity.Transforms
     // (or) ParentScaleInverse = Parent.NonUniformScale^-1
     public abstract class ParentScaleInverseSystem : JobComponentSystem
     {
-        private EntityQuery m_Group;
+        private EntityQuery m_Query;
 
         [BurstCompile]
-        struct ToChildParentScaleInverse : IJobChunk
+        struct ToChildParentScaleInverse : IJobEntityBatch
         {
             [ReadOnly] public ComponentTypeHandle<Scale> ScaleTypeHandle;
             [ReadOnly] public ComponentTypeHandle<NonUniformScale> NonUniformScaleTypeHandle;
@@ -37,22 +37,22 @@ namespace Unity.Transforms
             [NativeDisableContainerSafetyRestriction] public ComponentDataFromEntity<ParentScaleInverse> ParentScaleInverseFromEntity;
             public uint LastSystemVersion;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                var hasScale = chunk.Has(ScaleTypeHandle);
-                var hasNonUniformScale = chunk.Has(NonUniformScaleTypeHandle);
-                var hasCompositeScale = chunk.Has(CompositeScaleTypeHandle);
+                var hasScale = batchInChunk.Has(ScaleTypeHandle);
+                var hasNonUniformScale = batchInChunk.Has(NonUniformScaleTypeHandle);
+                var hasCompositeScale = batchInChunk.Has(CompositeScaleTypeHandle);
 
                 if (hasCompositeScale)
                 {
-                    var didChange = chunk.DidChange(CompositeScaleTypeHandle, LastSystemVersion) ||
-                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
+                    var didChange = batchInChunk.DidChange(CompositeScaleTypeHandle, LastSystemVersion) ||
+                        batchInChunk.DidChange(ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkCompositeScales = chunk.GetNativeArray(CompositeScaleTypeHandle);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
-                    for (var i = 0; i < chunk.Count; i++)
+                    var chunkCompositeScales = batchInChunk.GetNativeArray(CompositeScaleTypeHandle);
+                    var chunkChildren = batchInChunk.GetBufferAccessor(ChildTypeHandle);
+                    for (var i = 0; i < batchInChunk.Count; i++)
                     {
                         var inverseScale = math.inverse(chunkCompositeScales[i].Value);
                         var children = chunkChildren[i];
@@ -68,14 +68,14 @@ namespace Unity.Transforms
                 }
                 else if (hasScale)
                 {
-                    var didChange = chunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
-                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
+                    var didChange = batchInChunk.DidChange(ScaleTypeHandle, LastSystemVersion) ||
+                        batchInChunk.DidChange(ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkScales = chunk.GetNativeArray(ScaleTypeHandle);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
-                    for (var i = 0; i < chunk.Count; i++)
+                    var chunkScales = batchInChunk.GetNativeArray(ScaleTypeHandle);
+                    var chunkChildren = batchInChunk.GetBufferAccessor(ChildTypeHandle);
+                    for (var i = 0; i < batchInChunk.Count; i++)
                     {
                         var inverseScale = float4x4.Scale(1.0f / chunkScales[i].Value);
                         var children = chunkChildren[i];
@@ -91,14 +91,14 @@ namespace Unity.Transforms
                 }
                 else // if (hasNonUniformScale)
                 {
-                    var didChange = chunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
-                        chunk.DidChange(ChildTypeHandle, LastSystemVersion);
+                    var didChange = batchInChunk.DidChange(NonUniformScaleTypeHandle, LastSystemVersion) ||
+                        batchInChunk.DidChange(ChildTypeHandle, LastSystemVersion);
                     if (!didChange)
                         return;
 
-                    var chunkNonUniformScales = chunk.GetNativeArray(NonUniformScaleTypeHandle);
-                    var chunkChildren = chunk.GetBufferAccessor(ChildTypeHandle);
-                    for (var i = 0; i < chunk.Count; i++)
+                    var chunkNonUniformScales = batchInChunk.GetNativeArray(NonUniformScaleTypeHandle);
+                    var chunkChildren = batchInChunk.GetBufferAccessor(ChildTypeHandle);
+                    for (var i = 0; i < batchInChunk.Count; i++)
                     {
                         var inverseScale = float4x4.Scale(1.0f / chunkNonUniformScales[i].Value);
                         var children = chunkChildren[i];
@@ -117,7 +117,7 @@ namespace Unity.Transforms
 
         protected override void OnCreate()
         {
-            m_Group = GetEntityQuery(new EntityQueryDesc
+            m_Query = GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -144,7 +144,7 @@ namespace Unity.Transforms
                 ParentScaleInverseFromEntity = GetComponentDataFromEntity<ParentScaleInverse>(),
                 LastSystemVersion = LastSystemVersion
             };
-            var toParentScaleInverseJobHandle = toParentScaleInverseJob.Schedule(m_Group, inputDeps);
+            var toParentScaleInverseJobHandle = toParentScaleInverseJob.ScheduleParallel(m_Query, 1, inputDeps);
             return toParentScaleInverseJobHandle;
         }
     }

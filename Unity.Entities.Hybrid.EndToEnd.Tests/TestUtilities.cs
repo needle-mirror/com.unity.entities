@@ -27,6 +27,7 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
                     typeof(SceneSystemGroup),
                     typeof(SceneSystem),
                     typeof(ResolveSceneReferenceSystem),
+                    typeof(GameObjectSceneSystem),
                     typeof(SceneSectionStreamingSystem)
                 });
             }
@@ -42,6 +43,11 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
                 });
             }
 #endif
+            
+            systems.AddRange(new[]
+            {
+                typeof(RetainBlobAssetSystem),
+            });
 
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, systems);
         }

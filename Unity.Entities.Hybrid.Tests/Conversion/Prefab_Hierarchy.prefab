@@ -57,8 +57,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d85176e9153349648a01d1578e91620, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_SerializedData:
-    Value: 100
+  Value: 100
 --- !u!1 &6373645895660958117
 GameObject:
   m_ObjectHideFlags: 0
@@ -115,5 +114,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d85176e9153349648a01d1578e91620, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_SerializedData:
-    Value: 101
+  Value: 101

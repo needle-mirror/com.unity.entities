@@ -36,7 +36,8 @@ This organizational scheme provides a one-to-many relationship between archetype
 
 ECS does not store the entities that are in a chunk in a specific order. When an entity is created or changed to a new archetype, ECS puts it into the first chunk that stores the archetype, and that has space. Chunks remain tightly packed, however; when an entity is removed from an archetype, ECS moves the components of the last entity in the chunk into the newly vacated slots in the component arrays.
 
-**Note:** The values of shared components in an archetype also determine which entities are stored in which chunk. All of the entities in a given chunk have the exact same values for any shared components. If you change the value of any field in a shared component, the modified entity moves to a different chunk, just as it would if you changed that entity's archetype. A new chunk is allocated, if necessary. 
+> [!NOTE]
+> The values of shared components in an archetype also determine which entities are stored in which chunk. All of the entities in a given chunk have the exact same values for any shared components. If you change the value of any field in a shared component, the modified entity moves to a different chunk, just as it would if you changed that entity's archetype. A new chunk is allocated, if necessary. 
 
 Use shared components to group entities within an archetype when it is more efficient to process them together. For example, the Hybrid Renderer defines its [RenderMesh component] to achieve this.
 
@@ -48,11 +49,11 @@ To identify which entities a system should process, use an [EntityQuery]. An ent
 * **Any** — the archetype must contain at least one of the component types in the **Any** category.
 * **None** — the archetype must not contain any of the component types in the **None** category.
 
-An entity query provides a list of the chunks that contain the types of components the query requires. You can then iterate over the components in those chunks directly with [IJobChunk]. 
+An entity query provides a list of the chunks that contain the types of components the query requires. You can then iterate over the components in those chunks directly with [IJobEntityBatch]. 
 
 ## Jobs
 
-To take advantage of multiple threads, you can use the [C# Job system]. ECS provides the [SystemBase] class, along with the `Entities.ForEach` and [IJobChunk] `Schedule()` and `ScheduleParallel()` methods, to transform data outside the main thread. `Entities.ForEach` is the simplest to use and typically requires fewer lines of code to implement. You can use IJobChunk for more complex situations that `Entities.ForEach` does not handle.
+To take advantage of multiple threads, you can use the [C# Job system]. ECS provides the [SystemBase] class, along with the `Entities.ForEach` and [IJobEntityBatch] `Schedule()` and `ScheduleParallel()` methods, to transform data outside the main thread. `Entities.ForEach` is the simplest to use and typically requires fewer lines of code to implement. You can use IJobChunk for more complex situations that `Entities.ForEach` does not handle.
 
 ECS schedules jobs on the main thread in the [order that your systems are arranged]. As jobs are scheduled, ECS keeps track of which jobs read and write which components. A job that reads a component is dependent on any prior scheduled job that writes to the same component and vice versa. The job scheduler uses job dependencies to determine which jobs it can run in parallel and which must run in sequence.  
 
@@ -78,7 +79,7 @@ When you create your game or application in the Unity Editor, you can use GameOb
 [Entity component buffer systems]: xref:Unity.Entities.EntityCommandBufferSystem
 [EntityQuery]: xref:Unity.Entities.EntityQuery
 [group]: xref:Unity.Entities.ComponentSystemGroup
-[IJobChunk]: chunk_iteration_job.md
+[IJobEntityBatch]: ecs_ijobentitybatch.md
 [RenderMesh component]: https://docs.unity3d.com/Packages/com.unity.rendering.hybrid@latest?subfolder=/api/Unity.Rendering.RenderMesh.html
  [simulation group]: xref:Unity.Entities.SimulationSystemGroup
 [System Update Order]: system_update_order.md

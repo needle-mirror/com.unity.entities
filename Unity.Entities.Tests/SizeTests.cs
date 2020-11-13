@@ -121,10 +121,6 @@ namespace Unity.Entities.Tests
 
 #pragma warning restore 0219
 
-// We want these types registered with in DOTS Runtime by default
-#if !UNITY_DOTSRUNTIME
-        [DisableAutoTypeRegistration]
-#endif
         unsafe struct TestTooBig : IComponentData
         {
             fixed byte Value[32768];
@@ -133,10 +129,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void ThrowsWhenTooLargeCreate()
         {
-// TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
-#if !UNITY_DOTSRUNTIME
-            TypeManager.AddNewComponentTypes(typeof(TestTooBig));
-#endif
             Assert.Throws<ArgumentException>(() =>
             {
                 m_Manager.CreateEntity(typeof(TestTooBig));
@@ -146,10 +138,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void ThrowsWhenTooLargeAddComponent()
         {
-// TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
-#if !UNITY_DOTSRUNTIME
-            TypeManager.AddNewComponentTypes(typeof(TestTooBig));
-#endif
             var entity = m_Manager.CreateEntity();
             Assert.Throws<InvalidOperationException>(() =>
             {

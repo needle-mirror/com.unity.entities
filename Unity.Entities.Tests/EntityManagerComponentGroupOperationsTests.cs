@@ -236,10 +236,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(archetype, m_Manager.GetChunk(entity2).Archetype);
         }
 
-// We want these types registered with in DOTS Runtime by default
-#if !UNITY_DOTSRUNTIME
-        [DisableAutoTypeRegistration]
-#endif
         private struct EcsTestDataHuge : IComponentData
         {
             public FixedString4096 value0;
@@ -257,10 +253,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void AddMultipleComponentsWithQuery_ExceedChunkCapacityThrows()
         {
-// TypeManager.AddNewComponentTypes is not supported in DOTS Runtime currently
-#if !UNITY_DOTSRUNTIME
-            TypeManager.AddNewComponentTypes(new[]{typeof(EcsTestDataHuge)});
-#endif
             var componentTypes = new ComponentTypes(typeof(EcsTestDataHuge)); // add really big component(s)
 
             Assert.AreEqual(16320, Chunk.GetChunkBufferSize());   // if chunk size changes, need to update this test

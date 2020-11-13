@@ -18,20 +18,20 @@ namespace Unity.Entities
 {
     public class GameObjectConversionSettings
     {
-        // forked
         public World                    DestinationWorld;
         public Hash128                  SceneGUID;
         public string                   DebugConversionName = "";
         public ConversionFlags          ConversionFlags;
 #if UNITY_EDITOR
+        public UnityEditor.GUID         BuildConfigurationGUID;
         public Build.BuildConfiguration BuildConfiguration;
         public AssetImportContext       AssetImportContext;
 #endif
         public WorldSystemFilterFlags FilterFlags = WorldSystemFilterFlags.GameObjectConversion;
-        // not carried forward into a fork
         public Type[]                   ExtraSystems = Array.Empty<Type>();
         public List<Type>               Systems;
-        public byte                     NamespaceID;
+        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
+        public byte                     NamespaceID; // this must be internal
         public Action<World>            ConversionWorldCreated;        // get a callback right after the conversion world is created and systems have been added to it (good for tests that want to inject something)
         public Action<World>            ConversionWorldPreDispose;     // get a callback right before the conversion world gets disposed (good for tests that want to validate world contents)
 
@@ -52,6 +52,7 @@ namespace Unity.Entities
         public GameObjectConversionSettings() {}
 
         // not a clone - only copies what makes sense for creating entities into a separate guid namespace
+        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
         public GameObjectConversionSettings Fork(byte entityGuidNamespaceID)
         {
             if (entityGuidNamespaceID == 0)
@@ -67,6 +68,7 @@ namespace Unity.Entities
                 BlobAssetStore = BlobAssetStore,
 #if UNITY_EDITOR
                 BuildConfiguration = BuildConfiguration,
+                BuildConfigurationGUID = BuildConfigurationGUID,
                 AssetImportContext = AssetImportContext,
 #endif
             };

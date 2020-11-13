@@ -1,13 +1,18 @@
-using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Profiling;
+using UnityEngine.Profiling;
 
 namespace Unity.Entities
 {
     static unsafe partial class EntityDiffer
     {
+        static readonly Profiling.ProfilerMarker s_PlaybackManagedChangesMarker = new Profiling.ProfilerMarker("PlaybackManagedChanges");
+        static readonly Profiling.ProfilerMarker s_CopySharedComponentsMarker = new Profiling.ProfilerMarker("CopySharedComponents");
+        static readonly Profiling.ProfilerMarker s_CopyManagedComponentsMarker = new Profiling.ProfilerMarker("CopyManagedComponents");
+
         [BurstCompile]
         struct PatchAndAddClonedChunks : IJobParallelFor
         {
@@ -70,54 +75,225 @@ namespace Unity.Entities
             s_CopyAndReplaceChunksProfilerMarker.End();
         }
 
-        static void DestroyChunks(EntityManager entityManager, NativeList<ArchetypeChunk> chunks)
+        [BurstCompile]
+        struct DestroyChunksJob : IJob
         {
-            var access = entityManager.GetCheckedEntityDataAccess();
-            var ecs = access->EntityComponentStore;
+            public EntityManager EntityManager;
+            public NativeList<ArchetypeChunk> Chunks;
 
-            for (var i = 0; i < chunks.Length; i++)
+            public void Execute()
             {
-                Assert.IsTrue(chunks[i].m_EntityComponentStore == access);
-                DestroyChunkForDiffing(entityManager, chunks[i].m_Chunk);
+                var access = EntityManager.GetCheckedEntityDataAccess();
+                var ecs = access->EntityComponentStore;
+
+                for (var i = 0; i < Chunks.Length; i++)
+                {
+                    var chunk = Chunks[i].m_Chunk;
+                    var count = chunk->Count;
+                    ChunkDataUtility.DeallocateBuffers(chunk);
+                    ecs->DeallocateManagedComponents(chunk, 0, count);
+
+                    chunk->Archetype->EntityCount -= chunk->Count;
+                    ecs->FreeEntities(chunk);
+
+                    ChunkDataUtility.SetChunkCountKeepMetaChunk(chunk, 0);
+                }
             }
         }
 
-        static void DestroyChunkForDiffing(EntityManager entityManager, Chunk* chunk)
+        static void DestroyChunks(EntityManager entityManager, NativeList<ArchetypeChunk> chunks)
         {
+            s_DestroyChunksProfilerMarker.Begin();
+            new DestroyChunksJob
+            {
+                EntityManager = entityManager,
+                Chunks = chunks
+            }.Run();
+            s_PlaybackManagedChangesMarker.Begin();
             var access = entityManager.GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
             var mcs = access->ManagedComponentStore;
-
-            var count = chunk->Count;
-            ChunkDataUtility.DeallocateBuffers(chunk);
-            ecs->DeallocateManagedComponents(chunk, 0, count);
-
-            chunk->Archetype->EntityCount -= chunk->Count;
-            ecs->FreeEntities(chunk);
-
-            ChunkDataUtility.SetChunkCountKeepMetaChunk(chunk, 0);
-
             mcs.Playback(ref ecs->ManagedChangesTracker);
+            s_PlaybackManagedChangesMarker.End();
+            s_DestroyChunksProfilerMarker.End();
+        }
+
+        [BurstCompile]
+        struct CollectSharedComponentIndices : IJob
+        {
+            public NativeList<ArchetypeChunk> Chunks;
+            public NativeList<int> SharedComponentIndices;
+
+            public void Execute()
+            {
+                var indices = new UnsafeHashSet<int>(128, Allocator.Temp);
+                for (int i = 0; i < Chunks.Length; i++)
+                    HandleChunk(Chunks[i].m_Chunk, ref indices);
+
+                SharedComponentIndices.AddRange(indices.ToNativeArray(Allocator.Temp));
+            }
+
+            void HandleChunk(Chunk* srcChunk, ref UnsafeHashSet<int> indices)
+            {
+                var srcArchetype = srcChunk->Archetype;
+                var n = srcArchetype->NumSharedComponents;
+                var sharedIndices = stackalloc int[srcArchetype->NumSharedComponents];
+                srcChunk->SharedComponentValues.CopyTo(sharedIndices, 0, srcArchetype->NumSharedComponents);
+                for (int i = 0; i < n; i++)
+                {
+                    indices.Add(sharedIndices[i]);
+                }
+            }
+        }
+
+        [BurstCompile]
+        struct CreateNewChunks : IJob
+        {
+            public NativeList<ArchetypeChunk> Chunks;
+            public NativeArray<ArchetypeChunk> ClonedChunks;
+            public EntityManager DstEntityManager;
+
+            [ReadOnly]
+            public NativeArray<int> SrcSharedComponentIndices;
+            [ReadOnly]
+            public NativeArray<int> DstSharedComponentIndices;
+
+            public void Execute()
+            {
+                var dstEntityComponentStore = DstEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+                var remapping = new UnsafeHashMap<int, int>(SrcSharedComponentIndices.Length, Allocator.Temp);
+                for (int i = 0; i < SrcSharedComponentIndices.Length; i++)
+                    remapping.Add(SrcSharedComponentIndices[i], DstSharedComponentIndices[i]);
+                for (int i = 0; i < Chunks.Length; i++)
+                    HandleChunk(i, dstEntityComponentStore, remapping);
+            }
+
+            void HandleChunk(int idx, EntityComponentStore* dstEntityComponentStore, UnsafeHashMap<int, int> sharedComponentRemap)
+            {
+                var srcChunk = Chunks[idx].m_Chunk;
+                var numSharedComponents = srcChunk->Archetype->NumSharedComponents;
+                var dstSharedIndices = stackalloc int[numSharedComponents];
+                srcChunk->SharedComponentValues.CopyTo(dstSharedIndices, 0, numSharedComponents);
+                for (int i = 0; i < numSharedComponents; i++)
+                    dstSharedIndices[i] = sharedComponentRemap[dstSharedIndices[i]];
+
+                var srcArchetype = srcChunk->Archetype;
+                var dstArchetype = dstEntityComponentStore->GetOrCreateArchetype(srcArchetype->Types, srcArchetype->TypesCount);
+                var dstChunk = dstEntityComponentStore->GetCleanChunkNoMetaChunk(dstArchetype, dstSharedIndices);
+                dstChunk->metaChunkEntity = srcChunk->metaChunkEntity;
+                ChunkDataUtility.SetChunkCountKeepMetaChunk(dstChunk, srcChunk->Count);
+                dstChunk->Archetype->EntityCount += srcChunk->Count;
+                dstChunk->SequenceNumber = srcChunk->SequenceNumber;
+
+                ClonedChunks[idx] = new ArchetypeChunk {m_Chunk = dstChunk};
+            }
+        }
+
+        [BurstCompile]
+        struct CopyChunkBuffers : IJobFor
+        {
+            [ReadOnly]
+            public NativeList<ArchetypeChunk> Chunks;
+            [ReadOnly]
+            public NativeArray<ArchetypeChunk> ClonedChunks;
+
+            public void Execute(int index)
+            {
+                var srcChunk = Chunks[index].m_Chunk;
+                var dstChunk = ClonedChunks[index].m_Chunk;
+                var copySize = Chunk.GetChunkBufferSize();
+                UnsafeUtility.MemCpy((byte*)dstChunk + Chunk.kBufferOffset, (byte*)srcChunk + Chunk.kBufferOffset, copySize);
+                BufferHeader.PatchAfterCloningChunk(dstChunk);
+            }
         }
 
         static void CloneAndAddChunks(EntityManager srcEntityManager, EntityManager dstEntityManager, NativeList<ArchetypeChunk> chunks)
         {
-            var cloned = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            s_CloneAndAddChunksProfilerMarker.Begin();
 
+            // sort chunks by archetype and clone chunks
+            var srcSharedComponentIndices = new NativeList<int>(128, Allocator.TempJob);
+            new CollectSharedComponentIndices
+            {
+                Chunks = chunks,
+                SharedComponentIndices = srcSharedComponentIndices,
+            }.Run();
+
+            // copy shared components
+            s_CopySharedComponentsMarker.Begin();
             var srcAccess = srcEntityManager.GetCheckedEntityDataAccess();
             var dstAccess = dstEntityManager.GetCheckedEntityDataAccess();
+            var srcManagedComponentStore = srcAccess->ManagedComponentStore;
+            var dstManagedComponentStore = dstAccess->ManagedComponentStore;
 
-            for (var i = 0; i < chunks.Length; i++)
+            var dstSharedComponentIndicesRemapped = new NativeArray<int>(srcSharedComponentIndices, Allocator.TempJob);
+            dstManagedComponentStore.CopySharedComponents(srcManagedComponentStore, (int*)dstSharedComponentIndicesRemapped.GetUnsafeReadOnlyPtr(), dstSharedComponentIndicesRemapped.Length);
+            s_CopySharedComponentsMarker.End();
+
+            // clone chunks
+            var cloned = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            new CreateNewChunks
             {
-                var srcChunk = chunks[i].m_Chunk;
+                Chunks = chunks,
+                ClonedChunks = cloned,
+                DstEntityManager = dstEntityManager,
+                SrcSharedComponentIndices = srcSharedComponentIndices,
+                DstSharedComponentIndices = dstSharedComponentIndicesRemapped,
+            }.Run();
 
-                var dstChunk = CloneChunkWithoutAllocatingEntities(
-                    dstEntityManager,
-                    srcChunk,
-                    srcAccess->ManagedComponentStore);
+            var copyJob = new CopyChunkBuffers
+            {
+                Chunks = chunks,
+                ClonedChunks = cloned
+            }.Schedule(chunks.Length, default);
+            JobHandle.ScheduleBatchedJobs();
+            srcSharedComponentIndices.Dispose();
 
-                cloned[i] = new ArchetypeChunk {m_Chunk = dstChunk};
+            s_PlaybackManagedChangesMarker.Begin();
+            dstManagedComponentStore.Playback(ref dstAccess->EntityComponentStore->ManagedChangesTracker);
+
+            // Release any references obtained by CopySharedComponents above
+            for (var i = 0; i < dstSharedComponentIndicesRemapped.Length; i++)
+                dstAccess->RemoveSharedComponentReference(dstSharedComponentIndicesRemapped[i]);
+            s_PlaybackManagedChangesMarker.End();
+
+            dstSharedComponentIndicesRemapped.Dispose();
+            copyJob.Complete();
+
+            s_CopyManagedComponentsMarker.Begin();
+            for (int i = 0; i < cloned.Length; i++)
+            {
+                var dstChunk = cloned[i].m_Chunk;
+                var dstArchetype = dstChunk->Archetype;
+                var numManagedComponents = dstArchetype->NumManagedComponents;
+                var hasHybridComponents = dstArchetype->HasHybridComponents;
+                for (int t = 0; t < numManagedComponents; ++t)
+                {
+                    int indexInArchetype = t + dstChunk->Archetype->FirstManagedComponent;
+                    var offset = dstChunk->Archetype->Offsets[indexInArchetype];
+                    var a = (int*) (dstChunk->Buffer + offset);
+                    int count = dstChunk->Count;
+
+                    if (hasHybridComponents)
+                    {
+                        // We consider hybrid components as always different, there's no reason to clone those at this point.
+                        var typeCategory = TypeManager.GetTypeInfo(dstChunk->Archetype->Types[indexInArchetype].TypeIndex).Category;
+                        if (typeCategory == TypeManager.TypeCategory.UnityEngineObject)
+                        {
+                            // We still need to patch their indices, because otherwise they might point to invalid memory in
+                            // the managed component store. Setting them to the invalid index 0 is harmless, assuming nobody
+                            // actually operates on the shadow world.
+                            UnsafeUtility.MemSet(a, 0, sizeof(int) * count);
+                            continue;
+                        }
+                    }
+
+                    dstManagedComponentStore.CloneManagedComponentsFromDifferentWorld(a, count,
+                        srcManagedComponentStore, ref *dstAccess->EntityComponentStore);
+                }
             }
+            s_CopyManagedComponentsMarker.End();
 
             // Ensure capacity in the dst world before we start linking entities.
             dstAccess->EntityComponentStore->EnsureCapacity(srcEntityManager.EntityCapacity);
@@ -131,66 +307,7 @@ namespace Unity.Entities
             }.Schedule(chunks.Length, 64).Complete();
 
             cloned.Dispose();
-        }
-
-        static Chunk* CloneChunkWithoutAllocatingEntities(EntityManager dstEntityManager, Chunk* srcChunk, ManagedComponentStore srcManagedComponentStore)
-        {
-            var dstAccess = dstEntityManager.GetCheckedEntityDataAccess();
-            var dstEntityComponentStore = dstAccess->EntityComponentStore;
-            var dstManagedComponentStore = dstAccess->ManagedComponentStore;
-
-            // Copy shared component data
-            var dstSharedIndices = stackalloc int[srcChunk->Archetype->NumSharedComponents];
-            srcChunk->SharedComponentValues.CopyTo(dstSharedIndices, 0, srcChunk->Archetype->NumSharedComponents);
-            dstManagedComponentStore.CopySharedComponents(srcManagedComponentStore, dstSharedIndices, srcChunk->Archetype->NumSharedComponents);
-
-            // @TODO: Why don't we memcpy the whole chunk. So we include all extra fields???
-
-            // Allocate a new chunk
-            var srcArchetype = srcChunk->Archetype;
-            var dstArchetype = dstEntityComponentStore->GetOrCreateArchetype(srcArchetype->Types, srcArchetype->TypesCount);
-
-            var dstChunk = dstEntityComponentStore->GetCleanChunkNoMetaChunk(dstArchetype, dstSharedIndices);
-            dstManagedComponentStore.Playback(ref dstEntityComponentStore->ManagedChangesTracker);
-
-            dstChunk->metaChunkEntity = srcChunk->metaChunkEntity;
-
-            // Release any references obtained by GetCleanChunk & CopySharedComponents
-            for (var i = 0; i < srcChunk->Archetype->NumSharedComponents; i++)
-                dstManagedComponentStore.RemoveReference(dstSharedIndices[i]);
-
-            ChunkDataUtility.SetChunkCountKeepMetaChunk(dstChunk, srcChunk->Count);
-            dstManagedComponentStore.Playback(ref dstEntityComponentStore->ManagedChangesTracker);
-
-            dstChunk->Archetype->EntityCount += srcChunk->Count;
-
-            var copySize = Chunk.GetChunkBufferSize();
-            UnsafeUtility.MemCpy((byte*)dstChunk + Chunk.kBufferOffset, (byte*)srcChunk + Chunk.kBufferOffset, copySize);
-
-            var numManagedComponents = dstChunk->Archetype->NumManagedComponents;
-            var hasHybridComponents = dstArchetype->HasHybridComponents;
-            for (int t = 0; t < numManagedComponents; ++t)
-            {
-                int indexInArchetype = t + dstChunk->Archetype->FirstManagedComponent;
-
-                if (hasHybridComponents)
-                {
-                    // We consider hybrid components as always different, there's no reason to clone those at this point
-                    var typeCategory = TypeManager.GetTypeInfo(dstChunk->Archetype->Types[indexInArchetype].TypeIndex).Category;
-                    if (typeCategory == TypeManager.TypeCategory.UnityEngineObject)
-                        continue;
-                }
-
-                var offset = dstChunk->Archetype->Offsets[indexInArchetype];
-                var a = (int*)(dstChunk->Buffer + offset);
-
-                dstManagedComponentStore.CloneManagedComponentsFromDifferentWorld(a, dstChunk->Count, srcManagedComponentStore, ref *dstAccess->EntityComponentStore);
-            }
-
-            BufferHeader.PatchAfterCloningChunk(dstChunk);
-            dstChunk->SequenceNumber = srcChunk->SequenceNumber;
-
-            return dstChunk;
+            s_CloneAndAddChunksProfilerMarker.End();
         }
     }
 }

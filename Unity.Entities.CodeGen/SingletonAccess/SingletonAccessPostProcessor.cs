@@ -13,7 +13,13 @@ namespace Unity.Entities.CodeGen
 {
     class SingletonAccessPostProcessor : EntitiesILPostProcessor
     {
+        // LambdaJobs generator also needs to write OnCreateForCompiler so this should be disabled if source generators are enabled.
+        // (this ILPP will need to be rewritten as part of the generator that writes that method)
+#if ROSLYN_SOURCEGEN_ENABLED
+        static readonly bool _enable = false;
+#else
         static readonly bool _enable = true;
+#endif
 
         static readonly Dictionary<string, (string methodName, int parameterCount, bool needsReadOnlyQuery, bool patchedIsGeneric)> SingletonAccessMethodDescriptions
             = new Dictionary<string, (string methodName, int parameterCount, bool needsReadOnlyQuery, bool patchedIsGeneric)>()
@@ -92,14 +98,19 @@ namespace Unity.Entities.CodeGen
                     {
                         // Ensure a good match with the singleton method we want to patch
                         // and that the generic argument is not a generic parameter itself (in which case it is difficult to predetermine query type)
+                        // and also that the type doesn't have any generic arguments (in which case we can't know it during ILPP time)
                         if (SingletonAccessMethodDescriptions.TryGetValue(methodReference.Name, out var methodDescription) &&
                             methodReference.Parameters.Count() == methodDescription.parameterCount &&
-                            methodReference is GenericInstanceMethod genericInstanceMethod && genericInstanceMethod.GenericArguments.Count() == 1 &&
-                            !genericInstanceMethod.GenericArguments.First().IsGenericParameter)
+                            methodReference is GenericInstanceMethod genericInstanceMethod && genericInstanceMethod.GenericArguments.Count() == 1)
                         {
+                            var singletonType = genericInstanceMethod.GenericArguments.First();
+                            if (singletonType.IsGenericParameter ||
+                                (singletonType is GenericInstanceType singletonGenericInstanceType && singletonGenericInstanceType.HasGenericArguments))
+                                continue;
+
                             if (!madeChange)
                                 containingMethod.Body.SimplifyMacros();
-                            PatchSingletonMethod(containingMethod, methodReference, instruction, entityQueryFields, methodDescription);
+                            PatchSingletonMethod(containingMethod, singletonType, instruction, entityQueryFields, methodDescription);
                             madeChange = true;
                         }
                     }
@@ -111,12 +122,10 @@ namespace Unity.Entities.CodeGen
 
         // Perform IL patching
         // https://sharplab.io/#v2:EYLgxg9gTgpgtADwGwBYA0AXEBLANmgExAGoAfAAQCYBGAWACgHyBmAAmwDsMYoAzAQzAxWASQDCEALYAHCBxhcAIvwz9WAbwC+TNgGcMUAK5gMrAMqcA5rhgY5y1axCiJMuQowO1WnayqsAUS5sDABPAEVDHlCGdQZWBL82ABVWAHFbCw5rWzkAHmSAPgAKAEp4xMqAdwALHmFU530jEzQXKVl5JRV+CoS4+krK8gB2VgIYAUNcDABuPtZtQcSWPxRzTKsbOw4CktSAN35cKPLlodZa+tZG1mbjDDbxDvdu1QWByqWl1f8xVliCyCGBCESiUFCrAA+gBHcGhebnAFI1apDIYLI5HZ7MoLap1WA3Jx3AwPJ6uToeLwfPErMYTKYzRFfBa/dZmTbZbb5IrFQ7HU60hJXQm3e6tdpuLqeHo0pFLSqstjkdYAWTKyMqnwu0Lh0VYAF5WPIqoFgmFItEysydULWEcoHctrkOIb0pysflMdyOF4SqUbRcHU6uS7KG7YfCAHTo70uvJxnZ+612u0cjHO7GJ+w9Eq6TNyAN2yPRKPp7O7CvJ/OhnaUIvyhiaIA=
-        static void PatchSingletonMethod(MethodDefinition containingMethod, MethodReference methodReference, Instruction instruction,
+        static void PatchSingletonMethod(MethodDefinition containingMethod, TypeReference singletonType, Instruction instruction,
             Dictionary<(TypeReference declaringType, string name, bool asReadOnly), (FieldDefinition field, TypeReference type)> entityQueryFields,
             (string methodName, int parameterCount, bool needsReadOnlyQuery, bool patchedIsGeneric) methodDescription)
         {
-            var invokedGenericMethod = (GenericInstanceMethod)methodReference;
-            var singletonType = invokedGenericMethod.GenericArguments.First();
             var singletonQueryField = GetOrCreateEntityQueryField(containingMethod.DeclaringType, singletonType, entityQueryFields, methodDescription);
             var ilProcessor = containingMethod.Body.GetILProcessor();
 

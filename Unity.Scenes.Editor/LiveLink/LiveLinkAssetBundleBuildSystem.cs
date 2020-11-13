@@ -63,7 +63,7 @@ namespace Unity.Scenes.Editor
                 {
                     LiveLinkMsg.LogInfo($"RequestSubSceneTargetHash => {subScene.Guid}, {subScene.BuildConfigurationGuid}");
 
-                    var targetHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.Guid, subScene.BuildConfigurationGuid, ImportMode.Asynchronous);
+                    var targetHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.Guid, subScene.BuildConfigurationGuid, false, ImportMode.Asynchronous);
                     m_TrackedSubScenes[subScene] = targetHash;
                     if (targetHash.IsValid)
                     {
@@ -443,9 +443,7 @@ namespace Unity.Scenes.Editor
                 var assetDependencies = new HashSet<ResolvedAssetID>();
                 foreach (var subScene in m_TrackedSubScenes)
                 {
-                    var targetHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.Key.Guid,
-                        subScene.Key.BuildConfigurationGuid,
-                        ImportMode.NoImport);
+                    var targetHash = EntityScenesPaths.GetSubSceneArtifactHash(subScene.Key.Guid, subScene.Key.BuildConfigurationGuid, false, ImportMode.NoImport);
                     if (targetHash.IsValid && (subScene.Value != (Hash128)targetHash))
                     {
                         LiveLinkMsg.LogInfo("Detected subscene change: " + subScene.Key);

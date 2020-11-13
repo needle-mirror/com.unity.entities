@@ -6,7 +6,7 @@ using Unity.Jobs;
 
 namespace Unity.Entities.Tests.ForEachCodegen
 {
-    class ForEachComponentAccessTests : ECSTestsFixture
+    partial class ForEachComponentAccessTests : ECSTestsFixture
     {
         SystemBase_TestSystem TestSystem;
         static Entity TestEntity1;
@@ -36,7 +36,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             ScheduleParallel
         }
 
-        public class SystemBase_TestSystem : SystemBase
+        public partial class SystemBase_TestSystem : SystemBase
         {
             protected override void OnUpdate() {}
 
@@ -241,21 +241,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
-            public void GetComponentOnOtherSystemInVar_GetsValue(Entity entity)
-            {
-                var otherSystem = new SystemBase_TestSystem();
-                Entities.ForEach((ref EcsTestData td) => { td.value = otherSystem.GetComponent<EcsTestDataEntity>(entity).value0; }).Schedule();
-                Dependency.Complete();
-            }
-
-            SystemBase_TestSystem otherSystemField;
-            public void GetComponentOnOtherSystemInField_GetsValue(Entity entity)
-            {
-                var systemField = otherSystemField;
-                Entities.ForEach((ref EcsTestData td) => { td.value = systemField.GetComponent<EcsTestDataEntity>(entity).value0; }).Schedule();
-                Dependency.Complete();
-            }
-
             public void ComponentAccessInEntitiesForEachWithNestedCaptures_ComponentAccessWorks()
             {
                 var outerCapture = 2;
@@ -447,20 +432,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.GetSameComponentInTwoEntitiesForEach_GetsValue();
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestDataEntity>(TestEntity1).value0);
-        }
-
-        [Test]
-        public void GetComponentOnOtherSystemInVar_GetsValue()
-        {
-            TestSystem.GetComponentOnOtherSystemInVar_GetsValue(TestEntity2);
-            Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
-        }
-
-        [Test]
-        public void GetComponentOnOtherSystemInField_GetsValue()
-        {
-            TestSystem.GetComponentOnOtherSystemInField_GetsValue(TestEntity2);
-            Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
         [Test]

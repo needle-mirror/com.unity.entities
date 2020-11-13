@@ -83,58 +83,31 @@ namespace Unity.Entities
             public int ElementStride;
         }
 
-        public struct ManagedEntityPatchInfo
+#if !UNITY_DOTSRUNTIME
+
+        public static void CalculateEntityAndBlobOffsetsUnmanaged(Type type,
+            out bool hasEntityRefs,
+            out bool hasBlobRefs,
+            ref NativeList<EntityOffsetInfo> entityOffsets,
+            ref NativeList<EntityOffsetInfo> blobOffsets)
         {
-            // Type the managed component
-            public ComponentType Type;
+            int entityOffsetsCount = entityOffsets.Length;
+            int blobOffsetsCount = blobOffsets.Length;
+            CalculateOffsetsRecurse(ref entityOffsets, ref blobOffsets, type, 0);
+
+            hasEntityRefs = entityOffsets.Length != entityOffsetsCount;
+            hasBlobRefs = blobOffsets.Length != blobOffsetsCount;
         }
 
-#if UNITY_DOTSRUNTIME
-        // @TODO TINY -- Need to use UnsafeArray to provide a view of the data in sEntityOffsetArray in the static type manager
-        public static EntityOffsetInfo[] CalculateEntityOffsets<T>()
-        {
-            return null;
-        }
-
-#else
-        public static EntityOffsetInfo[] CalculateEntityOffsets<T>()
-        {
-            return CalculateEntityOffsets(typeof(T));
-        }
-
-        public static bool HasEntityMembers(Type type)
+        static void CalculateOffsetsRecurse(ref NativeList<EntityOffsetInfo> entityOffsets, ref NativeList<EntityOffsetInfo> blobOffsets, Type type, int baseOffset)
         {
             if (type == typeof(Entity))
-                return true;
-
-            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-            foreach (var field in fields)
             {
-                if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive)
-                {
-                    if (HasEntityMembers(field.FieldType))
-                        return true;
-                }
+                entityOffsets.Add(new EntityOffsetInfo { Offset = baseOffset });
             }
-
-            return false;
-        }
-
-        public static EntityOffsetInfo[] CalculateEntityOffsets(Type type)
-        {
-            var offsets = new List<EntityOffsetInfo>();
-            CalculateEntityOffsetsRecurse(ref offsets, type, 0);
-            if (offsets.Count > 0)
-                return offsets.ToArray();
-            else
-                return null;
-        }
-
-        static void CalculateEntityOffsetsRecurse(ref List<EntityOffsetInfo> offsets, Type type, int baseOffset)
-        {
-            if (type == typeof(Entity))
+            else if (type == typeof(BlobAssetReferenceData))
             {
-                offsets.Add(new EntityOffsetInfo { Offset = baseOffset });
+                blobOffsets.Add(new EntityOffsetInfo { Offset = baseOffset });
             }
             else
             {
@@ -142,20 +115,64 @@ namespace Unity.Entities
                 foreach (var field in fields)
                 {
                     if (field.FieldType.IsValueType && !field.FieldType.IsPrimitive)
-                        CalculateEntityOffsetsRecurse(ref offsets, field.FieldType, baseOffset + UnsafeUtility.GetFieldOffset(field));
-                    else if (field.FieldType.IsClass && field.FieldType.IsGenericType)
-                    {
-                        foreach (var ga in field.FieldType.GetGenericArguments())
-                        {
-                            if (ga == typeof(Entity))
-                            {
-                                offsets.Add(new EntityOffsetInfo { Offset = baseOffset });
-                                break;
-                            }
-                        }
-                    }
+                        CalculateOffsetsRecurse(ref entityOffsets, ref blobOffsets, field.FieldType, baseOffset + UnsafeUtility.GetFieldOffset(field));
                 }
             }
+        }
+
+        public static void HasEntityReferencesManaged(Type type, out bool hasEntityReferences, out bool hasBlobReferences)
+        {
+            hasEntityReferences = false;
+            hasBlobReferences = false;
+
+            ProcessEntityOrBlobReferencesRecursiveManaged(type, ref hasEntityReferences, ref hasBlobReferences, 0);
+        }
+
+
+        static bool ProcessEntityOrBlobReferencesRecursiveManaged(Type type, ref bool hasEntityReferences, ref bool hasBlobReferences, int depth)
+        {
+            // Avoid deep / infinite recursion
+            if (depth > 10)
+                return true;
+
+            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            foreach (var field in fields)
+            {
+                var fieldType = field.FieldType;
+                if (fieldType.IsArray)
+                    fieldType = fieldType.GetElementType();
+
+                if (fieldType.IsPrimitive)
+                { }
+                else if (typeof(UnityEngine.Object).IsAssignableFrom(fieldType))
+                { }
+                else if (fieldType == typeof(Entity))
+                {
+                    hasEntityReferences = true;
+                    if (hasBlobReferences && hasEntityReferences)
+                        return true;
+                }
+                else if (type == typeof(BlobAssetReferenceData))
+                {
+                    hasBlobReferences = true;
+                    if (hasBlobReferences && hasEntityReferences)
+                        return true;
+                }
+                else if (fieldType.IsValueType || fieldType.IsSealed)
+                {
+                    if (ProcessEntityOrBlobReferencesRecursiveManaged(fieldType, ref hasEntityReferences, ref hasBlobReferences, depth + 1))
+                        return true;
+                }
+                // It is not possible to determine if there are entity references in a polymorphic non-sealed class type
+                else
+                {
+                    hasEntityReferences = true;
+                    hasBlobReferences = true;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
 #endif
@@ -187,27 +204,6 @@ namespace Unity.Entities
             }
 
             return patches + offsetCount;
-        }
-
-        public static ManagedEntityPatchInfo* AppendManagedEntityPatches(ManagedEntityPatchInfo* patches, ComponentType type)
-        {
-            patches[0] = new ManagedEntityPatchInfo
-            {
-                Type = type
-            };
-
-            return patches + 1;
-        }
-
-        public static void PatchEntities(EntityOffsetInfo[] scalarPatches, byte* chunkBuffer, ref NativeArray<EntityRemapInfo> remapping)
-        {
-            // Patch scalars (single components) with entity references.
-            for (int i = 0; i < scalarPatches.Length; i++)
-            {
-                byte* entityData = chunkBuffer + scalarPatches[i].Offset;
-                Entity* entity = (Entity*)entityData;
-                *entity = RemapEntity(ref remapping, *entity);
-            }
         }
 
         public static void PatchEntities(EntityPatchInfo* scalarPatches, int scalarPatchCount,

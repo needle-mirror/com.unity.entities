@@ -12,7 +12,10 @@ Chunk components contain data that applies to all entities in a specific chunk. 
 
 Although chunk components can have values unique to an individual chunk, they are still part of the archetype of the entities in the chunk. Therefore, if you remove a chunk component from an entity, ECS moves that entity to a different chunk (possibly a new one). Likewise, if you add a chunk component to an entity, ECS moves that entity to a different chunk because its archetype changes; the addition of the chunk component does not affect the remaining entities in the original chunk. 
 
-If you use an entity in a chunk to change the value of a chunk component, it changes the value of the chunk component that is common to all the entities in that chunk. If you change the archetype of an entity so that it moves into a new chunk that has the same type of chunk component, then the existing value in the destination chunk is unaffected. **Note:** If the entity is moved to a newly created chunk, then ECS creates a new chunk component for that chunk and assigns its default value.
+If you use an entity in a chunk to change the value of a chunk component, it changes the value of the chunk component that is common to all the entities in that chunk. If you change the archetype of an entity so that it moves into a new chunk that has the same type of chunk component, then the existing value in the destination chunk is unaffected. 
+
+> [!NOTE]
+> If the entity is moved to a newly created chunk, then ECS creates a new chunk component for that chunk and assigns its default value.
 
 The main differences between working with chunk components and general-purpose components is that you use different functions to add, set, and remove them.  
 
@@ -25,7 +28,7 @@ The main differences between working with chunk components and general-purpose c
 |&nbsp;|&nbsp;|
 | **[ArchetypeChunk methods]** | &nbsp; |
 | Read | [GetChunkComponentData&lt;T&gt;(ArchetypeChunkComponentType&lt;T&gt;)] |
-| Check | [HasChunkComponent&lt;T>(ArchetypeChunkComponentType&lt;T&gt;)] |
+| Check | [HasChunkComponent&lt;T&gt;(ArchetypeChunkComponentType&lt;T&gt;)]|
 | Write | [SetChunkComponentData&lt;T&gt;(ArchetypeChunkComponentType&lt;T&gt;, T)] |
 |&nbsp;|&nbsp;|
 |  **[EntityManager methods]** |&nbsp; |
@@ -52,7 +55,7 @@ Chunk components use the interface type [IComponentData].
 <a name="create"></a>
 ## Creating a chunk component 
 
-To add a chunk component directly, use an entity in the target chunk, or use an entity query that selects a group of target chunks. You cannot add chunk components inside a job, nor can they be added with an `EntityCommandBuffer`.
+To add a chunk component directly, use an entity in the target chunk, or use an entity query that selects a group of target chunks. You cannot add chunk components inside a job, nor can they be added with an [EntityCommandBuffer].
  
 You can also include chunk components as part of  the [EntityArchetype] or list of [ComponentType] objects that ECS uses to create entities. ECS creates the chunk components for each chunk and stores entities with that archetype. 
 
@@ -107,7 +110,10 @@ Given an entity, you can access a chunk component in the chunk that contains the
 <a name="update"></a>
 ## Updating a chunk component 
 
-You can update a chunk component given a reference to the [chunk](xref:Unity.Entities.ArchetypeChunk) it belongs to. In an `IJobChunk` job, you can call [ArchetypeChunk.SetChunkComponentData]. On the main thread, you can use the EntityManager version: [EntityManager.SetChunkComponentData]. **Note:** You cannot access chunk components using SystemBase Entities.ForEach because you do not have access to the `ArchetypeChunk` object or the EntityManager.
+You can update a chunk component given a reference to the [chunk](xref:Unity.Entities.ArchetypeChunk) it belongs to. In an `IJobChunk` job, you can call [ArchetypeChunk.SetChunkComponentData]. On the main thread, you can use the EntityManager version: [EntityManager.SetChunkComponentData]. 
+
+> [!NOTE]
+> You cannot access chunk components using SystemBase Entities.ForEach because you do not have access to the `ArchetypeChunk` object or the EntityManager.
 
 **With the ArchetypeChunk instance**
 
@@ -121,7 +127,8 @@ To update a chunk component on the main thread, use the EntityManager:
 
 If you have an entity in the chunk rather than the chunk reference itself, you can also use the EntityManger to get the chunk that contains the entity:
 
-**Note:** If you only want to read a chunk component and not write to it, you should use [ComponentType.ChunkComponentReadOnly] when you define the entity query to avoid creating unnecessary job scheduling constraints.
+> [!NOTE]
+> If you only want to read a chunk component and not write to it, you should use [ComponentType.ChunkComponentReadOnly] when you define the entity query to avoid creating unnecessary job scheduling constraints.
 
 <a name="delete"></a>
 ## Deleting a chunk component 
@@ -131,7 +138,6 @@ Use the [EntityManager.RemoveChunkComponent] functions to delete a chunk compone
 If you remove a chunk component from an individual entity, that entity moves to a different chunk because the archetype of the entity changes. The chunk keeps the unchanged chunk component as long as there are other entities that remain in the chunk. 
 
 <a name="in-query"></a>
-
 ## Using a chunk component in a query
 
 To use a chunk component in an entity query, you must use either the [ComponentType.ChunkComponent&lt;T&gt;] or [ComponentType.ChunkComponentReadOnly&lt;T&gt;] functions to specify the type. Otherwise, ECS treats the component as a general-purpose component instead of a Chunk component.
@@ -155,6 +161,7 @@ Note that if you need to read the components in a chunk to determine the proper 
 [!code-cs[aabb-chunk-component](../DocCodeSamples.Tests/ChunkComponentExamples.cs#aabb-chunk-component)]
 
 
+[ArchetypeChunk.SetChunkComponentData]: xref:Unity.Entities.ArchetypeChunk.SetChunkComponentData*
 [AddChunkComponentData&lt;T&gt;(Entity)]: xref:Unity.Entities.EntityManager.AddChunkComponentData``1(Unity.Entities.Entity)
 [AddChunkComponentData&lt;T&gt;(EntityQuery, T)]: xref:Unity.Entities.EntityManager.AddChunkComponentData``1(Unity.Entities.EntityQuery,``0)
 [AddComponents(Entity,ComponentTypes)]: xref:Unity.Entities.EntityManager.AddComponents(Unity.Entities.Entity,Unity.Entities.ComponentTypes)
@@ -170,13 +177,14 @@ Note that if you need to read the components in a chunk to determine the proper 
 [[GetChunkComponentData&lt;T&gt;(Entity)]: xref:Unity.Entities.EntityManager.GetChunkComponentData``1(Unity.Entities.Entity
 [EntityManager.RemoveChunkComponent]: xref:Unity.Entities.EntityManager.RemoveChunkComponent*
 [EntityManager.SetChunkComponentData&lt;T&gt;(ArchetypeChunk, T)]: xref:Unity.Entities.EntityManager.SetChunkComponentData*
+[EntityManager.SetChunkComponentData]: xref:Unity.Entities.EntityManager.SetChunkComponentData*
 [EntityQueryDesc]: xref:Unity.Entities.EntityQueryDesc
 [EntityQuery]: xref:Unity.Entities.EntityQuery
-[Unity.Entities.EntityManager.GetComponentTypeHandle*
 [GetChunkComponentData&lt;T&gt;(ArchetypeChunk)]: xref:Unity.Entities.EntityManager.GetChunkComponentData``1(Unity.Entities.ArchetypeChunk)
 [GetChunkComponentData&lt;T&gt;(ArchetypeChunkComponentType&lt;T&gt;)]: xref:Unity.Entities.ArchetypeChunk.GetChunkComponentData*
 [GetChunkComponentData&lt;T&gt;(Entity)]: xref:Unity.Entities.EntityManager.GetChunkComponentData``1(Unity.Entities.Entity)
 [HasChunkComponent&lt;T&gt;(ArchetypeChunkComponentType&lt;T&gt;)]: xref:Unity.Entities.ArchetypeChunk.HasChunkComponent*
+[GetComponentTypeHandle]: xref:Unity.Entities.EntityManager.GetComponentTypeHandle*
 [HasChunkComponent&lt;T&gt;(Entity)]: xref:Unity.Entities.EntityManager.HasChunkComponent*
 [IComponentData]: xref:Unity.Entities.IComponentData
 [IJobEntityBatch]: xref:Unity.Entities.IJobEntityBatch
@@ -186,3 +194,4 @@ Note that if you need to read the components in a chunk to determine the proper 
 [SetChunkComponentData&lt;T&gt;(ArchetypeChunkComponentType&lt;T&gt;, T)]: xref:Unity.Entities.ArchetypeChunk.SetChunkComponentData*
 [Updating a chunk component]: #update
 [chunk]: xref:Unity.Entities.ArchetypeChunk
+[EntityCommandBuffer]: xref:Unity.Entities.EntityCommandBuffer

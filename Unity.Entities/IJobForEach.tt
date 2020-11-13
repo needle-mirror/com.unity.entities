@@ -169,8 +169,18 @@ foreach(var combination in combinations) {
             var unfilteredChunkCount = fullData.Iterator.m_Length;
             var resolvedQuery = JobStruct_ProcessInfer_<#=comboString#><T>.Cache.EntityQuery;
             var queryImpl = resolvedQuery._GetImpl();
-            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkLists(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
-            return Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, deferredCountData, prefilterHandle, mode);
+            var prefilterHandle = ChunkIterationUtility.PreparePrefilteredChunkListsAsync(unfilteredChunkCount, queryImpl->_QueryData->MatchingArchetypes, queryImpl->_Filter, dependsOn, mode, out fullData.PrefilterData, out var deferredCountData, out var isFiltering);
+            JobHandle jobHandle = default;
+            try
+            {
+                jobHandle = Schedule(UnsafeUtility.AddressOf(ref fullData), fullData.PrefilterData, fullData.Iterator.m_Length, innerloopBatchCount, isParallelFor, isFiltering, ref JobStruct_ProcessInfer_<#=comboString#><T>.Cache, deferredCountData, prefilterHandle, mode);
+            }
+            catch(Exception)
+            {
+                prefilterHandle.Complete();
+                throw;
+            }
+            return jobHandle;
         }
 
         [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]

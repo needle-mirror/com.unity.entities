@@ -62,10 +62,42 @@ namespace Unity.Entities
             return true;
         }
 
+        bool AddComponents(EntityBatchInChunk entityBatchInChunk, ComponentTypes componentTypes)
+        {
+            var srcChunk = entityBatchInChunk.Chunk;
+
+            var dstArchetype = GetArchetypeWithAddedComponents(srcChunk->Archetype, componentTypes);
+            if (dstArchetype == srcChunk->Archetype)  // none were added
+                return false;
+
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponents(srcChunk, dstArchetype);
+            if (archetypeChunkFilter.Archetype == null)
+                return false;
+
+            Move(entityBatchInChunk, ref archetypeChunkFilter);
+            return true;
+        }
+
         bool RemoveComponent(EntityBatchInChunk entityBatchInChunk, ComponentType componentType)
         {
             var srcChunk = entityBatchInChunk.Chunk;
             var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponent(srcChunk, componentType);
+            if (archetypeChunkFilter.Archetype == null)
+                return false;
+
+            Move(entityBatchInChunk, ref archetypeChunkFilter);
+            return true;
+        }
+
+        bool RemoveComponents(EntityBatchInChunk entityBatchInChunk, ComponentTypes componentTypes)
+        {
+            var srcChunk = entityBatchInChunk.Chunk;
+
+            var dstArchetype = GetArchetypeWithRemovedComponents(srcChunk->Archetype, componentTypes);
+            if (dstArchetype == srcChunk->Archetype)  // none were removed
+                return false;
+
+            var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponents(srcChunk, dstArchetype);
             if (archetypeChunkFilter.Archetype == null)
                 return false;
 
@@ -181,6 +213,24 @@ namespace Unity.Entities
             // Reverse order so that batch indices do not change while iterating.
             for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
                 AddComponent(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], type, existingSharedComponentIndex);
+        }
+
+        public void AddComponents(UnsafeList* sortedEntityBatchList, ref ComponentTypes types)
+        {
+            Assert.IsFalse(types.ChunkComponentCount > 0);
+
+            // Reverse order so that batch indices do not change while iterating.
+            for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
+                AddComponents(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], types);
+        }
+
+        public void RemoveComponents(UnsafeList* sortedEntityBatchList, ref ComponentTypes types)
+        {
+            Assert.IsFalse(types.ChunkComponentCount > 0);
+
+            // Reverse order so that batch indices do not change while iterating.
+            for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
+                RemoveComponents(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], types);
         }
 
         public void RemoveComponent(UnsafeList* sortedEntityBatchList, ComponentType type)

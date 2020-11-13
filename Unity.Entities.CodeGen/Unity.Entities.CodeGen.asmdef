@@ -1,9 +1,10 @@
 {
     "name": "Unity.Entities.CodeGen",
     "references": [
-        "Unity.Entities",
         "Unity.Burst",
         "Unity.Collections",
+        "Unity.Entities",
+        "Unity.Jobs",
 		"Unity.Properties"
     ],
     "includePlatforms": [
@@ -20,5 +21,11 @@
 		"Unity.IL2CPP.Common"
     ],
     "autoReferenced": false,
-    "versionDefines": []
+    "versionDefines": [
+        {
+            "name": "com.unity.roslyn",
+            "expression": "0.0.0-preview.2",
+            "define": "ROSLYN_SOURCEGEN_ENABLED"
+        }
+    ]
 }

@@ -95,8 +95,10 @@ namespace Unity.Entities
         /// Disable asynchronous streaming, SubScene section will be fully loaded during the next update of the streaming system
         /// </summary>
         BlockOnStreamIn = 4,
+        // TODO: Remove this RemovedAfter 2021-02-05 (https://unity3d.atlassian.net/browse/DOTS-3380)
+        // SceneLoadFlags.LoadAdditive is deprecated. Scenes loaded through the SceneSystem are always loaded Additively. This previously was only used when using LiveLink with GameObjects.
         /// <summary>
-        /// Set whether to load additive or not. This only applies to GameObject based scenes, not subscenes.
+        /// [DEPRECATED] Set whether to load additive or not. This only applies to GameObject based scenes, not subscenes.
         /// </summary>
         LoadAdditive = 8,
         /// <summary>

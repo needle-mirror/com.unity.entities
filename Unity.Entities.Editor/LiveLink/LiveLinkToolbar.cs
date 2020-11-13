@@ -41,48 +41,51 @@ namespace Unity.Entities.Editor
         [CommandHandler("DOTS/GUI/LiveLinkToolbar", CommandHint.UI)]
         static void DrawPlaybar(CommandExecuteContext ctx)
         {
-            // Enter / Exit Playmode
-            var isOrWillEnterPlaymode = EditorApplication.isPlayingOrWillChangePlaymode;
-            var isPlaying = EditorApplication.isPlaying;
-            GUI.changed = false;
-
-            var buttonOffset = isPlaying ? 4 : 0;
-
-            var c = GUI.color + new Color(.01f, .01f, .01f, .01f);
-            GUI.contentColor = new Color(1.0f / c.r, 1.0f / c.g, 1.0f / c.g, 1.0f / c.a);
-            GUI.SetNextControlName("ToolbarPlayModePlayButton");
-            GUILayout.Toggle(isOrWillEnterPlaymode, s_PlayIcons[buttonOffset], isPlaying ? LiveLinkStyles.CommandLeftOn : LiveLinkStyles.CommandLeft);
-            GUI.backgroundColor = Color.white;
-            if (GUI.changed)
+            using (new EditorGUILayout.HorizontalScope())
             {
-                TogglePlaying();
-                GUIUtility.ExitGUI();
-            }
+                // Enter / Exit Playmode
+                var isOrWillEnterPlaymode = EditorApplication.isPlayingOrWillChangePlaymode;
+                var isPlaying = EditorApplication.isPlaying;
+                GUI.changed = false;
 
-            // Pause game
-            GUI.changed = false;
+                var buttonOffset = isPlaying ? 4 : 0;
 
-            buttonOffset = EditorApplication.isPaused ? 4 : 0;
-            GUI.SetNextControlName("ToolbarPlayModePauseButton");
-            var isPaused = GUILayout.Toggle(EditorApplication.isPaused, s_PlayIcons[buttonOffset + 1], LiveLinkStyles.CommandMid);
-            if (GUI.changed)
-            {
-                EditorApplication.isPaused = isPaused;
-                GUIUtility.ExitGUI();
-            }
-
-            using (new EditorGUI.DisabledScope(!isPlaying))
-            {
-                // Step playmode
-                GUI.SetNextControlName("ToolbarPlayModeStepButton");
-                if (GUILayout.Button(s_PlayIcons[2], LiveLinkStyles.CommandRight))
+                var c = GUI.color + new Color(.01f, .01f, .01f, .01f);
+                GUI.contentColor = new Color(1.0f / c.r, 1.0f / c.g, 1.0f / c.g, 1.0f / c.a);
+                GUI.SetNextControlName("ToolbarPlayModePlayButton");
+                GUILayout.Toggle(isOrWillEnterPlaymode, s_PlayIcons[buttonOffset], isPlaying ? LiveLinkStyles.CommandLeftOn : LiveLinkStyles.CommandLeft);
+                GUI.backgroundColor = Color.white;
+                if (GUI.changed)
                 {
-                    EditorApplication.Step();
+                    TogglePlaying();
                     GUIUtility.ExitGUI();
                 }
-            }
 
-            s_LinkConnectionsDropdown.DrawDropdown();
+                // Pause game
+                GUI.changed = false;
+
+                buttonOffset = EditorApplication.isPaused ? 4 : 0;
+                GUI.SetNextControlName("ToolbarPlayModePauseButton");
+                var isPaused = GUILayout.Toggle(EditorApplication.isPaused, s_PlayIcons[buttonOffset + 1], LiveLinkStyles.CommandMid);
+                if (GUI.changed)
+                {
+                    EditorApplication.isPaused = isPaused;
+                    GUIUtility.ExitGUI();
+                }
+
+                using (new EditorGUI.DisabledScope(!isPlaying))
+                {
+                    // Step playmode
+                    GUI.SetNextControlName("ToolbarPlayModeStepButton");
+                    if (GUILayout.Button(s_PlayIcons[2], LiveLinkStyles.CommandRight))
+                    {
+                        EditorApplication.Step();
+                        GUIUtility.ExitGUI();
+                    }
+                }
+
+                s_LinkConnectionsDropdown.DrawDropdown();
+            }
         }
 
         static void TogglePlaying()

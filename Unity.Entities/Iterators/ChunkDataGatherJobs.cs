@@ -166,14 +166,14 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    unsafe struct GatherEntitiesJob : IJobChunk
+    unsafe struct GatherEntitiesJob : IJobEntityBatchWithIndex
     {
-        public NativeArray<Entity> Entities;
+        [NativeDisableUnsafePtrRestriction] public byte* Entities;
         [ReadOnly] public EntityTypeHandle EntityTypeHandle;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
         {
-            var destinationPtr = (Entity*)Entities.GetUnsafePtr() + entityOffset;
+            var destinationPtr = (Entity*)Entities + firstEntityIndex;
             var sourcePtr = chunk.GetNativeArray(EntityTypeHandle).GetUnsafeReadOnlyPtr();
             var copySizeInBytes = sizeof(Entity) * chunk.Count;
 
@@ -182,42 +182,42 @@ namespace Unity.Entities
     }
 
     [BurstCompile]
-    unsafe struct GatherComponentDataJob : IJobChunk
+    unsafe struct GatherComponentDataJob : IJobEntityBatchWithIndex
     {
         [NativeDisableUnsafePtrRestriction] public byte* ComponentData;
         public int TypeIndex;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery)
         {
-            var archetype = chunk.Archetype.Archetype;
+            var archetype = batchInChunk.Archetype.Archetype;
             var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
             var typeOffset = archetype->Offsets[indexInTypeArray];
             var typeSize = archetype->SizeOfs[indexInTypeArray];
 
-            var src = chunk.m_Chunk->Buffer + typeOffset;
-            var dst = ComponentData + (entityOffset * typeSize);
-            var copySize = typeSize * chunk.Count;
+            var src = batchInChunk.m_Chunk->Buffer + typeOffset;
+            var dst = ComponentData + (indexOfFirstEntityInQuery * typeSize);
+            var copySize = typeSize * batchInChunk.Count;
 
             UnsafeUtility.MemCpy(dst, src, copySize);
         }
     }
 
     [BurstCompile]
-    unsafe struct CopyComponentArrayToChunksJob : IJobChunk
+    unsafe struct CopyComponentArrayToChunksJob : IJobEntityBatchWithIndex
     {
         [NativeDisableUnsafePtrRestriction] public byte* ComponentData;
         public int TypeIndex;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery)
         {
-            var archetype = chunk.Archetype.Archetype;
+            var archetype = batchInChunk.Archetype.Archetype;
             var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
             var typeOffset = archetype->Offsets[indexInTypeArray];
             var typeSize = archetype->SizeOfs[indexInTypeArray];
 
-            var dst = chunk.m_Chunk->Buffer + typeOffset;
-            var src = ComponentData + (entityOffset * typeSize);
-            var copySize = typeSize * chunk.Count;
+            var dst = batchInChunk.m_Chunk->Buffer + typeOffset;
+            var src = ComponentData + (indexOfFirstEntityInQuery * typeSize);
+            var copySize = typeSize * batchInChunk.Count;
 
             UnsafeUtility.MemCpy(dst, src, copySize);
         }

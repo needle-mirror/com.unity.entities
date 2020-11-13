@@ -36,13 +36,23 @@ namespace Unity.Entities
         public readonly Entity Entity;
         public readonly bool IsReadOnly;
 
-        public int GetComponentCount() => EntityManager.GetComponentCount(Entity);
+        public int GetComponentCount()
+        {
+            return Exists() ? EntityManager.GetComponentCount(Entity) : 0;
+        }
 
         public EntityContainer(EntityManager entityManager, Entity entity, bool readOnly = true)
         {
             EntityManager = entityManager;
             Entity = entity;
             IsReadOnly = readOnly;
+        }
+
+        internal bool Exists()
+        {
+            var entityManager = EntityManager;
+            return Entity.Index >= 0 && (uint) Entity.Index < (uint) entityManager.EntityCapacity
+                                     && entityManager.Exists(Entity);
         }
     }
 
@@ -116,6 +126,8 @@ namespace Unity.Entities
 
                 DoSetValue(ref container, value);
             }
+
+
 
             protected abstract TComponent DoGetValue(ref EntityContainer container);
             protected abstract void DoSetValue(ref EntityContainer container, TComponent value);
@@ -296,8 +308,11 @@ namespace Unity.Entities
 
         IEnumerable<IProperty<EntityContainer>> EnumerateProperties(EntityContainer container)
         {
-            var count = container.GetComponentCount();
+            if (!container.Exists())
+                yield break;
+
             var entityManager = container.EntityManager;
+            var count = container.GetComponentCount();
             for (var i = 0; i < count; i++)
             {
                 var typeIndex = entityManager.GetComponentTypeIndex(container.Entity, i);
@@ -308,6 +323,12 @@ namespace Unity.Entities
 
         bool IPropertyNameable<EntityContainer>.TryGetProperty(ref EntityContainer container, string name, out IProperty<EntityContainer> property)
         {
+            if (!container.Exists())
+            {
+                property = null;
+                return false;
+            }
+
             foreach (var p in EnumerateProperties(container))
             {
                 if (p.Name != name) continue;
@@ -321,6 +342,12 @@ namespace Unity.Entities
 
         bool IPropertyIndexable<EntityContainer>.TryGetProperty(ref EntityContainer container, int index, out IProperty<EntityContainer> property)
         {
+            if (!container.Exists())
+            {
+                property = null;
+                return false;
+            }
+
             var entityManager = container.EntityManager;
             property = GetOrCreatePropertyForType(entityManager.GetComponentTypeIndex(container.Entity, index), container.IsReadOnly);
             return true;

@@ -114,6 +114,74 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Calculates the difference between two archetypes.
+        /// Reports what components need to be added to and removed from "before" in order to convert it to "after".
+        /// </summary>
+        /// <param name="before">First archetype</param>
+        /// <param name="after">Second archetype</param>
+        /// <param name="addedTypes">Buffer to hold type indices of types present in "after" but
+        /// not in "before".  Buffer must be large enough to potentially hold all the types present in "after"</param>
+        /// <param name="addedTypesCount">How many types were put into the addedTypes buffer</param>
+        /// <param name="removedTypes">Buffer to hold type indices of types present in "before" but
+        /// not in "after".  Buffer must be large enough to potentially hold all the types present in "before"</param>
+        /// <param name="removedTypesCount">How many types were put into the removedTypes buffer</param>
+        public static void CalculateDifference(
+            EntityArchetype before, EntityArchetype after,
+            int* addedTypes, out int addedTypesCount, int* removedTypes, out int removedTypesCount)
+        {
+            int b = 1;
+            int a = 1;
+
+            var beforeTypes = before.Archetype->Types;
+            var beforeTypesCount = before.Archetype->TypesCount;
+
+            var afterTypes = after.Archetype->Types;
+            var afterTypesCount = after.Archetype->TypesCount;
+
+            int addedTypesCounter = 0;
+            int removedTypesCounter = 0;
+
+            while (b < beforeTypesCount && a < afterTypesCount)
+            {
+                if (beforeTypes[b].TypeIndex == afterTypes[a].TypeIndex)
+                {
+                    a++;
+                    b++;
+                }
+                else if (beforeTypes[b].TypeIndex > afterTypes[a].TypeIndex)
+                {
+                    addedTypes[addedTypesCounter++] = afterTypes[a].TypeIndex;
+                    a++;
+                }
+                else
+                {
+                    removedTypes[removedTypesCounter++] = beforeTypes[b].TypeIndex;
+                    b++;
+                }
+            }
+
+            while (a < afterTypesCount)
+            {
+                addedTypes[addedTypesCounter++] = afterTypes[a].TypeIndex;
+                a++;
+            }
+            while (b < beforeTypesCount)
+            {
+                removedTypes[removedTypesCounter++] = beforeTypes[b].TypeIndex;
+                b++;
+            }
+
+            addedTypesCount = addedTypesCounter;
+            removedTypesCount = removedTypesCounter;
+        }
+
+        /// <summary>
+        /// The number of component types this archetype contains.
+        /// </summary>
+        /// <value>The number of component types.</value>
+        public int TypesCount => Archetype->TypesCount;
+
+        /// <summary>
         /// The current number of chunks storing entities having this archetype.
         /// </summary>
         /// <value>The number of chunks.</value>

@@ -1,12 +1,14 @@
 #if !UNITY_DISABLE_MANAGED_COMPONENTS && !DOTS_HYBRID_COMPONENTS_DEBUG
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Scenes.Editor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 [ExecuteAlways]
-[UpdateInGroup(typeof(InitializationSystemGroup))]
+[UpdateInGroup(typeof(LiveLinkEditorSystemGroup))]
+[UpdateAfter(typeof(EditorSubSceneLiveLinkSystem))]
 class EditorCompanionGameObjectUpdateSystem : ComponentSystem
 {
     EntityQuery m_WithoutHideFlagsSet;

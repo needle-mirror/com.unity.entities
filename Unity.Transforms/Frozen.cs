@@ -9,6 +9,7 @@ namespace Unity.Transforms
     /// Read-only from other systems.
     /// User responsible for removing.
     /// </summary>
+    [Obsolete("This attribute is no longer in use. (RemovedAfter 2021-01-26)")]
     public struct Frozen : IComponentData
     {
     }

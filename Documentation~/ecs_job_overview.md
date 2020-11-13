@@ -3,7 +3,7 @@ uid: ecs-jobs
 ---
 # Jobs in ECS
 
-ECS uses the [C# Job System] extensively. Whenever possible, you should use the jobs in your system code. The [SystemBase] class provides [Entities.ForEach] and [Job.WithCode] to help implement your game logic as multithreaded code. In more complex situations, you can use [IJobChunk].
+ECS uses the [C# Job System] extensively. Whenever possible, you should use the jobs in your system code. The [SystemBase] class provides [Entities.ForEach] and [Job.WithCode] to help implement your game logic as multithreaded code. In more complex situations, you can use [IJobEntityBatch].
 
 For example, the following system updates positions:
 
@@ -37,4 +37,4 @@ For more information about systems, see [ECS Systems](ecs_systems.md).
 [SystemBase]: xref:Unity.Entities.SystemBase 
 [Entities.ForEach]: ecs_entities_foreach.md
 [Job.WithCode]: ecs_job_withcode.md
-[IJobChunk]: chunk_iteration_job.md
+[IJobEntityBatch]: ecs_ijobentitybatch.md

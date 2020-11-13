@@ -24,18 +24,20 @@ namespace Unity.Entities.CodeGen
         int GetFilterFlag(TypeDefinition typeDef)
         {
             // If no flags are given we assume the default world
-            int flags = (int) WorldSystemFilterFlags.Default;
-            if (typeDef.HasCustomAttributes)
+            var flags =  WorldSystemFilterFlags.Default;
+            var filterFlagsAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(WorldSystemFilterAttribute) && ca.ConstructorArguments.Count == 1);
+            if(filterFlagsAttribute != null)
             {
-                var filterFlagsAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(WorldSystemFilterAttribute) && ca.ConstructorArguments.Count == 1);
-                if(filterFlagsAttribute != null)
-                {
-                    // override the default value if flags are provided
-                    flags = (int)((WorldSystemFilterFlags) filterFlagsAttribute.ConstructorArguments[0].Value);
-                }
+                // override the default value if flags are provided
+                flags = (WorldSystemFilterFlags) filterFlagsAttribute.ConstructorArguments[0].Value;
             }
+            else if (typeDef.BaseType != null) // Traverse the hierarchy to fetch a flags from an ancestor if we can't find one on this type
+                flags = (WorldSystemFilterFlags) GetFilterFlag(typeDef.BaseType.Resolve());
 
-            return flags;
+            if(typeDef.HasAttribute("UnityEngine.ExecuteAlways"))
+                flags |= WorldSystemFilterFlags.Editor;
+
+            return (int) flags;
         }
 
         public List<int> GetSystemFilterFlagList(List<TypeReference> systems)
@@ -79,8 +81,10 @@ namespace Unity.Entities.CodeGen
 
                 var attrList = sysDef.CustomAttributes;
 
+                // If ther whole assembly is disabled then add the disableautocreation attribute
+                // if the type isn't already tagged for being disabled (we don't want to add it twice)
                 var disableAutoCreationAttr = sysRef.Module.Assembly.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(DisableAutoCreationAttribute));
-                if (disableAutoCreationAttr != null)
+                if (disableAutoCreationAttr != null && attrList.FirstOrDefault(a=>a.AttributeType.Name == nameof(DisableAutoCreationAttribute)) == null)
                     attrList.Add(disableAutoCreationAttr);
 
                 int arrayLen = attrList.Count;
@@ -227,7 +231,7 @@ namespace Unity.Entities.CodeGen
                             instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int) caValue));
                         else if (enumTypeRef.MetadataType == MetadataType.UInt64)
                             instructions.Add(Instruction.Create(OpCodes.Ldc_I8, (long)(ulong) caValue));
-                        else if(enumTypeRef.MetadataType == MetadataType.Int64)                               
+                        else if(enumTypeRef.MetadataType == MetadataType.Int64)
                             instructions.Add(Instruction.Create(OpCodes.Ldc_I8, (long) caValue));
                     }
                     break;

@@ -41,7 +41,9 @@ namespace Unity.Scenes
         public unsafe static bool ResolveSceneSections(EntityManager EntityManager, Entity sceneEntity, Hash128 sceneGUID, RequestSceneLoaded requestSceneLoaded, Hash128 artifactHash)
         {
             // Resolve first (Even if the file doesn't exist we want to stop continously trying to load the section)
-            EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
+            var bufLen = EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity).Length;
+            Assert.AreEqual(0, bufLen);
+
             var sceneHeaderPath = "";
 #if UNITY_EDITOR
             string[] paths = null;
@@ -64,7 +66,10 @@ namespace Unity.Scenes
             }
 
             EntityManager.AddComponentData(sceneEntity, new ResolvedSceneHash { ArtifactHash = artifactHash });
-            EntityManager.AddBuffer<LinkedEntityGroup>(sceneEntity).Add(sceneEntity);
+
+            var group = EntityManager.AddBuffer<LinkedEntityGroup>(sceneEntity);
+            Assert.AreEqual(0, group.Length);
+            group.Add(sceneEntity);
 
             // @TODO: AsyncReadManager currently crashes with empty path.
             //        It should be possible to remove this after that is fixed.
@@ -141,6 +146,8 @@ namespace Unity.Scenes
                 EntityManager.AddComponentData(sectionEntity, sceneMetaData.Sections[i]);
                 EntityManager.AddComponentData(sectionEntity, new SceneBoundingVolume { Value = sceneMetaData.Sections[i].BoundingVolume });
                 EntityManager.AddComponentData(sectionEntity, new SceneEntityReference { SceneEntity = sceneEntity });
+                if (EntityManager.HasComponent<SceneTag>(sceneEntity))
+                    EntityManager.AddSharedComponentData(sectionEntity, EntityManager.GetSharedComponentData<SceneTag>(sceneEntity));
 
                 var hybridPath = "";
                 var scenePath = "";
