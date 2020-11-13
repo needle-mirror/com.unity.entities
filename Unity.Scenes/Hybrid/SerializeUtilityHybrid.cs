@@ -45,47 +45,47 @@ namespace Unity.Scenes
 
         public static void DeserializeObjectReferences(ReferencedUnityObjects objRefs, out UnityEngine.Object[] objectReferences)
         {
-            objectReferences = objRefs?.Array;
+            if (objRefs == null)
+            {
+                objectReferences = null;
+                return;
+            }
+
+            objectReferences = new UnityEngine.Object[objRefs.Array.Length];
 
             // NOTE: Object references must not include fake object references, they must be real null.
             // The Unity.Properties deserializer can't handle them correctly.
             // We might want to add support for handling fake null,
             // but it would require tight integration in the deserialize function so that a correct fake null unityengine.object can be constructed on deserialize
-            if (objectReferences != null)
+            for (int i = 0; i != objRefs.Array.Length; i++)
             {
-#if !UNITY_EDITOR
-                // When using bundles, the Companion GameObjects cannot be directly used (prefabs), so we need to instantiate everything.
-                var sourceToInstance = new Dictionary<UnityEngine.GameObject, UnityEngine.GameObject>();
-#endif
-
-                for (int i = 0; i != objectReferences.Length; i++)
+                if (objRefs.Array[i] != null)
                 {
-                    if (objectReferences[i] == null)
-                    {
-                        objectReferences[i] = null;
-                        continue;
-                    }
-
-#if !UNITY_EDITOR
-                    if (objectReferences[i] is UnityEngine.GameObject source)
-                    {
-                        var instance = UnityEngine.GameObject.Instantiate(source);
-                        objectReferences[i] = instance;
-                        sourceToInstance.Add(source, instance);
-                    }
-#endif
+                    objectReferences[i] = objRefs.Array[i];
                 }
-
-#if !UNITY_EDITOR
-                for (int i = 0; i != objectReferences.Length; i++)
-                {
-                    if (objectReferences[i] is UnityEngine.Component component)
-                    {
-                        objectReferences[i] = sourceToInstance[component.gameObject].GetComponent(component.GetType());
-                    }
-                }
-#endif
             }
+
+            // Companion Objects
+            // When using bundles, the Companion GameObjects cannot be directly used (prefabs), so we need to instantiate everything.
+#if !UNITY_EDITOR
+            var sourceToInstance = new Dictionary<UnityEngine.GameObject, UnityEngine.GameObject>();
+
+            foreach (var companionIndex in objRefs.CompanionObjectIndices)
+            {
+                var source = objectReferences[companionIndex] as UnityEngine.GameObject;
+                var instance = UnityEngine.Object.Instantiate(source);
+                objectReferences[companionIndex] = instance;
+                sourceToInstance.Add(source, instance);
+            }
+
+            for (int i = 0; i != objectReferences.Length; i++)
+            {
+                if (objectReferences[i] is UnityEngine.Component component)
+                {
+                    objectReferences[i] = sourceToInstance[component.gameObject].GetComponent(component.GetType());
+                }
+            }
+#endif
         }
     }
 }

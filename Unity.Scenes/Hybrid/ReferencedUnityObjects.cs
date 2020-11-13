@@ -8,6 +8,7 @@ namespace Unity.Scenes
     public class ReferencedUnityObjects : ScriptableObject
     {
         public UnityEngine.Object[] Array;
+        public int[] CompanionObjectIndices;
     }
 }
 #endif

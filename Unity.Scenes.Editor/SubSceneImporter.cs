@@ -18,7 +18,7 @@ using UnityEditor.Experimental.AssetImporters;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(89, "extDontMatter")]
+    [ScriptedImporter(90, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {

@@ -574,6 +574,8 @@ namespace Unity.Scenes.Editor
             if (objRefs == null || objRefs.Array.Length == 0)
                 return 0;
 
+            var companionObjectIndices = new List<int>();
+
             // Write object references
             using (k_ProfileEntitiesSceneWriteObjRefs.Auto())
             {
@@ -594,6 +596,10 @@ namespace Unity.Scenes.Editor
 
                             serializedObjectList.Add(gameObject);
                             serializedObjectList.AddRange(gameObject.GetComponents<UnityEngine.Component>());
+
+                            // Add companion entry, this allows us to differentiate Prefab references and Companion Objects at runtime deserialization
+                            companionObjectIndices.Add(i);
+
                             continue;
                         }
 
@@ -606,6 +612,9 @@ namespace Unity.Scenes.Editor
                             objRefs.Array[i] = null;
                     }
                 }
+
+                objRefs.CompanionObjectIndices = companionObjectIndices.ToArray();
+
 
                 UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(serializedObjectList.ToArray(), objRefsPath, false);
 
