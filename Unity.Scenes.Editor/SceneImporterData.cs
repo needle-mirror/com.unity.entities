@@ -17,11 +17,6 @@ namespace Unity.Scenes.Editor
     public struct SceneImporterData
     {
         /// <summary>
-        /// Exclude this scene from the LiveLink system.  If excluded, the scene will be built into the player data if it is in the BuildSettings scenes list.
-        /// </summary>
-        public bool DisableLiveLink;
-
-        /// <summary>
         /// Get the importer data for a scene given its path.
         /// </summary>
         /// <param name="path">The scene path.</param>
@@ -46,12 +41,5 @@ namespace Unity.Scenes.Editor
                 return;
             importer.userData = JsonUtility.ToJson(data);
         }
-
-        /// <summary>
-        /// Method to check if a scene can be used by the LiveLink system.
-        /// </summary>
-        /// <param name="path">The scene path.</param>
-        /// <returns>If true, the scene can be used.</returns>
-        public static bool CanLiveLinkScene(string path) => !GetAtPath(path).DisableLiveLink;
     }
 }

@@ -30,7 +30,7 @@ namespace Unity.Entities
             public int HashCode;
         }
 
-        UnsafeList m_SharedComponentInfo = new UnsafeList(Allocator.Persistent);
+        UnsafeList<SharedComponentInfo> m_SharedComponentInfo = new UnsafeList<SharedComponentInfo>(0, Allocator.Persistent);
         private int m_SharedComponentVersion;
         internal object[] m_ManagedComponentData = new object[64];
 
@@ -44,19 +44,25 @@ namespace Unity.Entities
         {
             return m_ManagedComponentData[index];
         }
+        public object Debugger_GetManagedComponent(int index)
+        {
+            if (index < 0 || index >= m_ManagedComponentData.Length)
+                return null;
+            return m_ManagedComponentData[index];
+        }
 
         private SharedComponentInfo* SharedComponentInfoPtr
         {
-            get { return (SharedComponentInfo*)m_SharedComponentInfo.Ptr; }
+            get { return m_SharedComponentInfo.Ptr; }
         }
 
         int m_FreeListIndex;
 
-        internal delegate void InstantiateHybridComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstComponentLinkIndices, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore);
-        internal static InstantiateHybridComponentDelegate InstantiateHybridComponent;
+        internal delegate void InstantiateCompanionComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstComponentLinkIndices, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore);
+        internal static InstantiateCompanionComponentDelegate InstantiateCompanionComponent;
 
-        internal delegate void AssignHybridComponentsToCompanionGameObjectsDelegate(EntityManager entityManager, NativeArray<Entity> entities);
-        internal static AssignHybridComponentsToCompanionGameObjectsDelegate AssignHybridComponentsToCompanionGameObjects;
+        internal delegate void AssignCompanionComponentsToCompanionGameObjectsDelegate(EntityManager entityManager, NativeArray<Entity> entities);
+        internal static AssignCompanionComponentsToCompanionGameObjectsDelegate AssignCompanionComponentsToCompanionGameObjects;
 
         private sealed class ManagedComponentStoreKeyContext
         {
@@ -299,7 +305,7 @@ namespace Unity.Entities
 
         public object GetSharedComponentDataBoxed(int index, int typeIndex)
         {
-#if !UNITY_DOTSRUNTIME
+#if !NET_DOTS
             if (index == 0)
                 return Activator.CreateInstance(TypeManager.GetType(typeIndex));
 #else
@@ -573,8 +579,6 @@ namespace Unity.Entities
 #if !UNITY_DOTSRUNTIME
             var firstManagedComponent = archetype->FirstManagedComponent;
             var numManagedComponents = archetype->NumManagedComponents;
-            var hasHybridComponents = archetype->HasHybridComponents;
-            var types = archetype->Types;
 
             for (int i = 0; i < numManagedComponents; ++i)
             {
@@ -686,15 +690,15 @@ namespace Unity.Entities
                     }
                     break;
 
-                    case (ManagedDeferredCommands.Command.CloneHybridComponents):
+                    case (ManagedDeferredCommands.Command.CloneCompanionComponents):
                     {
                         var srcArray = (int*)reader.ReadNextArray<int>(out var componentCount);
                         var entities = (Entity*)reader.ReadNextArray<Entity>(out var instanceCount);
                         var dstComponentLinkIndices = (int*)reader.ReadNextArray<int>(out _);
                         var dstArray = (int*)reader.ReadNextArray<int>(out _);
 
-                        if (InstantiateHybridComponent != null)
-                            InstantiateHybridComponent(srcArray, componentCount, entities, dstComponentLinkIndices, dstArray, instanceCount, this);
+                        if (InstantiateCompanionComponent != null)
+                            InstantiateCompanionComponent(srcArray, componentCount, entities, dstComponentLinkIndices, dstArray, instanceCount, this);
                         else
                         {
                             // InstantiateHybridComponent was not injected just copy the reference to the object and dont clone it
@@ -766,8 +770,10 @@ namespace Unity.Entities
             entityComponentStore.AssertNoQueuedManagedDeferredCommands();
             var iManagedComponent = *index;
 
-            if (iManagedComponent != 0)
+            if (iManagedComponent != 0 && !ReferenceEquals(value, m_ManagedComponentData[iManagedComponent]))
+            {
                 (m_ManagedComponentData[iManagedComponent] as IDisposable)?.Dispose();
+            }
 
             if (value != null)
             {

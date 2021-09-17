@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Unity.Burst;
 using Unity.Collections;
-using MethodAttributes = Mono.Cecil.MethodAttributes;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
 
 namespace Unity.Entities.CodeGen
@@ -125,12 +123,6 @@ namespace Unity.Entities.CodeGen
 
             return typeDefinition.IsValueType;
         }
-    }
-
-    static class FieldReferenceExtensions
-    {
-        public static bool IsNestedDisplayClassField(this FieldReference fieldReference) =>
-            fieldReference.FieldType.IsDisplayClass() && fieldReference.Name.Contains("__locals");
     }
 
     static class MethodReferenceExtensions
@@ -269,15 +261,16 @@ namespace Unity.Entities.CodeGen
             {
                 var baseTypeRef = arg.BaseType;
 
+                if (arg.Interfaces.Any(typeInterface => typeInterface.InterfaceType.FullName == "Unity.Entities.ISystem"))
+                    return true;
+
                 if (baseTypeRef == null) return false;
 
                 if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == nameof(ComponentSystemBase)) return true;
 
                 // Early out if we can count on source generators adding this attribute to every system
-#if ROSLYN_SOURCEGEN_ENABLED
                 if (isFirstIteration && arg.CustomAttributes.All(a => a.Constructor.DeclaringType.Name != nameof(CompilerGeneratedAttribute)))
                     return false;
-#endif
 
                 switch (baseTypeRef.Name)
                 {
@@ -598,6 +591,7 @@ namespace Unity.Entities.CodeGen
 
         public static bool IsLoadFieldOrLoadFieldAddress(this Instruction instruction) => (instruction.OpCode == OpCodes.Ldfld || instruction.OpCode == OpCodes.Ldflda);
         public static bool IsLoadField(this Instruction instruction) => (instruction.OpCode == OpCodes.Ldfld || instruction.OpCode == OpCodes.Ldflda);
+        public static bool IsLoadStaticField(this Instruction instruction) => (instruction.OpCode == OpCodes.Ldsfld || instruction.OpCode == OpCodes.Ldsflda);
         public static bool IsStoreField(this Instruction instruction) => (instruction.OpCode == OpCodes.Stfld);
 
         public static bool IsLoadConstantInt(this Instruction instruction, out int intValue)

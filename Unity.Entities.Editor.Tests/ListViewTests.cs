@@ -40,7 +40,7 @@ namespace Unity.Entities.Editor.Tests
             simGroup.AddSystemToUpdateList(emptySys);
             simGroup.SortSystems();
 
-            ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(World.DefaultGameObjectInjectionWorld);
+            ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(World.DefaultGameObjectInjectionWorld);
         }
 
         public override void TearDown()

@@ -12,7 +12,7 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
         {
             Streaming = 1,
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-            HybridComponents = 2,
+            CompanionComponents = 2,
 #endif
         }
 
@@ -33,7 +33,7 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
             }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-            if ((categories & SystemCategories.HybridComponents) == SystemCategories.HybridComponents)
+            if ((categories & SystemCategories.CompanionComponents) == SystemCategories.CompanionComponents)
             {
                 systems.AddRange(new[]
                 {
@@ -43,7 +43,7 @@ namespace Unity.Entities.Hybrid.EndToEnd.Tests
                 });
             }
 #endif
-            
+
             systems.AddRange(new[]
             {
                 typeof(RetainBlobAssetSystem),

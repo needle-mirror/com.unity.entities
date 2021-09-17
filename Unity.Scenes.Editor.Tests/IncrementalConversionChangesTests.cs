@@ -1,4 +1,3 @@
-#if UNITY_2020_2_OR_NEWER
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,27 +19,14 @@ namespace Unity.Scenes.Editor.Tests
     [TestFixture]
     class IncrementalConversionChangesTests
     {
-        [SerializeField] TestWithTempAssets _assetsTest;
-        [SerializeField] TestWithCustomDefaultGameObjectInjectionWorld _defaultWorldTest;
-        [SerializeField] TestWithSubScenes _subSceneTest;
-        [SerializeField] private TestWithLiveConversion _liveConversionTest;
+        [SerializeField] TestWithEditorLiveConversion m_editorLiveConversionTest;
 
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
-            if (_assetsTest.TempAssetDir != null)
-            {
-                // this setup code is run again when we switch to playmode
+            if (!m_editorLiveConversionTest.OneTimeSetUp())
                 return;
-            }
-
             SceneManager.SetActiveScene(EditorSceneManager.NewScene(NewSceneSetup.EmptyScene));
-
-            // Create a temporary folder for test assets
-            _assetsTest.SetUp();
-            _defaultWorldTest.Setup();
-            _subSceneTest.Setup();
-            _liveConversionTest.Setup();
             LiveConversionSettings.AdditionalConversionSystems.Clear();
             LiveConversionSettings.AdditionalConversionSystems.Add(typeof(IncrementalConversionTestSystem));
         }
@@ -48,57 +34,29 @@ namespace Unity.Scenes.Editor.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
-            // Clean up all test assets
-            _assetsTest.TearDown();
-            _defaultWorldTest.TearDown();
-            _subSceneTest.TearDown();
-            _liveConversionTest.TearDown();
-
+            m_editorLiveConversionTest.OneTimeTearDown();
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
             LiveConversionSettings.AdditionalConversionSystems.Clear();
         }
 
         [SetUp]
-        public void SetUp()
-        {
-            World.DefaultGameObjectInjectionWorld?.Dispose();
-            World.DefaultGameObjectInjectionWorld = null;
-        }
-
-        static IEnumerator UpdateEditorAndWorld(World w)
-        {
-            yield return null;
-            w.Update();
-        }
-
-        static World GetLiveLinkWorld()
-        {
-            DefaultWorldInitialization.DefaultLazyEditModeInitialize();
-            var world = World.DefaultGameObjectInjectionWorld;
-            // This should be a fresh world, but make sure that it is not part of the player loop so we have manual
-            // control on its updates.
-            ScriptBehaviourUpdateOrder.RemoveWorldFromCurrentPlayerLoop(world);
-            return world;
-        }
-
-        Scene CreateTmpScene() => SubSceneTestsHelper.CreateScene(_assetsTest.GetNextPath() + ".unity");
-        SubScene CreateEmptySubScene(string name, bool keepOpen) => SubSceneTestsHelper.CreateSubSceneInSceneFromObjects(name, keepOpen, CreateTmpScene());
+        public void SetUp() => m_editorLiveConversionTest.SetUp();
 
         [UnityTest]
         public IEnumerator IncrementalConversion_WithSingleObject_IncomingChangesAreCorrect()
         {
-            var subScene = CreateEmptySubScene("TestSubScene", true);
+            var subScene = m_editorLiveConversionTest.CreateEmptySubScene("TestSubScene", true);
             SceneManager.SetActiveScene(subScene.EditingScene);
 
-            var w = GetLiveLinkWorld();
-            yield return UpdateEditorAndWorld(w);
+            var w = m_editorLiveConversionTest.GetLiveConversionWorldForEditMode();
+            yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
             {
                 var go = new GameObject("TestGameObject");
                 int goId = go.GetInstanceID();
 
                 Undo.RegisterCreatedObjectUndo(go, "Test Create");
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.AreEqual(new[] {go}, IncrementalConversionTestSystem.ChangedGameObjects);
@@ -107,7 +65,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 Undo.RegisterCompleteObjectUndo(go, "Test Change GameObject");
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.AreEqual(new[] {go}, IncrementalConversionTestSystem.ChangedGameObjects);
@@ -117,7 +75,7 @@ namespace Unity.Scenes.Editor.Tests
                 // Changing a component should not mark the game object itself as dirty.
                 Undo.RegisterCompleteObjectUndo(go.transform, "Test Change Transform");
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.AreEqual(new[] {go.transform}, IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedGameObjects);
@@ -126,7 +84,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 Undo.DestroyObjectImmediate(go);
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedGameObjects);
@@ -138,11 +96,11 @@ namespace Unity.Scenes.Editor.Tests
         [UnityTest]
         public IEnumerator IncrementalConversion_WithObjectHierarchy_IncomingChangesContainChildren()
         {
-            var subScene = CreateEmptySubScene("TestSubScene", true);
+            var subScene = m_editorLiveConversionTest.CreateEmptySubScene("TestSubScene", true);
             SceneManager.SetActiveScene(subScene.EditingScene);
 
-            var w = GetLiveLinkWorld();
-            yield return UpdateEditorAndWorld(w);
+            var w = m_editorLiveConversionTest.GetLiveConversionWorldForEditMode();
+            yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
             {
                 var root = new GameObject("Root");
                 int rootId = root.GetInstanceID();
@@ -152,7 +110,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 Undo.RegisterCreatedObjectUndo(root, "Test Create");
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.AreEquivalent(new[] {root, child}, IncrementalConversionTestSystem.ChangedGameObjects);
@@ -161,7 +119,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 Undo.DestroyObjectImmediate(root);
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedGameObjects);
@@ -173,11 +131,11 @@ namespace Unity.Scenes.Editor.Tests
         [UnityTest]
         public IEnumerator IncrementalConversion_WithCreateThenDelete_IncomingChangesAreEmpty()
         {
-            var subScene = CreateEmptySubScene("TestSubScene", true);
+            var subScene = m_editorLiveConversionTest.CreateEmptySubScene("TestSubScene", true);
             SceneManager.SetActiveScene(subScene.EditingScene);
 
-            var w = GetLiveLinkWorld();
-            yield return UpdateEditorAndWorld(w);
+            var w = m_editorLiveConversionTest.GetLiveConversionWorldForEditMode();
+            yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
             {
                 var go = new GameObject();
 
@@ -185,7 +143,7 @@ namespace Unity.Scenes.Editor.Tests
                 Undo.IncrementCurrentGroup();
                 Undo.DestroyObjectImmediate(go);
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedGameObjects);
@@ -197,18 +155,18 @@ namespace Unity.Scenes.Editor.Tests
         [UnityTest]
         public IEnumerator IncrementalConversion_WithDeleteThenCreate_IncomingChangesMarkGameObjectChanged()
         {
-            var subScene = CreateEmptySubScene("TestSubScene", true);
+            var subScene = m_editorLiveConversionTest.CreateEmptySubScene("TestSubScene", true);
             SceneManager.SetActiveScene(subScene.EditingScene);
             var go = new GameObject("Go");
             var goId = go.GetInstanceID();
 
-            var w = GetLiveLinkWorld();
-            yield return UpdateEditorAndWorld(w);
+            var w = m_editorLiveConversionTest.GetLiveConversionWorldForEditMode();
+            yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
             {
                 Undo.DestroyObjectImmediate(go);
                 Undo.PerformUndo();
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.AreEqual(new[] {go}, IncrementalConversionTestSystem.ChangedGameObjects);
@@ -220,18 +178,18 @@ namespace Unity.Scenes.Editor.Tests
         [UnityTest]
         public IEnumerator IncrementalConversion_WithDuplicateChanges_IncomingChangesAreDeduplicated()
         {
-            var subScene = CreateEmptySubScene("TestSubScene", true);
+            var subScene = m_editorLiveConversionTest.CreateEmptySubScene("TestSubScene", true);
             SceneManager.SetActiveScene(subScene.EditingScene);
             var go = new GameObject();
             var goId = go.GetInstanceID();
 
-            var w = GetLiveLinkWorld();
-            yield return UpdateEditorAndWorld(w);
+            var w = m_editorLiveConversionTest.GetLiveConversionWorldForEditMode();
+            yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
             {
                 Undo.RegisterCompleteObjectUndo(go, "Test Change");
                 Undo.RegisterCompleteObjectUndo(go, "Test Change");
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.AreEqual(new[] {go}, IncrementalConversionTestSystem.ChangedGameObjects);
@@ -241,7 +199,7 @@ namespace Unity.Scenes.Editor.Tests
                 Undo.RegisterCompleteObjectUndo(go.transform, "Test Component Change");
                 Undo.RegisterCompleteObjectUndo(go.transform, "Test Component Change");
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.AreEqual(new []{go.transform}, IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedGameObjects);
@@ -253,17 +211,17 @@ namespace Unity.Scenes.Editor.Tests
         [UnityTest]
         public IEnumerator IncrementalConversion_WithParentChange_IncomingChangesOnlyContainTransformChange()
         {
-            var subScene = CreateEmptySubScene("TestSubScene", true);
+            var subScene = m_editorLiveConversionTest.CreateEmptySubScene("TestSubScene", true);
             SceneManager.SetActiveScene(subScene.EditingScene);
             var root = new GameObject("Root");
             var child = new GameObject("Child");
 
-            var w = GetLiveLinkWorld();
-            yield return UpdateEditorAndWorld(w);
+            var w = m_editorLiveConversionTest.GetLiveConversionWorldForEditMode();
+            yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
             {
                 Undo.SetTransformParent(child.transform, root.transform, "Test Transform change");
                 IncrementalConversionTestSystem.CaptureNext(subScene.SceneGUID);
-                yield return UpdateEditorAndWorld(w);
+                yield return m_editorLiveConversionTest.UpdateEditorAndWorld(w);
 
                 CollectionAssert.AreEqual(new[] {child.transform}, IncrementalConversionTestSystem.ChangedComponents);
                 CollectionAssert.IsEmpty(IncrementalConversionTestSystem.ChangedGameObjects);
@@ -275,7 +233,7 @@ namespace Unity.Scenes.Editor.Tests
         [UpdateInGroup(typeof(ConversionSetupGroup))]
         [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
         [DisableAutoCreation]
-        class IncrementalConversionTestSystem : SystemBase
+        partial class IncrementalConversionTestSystem : SystemBase
         {
             public static readonly List<GameObject> ChangedGameObjects = new List<GameObject>();
             public static readonly List<int> ChangedGameObjectsInstanceIds = new List<int>();
@@ -312,4 +270,3 @@ namespace Unity.Scenes.Editor.Tests
         }
     }
 }
-#endif

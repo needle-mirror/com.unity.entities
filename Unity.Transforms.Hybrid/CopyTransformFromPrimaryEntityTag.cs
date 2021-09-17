@@ -10,7 +10,7 @@ namespace Unity.Transforms
     public struct CopyTransformFromPrimaryEntityTag : IComponentData {}
 
     [WorldSystemFilter(WorldSystemFilterFlags.EntitySceneOptimizations)]
-    class RemoveTransformCopyTag : SystemBase
+    partial class RemoveTransformCopyTag : SystemBase
     {
         protected override void OnUpdate()
         {

@@ -56,7 +56,7 @@ namespace Unity.Entities.Tests
                 a = 5,
                 b = 10
             };
-            NativeArray<int> jobResult = new NativeArray<int>(SimpleJob.N, Allocator.TempJob);
+            NativeArray<int> jobResult = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleJob.N, ref World.UpdateAllocator);
             job.result = jobResult;
 
             job.Run();
@@ -65,8 +65,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(15, jobResult[i]);
             }
-
-            jobResult.Dispose();
         }
 
         [Test]
@@ -78,7 +76,7 @@ namespace Unity.Entities.Tests
                 b = 10
             };
 
-            NativeArray<int> jobResult = new NativeArray<int>(SimpleJob.N, Allocator.TempJob);
+            NativeArray<int> jobResult = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleJob.N, ref World.UpdateAllocator);
             job.result = jobResult;
 
             JobHandle handle = job.Schedule();
@@ -88,8 +86,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(15, jobResult[i]);
             }
-
-            jobResult.Dispose();
         }
 
         public struct SimpleAddSerial : IJob
@@ -98,7 +94,6 @@ namespace Unity.Entities.Tests
 
             public int a;
 
-            [DeallocateOnJobCompletion]
             [ReadOnly]
             public NativeArray<int> input;
 
@@ -129,10 +124,10 @@ namespace Unity.Entities.Tests
             // Note the safety handles use Persistent, so only track TempJob
             long heapMem = UnsafeUtility.GetHeapSize(Allocator.TempJob);
 #endif
-            NativeArray<int> input = new NativeArray<int>(SimpleAddSerial.N, Allocator.TempJob);
-            NativeArray<int> jobResult1 = new NativeArray<int>(SimpleAddSerial.N, Allocator.TempJob);
-            NativeArray<int> jobResult2 = new NativeArray<int>(SimpleAddSerial.N, Allocator.TempJob);
-            NativeArray<int> jobResult3 = new NativeArray<int>(SimpleAddSerial.N, Allocator.TempJob);
+            NativeArray<int> input = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddSerial.N, ref World.UpdateAllocator);
+            NativeArray<int> jobResult1 = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddSerial.N, ref World.UpdateAllocator);
+            NativeArray<int> jobResult2 = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddSerial.N, ref World.UpdateAllocator);
+            NativeArray<int> jobResult3 = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddSerial.N, ref World.UpdateAllocator);
 
             for (int i = 0; i < SimpleAddSerial.N; ++i)
             {
@@ -156,8 +151,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(i + 1 + 2 + 3, jobResult3[i]);
             }
-
-            jobResult3.Dispose();
 
 #if UNITY_DOTSRUNTIME
             long postWork = UnsafeUtility.GetHeapSize(Allocator.TempJob);
@@ -187,10 +180,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void Schedule3SimpleJobsInParallel()
         {
-            NativeArray<int> input = new NativeArray<int>(SimpleAddParallel.N, Allocator.TempJob);
-            NativeArray<int> jobResult1 = new NativeArray<int>(SimpleAddParallel.N, Allocator.TempJob);
-            NativeArray<int> jobResult2 = new NativeArray<int>(SimpleAddParallel.N, Allocator.TempJob);
-            NativeArray<int> jobResult3 = new NativeArray<int>(SimpleAddParallel.N, Allocator.TempJob);
+            NativeArray<int> input = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddParallel.N, ref World.UpdateAllocator);
+            NativeArray<int> jobResult1 = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddParallel.N, ref World.UpdateAllocator);
+            NativeArray<int> jobResult2 = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddParallel.N, ref World.UpdateAllocator);
+            NativeArray<int> jobResult3 = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddParallel.N, ref World.UpdateAllocator);
 
             for (int i = 0; i < SimpleAddParallel.N; ++i)
             {
@@ -206,7 +199,7 @@ namespace Unity.Entities.Tests
             JobHandle handle3 = job3.Schedule();
 
             JobHandle[] arr = {handle1, handle2, handle3};
-            NativeArray<JobHandle> group = new NativeArray<JobHandle>(arr, Allocator.TempJob);
+            NativeArray<JobHandle> group = CollectionHelper.CreateNativeArray<JobHandle, RewindableAllocator>(arr, ref World.UpdateAllocator);
             JobHandle handle = JobHandle.CombineDependencies(group);
 
             handle.Complete();
@@ -217,13 +210,6 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(i + 2, jobResult2[i]);
                 Assert.AreEqual(i + 3, jobResult3[i]);
             }
-
-            input.Dispose();
-            jobResult1.Dispose();
-            jobResult2.Dispose();
-            jobResult3.Dispose();
-
-            group.Dispose();
         }
 
         public struct SimpleListAdd : IJob
@@ -251,10 +237,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void Schedule3SimpleListJobsInParallel()
         {
-            NativeList<int> input = new NativeList<int>(Allocator.TempJob);
-            NativeList<int> jobResult1 = new NativeList<int>(Allocator.TempJob);
-            NativeList<int> jobResult2 = new NativeList<int>(Allocator.TempJob);
-            NativeList<int> jobResult3 = new NativeList<int>(Allocator.TempJob);
+            NativeList<int> input = new NativeList<int>(World.UpdateAllocator.ToAllocator);
+            NativeList<int> jobResult1 = new NativeList<int>(World.UpdateAllocator.ToAllocator);
+            NativeList<int> jobResult2 = new NativeList<int>(World.UpdateAllocator.ToAllocator);
+            NativeList<int> jobResult3 = new NativeList<int>(World.UpdateAllocator.ToAllocator);
 
             for (int i = 0; i < SimpleListAdd.N; ++i)
             {
@@ -270,10 +256,9 @@ namespace Unity.Entities.Tests
             JobHandle handle3 = job3.Schedule();
 
             JobHandle[] arr = {handle1, handle2, handle3};
-            NativeArray<JobHandle> group = new NativeArray<JobHandle>(arr, Allocator.TempJob);
+            NativeArray<JobHandle> group = CollectionHelper.CreateNativeArray<JobHandle, RewindableAllocator>(arr, ref World.UpdateAllocator);
 
             JobHandle handle = JobHandle.CombineDependencies(group);
-            input.Dispose(handle);
 
             handle.Complete();
 
@@ -283,18 +268,12 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(i + 22, jobResult2[i]);
                 Assert.AreEqual(i + 33, jobResult3[i]);
             }
-
-            jobResult1.Dispose();
-            jobResult2.Dispose();
-            jobResult3.Dispose();
-            group.Dispose();
         }
 
         public struct SimpleParallelFor : IJobParallelFor
         {
             public const int N = 1000;
 
-            [DeallocateOnJobCompletion]
             [ReadOnly]
             public NativeArray<int> a;
 
@@ -323,9 +302,9 @@ namespace Unity.Entities.Tests
         // confirm work ranges are assigned - at least correctly enough - so that each index is called once.
         public void ScheduleSimpleParallelFor([Values(1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 15, 16, 17, 1000)] int arrayLen)
         {
-            NativeArray<int> a = new NativeArray<int>(arrayLen, Allocator.TempJob);
-            NativeArray<int> b = new NativeArray<int>(arrayLen, Allocator.TempJob);
-            NativeArray<int> result = new NativeArray<int>(arrayLen, Allocator.TempJob);
+            NativeArray<int> a = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(arrayLen, ref World.UpdateAllocator);
+            NativeArray<int> b = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(arrayLen, ref World.UpdateAllocator);
+            NativeArray<int> result = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(arrayLen, ref World.UpdateAllocator);
 
             for (int i = 0; i < arrayLen; ++i)
             {
@@ -345,9 +324,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(300 + i * 2, result[i]);
             }
-
-            b.Dispose();
-            result.Dispose();
         }
 
         public struct HashWriter : IJobParallelFor
@@ -364,7 +340,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void ScheduleHashWriter()
         {
-            NativeHashMap<int, int> result = new NativeHashMap<int, int>(100, Allocator.TempJob);
+            NativeHashMap<int, int> result = new NativeHashMap<int, int>(100, World.UpdateAllocator.ToAllocator);
 
             HashWriter job = new HashWriter
             {
@@ -377,8 +353,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(17, result[i]);
             }
-
-            result.Dispose();
         }
 
         [BurstCompile]
@@ -402,9 +376,9 @@ namespace Unity.Entities.Tests
         {
             const int MAPSIZE = 100;
             // Make sure that each iteration was called and the parallel write worked.
-            NativeHashMap<int, int> map = new NativeHashMap<int, int>(MAPSIZE, Allocator.TempJob);
+            NativeHashMap<int, int> map = new NativeHashMap<int, int>(MAPSIZE, World.UpdateAllocator.ToAllocator);
             // Tracks the threadIndex used for each job.
-            NativeHashMap<int, bool> threadMap = new NativeHashMap<int, bool>(JobsUtility.MaxJobThreadCount, Allocator.TempJob);
+            NativeHashMap<int, bool> threadMap = new NativeHashMap<int, bool>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator);
 
             HashWriterParallelFor job = new HashWriterParallelFor()
             {
@@ -418,9 +392,45 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(17, map[i]);
             }
+        }
 
-            map.Dispose();
-            threadMap.Dispose();
+        [BurstCompile]
+        public struct MultiHashWriterParallelFor : IJobParallelFor
+        {
+            [WriteOnly]
+            public NativeMultiHashMap<int, int>.ParallelWriter result;
+
+            [WriteOnly]
+            public NativeHashMap<int, bool>.ParallelWriter threadMap;
+
+            public void Execute(int i)
+            {
+                result.Add(i, 17);
+                threadMap.TryAdd(threadMap.m_ThreadIndex, true);
+            }
+        }
+
+        [Test]
+        public void RunMultiHashWriterParallelFor()
+        {
+            const int MAPSIZE = 100;
+            // Make sure that each iteration was called and the parallel write worked.
+            NativeHashMap<int, int> map = new NativeHashMap<int, int>(MAPSIZE, World.UpdateAllocator.ToAllocator);
+            // Tracks the threadIndex used for each job.
+            NativeHashMap<int, bool> threadMap = new NativeHashMap<int, bool>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator);
+
+            HashWriterParallelFor job = new HashWriterParallelFor()
+            {
+                result = map.AsParallelWriter(),
+                threadMap = threadMap.AsParallelWriter()
+            };
+
+            job.Schedule(MAPSIZE, 5).Complete();
+
+            for (int i = 0; i < MAPSIZE; ++i)
+            {
+                Assert.AreEqual(17, map[i]);
+            }
         }
 
         public struct SimpleParallelForDefer : IJobParallelForDefer
@@ -441,9 +451,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void ScheduleSimpleParallelForDefer_1()
         {
-            NativeList<int> a = new NativeList<int>(SimpleParallelForDefer.N, Allocator.TempJob);
-            NativeArray<int> b = new NativeArray<int>(SimpleParallelForDefer.N, Allocator.TempJob);
-            NativeArray<int> result = new NativeArray<int>(SimpleParallelForDefer.N, Allocator.TempJob);
+            NativeList<int> a = new NativeList<int>(SimpleParallelForDefer.N, World.UpdateAllocator.ToAllocator);
+            NativeArray<int> b = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
+            NativeArray<int> result = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
 
             for (int i = 0; i < SimpleParallelForDefer.N; ++i)
             {
@@ -463,18 +473,14 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(300 + i * 2, result[i]);
             }
-
-            a.Dispose();
-            b.Dispose();
-            result.Dispose();
         }
 
         [Test]
         public unsafe void ScheduleSimpleParallelForDefer_2()
         {
-            NativeList<int> a = new NativeList<int>(SimpleParallelForDefer.N, Allocator.TempJob);
-            NativeArray<int> b = new NativeArray<int>(SimpleParallelForDefer.N, Allocator.TempJob);
-            NativeArray<int> result = new NativeArray<int>(SimpleParallelForDefer.N, Allocator.TempJob);
+            NativeList<int> a = new NativeList<int>(SimpleParallelForDefer.N, World.UpdateAllocator.ToAllocator);
+            NativeArray<int> b = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
+            NativeArray<int> result = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
 
             for (int i = 0; i < SimpleParallelForDefer.N; ++i)
             {
@@ -487,7 +493,7 @@ namespace Unity.Entities.Tests
             job.b = b;
             job.result = result;
 
-            var lengthValue = new NativeArray<int>(1, Allocator.TempJob);
+            var lengthValue = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator);
             lengthValue[0] = SimpleParallelForDefer.N;
 
             JobHandle handle = job.Schedule((int*)lengthValue.GetUnsafePtr(), 300);
@@ -497,11 +503,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(300 + i * 2, result[i]);
             }
-
-            a.Dispose();
-            b.Dispose();
-            result.Dispose();
-            lengthValue.Dispose();
         }
 
         public struct SimpleParallelForBatch : IJobParallelForBatch
@@ -525,9 +526,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void ScheduleSimpleParallelForBatch()
         {
-            NativeArray<int> a = new NativeArray<int>(SimpleParallelForDefer.N, Allocator.TempJob);
-            NativeArray<int> b = new NativeArray<int>(SimpleParallelForDefer.N, Allocator.TempJob);
-            NativeArray<int> result = new NativeArray<int>(SimpleParallelForDefer.N, Allocator.TempJob);
+            NativeArray<int> a = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
+            NativeArray<int> b = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
+            NativeArray<int> result = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleParallelForDefer.N, ref World.UpdateAllocator);
 
             for (int i = 0; i < SimpleParallelForBatch.N; ++i)
             {
@@ -547,10 +548,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(300 + i * 2, result[i]);
             }
-
-            a.Dispose();
-            b.Dispose();
-            result.Dispose();
         }
 
         public struct HashWriterJob : IJob
@@ -575,7 +572,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void RunHashWriterJob()
         {
-            NativeHashMap<int, int> map = new NativeHashMap<int, int>(HashWriterJob.N, Allocator.TempJob);
+            NativeHashMap<int, int> map = new NativeHashMap<int, int>(HashWriterJob.N, World.UpdateAllocator.ToAllocator);
 
             HashWriterJob job = new HashWriterJob();
             job.result = map.AsParallelWriter();
@@ -586,7 +583,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(map[i], 47);
             }
-            map.Dispose();
         }
 
         public struct SimpleChunkJob : IJobChunk
@@ -610,7 +606,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestSimpleIJobChunk([Values(0, 1, 2, 3)] int mode, [Values(1, 100)] int n)
         {
-            NativeArray<Entity> eArr = new NativeArray<Entity>(n, Allocator.TempJob);
+            NativeArray<Entity> eArr = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(n, ref World.UpdateAllocator);
             var arch = m_Manager.CreateArchetype(typeof(EcsTestData));
 
             m_Manager.CreateEntity(arch, eArr);
@@ -620,7 +616,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(eArr[i], new EcsTestData() {value = 10 + i});
             }
 
-            NativeList<int> listOfInt = new NativeList<int>(1, Allocator.TempJob);
+            NativeList<int> listOfInt = new NativeList<int>(1, World.UpdateAllocator.ToAllocator);
 
             EntityQuery query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
             var job = new SimpleChunkJob
@@ -649,9 +645,6 @@ namespace Unity.Entities.Tests
                 EcsTestData data = m_Manager.GetComponentData<EcsTestData>(eArr[i]);
                 Assert.AreEqual(10 + i + 100, data.value);
             }
-
-            listOfInt.Dispose();
-            eArr.Dispose();
         }
 
         public struct SimpleJobFor : IJobFor
@@ -670,7 +663,7 @@ namespace Unity.Entities.Tests
         {
             const int N = 1000;
 
-            NativeHashMap<int, int> output = new NativeHashMap<int, int>(N, Allocator.TempJob);
+            NativeHashMap<int, int> output = new NativeHashMap<int, int>(N, World.UpdateAllocator.ToAllocator);
             SimpleJobFor job = new SimpleJobFor()
             {
                 result = output.AsParallelWriter()
@@ -694,8 +687,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(123, output[i]);
             }
-
-            output.Dispose();
         }
 
     }

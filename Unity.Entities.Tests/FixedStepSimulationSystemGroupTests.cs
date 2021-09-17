@@ -7,7 +7,7 @@ namespace Unity.Entities.Tests
 {
     public class FixedStepSimulationSystemGroupTests : ECSTestsFixture
     {
-        class RecordUpdateTimesSystem : SystemBase
+        partial class RecordUpdateTimesSystem : SystemBase
         {
             public List<TimeData> Updates = new List<TimeData>();
             protected override void OnUpdate()
@@ -178,8 +178,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void FixedStepSimulationSystemGroup_TimestepMinMaxRange_IsValid()
         {
-            Assert.Less(0.0f, FixedRateUtils.MinFixedDeltaTime, "minimum fixed timestep must be >0");
-            Assert.LessOrEqual(FixedRateUtils.MinFixedDeltaTime, FixedRateUtils.MaxFixedDeltaTime,
+            Assert.Less(0.0f, RateUtils.MinFixedDeltaTime, "minimum fixed timestep must be >0");
+            Assert.LessOrEqual(RateUtils.MinFixedDeltaTime, RateUtils.MaxFixedDeltaTime,
                 "minimum fixed timestep must be <= maximum fixed timestep");
 
         }
@@ -189,15 +189,15 @@ namespace Unity.Entities.Tests
         {
             var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
             fixedSimGroup.Timestep = 0.0f;
-            Assert.AreEqual(FixedRateUtils.MinFixedDeltaTime, fixedSimGroup.Timestep);
+            Assert.AreEqual(RateUtils.MinFixedDeltaTime, fixedSimGroup.Timestep);
         }
 
         [Test]
         public void FixedStepSimulationSystemGroup_TimestepTooHigh_ClampedToMaximum()
         {
             var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            fixedSimGroup.Timestep = FixedRateUtils.MaxFixedDeltaTime + 1.0f;
-            Assert.AreEqual(FixedRateUtils.MaxFixedDeltaTime, fixedSimGroup.Timestep);
+            fixedSimGroup.Timestep = RateUtils.MaxFixedDeltaTime + 1.0f;
+            Assert.AreEqual(RateUtils.MaxFixedDeltaTime, fixedSimGroup.Timestep);
         }
 
         [Test]
@@ -205,7 +205,7 @@ namespace Unity.Entities.Tests
         {
             var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
             float validTimestep =
-                math.lerp(FixedRateUtils.MinFixedDeltaTime, FixedRateUtils.MaxFixedDeltaTime, 0.5f);
+                math.lerp(RateUtils.MinFixedDeltaTime, RateUtils.MaxFixedDeltaTime, 0.5f);
             fixedSimGroup.Timestep = validTimestep;
                 Assert.AreEqual(validTimestep, fixedSimGroup.Timestep);
         }
@@ -219,7 +219,7 @@ namespace Unity.Entities.Tests
             fixedSimGroup.SortSystems();
 
             fixedSimGroup.Timestep = 1.0f;
-            fixedSimGroup.FixedRateManager = null;
+            fixedSimGroup.RateManager = null;
             // Simulate a large elapsed time since the previous frame
             World.PushTime(new TimeData(8.5f, 0.01f));
             fixedSimGroup.Update();
@@ -287,17 +287,17 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void FixedStepSimulationSystemGroup_NullFixedRateManager_TimestepDoesntThrow()
+        public void FixedStepSimulationSystemGroup_NullRateManager_TimestepDoesntThrow()
         {
             var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            fixedSimGroup.FixedRateManager = null;
+            fixedSimGroup.RateManager = null;
             Assert.DoesNotThrow(() => { fixedSimGroup.Timestep = 1.0f;});
             Assert.AreEqual(0, fixedSimGroup.Timestep);
         }
 
-        // Simple custom FixedRateManager that updates exactly once per frame. The timestep is ignored, but
+        // Simple custom rate manager that updates exactly once per frame. The timestep is ignored, but
         // should be correct if queried.
-        class CustomFixedRateManager : IFixedRateManager
+        class CustomRateManager : IRateManager
         {
             private bool m_UpdatedThisFrame;
             public int UpdateCount { get; private set; }
@@ -320,37 +320,37 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void FixedStepSimulationSystemGroup_CustomFixedRateManager_TimestepIsCorrect()
+        public void FixedStepSimulationSystemGroup_CustomRateManager_TimestepIsCorrect()
         {
             var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            fixedSimGroup.FixedRateManager = new CustomFixedRateManager();
+            fixedSimGroup.RateManager = new CustomRateManager();
             const float expectedTimestep = 0.125f;
             fixedSimGroup.Timestep = expectedTimestep;
             Assert.AreEqual(expectedTimestep, fixedSimGroup.Timestep);
         }
 
         [Test]
-        public void FixedStepSimulationSystemGroup_CustomFixedRateManager_UpdateLogicIsCorrect()
+        public void FixedStepSimulationSystemGroup_CustomRateManager_UpdateLogicIsCorrect()
         {
             var fixedSimGroup = World.CreateSystem<FixedStepSimulationSystemGroup>();
-            var customFixedRateMgr = new CustomFixedRateManager();
-            fixedSimGroup.FixedRateManager = customFixedRateMgr;
+            var customRateMgr = new CustomRateManager();
+            fixedSimGroup.RateManager = customRateMgr;
             fixedSimGroup.Timestep = 1.0f; // Ignored in this test, only the timestep in World.Time.DeltaTime matters
             var updateTimesSystem = World.CreateSystem<RecordUpdateTimesSystem>();
             fixedSimGroup.AddSystemToUpdateList(updateTimesSystem);
             fixedSimGroup.SortSystems();
 
-            Assert.AreEqual(0, customFixedRateMgr.UpdateCount);
+            Assert.AreEqual(0, customRateMgr.UpdateCount);
             float deltaTime = 0.125f;
             double elapsedTime = 0;
             World.SetTime(new TimeData(elapsedTime, deltaTime));
             fixedSimGroup.Update();
-            Assert.AreEqual(1, customFixedRateMgr.UpdateCount);
+            Assert.AreEqual(1, customRateMgr.UpdateCount);
 
             elapsedTime += deltaTime;
             World.SetTime(new TimeData(elapsedTime, deltaTime));
             fixedSimGroup.Update();
-            Assert.AreEqual(2, customFixedRateMgr.UpdateCount);
+            Assert.AreEqual(2, customRateMgr.UpdateCount);
 
             CollectionAssert.AreEqual(updateTimesSystem.Updates,
                 new[]

@@ -1,0 +1,13 @@
+﻿<UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement class="hierarchy-item__container">
+        <ui:VisualElement name="Column 1" class="hierarchy-item__column-1">
+            <ui:VisualElement name="Icon" class="hierarchy-item__icon"/>
+            <ui:Label name="Name" class="hierarchy-item__name-label"/>
+            <ui:Label name="SubSceneState" class="hierarchy-item__subscene-state-label"/>
+        </ui:VisualElement>
+        <ui:VisualElement name="Column 2" class="hierarchy-item__column-2">
+            <ui:VisualElement name="Ping Source GameObject Button" class="hierarchy-item__ping-gameobject-button" tooltip="Ping source game object in hierarchy"/>
+            <ui:VisualElement name="System Button" class="hierarchy-item__system-button"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</UXML>

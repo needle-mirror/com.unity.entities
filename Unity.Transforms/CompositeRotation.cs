@@ -37,7 +37,8 @@ namespace Unity.Transforms
     }
 
     // CompositeRotation = RotationPivotTranslation * RotationPivot * Rotation * PostRotation * RotationPivot^-1
-    public abstract class CompositeRotationSystem : JobComponentSystem
+    [BurstCompile]
+    public partial struct CompositeRotationSystem : ISystem
     {
         private EntityQuery m_Query;
 
@@ -356,9 +357,11 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreate()
+        //burst disabled pending burstable entityquerydesc
+        //[BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc
+            m_Query = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -375,13 +378,21 @@ namespace Unity.Transforms
             });
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
         {
-            var compositeRotationType = GetComponentTypeHandle<CompositeRotation>(false);
-            var rotationType = GetComponentTypeHandle<Rotation>(true);
-            var preRotationType = GetComponentTypeHandle<PostRotation>(true);
-            var rotationPivotTranslationType = GetComponentTypeHandle<RotationPivotTranslation>(true);
-            var rotationPivotType = GetComponentTypeHandle<RotationPivot>(true);
+        }
+
+        #if !UNITY_DOTSRUNTIME
+        [BurstCompile]
+        #endif
+        public void OnUpdate(ref SystemState state)//JobHandle inputDeps)
+        {
+            var compositeRotationType = state.GetComponentTypeHandle<CompositeRotation>(false);
+            var rotationType = state.GetComponentTypeHandle<Rotation>(true);
+            var preRotationType = state.GetComponentTypeHandle<PostRotation>(true);
+            var rotationPivotTranslationType = state.GetComponentTypeHandle<RotationPivotTranslation>(true);
+            var rotationPivotType = state.GetComponentTypeHandle<RotationPivot>(true);
 
             var toCompositeRotationJob = new ToCompositeRotation
             {
@@ -390,10 +401,9 @@ namespace Unity.Transforms
                 RotationTypeHandle = rotationType,
                 RotationPivotTypeHandle = rotationPivotType,
                 RotationPivotTranslationTypeHandle = rotationPivotTranslationType,
-                LastSystemVersion = LastSystemVersion
+                LastSystemVersion = state.LastSystemVersion
             };
-            var toCompositeRotationJobHandle = toCompositeRotationJob.ScheduleParallel(m_Query, 1, inputDeps);
-            return toCompositeRotationJobHandle;
+            state.Dependency = toCompositeRotationJob.ScheduleParallel(m_Query, state.Dependency);
         }
     }
 }

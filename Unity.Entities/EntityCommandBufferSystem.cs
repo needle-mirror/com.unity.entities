@@ -83,6 +83,8 @@ namespace Unity.Entities
             var world = World.Unmanaged;
             var state = world.ResolveSystemState(world.ExecutingSystem);
             cmds.SystemID = state != null ? state->m_SystemID : 0;
+            cmds.OriginSystemHandle = state != null ? state->m_Handle : default;
+
             m_PendingBuffers.Add(cmds);
 
             return cmds;
@@ -110,7 +112,7 @@ namespace Unity.Entities
         /// public struct ProcessInfo: IComponentData{ public float Value; }
         /// public struct ProcessCompleteTag : IComponentData{}
         ///
-        /// public class AsyncProcessJobSystem : JobComponentSystem
+        /// public partial class AsyncProcessJobSystem : SystemBase
         /// {
         ///     [BurstCompile]
         ///     public struct ProcessInBackgroundJob : IJobForEachWithEntity&lt;ProcessInfo&gt;
@@ -128,7 +130,7 @@ namespace Unity.Entities
         ///         }
         ///     }
         ///
-        ///     protected override JobHandle OnUpdate(JobHandle inputDeps)
+        ///     protected override void OnUpdate()
         ///     {
         ///         var job = new ProcessInBackgroundJob();
         ///
@@ -136,10 +138,8 @@ namespace Unity.Entities
         ///             World.GetOrCreateSystem&lt;EndSimulationEntityCommandBufferSystem&gt;();
         ///         job.ConcurrentCommands = ecbSystem.CreateCommandBuffer().AsParallelWriter();
         ///
-        ///         var handle = job.Schedule(this, inputDeps);
-        ///         ecbSystem.AddJobHandleForProducer(handle);
-        ///
-        ///         return handle;
+        ///         Dependency = job.Schedule(this, Dependency);
+        ///         ecbSystem.AddJobHandleForProducer(Dependency);
         ///     }
         /// }
         /// </code>

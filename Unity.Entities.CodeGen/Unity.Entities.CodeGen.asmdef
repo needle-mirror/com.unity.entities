@@ -20,12 +20,5 @@
 		"Unity.IL2CPP",
 		"Unity.IL2CPP.Common"
     ],
-    "autoReferenced": false,
-    "versionDefines": [
-        {
-            "name": "com.unity.roslyn",
-            "expression": "0.0.0-preview.2",
-            "define": "ROSLYN_SOURCEGEN_ENABLED"
-        }
-    ]
+    "autoReferenced": false
 }

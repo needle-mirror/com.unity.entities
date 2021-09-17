@@ -9,7 +9,6 @@ In addition to "traditional" debugging using breakpoints, Unity provides the fol
 * Burst Inspector
 * DOTS Decompiler
 * Entity Inspectors
-* Livelink
 * Profiler
 
 <a name="entity_debugger"></a>

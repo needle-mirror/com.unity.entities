@@ -17,7 +17,7 @@ namespace Unity.Entities
         private int m_SafetyReadOnlyCount;
         private int m_SafetyReadWriteCount;
 #endif
-        [NativeDisableUnsafePtrRestriction] private readonly EntityComponentStore* m_EntityComponentStore;
+        [NativeDisableUnsafePtrRestriction] private readonly EntityDataAccess* m_Access;
         private readonly int m_TypeIndex;
         private readonly bool m_IsReadOnly;
         readonly uint                    m_GlobalSystemVersion;
@@ -27,7 +27,7 @@ namespace Unity.Entities
 
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal BufferFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore, bool isReadOnly,
+        internal BufferFromEntity(int typeIndex, EntityDataAccess* access, bool isReadOnly,
                                   AtomicSafetyHandle safety, AtomicSafetyHandle arrayInvalidationSafety)
         {
             m_Safety0 = safety;
@@ -35,10 +35,10 @@ namespace Unity.Entities
             m_SafetyReadOnlyCount = isReadOnly ? 2 : 0;
             m_SafetyReadWriteCount = isReadOnly ? 0 : 2;
             m_TypeIndex = typeIndex;
-            m_EntityComponentStore = entityComponentStoreComponentStore;
+            m_Access = access;
             m_IsReadOnly = isReadOnly;
             m_Cache = default;
-            m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
+            m_GlobalSystemVersion = access->EntityComponentStore->GlobalSystemVersion;
 
             if (!TypeManager.IsBuffer(m_TypeIndex))
                 throw new ArgumentException(
@@ -48,17 +48,56 @@ namespace Unity.Entities
         }
 
 #else
-        internal BufferFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore, bool isReadOnly)
+        internal BufferFromEntity(int typeIndex, EntityDataAccess* access, bool isReadOnly)
         {
             m_TypeIndex = typeIndex;
-            m_EntityComponentStore = entityComponentStoreComponentStore;
+            m_Access = access;
             m_IsReadOnly = isReadOnly;
             m_Cache = default;
-            m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
+            m_GlobalSystemVersion = access->EntityComponentStore->GlobalSystemVersion;
             m_InternalCapacity = TypeManager.GetTypeInfo<T>().BufferCapacity;
         }
 
 #endif
+
+        /// <summary>
+        /// Retrieves the buffer components associated with the specified <see cref="Entity"/>, if it exists. Then reports if the instance still refers to a valid entity and that it has a
+        /// buffer component of type T.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// /// <param name="bufferData">The buffer component of type T for the given entity, if it exists.</param>
+        /// <returns>True if the entity has a buffer component of type T, and false if it does not.</returns>
+        /// <remarks>To report if the provided entity has a buffer component of type T, this function confirms
+        /// whether the <see cref="EntityArchetype"/> of the provided entity includes buffer components of type T.
+        /// </remarks>
+        public bool TryGetBuffer(Entity entity, out DynamicBuffer<T> bufferData)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
+#endif
+            var ecs = m_Access->EntityComponentStore;
+            var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+
+            if (hasComponent)
+            {
+                var header = (m_IsReadOnly)?
+                    (BufferHeader*)ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache) :
+                    (BufferHeader*)ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                bufferData =  new DynamicBuffer<T>(header, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly, false, 0, m_InternalCapacity);
+#else
+                bufferData = new DynamicBuffer<T>(header, m_InternalCapacity);
+#endif
+            }
+            else
+            {
+                bufferData = default;
+                return false;
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
@@ -75,7 +114,8 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
 #endif
-            return m_EntityComponentStore->HasComponent(entity, m_TypeIndex);
+            var ecs = m_Access->EntityComponentStore;
+            return ecs->HasComponent(entity, m_TypeIndex);
         }
 
         /// <summary>
@@ -94,7 +134,8 @@ namespace Unity.Entities
         /// passed to the <paramref name="version"/> parameter.</returns>
         public bool DidChange(Entity entity, uint version)
         {
-            var chunk = m_EntityComponentStore->GetChunk(entity);
+            var ecs = m_Access->EntityComponentStore;
+            var chunk = ecs->GetChunk(entity);
 
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_TypeIndex);
             if (typeIndexInArchetype == -1) return false;
@@ -107,17 +148,18 @@ namespace Unity.Entities
         {
             get
             {
+                var ecs = m_Access->EntityComponentStore;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 // Note that this check is only for the lookup table into the entity manager
                 // The native array performs the actual read only / write only checks
                 AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
 
-                m_EntityComponentStore->AssertEntityHasComponent(entity, m_TypeIndex);
+                ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 #endif
 
                 var header = (m_IsReadOnly)?
-                    (BufferHeader*)m_EntityComponentStore->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache) :
-                    (BufferHeader*)m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
+                    (BufferHeader*)ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache) :
+                    (BufferHeader*)ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 return new DynamicBuffer<T>(header, m_Safety0, m_ArrayInvalidationSafety, m_IsReadOnly, false, 0, m_InternalCapacity);
@@ -125,6 +167,26 @@ namespace Unity.Entities
                 return new DynamicBuffer<T>(header, m_InternalCapacity);
 #endif
             }
+        }
+
+        internal bool IsComponentEnabled(Entity entity)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            // Note that this check is only for the lookup table into the entity manager
+            // The native array performs the actual read only / write only checks
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
+#endif
+            return m_Access->IsComponentEnabled(entity, m_TypeIndex);
+        }
+
+        internal void SetComponentEnabled(Entity entity, bool value)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            // Note that this check is only for the lookup table into the entity manager
+            // The native array performs the actual read only / write only checks
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
+#endif
+            m_Access->SetComponentEnabled(entity, m_TypeIndex, value);
         }
     }
 }

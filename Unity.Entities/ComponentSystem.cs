@@ -8,8 +8,8 @@ namespace Unity.Entities
     /// An abstract class to implement in order to create a system.
     /// </summary>
     /// <remarks>Implement a ComponentSystem subclass for systems that perform their work on the main thread or that
-    /// use Jobs not specifically optimized for ECS. To use the ECS-specific Jobs, such as <see cref="IJobForEach{T0}"/> or
-    /// <see cref="IJobChunk"/>, implement <seealso cref="JobComponentSystem"/> instead.</remarks>
+    /// use Jobs not specifically optimized for ECS. To use the ECS-specific Jobs, such as <see cref="IJobEntity"/> or
+    /// <see cref="IJobEntityBatch"/>, implement <seealso cref="SystemBase"/> instead.</remarks>
     public unsafe abstract partial class ComponentSystem : ComponentSystemBase
     {
         EntityCommandBuffer m_DeferredEntities;

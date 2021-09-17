@@ -180,8 +180,143 @@ namespace Unity.Entities.Tests
             Assert.AreEqual((UIntPtr)buf.GetUnsafePtr(), (UIntPtr)buf.GetUnsafeReadOnlyPtr());
         }
 
-// https://unity3d.atlassian.net/browse/DOTSR-1995 Fails on Runtime WebGL target.
-#if !(UNITY_DOTSRUNTIME && UNITY_WEBGL)
+        struct BufferJob_ReadOnly : IJobChunk
+        {
+            [ReadOnly]
+            public BufferTypeHandle<EcsIntElement> BufferTypeRO;
+
+            public NativeArray<int> IntArray;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                var buffer = chunk.GetBufferAccessor(BufferTypeRO)[0];
+                IntArray[0] += buffer.Length;
+            }
+        }
+
+        struct BufferJob_ReadWrite : IJobChunk
+        {
+            public BufferTypeHandle<EcsIntElement> BufferTypeRW;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                var buffer = chunk.GetBufferAccessor(BufferTypeRW)[0];
+                buffer.Add(10);
+            }
+        }
+
+        struct BufferJob_ReadOnly_FromEntity : IJobChunk
+        {
+            [ReadOnly]
+            public EntityTypeHandle EntityTypeRO;
+
+            [ReadOnly]
+            public BufferFromEntity<EcsIntElement> BufferFromEntityRO;
+
+            public NativeArray<int> IntArray;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                var entity = chunk.GetNativeArray(EntityTypeRO)[0];
+                var buffer = BufferFromEntityRO[entity];
+                IntArray[0] += buffer.Length;
+            }
+        }
+
+        struct BufferJob_ReadWrite_FromEntity : IJobChunk
+        {
+            [ReadOnly]
+            public EntityTypeHandle EntityTypeRO;
+
+            public BufferFromEntity<EcsIntElement> BufferFromEntityRW;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                var entity = chunk.GetNativeArray(EntityTypeRO)[0];
+                var buffer = BufferFromEntityRW[entity];
+                buffer.Add(10);
+            }
+        }
+
+       [Test]
+       public void ReadOnlyBufferDoesNotBumpVersionNumber()
+       {
+           m_ManagerDebug.SetGlobalSystemVersion(10);
+           var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+
+           var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
+
+           var queryRW = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+           queryRW.SetChangedVersionFilter(typeof(EcsIntElement));
+           queryRW.SetChangedFilterRequiredVersion(10);
+
+           new BufferJob_ReadOnly
+           {
+               BufferTypeRO = m_Manager.GetBufferTypeHandle<EcsIntElement>(true),
+               IntArray = CollectionHelper.CreateNativeArray<int>(1, World.UpdateAllocator.ToAllocator)
+           }.Run(queryRO);
+
+           // Should not process any chunks due to version filtering
+           new BufferJob_ReadWrite
+           {
+               BufferTypeRW = m_Manager.GetBufferTypeHandle<EcsIntElement>(false)
+           }.Run(queryRW);
+
+           var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+           Assert.AreEqual(0, buffer.Length);
+       }
+
+       [Test]
+       public void ReadOnlyBufferDoesNotBumpVersionNumber_BufferFromEntity()
+       {
+           m_ManagerDebug.SetGlobalSystemVersion(10);
+           var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+
+           var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
+
+           var queryRW = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+           queryRW.SetChangedVersionFilter(typeof(EcsIntElement));
+           queryRW.SetChangedFilterRequiredVersion(10);
+
+           new BufferJob_ReadOnly_FromEntity
+           {
+               EntityTypeRO = m_Manager.GetEntityTypeHandle(),
+               BufferFromEntityRO = m_Manager.GetBufferFromEntity<EcsIntElement>(true),
+               IntArray = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator)
+           }.Run(queryRO);
+
+           // Should not process any chunks due to version filtering
+           new BufferJob_ReadWrite_FromEntity
+           {
+               EntityTypeRO = m_Manager.GetEntityTypeHandle(),
+               BufferFromEntityRW = m_Manager.GetBufferFromEntity<EcsIntElement>(false),
+           }.Run(queryRW);
+
+           var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
+           Assert.AreEqual(0, buffer.Length);
+       }
+
+#if !UNITY_DOTSRUNTIME // DOTS Runtime does not support regex
+        [Test]
+        public void WritingToReadOnlyBufferTriggersSafetySystem()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
+
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
+            new BufferJob_ReadWrite{BufferTypeRW = m_Manager.GetBufferTypeHandle<EcsIntElement>(true)}.Run(queryRO);
+        }
+
+        [Test]
+        public void WritingToReadOnlyBufferTriggersSafetySystem_BufferFromEntity()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
+            var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
+
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
+            new BufferJob_ReadWrite_FromEntity{EntityTypeRO = m_Manager.GetEntityTypeHandle(), BufferFromEntityRW = m_Manager.GetBufferFromEntity<EcsIntElement>(true)}.Run(queryRO);
+        }
+
         public partial class DynamicBufferTestsSystem : SystemBase
         {
             private struct DynamicBufferData1 : IBufferElementData
@@ -249,146 +384,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        struct BufferJob_ReadOnly : IJobChunk
-        {
-            [ReadOnly]
-            public BufferTypeHandle<EcsIntElement> BufferTypeRO;
-
-            [DeallocateOnJobCompletion]
-            public NativeArray<int> IntArray;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
-            {
-                var buffer = chunk.GetBufferAccessor(BufferTypeRO)[0];
-                IntArray[0] += buffer.Length;
-            }
-        }
-
-        struct BufferJob_ReadWrite : IJobChunk
-        {
-            public BufferTypeHandle<EcsIntElement> BufferTypeRW;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
-            {
-                var buffer = chunk.GetBufferAccessor(BufferTypeRW)[0];
-                buffer.Add(10);
-            }
-        }
-
-        struct BufferJob_ReadOnly_FromEntity : IJobChunk
-        {
-            [ReadOnly]
-            public EntityTypeHandle EntityTypeRO;
-
-            [ReadOnly]
-            public BufferFromEntity<EcsIntElement> BufferFromEntityRO;
-
-            [DeallocateOnJobCompletion]
-            public NativeArray<int> IntArray;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
-            {
-                var entity = chunk.GetNativeArray(EntityTypeRO)[0];
-                var buffer = BufferFromEntityRO[entity];
-                IntArray[0] += buffer.Length;
-            }
-        }
-
-        struct BufferJob_ReadWrite_FromEntity : IJobChunk
-        {
-            [ReadOnly]
-            public EntityTypeHandle EntityTypeRO;
-
-            public BufferFromEntity<EcsIntElement> BufferFromEntityRW;
-
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
-            {
-                var entity = chunk.GetNativeArray(EntityTypeRO)[0];
-                var buffer = BufferFromEntityRW[entity];
-                buffer.Add(10);
-            }
-        }
-
-       [Test]
-       public void ReadOnlyBufferDoesNotBumpVersionNumber()
-       {
-           m_ManagerDebug.SetGlobalSystemVersion(10);
-           var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-
-           var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
-
-           var queryRW = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-           queryRW.SetChangedVersionFilter(typeof(EcsIntElement));
-           queryRW.SetChangedFilterRequiredVersion(10);
-
-           new BufferJob_ReadOnly
-           {
-               BufferTypeRO = m_Manager.GetBufferTypeHandle<EcsIntElement>(true),
-               IntArray = new NativeArray<int>(1, Allocator.TempJob)
-           }.Run(queryRO);
-
-           // Should not process any chunks due to version filtering
-           new BufferJob_ReadWrite
-           {
-               BufferTypeRW = m_Manager.GetBufferTypeHandle<EcsIntElement>(false)
-           }.Run(queryRW);
-
-           var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
-           Assert.AreEqual(0, buffer.Length);
-       }
-
-       [Test]
-       public void ReadOnlyBufferDoesNotBumpVersionNumber_BufferFromEntity()
-       {
-           m_ManagerDebug.SetGlobalSystemVersion(10);
-           var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-
-           var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
-
-           var queryRW = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-           queryRW.SetChangedVersionFilter(typeof(EcsIntElement));
-           queryRW.SetChangedFilterRequiredVersion(10);
-
-           new BufferJob_ReadOnly_FromEntity
-           {
-               EntityTypeRO = m_Manager.GetEntityTypeHandle(),
-               BufferFromEntityRO = m_Manager.GetBufferFromEntity<EcsIntElement>(true),
-               IntArray = new NativeArray<int>(1, Allocator.TempJob)
-           }.Run(queryRO);
-
-           // Should not process any chunks due to version filtering
-           new BufferJob_ReadWrite_FromEntity
-           {
-               EntityTypeRO = m_Manager.GetEntityTypeHandle(),
-               BufferFromEntityRW = m_Manager.GetBufferFromEntity<EcsIntElement>(false),
-           }.Run(queryRW);
-
-           var buffer = m_Manager.GetBuffer<EcsIntElement>(entity);
-           Assert.AreEqual(0, buffer.Length);
-       }
-
-#if !UNITY_DOTSRUNTIME // DOTS Runtime does not support regex
-        [Test]
-        public void WritingToReadOnlyBufferTriggersSafetySystem()
-        {
-            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
-
-            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
-            new BufferJob_ReadWrite{BufferTypeRW = m_Manager.GetBufferTypeHandle<EcsIntElement>(true)}.Run(queryRO);
-        }
-
-        [Test]
-        public void WritingToReadOnlyBufferTriggersSafetySystem_BufferFromEntity()
-        {
-            var entity = m_Manager.CreateEntity(typeof(EcsIntElement));
-            var queryRO = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsIntElement>());
-
-            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
-            new BufferJob_ReadWrite_FromEntity{EntityTypeRO = m_Manager.GetEntityTypeHandle(), BufferFromEntityRW = m_Manager.GetBufferFromEntity<EcsIntElement>(true)}.Run(queryRO);
-        }
-#endif
-
+        // Does not work with AOT burst builds as this test relies on generating Burst compiler warnings/errors
         [Test, Ignore("DOTS-3029")]
         public void DynamicBufferAliasing()
         {

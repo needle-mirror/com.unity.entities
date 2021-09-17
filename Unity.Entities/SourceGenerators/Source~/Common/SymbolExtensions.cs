@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Microsoft.CodeAnalysis;
 
 namespace Unity.Entities.SourceGen.Common
@@ -15,7 +15,14 @@ namespace Unity.Entities.SourceGen.Common
                 SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
                 SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
 
-        public static bool Is(this ITypeSymbol symbol, string fullyQualifiedName, bool exact = false)
+        static SymbolDisplayFormat QualifiedFormatWithoutSpecialTypeNames { get; } =
+            new SymbolDisplayFormat(
+                typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+                genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+                miscellaneousOptions:
+                SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers);
+
+        public static bool Is(this ITypeSymbol symbol, string fullyQualifiedName, bool checkBaseType = true)
         {
             if (symbol is null)
                 return false;
@@ -23,30 +30,16 @@ namespace Unity.Entities.SourceGen.Common
             if (symbol.ToDisplayString(QualifiedFormat) == fullyQualifiedName)
                 return true;
 
-            return !exact && symbol.BaseType.Is(fullyQualifiedName);
+            return checkBaseType && symbol.BaseType.Is(fullyQualifiedName);
         }
 
         public static bool IsInt(this ITypeSymbol symbol) => symbol.SpecialType == SpecialType.System_Int32;
         public static bool IsDynamicBuffer(this ITypeSymbol symbol) =>
-            (symbol.Name == "DynamicBuffer" && symbol.ContainingNamespace.ToDisplayString(QualifiedFormat) == "Unity.Entities");
+            symbol.Name == "DynamicBuffer" && symbol.ContainingNamespace.ToDisplayString(QualifiedFormat) == "Unity.Entities";
 
         public static string ToFullName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormat);
+        public static string ToFullName(this INamespaceSymbol symbol) => symbol.ToDisplayString(QualifiedFormat);
         public static string ToValidVariableName(this ITypeSymbol symbol) => symbol.ToDisplayString(QualifiedFormat).Replace('.', '_');
-
-        public static string GetFullyQualifiedTypeName(this ITypeSymbol typeSymbol)
-        {
-            var typeNameComponents = new List<string> {typeSymbol.Name};
-
-            INamespaceSymbol namespaceSymbol = typeSymbol.ContainingNamespace;
-            while (namespaceSymbol != null && !namespaceSymbol.IsGlobalNamespace)
-            {
-                typeNameComponents.Add(namespaceSymbol.Name);
-                namespaceSymbol = namespaceSymbol.ContainingNamespace;
-            }
-
-            typeNameComponents.Reverse();
-            return typeNameComponents.SeparateByDot();
-        }
 
         public static bool ImplementsInterface(this ISymbol symbol, string interfaceName)
         {
@@ -65,18 +58,22 @@ namespace Unity.Entities.SourceGen.Common
             return checkBaseType && symbol.BaseType.Is(nameSpace, typeName);
         }
 
-        public static string GetSymbolTypeName(this ISymbol symbol)
+        public static ITypeSymbol GetSymbolType(this ISymbol symbol)
         {
-            if (symbol is ILocalSymbol localSymbol)
-                return localSymbol.Type.ToString();
-            if (symbol is IParameterSymbol parameterSymbol)
-                return parameterSymbol.Type.ToString();
-            if (symbol is INamedTypeSymbol namedTypeSymbol)
-                return namedTypeSymbol.ToString();
-            throw new InvalidOperationException($"Unknown symbol type {symbol.GetType().Name}");
+            return symbol switch
+            {
+                ILocalSymbol localSymbol => localSymbol.Type,
+                IParameterSymbol parameterSymbol => parameterSymbol.Type,
+                INamedTypeSymbol namedTypeSymbol => namedTypeSymbol,
+                IMethodSymbol methodSymbol => methodSymbol.ContainingType,
+                IPropertySymbol propertySymbol => propertySymbol.ContainingType,
+                _ => throw new InvalidOperationException($"Unknown typeSymbol type {symbol.GetType()}")
+            };
         }
 
-        public static bool InheritsFromInterface(this ITypeSymbol symbol, string interfaceName, bool exact = false)
+        public static string GetSymbolTypeName(this ISymbol symbol) => GetSymbolType(symbol).ToFullName();
+
+        public static bool InheritsFromInterface(this ITypeSymbol symbol, string interfaceName, bool checkBaseType = true)
         {
             if (symbol is null)
                 return false;
@@ -86,28 +83,28 @@ namespace Unity.Entities.SourceGen.Common
                 if (@interface.ToDisplayString(QualifiedFormat) == interfaceName)
                     return true;
 
-                if (!exact)
+                if (checkBaseType)
                 {
                     foreach (var baseInterface in @interface.AllInterfaces)
                     {
                         if (baseInterface.ToDisplayString(QualifiedFormat) == interfaceName)
                             return true;
-                        if (baseInterface.InheritsFromInterface(interfaceName, false))
+                        if (baseInterface.InheritsFromInterface(interfaceName))
                             return true;
                     }
                 }
             }
 
-            if (!exact && symbol.BaseType != null)
+            if (checkBaseType && symbol.BaseType != null)
             {
-                if (symbol.BaseType.InheritsFromInterface(interfaceName, false))
+                if (symbol.BaseType.InheritsFromInterface(interfaceName))
                     return true;
             }
 
             return false;
         }
 
-        public static bool InheritsFromType(this ITypeSymbol symbol, string typeName, bool exact = false)
+        public static bool InheritsFromType(this ITypeSymbol symbol, string typeName, bool checkBaseType = true)
         {
             if (symbol is null)
                 return false;
@@ -115,13 +112,81 @@ namespace Unity.Entities.SourceGen.Common
             if (symbol.ToDisplayString(QualifiedFormat) == typeName)
                 return true;
 
-            if (!exact && symbol.BaseType != null)
+            if (checkBaseType && symbol.BaseType != null)
             {
-                if (symbol.BaseType.InheritsFromType(typeName, false))
+                if (symbol.BaseType.InheritsFromType(typeName))
                     return true;
             }
 
             return false;
+        }
+
+        public static bool HasAttribute(this ISymbol typeSymbol, string fullyQualifiedAttributeName)
+        {
+            return typeSymbol.GetAttributes().Any(attribute => attribute.AttributeClass.ToFullName() == fullyQualifiedAttributeName);
+        }
+
+        public static bool HasAttributeOrFieldWithAttribute(this ITypeSymbol typeSymbol, string fullyQualifiedAttributeName)
+        {
+            return typeSymbol.HasAttribute(fullyQualifiedAttributeName) ||
+                   typeSymbol.GetMembers().OfType<IFieldSymbol>().Any(f => !f.IsStatic && f.Type.HasAttributeOrFieldWithAttribute(fullyQualifiedAttributeName));
+        }
+
+        public static string GetMethodAndParamsAsString(this IMethodSymbol methodSymbol)
+        {
+            var strBuilder = new StringBuilder();
+            strBuilder.Append(methodSymbol.Name);
+
+            for (var typeIndex = 0; typeIndex < methodSymbol.TypeParameters.Length; typeIndex++)
+                strBuilder.Append($"_T{typeIndex}");
+
+            foreach (var param in methodSymbol.Parameters)
+            {
+                if (param.RefKind != RefKind.None)
+                    strBuilder.Append($"_{param.RefKind.ToString().ToLower()}");
+                strBuilder.Append($"_{param.Type.ToDisplayString(QualifiedFormatWithoutSpecialTypeNames).Replace(" ", string.Empty)}");
+            }
+
+
+            return strBuilder.ToString();
+        }
+
+        public static bool IsInterfaceImplementation(this IMethodSymbol method)
+        {
+            return method.ContainingType.AllInterfaces.SelectMany(@interface => @interface.GetMembers().OfType<IMethodSymbol>()).Any(interfaceMethod => method.ContainingType.FindImplementationForInterfaceMember(interfaceMethod).Equals(method));
+        }
+
+        public static TypedConstantKind GetTypedConstantKind(this ITypeSymbol type)
+        {
+            switch (type.SpecialType)
+            {
+                case SpecialType.System_Boolean:
+                case SpecialType.System_SByte:
+                case SpecialType.System_Int16:
+                case SpecialType.System_Int32:
+                case SpecialType.System_Int64:
+                case SpecialType.System_Byte:
+                case SpecialType.System_UInt16:
+                case SpecialType.System_UInt32:
+                case SpecialType.System_UInt64:
+                case SpecialType.System_Single:
+                case SpecialType.System_Double:
+                case SpecialType.System_Char:
+                case SpecialType.System_String:
+                case SpecialType.System_Object:
+                    return TypedConstantKind.Primitive;
+                default:
+                    switch (type.TypeKind)
+                    {
+                            case TypeKind.Array:
+                                return TypedConstantKind.Array;
+                            case TypeKind.Enum:
+                                return TypedConstantKind.Enum;
+                            case TypeKind.Error:
+                                return TypedConstantKind.Error;
+                        }
+                    return TypedConstantKind.Type;
+            }
         }
     }
 }

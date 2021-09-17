@@ -216,6 +216,8 @@ namespace Unity.Entities.Editor
 
         internal WorldPopup m_WorldPopup;
 
+        Rect m_HelpBoxRect;
+
         private ComponentTypeFilterUI filterUI;
 
         public World WorldSelection
@@ -592,8 +594,18 @@ namespace Unity.Entities.Editor
                 entityListView.SelectNothing();
             }
 
+            GUILayout.BeginVertical();
+            EditorGUILayout.HelpBox("The Entity Debugger is deprecated and will be removed in a future release.\n\nFor Entities, Components, and Systems, see the new windows under: Window > DOTS\n\nFor chunk and archetype information, in the Window > Analysis > Profiler, there are two new modules called: Entities Structural Changes and Entities Memory.", MessageType.Info);
+            GUILayout.Space(5);
+            GUILayout.EndVertical();
+            if (Event.current.type == EventType.Repaint)
+                m_HelpBoxRect = GUILayoutUtility.GetLastRect();
+
+            var windowHeightWithoutHelpbox = position.height - m_HelpBoxRect.height;
+            GUILayout.BeginArea(new Rect(0, m_HelpBoxRect.height, position.width, windowHeightWithoutHelpbox));
+
             {
-                GUILayout.BeginArea(new Rect(0f, 0f, kSystemListWidth, position.height)); // begin System side
+                GUILayout.BeginArea(new Rect(0f, 0f, kSystemListWidth, windowHeightWithoutHelpbox)); // begin System side
                 SystemHeader();
 
                 GUILayout.BeginVertical(Styles.BoxStyle);
@@ -603,7 +615,7 @@ namespace Unity.Entities.Editor
                 GUILayout.EndArea(); // end System side
             }
 
-            GUILayout.BeginArea(new Rect(kSystemListWidth, 0, position.width - kSystemListWidth, position.height));
+            GUILayout.BeginArea(new Rect(kSystemListWidth, 0, position.width - kSystemListWidth, windowHeightWithoutHelpbox));
             {
                 float toolbarHeight = Styles.ToolbarStyle.fixedHeight;
                 GUILayout.BeginArea(new Rect(0, 0, position.width - kSystemListWidth, toolbarHeight));
@@ -613,20 +625,22 @@ namespace Unity.Entities.Editor
                 if (HasWorld())
                 {
                     // add a slight 1px left and right margin
-                    GUILayout.BeginArea(new Rect(0, toolbarHeight, CurrentEntityViewWidth, position.height - toolbarHeight));
+                    GUILayout.BeginArea(new Rect(0, toolbarHeight, CurrentEntityViewWidth, windowHeightWithoutHelpbox - toolbarHeight));
                     EntityQueryList();
                     EntityList();
                     GUILayout.EndArea();
 
                     if (showingChunkInfoView && entityListView.ShowingSomething)
                     {
-                        GUILayout.BeginArea(new Rect(CurrentEntityViewWidth, toolbarHeight, kChunkInfoViewWidth, position.height - toolbarHeight));
+                        GUILayout.BeginArea(new Rect(CurrentEntityViewWidth, toolbarHeight, kChunkInfoViewWidth, windowHeightWithoutHelpbox - toolbarHeight));
                         ChunkInfoView();
                         GUILayout.EndArea();
                     }
                 }
             }
             GUILayout.EndArea();
+
+            GUILayout.EndArea(); // Entire window.
 
             repaintLimiter.RecordRepaint();
         }

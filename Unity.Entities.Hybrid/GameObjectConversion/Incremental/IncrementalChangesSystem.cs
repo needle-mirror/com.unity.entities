@@ -29,7 +29,7 @@ namespace Unity.Entities
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
     [UpdateInGroup(typeof(ConversionSetupGroup))]
-    internal class IncrementalChangesSystem : SystemBase
+    internal partial class IncrementalChangesSystem : SystemBase
     {
         /// <summary>
         /// Contains all changes that have happened in the scene since the last conversion.

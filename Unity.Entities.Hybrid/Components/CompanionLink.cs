@@ -1,6 +1,5 @@
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 using System;
-using System.Diagnostics;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
 
@@ -8,30 +7,7 @@ namespace Unity.Entities
 {
     class CompanionLink : IComponentData, IEquatable<CompanionLink>, IDisposable, ICloneable
     {
-        static int s_CompanionNameUniqueId = 0;
-
-        [Conditional("DOTS_HYBRID_COMPONENTS_DEBUG")]
-        public static void SetCompanionName(Entity entity, GameObject gameObject)
-        {
-            gameObject.name = $"Companion of {entity} (UID {s_CompanionNameUniqueId += 1})";
-        }
-
-        public static GameObject InstantiateCompanionObject(Entity entity, GameObject sourceGameObject)
-        {
-            var companion = UnityObject.Instantiate(sourceGameObject);
-            SetCompanionName(entity, companion);
-            companion.hideFlags = CompanionFlags;
-            return companion;
-        }
-
-        public const HideFlags CompanionFlags =
-#if !DOTS_HYBRID_COMPONENTS_DEBUG
-            HideFlags.HideInHierarchy |
-#endif
-            HideFlags.NotEditable | HideFlags.DontSaveInBuild | HideFlags.DontSaveInEditor | HideFlags.DontUnloadUnusedAsset;
-
         public GameObject Companion;
-
         public bool Equals(CompanionLink other)
         {
             if (ReferenceEquals(null, other)) return false;
@@ -46,13 +22,15 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            GameObject.DestroyImmediate(Companion);
+            UnityObject.DestroyImmediate(Companion);
         }
 
         public object Clone()
         {
-            var cloned = new CompanionLink { Companion = GameObject.Instantiate(Companion) };
-            cloned.Companion.hideFlags = CompanionFlags;
+            var cloned = new CompanionLink { Companion = UnityObject.Instantiate(Companion) };
+#if UNITY_EDITOR
+            CompanionGameObjectUtility.MoveToCompanionScene(cloned.Companion, true);
+#endif
             return cloned;
         }
     }

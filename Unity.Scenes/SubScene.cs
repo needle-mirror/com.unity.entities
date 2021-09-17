@@ -19,6 +19,49 @@ using System.Linq;
 
 namespace Unity.Scenes
 {
+    #if UNITY_EDITOR
+    [InitializeOnLoad]
+    internal static class SubSceneUtility
+    {
+        static SubSceneUtility()
+        {
+            EditorApplication.update += SanitiseOpenedSubScenes;
+        }
+
+        // This fixes an issue with Unity automatically loading whatever scene you had opened when you last closed it.
+        // If you have a SubScene opened for edit and close Unity then remove this SubScene from the Scene (source control revert, manually edit scene file)
+        // Then when you next open Unity, it will automatically load the GameObject scene additively, even without a SubScene referencing it
+        // TODO: Currently this shows the dangling Scene before removing it (some frame(s) of delay here), needs a better solution
+        // TODO: DOTS-3474
+        static void SanitiseOpenedSubScenes()
+        {
+            EditorApplication.update -= SanitiseOpenedSubScenes;
+
+            for (int i = 0; i < EditorSceneManager.sceneCount; i++)
+            {
+                var scene = EditorSceneManager.GetSceneAt(i);
+
+                if (scene.isSubScene)
+                {
+                    bool found = false;
+                    foreach (var subScene in SubScene.AllSubScenes)
+                    {
+                        if (subScene.EditingScene == scene)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        EditorSceneManager.UnloadSceneAsync(scene);
+                    }
+                }
+            }
+        }
+    }
+#endif
     [ExecuteAlways]
     [DisallowMultipleComponent]
     public class SubScene : MonoBehaviour
@@ -129,7 +172,7 @@ namespace Unity.Scenes
 
         void OnValidate()
         {
-            _SceneGUID = new GUID(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(_SceneAsset)));
+            _SceneGUID = AssetDatabaseCompatibility.PathToGUID(AssetDatabase.GetAssetPath(_SceneAsset));
 
             if (_IsAddedToListOfAllSubScenes && IsInMainStage())
             {
@@ -248,10 +291,8 @@ namespace Unity.Scenes
             }
         }
 
-        //@TODO: Move this into SceneManager
         void UnloadScene()
         {
-            //@TODO: ask to save scene first???
 #if UNITY_EDITOR
             var scene = EditingScene;
             if (scene.IsValid())
@@ -273,15 +314,6 @@ namespace Unity.Scenes
         {
             UnloadScene();
         }
-
-        /* @TODO: Add conversion. How do we prevent duplicate from OnEnable / OnDisable
-        public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)
-        {
-            dstManager.AddComponentData(entity, new SceneReference { SceneGUID = SceneGUID});
-            if (AutoLoadScene)
-                dstManager.AddComponent<RequestSceneLoaded>(entity);
-        }
-        */
     }
 }
 #endif

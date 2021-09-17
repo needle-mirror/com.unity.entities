@@ -101,7 +101,7 @@ namespace Unity.Entities.Tests
             Entity e2 = m_Manager.CreateEntity(archetype);
             m_Manager.SetComponentData(e2, new EcsTestData(243));
 
-            var group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             Assert.AreEqual(2, group1_filter_0.CalculateEntityCount());
             Assert.AreEqual(0, group1_filter_20.CalculateEntityCount());
@@ -110,9 +110,8 @@ namespace Unity.Entities.Tests
 
             m_Manager.SetSharedComponentData(e1, new SharedData1(20));
 
-            group1_filter0_data.Dispose();
-            group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
-            var group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            group1_filter0_data = group1_filter_0.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
+            var group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             Assert.AreEqual(1, group1_filter_0.CalculateEntityCount());
             Assert.AreEqual(1, group1_filter_20.CalculateEntityCount());
@@ -121,8 +120,7 @@ namespace Unity.Entities.Tests
 
             m_Manager.SetSharedComponentData(e2, new SharedData1(20));
 
-            group1_filter20_data.Dispose();
-            group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            group1_filter20_data = group1_filter_20.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             Assert.AreEqual(0, group1_filter_0.CalculateEntityCount());
             Assert.AreEqual(2, group1_filter_20.CalculateEntityCount());
@@ -134,9 +132,6 @@ namespace Unity.Entities.Tests
             group12.Dispose();
             group1_filter_0.Dispose();
             group1_filter_20.Dispose();
-
-            group1_filter0_data.Dispose();
-            group1_filter20_data.Dispose();
         }
 
         [Test]
@@ -331,7 +326,7 @@ namespace Unity.Entities.Tests
                 Assert.IsFalse(ChunkDataUtility.AreLayoutCompatible(archetype.Archetype, archetypeWithShared.Archetype));
             }
 
-            using (var entities = new NativeArray<Entity>(1, Allocator.TempJob))
+            using (var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(1, ref World.UpdateAllocator))
             {
                 m_Manager.CreateEntity(archetype, entities);
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedCompWithMaxChunkCapacity>(entities[0]));
@@ -403,26 +398,22 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             var entity1 = m_Manager.CreateEntity(archetype1);
 
-            var preChunks0 = group0.CreateArchetypeChunkArray(Allocator.TempJob);
-            var preChunks1 = group1.CreateArchetypeChunkArray(Allocator.TempJob);
+            var preChunks0 = group0.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var preChunks1 = group1.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             Assert.AreEqual(2, ArchetypeChunkArray.CalculateEntityCount(preChunks0));
             Assert.AreEqual(1, ArchetypeChunkArray.CalculateEntityCount(preChunks1));
 
             m_Manager.RemoveComponent<SharedData2>(entity1);
 
-            var postChunks0 = group0.CreateArchetypeChunkArray(Allocator.TempJob);
-            var postChunks1 = group1.CreateArchetypeChunkArray(Allocator.TempJob);
+            var postChunks0 = group0.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var postChunks1 = group1.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             Assert.AreEqual(2, ArchetypeChunkArray.CalculateEntityCount(postChunks0));
             Assert.AreEqual(0, ArchetypeChunkArray.CalculateEntityCount(postChunks1));
 
             group0.Dispose();
             group1.Dispose();
-            preChunks0.Dispose();
-            preChunks1.Dispose();
-            postChunks0.Dispose();
-            postChunks1.Dispose();
         }
 
         [Test]

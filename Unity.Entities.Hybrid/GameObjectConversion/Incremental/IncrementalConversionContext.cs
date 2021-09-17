@@ -20,9 +20,9 @@ namespace Unity.Entities.Conversion
         public IncrementalHierarchy Hierarchy;
         public Scene Scene;
 
-        public IncrementalConversionContext(bool isLiveLink)
+        public IncrementalConversionContext(bool isLiveConversion)
         {
-            Dependencies = new ConversionDependencies(isLiveLink);
+            Dependencies = new ConversionDependencies(isLiveConversion);
             Hierarchy = default;
             Scene = default;
         }
@@ -34,12 +34,12 @@ namespace Unity.Entities.Conversion
             IncrementalHierarchyFunctions.Build(sceneRoots, out Hierarchy, Allocator.Persistent);
         }
 
-#if UNITY_2020_2_OR_NEWER
         static ProfilerMarker _parentChangeHierarchyMarker = new ProfilerMarker("ParentChangesInHierarchy");
         static ProfilerMarker _deleteFromHierarchyMarker = new ProfilerMarker("DeleteFromHierarchy");
         static ProfilerMarker _registerNewInstancesMarker = new ProfilerMarker("RegisterNewInstances");
         static ProfilerMarker _collectNewGameObjectsMarker = new ProfilerMarker(nameof(CollectNewGameObjects));
         static ProfilerMarker _updateHierarchyMarker = new ProfilerMarker(nameof(UpdateHierarchy));
+        static ProfilerMarker _handleChangedMarker = new ProfilerMarker("HandleChanged");
 
         static readonly List<Object> ObjectCache = new List<Object>();
         static List<Object> InstanceIdToObject(NativeArray<int> instanceIds)
@@ -115,161 +115,171 @@ namespace Unity.Entities.Conversion
 
         public void UpdateHierarchy(IncrementalConversionBatch batch, ref IncrementalConversionData outData)
         {
-            _updateHierarchyMarker.Begin();
-            outData.Clear();
-
-            if (batch.DeletedAssets.Length != 0)
-                outData.DeletedAssets.AddRange(batch.DeletedAssets);
-            if (batch.ChangedAssets.Length != 0)
-                outData.ChangedAssets.AddRange(batch.ChangedAssets);
-
-            var requiresCleanConversion = new NativeList<int>(Allocator.Temp);
-            requiresCleanConversion.AddRange(batch.ReconvertHierarchyInstanceIds);
-
-            // Apply all parenting changes.
-            if (!batch.ParentChangeInstanceIds.IsEmpty)
+            using (var m = _updateHierarchyMarker.Auto())
             {
-                _parentChangeHierarchyMarker.Begin();
+                outData.Clear();
 
-                var parentChanges = batch.ParentChangeInstanceIds.GetKeyValueArrays(Allocator.Temp);
-                using (var changeFailed = new NativeList<int>(Allocator.TempJob))
+                if (batch.DeletedAssets.Length != 0)
+                    outData.DeletedAssets.AddRange(batch.DeletedAssets);
+                if (batch.ChangedAssets.Length != 0)
+                    outData.ChangedAssets.AddRange(batch.ChangedAssets);
+
+                var requiresCleanConversion = new NativeList<int>(Allocator.Temp);
+                requiresCleanConversion.AddRange(batch.ReconvertHierarchyInstanceIds);
+
+                // Apply all parenting changes.
+                if (!batch.ParentChangeInstanceIds.IsEmpty)
                 {
-                    var changeSuccessful = outData.ParentChangeInstanceIds;
-                    IncrementalHierarchyFunctions.ChangeParents(Hierarchy, parentChanges, changeFailed, changeSuccessful);
+                    using (_parentChangeHierarchyMarker.Auto())
                     {
-                        // When we failed to reparent something, we have to check:
-                        //  - Either we failed because the parent was already deleted and this child must also be deleted,
-                        //  - Or we failed because the child was never in the hierarchy to begin with, in which case we
-                        //    should track it
-                        var objs = InstanceIdToObject(changeFailed);
-                        for (int i = 0; i < objs.Count; i++)
+
+                        var parentChanges = batch.ParentChangeInstanceIds.GetKeyValueArrays(Allocator.Temp);
+                        using (var changeFailed = new NativeList<int>(Allocator.TempJob))
                         {
-                            var go = objs[i] as GameObject;
-                            if (go == null || go.scene != Scene)
+                            var changeSuccessful = outData.ParentChangeInstanceIds;
+                            IncrementalHierarchyFunctions.ChangeParents(Hierarchy, parentChanges, changeFailed,
+                                changeSuccessful);
                             {
-                                // This might happen when an object is made a child of another object and then deleted.
-                                outData.RemovedInstanceIds.Add(changeFailed[i]);
+                                // When we failed to reparent something, we have to check:
+                                //  - Either we failed because the parent was already deleted and this child must also be deleted,
+                                //  - Or we failed because the child was never in the hierarchy to begin with, in which case we
+                                //    should track it
+                                var objs = InstanceIdToObject(changeFailed);
+                                for (int i = 0; i < objs.Count; i++)
+                                {
+                                    var go = objs[i] as GameObject;
+                                    if (go == null || go.scene != Scene)
+                                    {
+                                        // This might happen when an object is made a child of another object and then deleted.
+                                        outData.RemovedInstanceIds.Add(changeFailed[i]);
+                                    }
+                                    else
+                                    {
+                                        // This might happen when an object is created, a child is moved, and then the original
+                                        // object is deleted again.
+                                        requiresCleanConversion.Add(changeFailed[i]);
+                                    }
+                                }
+
+                                for (int i = 0; i < changeSuccessful.Length; i++)
+                                    outData.ReconvertHierarchyRequests.Add(changeSuccessful[i].InstanceId);
                             }
-                            else
+
+                            using (var visitedInstances = new NativeHashSet<int>(0, Allocator.TempJob))
                             {
-                                // This might happen when an object is created, a child is moved, and then the original
-                                // object is deleted again.
-                                requiresCleanConversion.Add(changeFailed[i]);
+                                Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(changeFailed, visitedInstances);
+                                CopyToList(visitedInstances, outData.RemovedInstanceIds);
+                            }
+
+                            IncrementalHierarchyFunctions.Remove(Hierarchy, changeFailed);
+                        }
+                    }
+                }
+
+                // Remove all deleted instances from the hierarchy, plus their children. Do the same for all instances that
+                // require a clean conversion.
+                bool hasExplicitDeletions = batch.DeletedInstanceIds.Length != 0;
+                if (hasExplicitDeletions || batch.ReconvertHierarchyInstanceIds.Length != 0)
+                {
+                    using (_deleteFromHierarchyMarker.Auto())
+                    {
+                        new RemoveFromHierarchy
+                        {
+                            Hierarchy = Hierarchy,
+                            DeletedInstanceIds = batch.DeletedInstanceIds,
+                            ReconvertHierarchyInstanceIds = batch.ReconvertHierarchyInstanceIds,
+                            RemovedInstanceIds = outData.RemovedInstanceIds,
+                        }.RunWithBurst();
+
+                        FilterOutValidObjects(outData.RemovedInstanceIds);
+                    }
+                }
+
+                // Classify all clean conversions as either new or changed GameObjects.
+                if (!requiresCleanConversion.IsEmpty)
+                {
+                    var gameObjectIsNew = new HashSet<GameObject>();
+                    CollectNewGameObjects(Scene, ref Hierarchy, requiresCleanConversion, gameObjectIsNew);
+                    using (_registerNewInstancesMarker.Auto())
+                    {
+                        foreach (var go in gameObjectIsNew)
+                        {
+                            IncrementalHierarchyFunctions.TryAddSingle(Hierarchy, go);
+                            outData.ChangedGameObjects.Add(go);
+                            outData.ReconvertHierarchyRequests.Add(go.GetInstanceID());
+                        }
+                    }
+                }
+
+                // Look at all instances that have been changed. These are all instances that have changed in-place and we
+                // only need to reconvert the GameObject locally (plus all dependents).
+                if (batch.ChangedInstanceIds.Length != 0)
+                {
+                    using (_handleChangedMarker.Auto())
+                    {
+                        var objs = InstanceIdToObject(batch.ChangedInstanceIds);
+                        if (!hasExplicitDeletions)
+                        {
+                            // If nothing has been deleted, we can get away with doing fewer checks.
+                            outData.ReconvertSingleRequests.AddRange(batch.ChangedInstanceIds);
+                            foreach (var obj in objs)
+                                outData.ChangedGameObjects.Add(obj as GameObject);
+                        }
+                        else
+                        {
+                            for (int i = 0; i < objs.Count; i++)
+                            {
+                                var obj = objs[i] as GameObject;
+
+                                // Exclude destroyed objects and objects that are not in the scene anymore. This can happen when a
+                                // root object is created, one of its children is dirtied, and the root is deleted or moved to
+                                // another scene in a single frame.
+                                if (obj == null || obj.scene != Scene)
+                                    continue;
+                                outData.ReconvertSingleRequests.Add(batch.ChangedInstanceIds[i]);
+                                outData.ChangedGameObjects.Add(obj);
                             }
                         }
-
-                        for (int i = 0; i < changeSuccessful.Length; i++)
-                            outData.ReconvertHierarchyRequests.Add(changeSuccessful[i].InstanceId);
                     }
+                }
 
-                    using (var visitedInstances = new NativeHashSet<int>(0, Allocator.TempJob))
+                // If we still have dependencies on components instead of GameObjects, then they must have been added
+                // before because we only had a reference to a destroyed component. There are two scenarios: Either the
+                // component was on a then-destroyed GameObject, or the component itself was destroyed (but its
+                // corresponding GameObject was alive).
+                // In any case, we need to scan the changed GameObjects to resolve the component instances.
+                if (Dependencies.HasUnresolvedComponentInstanceIds)
+                {
+                    TryResolveComponentInstanceIds(outData.ChangedGameObjects);
+                }
+
+                outData.ReconvertHierarchyRequests.AddRange(batch.ReconvertHierarchyInstanceIds);
+
+                if (hasExplicitDeletions)
+                {
+                    // If there have been any deletions, this might invalidate any component because it might have been
+                    // deleted or it might have been moved to another scene.
+                    foreach (var c in batch.ChangedComponents)
                     {
-                        Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(changeFailed, visitedInstances);
-                        CopyToList(visitedInstances, outData.RemovedInstanceIds);
+                        if (c == null || c.gameObject.scene != Scene)
+                            continue;
+
+                        outData.ChangedComponents.Add(c);
                     }
-                    IncrementalHierarchyFunctions.Remove(Hierarchy, changeFailed);
-                }
-                _parentChangeHierarchyMarker.End();
-            }
-
-            // Remove all deleted instances from the hierarchy, plus their children. Do the same for all instances that
-            // require a clean conversion.
-            bool hasExplicitDeletions = batch.DeletedInstanceIds.Length != 0;
-            if (hasExplicitDeletions || batch.ReconvertHierarchyInstanceIds.Length != 0)
-            {
-                _deleteFromHierarchyMarker.Begin();
-                new RemoveFromHierarchy
-                {
-                    Hierarchy = Hierarchy,
-                    DeletedInstanceIds = batch.DeletedInstanceIds,
-                    ReconvertHierarchyInstanceIds = batch.ReconvertHierarchyInstanceIds,
-                    RemovedInstanceIds = outData.RemovedInstanceIds,
-                }.RunWithBurst();
-
-                FilterOutValidObjects(outData.RemovedInstanceIds);
-                _deleteFromHierarchyMarker.End();
-            }
-
-            // Classify all clean conversions as either new or changed GameObjects.
-            if (!requiresCleanConversion.IsEmpty)
-            {
-                var gameObjectIsNew = new HashSet<GameObject>();
-                CollectNewGameObjects(Scene, ref Hierarchy, requiresCleanConversion, gameObjectIsNew);
-                _registerNewInstancesMarker.Begin();
-                foreach (var go in gameObjectIsNew)
-                {
-                    IncrementalHierarchyFunctions.TryAddSingle(Hierarchy, go);
-                    outData.ChangedGameObjects.Add(go);
-                    outData.ReconvertHierarchyRequests.Add(go.GetInstanceID());
-                }
-                _registerNewInstancesMarker.End();
-            }
-
-            // Look at all instances that have been changed. These are all instances that have changed in-place and we
-            // only need to reconvert the GameObject locally (plus all dependents).
-            if (batch.ChangedInstanceIds.Length != 0) {
-                var objs = InstanceIdToObject(batch.ChangedInstanceIds);
-                if (!hasExplicitDeletions)
-                {
-                    // If nothing has been deleted, we can get away with doing fewer checks.
-                    outData.ReconvertSingleRequests.AddRange(batch.ChangedInstanceIds);
-                    foreach (var obj in objs)
-                        outData.ChangedGameObjects.Add(obj as GameObject);
                 }
                 else
                 {
-                    for (int i = 0; i < objs.Count; i++)
-                    {
-                        var obj = objs[i] as GameObject;
-
-                        // Exclude destroyed objects and objects that are not in the scene anymore. This can happen when a
-                        // root object is created, one of its children is dirtied, and the root is deleted or moved to
-                        // another scene in a single frame.
-                        if (obj == null || obj.scene != Scene)
-                            continue;
-                        outData.ReconvertSingleRequests.Add(batch.ChangedInstanceIds[i]);
-                        outData.ChangedGameObjects.Add(obj);
-                    }
+                    foreach (var c in batch.ChangedComponents)
+                        outData.ChangedComponents.Add(c);
                 }
-            }
-
-            // If we still have dependencies on components instead of GameObjects, then they must have been added
-            // before because we only had a reference to a destroyed component. There are two scenarios: Either the
-            // component was on a then-destroyed GameObject, or the component itself was destroyed (but its
-            // corresponding GameObject was alive).
-            // In any case, we need to scan the changed GameObjects to resolve the component instances.
-            if (Dependencies.HasUnresolvedComponentInstanceIds)
-            {
-                TryResolveComponentInstanceIds(outData.ChangedGameObjects);
-            }
-
-            outData.ReconvertHierarchyRequests.AddRange(batch.ReconvertHierarchyInstanceIds);
-
-            if (hasExplicitDeletions)
-            {
-                // If there have been any deletions, this might invalidate any component because it might have been
-                // deleted or it might have been moved to another scene.
-                foreach (var c in batch.ChangedComponents)
-                {
-                    if (c == null || c.gameObject.scene != Scene)
-                        continue;
-
-                    outData.ChangedComponents.Add(c);
-                }
-            }
-            else
-            {
-                foreach (var c in batch.ChangedComponents)
-                    outData.ChangedComponents.Add(c);
-            }
 
 #if UNITY_EDITOR
-            if (LiveConversionSettings.EnableInternalDebugValidation)
-            {
-                IncrementalHierarchyFunctions.Validate(Scene, Hierarchy);
-            }
+                if (LiveConversionSettings.EnableInternalDebugValidation)
+                {
+                    IncrementalHierarchyFunctions.Validate(Scene, Hierarchy);
+                }
 #endif
-            _updateHierarchyMarker.End();
+            }
         }
 
         void TryResolveComponentInstanceIds(List<GameObject> gameObjects)
@@ -371,7 +381,6 @@ namespace Unity.Entities.Conversion
                 return dependentInstanceIds;
             }
         }
-#endif
 
         public void Dispose()
         {

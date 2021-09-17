@@ -29,7 +29,7 @@ namespace Unity.Entities.Editor.Tests
 
         private static void CloseAllDebuggers()
         {
-            var windows = Resources.FindObjectsOfTypeAll<EntityDebugger>();
+            var windows = UnityEngine.Resources.FindObjectsOfTypeAll<EntityDebugger>();
             foreach (var window in windows)
                 if (window != null)
                     window.Close();
@@ -49,7 +49,7 @@ namespace Unity.Entities.Editor.Tests
             m_System = World.GetOrCreateSystem<SingleGroupSystem>();
             World.GetOrCreateSystem<SimulationSystemGroup>().AddSystemToUpdateList(m_System.Managed);
 
-            ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(World);
+            ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(World);
 
             World2 = new World(World2Name);
             var emptySys = World2.GetOrCreateSystem<EmptySystem>();

@@ -27,7 +27,7 @@ namespace Unity.Entities.Editor.Tests
             };
 
             var group = m_Manager.CreateEntityQuery(query);
-            m_ChunkArray = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            m_ChunkArray = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
         }
 
         public override void TearDown()

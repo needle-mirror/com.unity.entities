@@ -6,5 +6,6 @@ using Unity.Entities;
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Scenes.Editor.Tests")]
+[assembly: InternalsVisibleTo("Unity.Scenes.Editor.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build.Tests")]
 [assembly: InternalsVisibleTo("Unity.Transforms.Hybrid.Tests")]

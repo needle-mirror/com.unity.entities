@@ -6,6 +6,7 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.Entities.CodeGen.Tests.TestTypes;
+using Unity.Entities.Serialization;
 
 namespace Unity.Entities.CodeGen.Tests
 {
@@ -283,6 +284,46 @@ namespace Unity.Entities.CodeGen.Tests
             AssertProducesNoError(typeof(WithManagedRefInStaticField_Class));
         }
 
+        class WithGenericMethod_Class
+        {
+            BlobAssetReference<T> DoThing<T>() where T : struct
+            {
+                var builder = new BlobBuilder(Allocator.Temp);
+                ref var root = ref builder.ConstructRoot<T>();
+                EnsureNotOptimizedAway(ref root);
+                return builder.CreateBlobAssetReference<T>(Allocator.Temp);
+            }
+        }
+
+        [Test]
+        public void GenericCode_CanCreateBlobAssetReference()
+        {
+            AssertProducesNoError(typeof(WithGenericMethod_Class));
+        }
+
+        unsafe struct BlobWithWeakAssetRef
+        {
+            public EntityPrefabReference PrefabRef;
+        }
+
+        class WithWeakAssetRefInBlob_Class
+        {
+            unsafe void Method()
+            {
+                var builder = new BlobBuilder(Allocator.Temp);
+                ref var root = ref builder.ConstructRoot<BlobWithWeakAssetRef>();
+                root.PrefabRef = default;
+                EnsureNotOptimizedAway(root);
+            }
+        }
+
+        [Test]
+        public void WeakAssetRefInBlobThrows()
+        {
+            AssertProducesError(
+                typeof(WithWeakAssetRefInBlob_Class),
+                "error ConstructBlobWithRefTypeViolation: You may not build a type BlobWithWeakAssetRef with Construct as BlobWithWeakAssetRef.PrefabRef.PrefabId is an UntypedWeakReferenceId. Weak asset references are not yet supported in Blobs.");
+        }
 
         void AssertProducesNoError(Type typeWithCodeUnderTest)
         {

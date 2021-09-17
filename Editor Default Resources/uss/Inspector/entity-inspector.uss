@@ -1,0 +1,3 @@
+.entity-inspector .tab-view__tab-header {
+    margin-bottom: 0;
+}

@@ -285,6 +285,40 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        // TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+        [DotsRuntimeFixme("Do not support EntityNames - DOTS-3862")]
+        public void EntityDifferDetectsNameChanges()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestData));
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetName(entity, "Old Name");
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                }
+
+                SrcEntityManager.SetName(entity, "New Name");
+
+                // TODO: remove SetComponentData once https://unity3d.atlassian.net/browse/DOTS-4153 is fixed	
+                // Uncomment the following line to cause the test to pass	
+                SrcEntityManager.SetComponentData(entity, new EcsTestData(123));
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+                    #if !DOTS_DISABLE_DEBUG_NAMES
+                    Assert.AreEqual(1, changes.ForwardChangeSet.NameChangedCount);
+                    #else 
+                    Assert.AreEqual(0, changes.ForwardChangeSet.NameChangedCount);
+                    #endif
+                }
+            }
+        }
+
+        [Test]
         [TestCase(EntityManagerDifferOptions.Default, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID) + "_Default")]
         [TestCase(EntityManagerDifferOptions.Default | EntityManagerDifferOptions.UseReferentialEquality, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID) + "_ReferentialEquality")]
         public void EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID(EntityManagerDifferOptions options)
@@ -340,6 +374,216 @@ namespace Unity.Entities.Tests
                 }
             }
         }
+
+        [Test]
+        [TestCase(100)]
+        public void EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID_NameByIndexAligned(int entityCount)
+        {
+            const EntityManagerDifferOptions options = EntityManagerDifferOptions.IncludeForwardChangeSet |
+                    EntityManagerDifferOptions.IncludeReverseChangeSet |
+                    EntityManagerDifferOptions.FastForwardShadowWorld;
+
+            var entityArray1 = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            var entityGuidArray1 = new NativeArray<EntityGuid>(entityCount, Allocator.Temp);
+            var entityArray2 = new NativeArray<Entity>(entityCount, Allocator.Temp);
+            var entityGuidArray2 = new NativeArray<EntityGuid>(entityCount, Allocator.Temp);
+
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.Temp))
+            {
+                for (int i = 0; i < entityCount; i++)
+                {
+                    // Setup two entities, entity1 and entity2, and have the entity2 refer to entity1.
+                    var entity1 = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                    var entity1Guid = CreateEntityGuid();
+                    SrcEntityManager.SetComponentData(entity1, entity1Guid);
+                    entityArray1[i] = entity1;
+                    entityGuidArray1[i] = entity1Guid;
+
+                    var entity2 = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestDataEntity));
+                    var entity2Guid = CreateEntityGuid();
+                    SrcEntityManager.SetComponentData(entity2, entity2Guid);
+                    SrcEntityManager.SetComponentData(entity2, new EcsTestDataEntity
+                    {
+                        value1 = entity1
+                    });
+                    entityArray2[i] = entity2;
+                    entityGuidArray2[i] = entity2Guid;
+                }
+
+                // apply the first changes, this is not what we're testing
+                differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp);
+
+                for (int i = 0; i < entityCount / 2; i++)
+                {
+                    // Destroy entity1 and recreate it.
+                    SrcEntityManager.DestroyEntity(entityArray1[i]);
+                    entityArray1[i] = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                    SrcEntityManager.SetComponentData(entityArray1[i], entityGuidArray1[i]);
+
+                    SrcEntityManager.SetComponentData(entityArray2[i], new EcsTestDataEntity
+                    {
+                        value1 = entityArray1[i]
+                    });
+                }
+
+                using (var changes = differ.GetChanges(options, Allocator.Temp))
+                {
+                    var ShadowEntityManager = differ.ShadowEntityManager;
+
+                    // Confirm that two worlds' have the same entity capacity
+                    Assert.AreEqual(SrcEntityManager.EntityCapacity, ShadowEntityManager.EntityCapacity);
+
+                    for(int i = 0; i < SrcEntityManager.EntityCapacity; i++)
+                    {
+                        var srcEntity = SrcEntityManager.GetEntityByEntityIndex(i);
+                        var srcNameIndex = SrcEntityManager.GetNameIndexByEntityIndex(i);
+
+                        var dstEntity = ShadowEntityManager.GetEntityByEntityIndex(i);
+                        var dstNameIndex = ShadowEntityManager.GetNameIndexByEntityIndex(i);
+
+                        // After fast forward shadow world, the EntityInChunkByEntity of the shawdow world and
+                        // incremental convertion world line up with the same EntityGuid.  And the NameByEnity
+                        // of the shawdow world and incremental convertion world also line up.
+                        if (SrcEntityManager.Exists(srcEntity))
+                        {
+                            Assert.IsTrue(ShadowEntityManager.Exists(dstEntity));
+                            Assert.AreEqual(SrcEntityManager.GetComponentData<EntityGuid>(srcEntity), ShadowEntityManager.GetComponentData<EntityGuid>(dstEntity));
+                            Assert.AreEqual(srcNameIndex, dstNameIndex);
+                        }
+                    }
+                }
+            }
+
+            entityArray1.Dispose();
+            entityGuidArray1.Dispose();
+            entityArray2.Dispose();
+            entityGuidArray2.Dispose();
+        }
+
+
+        [Test]
+        [TestCase(20)]
+        public void EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID_PrintSummary(int entityCount)
+        {
+            const int groupsCount = 3;
+            const EntityManagerDifferOptions options = EntityManagerDifferOptions.IncludeForwardChangeSet;
+
+            var entityArray1 = new NativeArray<Entity>(groupsCount * entityCount, Allocator.Temp);
+            var entityGuidArray1 = new NativeArray<EntityGuid>(groupsCount * entityCount, Allocator.Temp);
+            var entityNameArray1 = new NativeArray<FixedString64Bytes>(groupsCount * entityCount, Allocator.Temp);
+            var entityArray2 = new NativeArray<Entity>(groupsCount * entityCount, Allocator.Temp);
+            var entityGuidArray2 = new NativeArray<EntityGuid>(groupsCount * entityCount, Allocator.Temp);
+            var entityNameArray2 = new NativeArray<FixedString64Bytes>(groupsCount * entityCount, Allocator.Temp);
+
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.Temp))
+            {
+                for (int i = 0; i < (groupsCount - 1) * entityCount; i++)
+                {
+                    // Setup two entities, entity1 and entity2, and have the entity2 refer to entity1.
+                    var entity1 = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                    var entity1Guid = CreateEntityGuid();
+                    var entity1Name = new FixedString64Bytes("entityName1_" + i.ToString());
+                    SrcEntityManager.SetComponentData(entity1, entity1Guid);
+                    SrcEntityManager.SetName(entity1, entity1Name);
+                    entityArray1[i] = entity1;
+                    entityGuidArray1[i] = entity1Guid;
+                    entityNameArray1[i] = entity1Name;
+
+                    var entity2 = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestDataEntity));
+                    var entity2Guid = CreateEntityGuid();
+                    var entity2Name = new FixedString64Bytes("entityName2_" + i.ToString());
+                    SrcEntityManager.SetComponentData(entity2, entity2Guid);
+                    SrcEntityManager.SetComponentData(entity2, new EcsTestDataEntity
+                    {
+                        value1 = entity1
+                    });
+                    SrcEntityManager.SetName(entity2, entity2Name);
+                    entityArray2[i] = entity2;
+                    entityGuidArray2[i] = entity2Guid;
+                    entityNameArray1[i] = entity2Name;
+                }
+
+                // apply the first changes, this is not what we're testing
+                var tempChanges = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.TempJob);
+                tempChanges.Dispose();
+
+                // Destroy some entities and recreate them
+                for (int i = 0; i < entityCount; i++)
+                {
+                    // Destroy entity1 and recreate it.
+                    SrcEntityManager.DestroyEntity(entityArray1[i]);
+                    entityArray1[i] = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                    SrcEntityManager.SetComponentData(entityArray1[i], entityGuidArray1[i]);
+                    var entity1Name = new FixedString64Bytes("entityName1_new_" + i.ToString());
+                    SrcEntityManager.SetName(entityArray1[i], entity1Name);
+                    entityNameArray1[i] = entity1Name;
+
+                    SrcEntityManager.SetComponentData(entityArray2[i], new EcsTestDataEntity
+                    {
+                        value1 = entityArray1[i]
+                    });
+                }
+
+                // Change some entities' names
+                for (int i = entityCount; i < (3 * entityCount / 2); i++)
+                {
+                    var entity1Name = new FixedString64Bytes("entityName1_new_" + i.ToString());
+                    SrcEntityManager.SetName(entityArray1[i], entity1Name);
+                    entityNameArray1[i] = entity1Name;
+                }
+
+                // Delete some entities
+                for (int i = (3 * entityCount / 2); i < 2 * entityCount; i++)
+                {
+                    SrcEntityManager.DestroyEntity(entityArray1[i]);
+                }
+
+                // Create more entities
+                for (int i = 2 * entityCount; i < 3 * entityCount; i++)
+                {
+                    // Setup two entities, entity1 and entity2, and have the entity2 refer to entity1.
+                    var entity1 = SrcEntityManager.CreateEntity(typeof(EntityGuid));
+                    var entity1Guid = CreateEntityGuid();
+                    var entity1Name = new FixedString64Bytes("entityName1_" + i.ToString());
+                    SrcEntityManager.SetComponentData(entity1, entity1Guid);
+                    SrcEntityManager.SetName(entity1, entity1Name);
+                    entityArray1[i] = entity1;
+                    entityGuidArray1[i] = entity1Guid;
+                    entityNameArray1[i] = entity1Name;
+
+                    var entity2 = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(EcsTestDataEntity));
+                    var entity2Guid = CreateEntityGuid();
+                    var entity2Name = new FixedString64Bytes("entityName2_" + i.ToString());
+                    SrcEntityManager.SetComponentData(entity2, entity2Guid);
+                    SrcEntityManager.SetComponentData(entity2, new EcsTestDataEntity
+                    {
+                        value1 = entity1
+                    });
+                    SrcEntityManager.SetName(entity2, entity2Name);
+                    entityArray2[i] = entity2;
+                    entityGuidArray2[i] = entity2Guid;
+                    entityNameArray1[i] = entity2Name;
+                }
+
+                using (var changes = differ.GetChanges(options, Allocator.TempJob))
+                {
+                    var ShadowEntityManager = differ.ShadowEntityManager;
+
+                    // Confirm that two worlds' have the same entity capacity
+                    Assert.AreEqual(SrcEntityManager.EntityCapacity, ShadowEntityManager.EntityCapacity);
+
+                    var summaryString = EntityChangeSetFormatter.PrintSummary(changes.ForwardChangeSet, SrcEntityManager);
+                }
+            }
+
+            entityArray1.Dispose();
+            entityGuidArray1.Dispose();
+            entityNameArray1.Dispose();
+            entityArray2.Dispose();
+            entityGuidArray2.Dispose();
+            entityNameArray2.Dispose();
+        }
+
 
         [Test]
         [TestCase(EntityManagerDifferOptions.Default, TestName = nameof(EntityDiffer_GetChanges_EntityReferenceChange_WithDynamicBuffer_DependsOnGUID) + "_Default")]
@@ -1462,6 +1706,51 @@ namespace Unity.Entities.Tests
                 blobAssetReference1.Dispose();
             }
         }
+        
+#if !UNITY_DOTSRUNTIME
+        class ManagedComponentWithScriptableObject: IComponentData
+        {
+            public ScriptableObjectWithBlobAssetRef Value;
+        }
+        
+        class ScriptableObjectWithBlobAssetRef : UnityEngine.ScriptableObject
+        {
+            public BlobAssetReference<int> Value;
+        }
+        
+        [Test]
+        public void EntityDiffer_GetChanges_BlobAssets_ScriptableObject()
+        {
+            using (var differ = new EntityManagerDiffer(SrcEntityManager, Allocator.TempJob))
+            {
+                var scriptableObject = UnityEngine.ScriptableObject.CreateInstance<ScriptableObjectWithBlobAssetRef>();
+                scriptableObject.Value = BlobAssetReference<int>.Create(10);
+
+                var entity = SrcEntityManager.CreateEntity(typeof(EntityGuid), typeof(ManagedComponentWithScriptableObject));
+
+                SrcEntityManager.SetComponentData(entity, CreateEntityGuid());
+                SrcEntityManager.SetComponentData(entity, new ManagedComponentWithScriptableObject
+                {
+                    Value = scriptableObject
+                });
+
+                using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, Allocator.Temp))
+                {
+                    Assert.IsTrue(changes.HasForwardChangeSet);
+
+                    var forward = changes.ForwardChangeSet;
+
+                    Assert.That(forward.CreatedBlobAssets.Length, Is.EqualTo(0));
+                    Assert.That(forward.DestroyedBlobAssets.Length, Is.EqualTo(0));
+                    Assert.That(forward.BlobAssetReferenceChanges.Length, Is.EqualTo(0));
+                    Assert.That(forward.BlobAssetData.Length, Is.EqualTo(0));
+                }
+                
+                scriptableObject.Value.Dispose();
+                UnityEngine.Object.DestroyImmediate(scriptableObject);
+            }
+        }
+#endif // !UNITY_DOTSRUNTIME
 
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
@@ -1472,15 +1761,15 @@ namespace Unity.Entities.Tests
             var b = new EntityGuid(2, 0, 0);
             var before = new NativeList<EntityGuid>(1, Allocator.TempJob);
             var after = new NativeList<EntityGuid>(2, Allocator.TempJob);
-            using (var additions = new NativeList<LinkedEntityGroupChange>(Allocator.TempJob))
-            using (var removals = new NativeList<LinkedEntityGroupChange>(Allocator.TempJob))
+            var additions = new NativeList<LinkedEntityGroupChange>(16, Allocator.TempJob);
+            var removals = new NativeList<LinkedEntityGroupChange>(16, Allocator.TempJob);
             {
                 before.Add(a);
                 after.Add(a);
                 after.Add(b);
 
                 // detect an addition...
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, additions, removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, ref additions, ref removals);
                 Assert.AreEqual(0, removals.Length);
                 Assert.AreEqual(1, additions.Length);
                 Assert.AreEqual(b, additions[0].ChildEntityGuid);
@@ -1488,7 +1777,7 @@ namespace Unity.Entities.Tests
                 removals.Clear();
 
                 // ...or a removal in reverse.
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, additions, removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, ref additions, ref removals);
                 Assert.AreEqual(0, additions.Length);
                 Assert.AreEqual(1, removals.Length);
                 Assert.AreEqual(b, removals[0].ChildEntityGuid);
@@ -1499,14 +1788,14 @@ namespace Unity.Entities.Tests
                 after[0] = b;
                 after[1] = a;
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, additions, removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, ref additions, ref removals);
                 Assert.AreEqual(0, removals.Length);
                 Assert.AreEqual(1, additions.Length);
                 Assert.AreEqual(b, additions[0].ChildEntityGuid);
                 additions.Clear();
                 removals.Clear();
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, additions, removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, ref additions, ref removals);
                 Assert.AreEqual(0, additions.Length);
                 Assert.AreEqual(1, removals.Length);
                 Assert.AreEqual(b, removals[0].ChildEntityGuid);
@@ -1516,7 +1805,7 @@ namespace Unity.Entities.Tests
                 // and now with an empty first range
                 before.Clear();
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, additions, removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, ref additions, ref removals);
                 Assert.AreEqual(0, removals.Length);
                 Assert.AreEqual(2, additions.Length);
                 Assert.AreEqual(a, additions[0].ChildEntityGuid);
@@ -1524,15 +1813,17 @@ namespace Unity.Entities.Tests
                 additions.Clear();
                 removals.Clear();
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, additions, removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, ref additions, ref removals);
                 Assert.AreEqual(0, additions.Length);
                 Assert.AreEqual(2, removals.Length);
                 Assert.AreEqual(a, removals[0].ChildEntityGuid);
                 Assert.AreEqual(b, removals[1].ChildEntityGuid);
             }
 
-            before.Dispose();
+            removals.Dispose();
+            additions.Dispose();
             after.Dispose();
+            before.Dispose();
         }
 
         [Test]
@@ -1541,6 +1832,8 @@ namespace Unity.Entities.Tests
             var a = new EntityGuid(1, 0, 0);
             var b = new EntityGuid(2, 0, 0);
             var c = new EntityGuid(3, 0, 0);
+            var additions = new NativeList<LinkedEntityGroupChange>(16, Allocator.TempJob);
+            var removals = new NativeList<LinkedEntityGroupChange>(16, Allocator.TempJob);
             var before = new NativeList<EntityGuid>(1, Allocator.TempJob)
             {
                 a, b
@@ -1549,12 +1842,10 @@ namespace Unity.Entities.Tests
             {
                 b, c
             };
-            using (var additions = new NativeList<LinkedEntityGroupChange>(Allocator.TempJob))
-            using (var removals = new NativeList<LinkedEntityGroupChange>(Allocator.TempJob))
             using (before)
             using (after)
             {
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, additions, removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, before, after, ref additions, ref removals);
                 Assert.AreEqual(1, removals.Length);
                 Assert.AreEqual(1, additions.Length);
                 Assert.AreEqual(c, additions[0].ChildEntityGuid);
@@ -1562,12 +1853,15 @@ namespace Unity.Entities.Tests
                 additions.Clear();
                 removals.Clear();
 
-                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, additions, removals);
+                EntityDiffer.GatherLinkedEntityGroupChanges(default, after, before, ref additions, ref removals);
                 Assert.AreEqual(1, additions.Length);
                 Assert.AreEqual(1, removals.Length);
                 Assert.AreEqual(a, additions[0].ChildEntityGuid);
                 Assert.AreEqual(c, removals[0].ChildEntityGuid);
             }
+
+            removals.Dispose();
+            additions.Dispose();
         }
 #endif // !UNITY_DOTSRUNTIME_IL2CPP
     }

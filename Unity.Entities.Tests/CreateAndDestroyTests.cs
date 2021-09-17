@@ -1,6 +1,9 @@
 using System;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Collections.NotBurstCompatible;
+using UnityEngine.TestTools;
 
 namespace Unity.Entities.Tests
 {
@@ -76,6 +79,18 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void Instantiate_NegativeCount_Throws()
+        {
+            var prefab = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+            {
+                var ent = m_Manager.Instantiate(prefab, -1, Allocator.Persistent);
+            });
+        }
+
+
+
+        [Test]
         public void CreateZeroEntities_NoArray()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -88,6 +103,13 @@ namespace Unity.Entities.Tests
             entities = m_Manager.GetAllEntities();
             Assert.AreEqual(0, entities.Length);
             entities.Dispose();
+        }
+
+        [Test]
+        public void CreateEntity_NegativeCount_Throws()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            Assert.Throws<ArgumentOutOfRangeException>(() => m_Manager.CreateEntity(archetype, -1));
         }
 
         [Test]
@@ -137,7 +159,8 @@ namespace Unity.Entities.Tests
             AssertComponentData(entity2, 12);
         }
 
-#if !(UNITY_DOTSRUNTIME && UNITY_WEBGL) // https://unity3d.atlassian.net/browse/DOTSR-2039
+#if !(UNITY_DOTSRUNTIME && (UNITY_WEBGL || UNITY_LINUX)) // https://unity3d.atlassian.net/browse/DOTSR-2039 for web
+        //https://unity3d.atlassian.net/browse/DOTSR-2653 for linux
         [Test]
         public void CreateEntity_CreateAlmostTooManyEntities()
         {
@@ -182,6 +205,9 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+#if !UNITY_DOTSRUNTIME
+        [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
+#endif
         unsafe public void CreateAndDestroyStressTest()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -579,6 +605,30 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public unsafe void AddComponentsWorks_WithUnmanagedComponentTypesConstructor()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var entity = m_Manager.CreateEntity(archetype);
+
+            // Create dummy archetype with unrelated type to override the internal cache in the entity manager
+            // This exposed a bug in AddComponent
+            m_Manager.CreateArchetype(typeof(EcsTestData4));
+
+            var typesToAdd = new ComponentTypes(new FixedList128Bytes<ComponentType>
+                {typeof(EcsTestData3), typeof(EcsTestData2)});
+            m_Manager.AddComponents(entity, typesToAdd);
+
+            var expectedTotalTypes = new ComponentTypes(new ComponentType[] {typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData)});
+            var actualTotalTypes = m_Manager.GetComponentTypes(entity);
+
+            Assert.AreEqual(expectedTotalTypes.Length, actualTotalTypes.Length);
+            for (var i = 0; i < expectedTotalTypes.Length; ++i)
+                Assert.AreEqual(expectedTotalTypes.GetTypeIndex(i), actualTotalTypes[i].TypeIndex);
+
+            actualTotalTypes.Dispose();
+        }
+
+        [Test]
         public void GetAllEntitiesCorrectCount()
         {
             var archetype0 = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -672,19 +722,12 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateEntity();
             }
 
-            var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob);
-            try
-            {
-                Assert.AreEqual(entities.Length, entityCount);
+            var entities = m_Manager.UniversalQuery.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            Assert.AreEqual(entities.Length, entityCount);
 
-                entities[0] = invalidEnt;
-                Assert.That(() => { m_Manager.AddComponent<EcsTestData>(entities); },
-                    Throws.InvalidOperationException.With.Message.Contains("The entity does not exist"));
-            }
-            finally
-            {
-                entities.Dispose();
-            }
+            entities[0] = invalidEnt;
+            Assert.That(() => { m_Manager.AddComponent<EcsTestData>(entities); },
+                Throws.ArgumentException.With.Message.Contains("All entities passed to EntityManager must exist"));
         }
 #endif
 
@@ -959,7 +1002,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void AddComponentTagTwiceWithEntityArray()
         {
-            var entities = new NativeArray<Entity>(3, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(3, World.UpdateAllocator.ToAllocator);
 
             entities[0] = m_Manager.CreateEntity();
             entities[1] = m_Manager.CreateEntity(typeof(EcsTestTag));
@@ -970,14 +1013,12 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entities[0]));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entities[1]));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entities[2]));
-
-            entities.Dispose();
         }
 
         [Test]
         public void AddComponentTagWithDuplicateEntities()
         {
-            var entities = new NativeArray<Entity>(2, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(2, World.UpdateAllocator.ToAllocator);
             var e = m_Manager.CreateEntity();
             entities[0] = e;
             entities[1] = e;
@@ -985,14 +1026,12 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponent(entities, typeof(EcsTestTag));
 
             Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e));
-
-            entities.Dispose();
         }
 
         [Test]
         public void AddComponentTagWithMultipleDuplicateEntities()
         {
-            var entities = new NativeArray<Entity>(5, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(5, World.UpdateAllocator.ToAllocator);
             var e1 = m_Manager.CreateEntity();
             var e2 = m_Manager.CreateEntity();
             var e3 = m_Manager.CreateEntity();
@@ -1009,14 +1048,12 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e1));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e2));
             Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(e3));
-
-            entities.Dispose();
         }
 
         [Test]
         public void AddComponentTwiceWithEntityCommandBuffer()
         {
-            using (var ecb = new EntityCommandBuffer(Allocator.TempJob))
+            using (var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
                 var entity = ecb.CreateEntity();
                 ecb.AddComponent(entity, new EcsTestTag());
@@ -1026,7 +1063,7 @@ namespace Unity.Entities.Tests
 
             // without fixup
 
-            using (var ecb = new EntityCommandBuffer(Allocator.TempJob))
+            using (var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
                 var entity = ecb.CreateEntity();
                 ecb.AddComponent(entity, new EcsTestData());
@@ -1035,8 +1072,7 @@ namespace Unity.Entities.Tests
             }
 
             // with fixup
-
-            using (var ecb = new EntityCommandBuffer(Allocator.TempJob))
+            using (var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
                 var entity = ecb.CreateEntity();
                 var other = ecb.CreateEntity();
@@ -1080,23 +1116,23 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetCreatedAndDestroyedEntities()
         {
-            using (var state = new NativeList<int>(Allocator.TempJob))
-            using (var created = new NativeList<Entity>(Allocator.TempJob))
-            using (var destroyed = new NativeList<Entity>(Allocator.TempJob))
+            using (var state = new NativeList<int>(World.UpdateAllocator.ToAllocator))
+            using (var created = new NativeList<Entity>(World.UpdateAllocator.ToAllocator))
+            using (var destroyed = new NativeList<Entity>(World.UpdateAllocator.ToAllocator))
             {
                 // Create e0 & e1
                 var e0 = m_Manager.CreateEntity();
                 var e1 = m_Manager.CreateEntity();
                 m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
-                Assert.AreEqual(new[] { e0, e1 }, created.ToArray());
+                Assert.AreEqual(new[] { e0, e1 }, created.ToArrayNBC());
                 Assert.AreEqual(0, destroyed.Length);
 
                 // Create e3, destroy e0
                 var e3 = m_Manager.CreateEntity();
                 m_Manager.DestroyEntity(e0);
                 m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
-                Assert.AreEqual(new[] { e3 }, created.ToArray());
-                Assert.AreEqual(new[] { e0 }, destroyed.ToArray());
+                Assert.AreEqual(new[] { e3 }, created.ToArrayNBC());
+                Assert.AreEqual(new[] { e0 }, destroyed.ToArrayNBC());
 
                 // Change nothing
                 m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
@@ -1108,7 +1144,7 @@ namespace Unity.Entities.Tests
                 m_Manager.DestroyEntity(e3);
                 m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
                 Assert.AreEqual(0, created.Length);
-                Assert.AreEqual(new[] { e1, e3 }, destroyed.ToArray());
+                Assert.AreEqual(new[] { e1, e3 }, destroyed.ToArrayNBC());
 
                 // Create e4
                 var e4 = m_Manager.CreateEntity();
@@ -1121,6 +1157,50 @@ namespace Unity.Entities.Tests
                 m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
                 Assert.AreEqual(0, created.Length);
                 Assert.AreEqual(0, destroyed.Length);
+            }
+        }
+
+        [Test(Description = "Validate that EntityManager.GetCreatedAndDestroyedEntities returns only entities otherwise visible to the user through the EntityManager")]
+        public void EntityManager_GetCreatedAndDestroyedEntities_Skips_ChunkHeaders()
+        {
+            using (var state = new NativeList<int>(World.UpdateAllocator.ToAllocator))
+            using (var created = new NativeList<Entity>(World.UpdateAllocator.ToAllocator))
+            using (var destroyed = new NativeList<Entity>(World.UpdateAllocator.ToAllocator))
+            {
+                m_Manager.GetCreatedAndDestroyedEntities(state, created, destroyed);
+
+                var entity0 = m_Manager.CreateEntity(typeof(BoundsComponent), ComponentType.ChunkComponent<ChunkBoundsComponent>());
+                m_Manager.SetComponentData(entity0, new BoundsComponent {boundsMin = new Mathematics.float3(-10, -10, -10), boundsMax = new Mathematics.float3(0, 0, 0)});
+                var entity1 = m_Manager.CreateEntity(typeof(BoundsComponent), ComponentType.ChunkComponent<ChunkBoundsComponent>());
+                m_Manager.SetComponentData(entity1, new BoundsComponent {boundsMin = new Mathematics.float3(0, 0, 0), boundsMax = new Mathematics.float3(10, 10, 10)});
+
+                m_Manager.GetCreatedAndDestroyedEntities(state, created, destroyed);
+
+                var metaQuery = m_Manager.CreateEntityQuery(typeof(ChunkBoundsComponent), typeof(ChunkHeader));
+                var metaBoundsCount = metaQuery.CalculateEntityCount();
+                var allEntities = m_Manager.GetAllEntities();
+
+                Assert.AreEqual(1, metaBoundsCount);
+                Assert.AreEqual(allEntities.Length, created.Length, "The list of created entities does not match the list returned by the EntityManager");
+                Assert.AreEqual(allEntities[0], created[0]);
+                Assert.AreEqual(allEntities[1], created[1]);
+            }
+        }
+
+        [Test]
+        public void EntityManager_GetAllEntities_WithAndWithoutMetaEntities()
+        {
+            var a = m_Manager.CreateEntity(ComponentType.ChunkComponent<EcsTestData>());
+
+            using (var entities = m_Manager.GetAllEntities(Allocator.Temp, EntityManager.GetAllEntitiesOptions.ExcludeMeta))
+            {
+                CollectionAssert.AreEquivalent(new[] {a}, entities);
+            }
+
+            using (var entities = m_Manager.GetAllEntities(Allocator.Temp, EntityManager.GetAllEntitiesOptions.IncludeMeta))
+            {
+                var meta = m_Manager.Debug.GetMetaChunkEntity(a);
+                CollectionAssert.AreEquivalent(new[] {a, meta}, entities);
             }
         }
     }

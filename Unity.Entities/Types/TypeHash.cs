@@ -55,14 +55,14 @@ namespace Unity.Entities
         private static ulong HashType(Type type, Dictionary<Type, ulong> cache)
         {
             var hash = HashTypeName(type);
-
 #if !UNITY_DOTSRUNTIME
             // UnityEngine objects have their own serialization mechanism so exclude hashing the type's
-            // internals and just hash its name which is stable and important to how Entities will serialize
+            // internals and just hash its name+assemblyname (not fully qualified)
             if (TypeManager.UnityEngineObjectType?.IsAssignableFrom(type) == true)
-                return hash;
+            {
+                return CombineFNV1A64(hash, FNV1A64(type.Assembly.GetName().Name));
+            }
 #endif
-
             if (type.IsGenericParameter || type.IsArray || type.IsPointer || type.IsPrimitive || type.IsEnum || WorkaroundTypes.Contains(type))
                 return hash;
 

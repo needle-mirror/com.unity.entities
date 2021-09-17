@@ -32,6 +32,32 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Check whether or not a new exclusive entity transaction can begin.
+        /// </summary>
+        /// <returns><see langword="true"/> if a new exclusive transaction can begin, <see langword="false"/> otherwise.</returns>
+        [NotBurstCompatible]
+        public bool CanBeginExclusiveEntityTransaction()
+        {
+            try
+            {
+                var access = GetCheckedEntityDataAccess();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (IsInExclusiveTransaction)
+                    return false;
+#endif
+                if (access->IsInExclusiveTransaction)
+                    return false;
+                if (access->DependencyManager->IsInTransaction)
+                    return false;
+            }
+            catch
+            {
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// Begins an exclusive entity transaction, which allows you to make structural changes inside a Job.
         /// </summary>
         /// <remarks>
@@ -109,9 +135,10 @@ namespace Unity.Entities
             where T : struct, ISharedComponentData
         {
             var componentType = ComponentType.ReadWrite<T>();
+            var archetypeChanges = m_EntityDataAccess->BeginStructuralChanges();
             int sharedComponentIndex = m_EntityDataAccess->InsertSharedComponent(componentData);
-            m_EntityDataAccess->AddSharedComponentData(chunks, sharedComponentIndex, componentType);
-            m_EntityDataAccess->RemoveSharedComponentReference(sharedComponentIndex);
+            m_EntityDataAccess->AddSharedComponentDataDuringStructuralChange(chunks, sharedComponentIndex, componentType);
+            m_EntityDataAccess->EndStructuralChanges(ref archetypeChanges);
         }
     }
 }

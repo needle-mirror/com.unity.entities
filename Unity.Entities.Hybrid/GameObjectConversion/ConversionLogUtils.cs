@@ -28,7 +28,7 @@ namespace GameObjectConversion
             {
                 foreach (var (logType, logString) in allLogTypes)
                 {
-                    if (currentLine.StartsWith(logString))
+                    if (currentLine.StartsWith(logString, StringComparison.Ordinal))
                     {
                         return logType;
                     }

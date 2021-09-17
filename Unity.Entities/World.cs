@@ -16,7 +16,7 @@ namespace Unity.Entities
     /// Specify all traits a <see cref="World"/> can have.
     /// </summary>
     [Flags]
-    public enum WorldFlags : byte
+    public enum WorldFlags : int
     {
         /// <summary>
         /// Default WorldFlags value.
@@ -66,6 +66,11 @@ namespace Unity.Entities
         /// Dedicated <see cref="World"/> for managing incoming streamed data to the Player.
         /// </summary>
         Streaming  = 1 << 7,
+
+        /// <summary>
+        /// <see cref="World"/> Enable world update allocator to free individual block.
+        /// </summary>
+        EnableBlockFree = 1 << 8,
     }
 
     /// <summary>
@@ -81,7 +86,8 @@ namespace Unity.Entities
     }
 
     [DebuggerDisplay("{Name} - {Flags} (#{SequenceNumber})")]
-    public partial class World : IDisposable
+    [DebuggerTypeProxy(typeof(WorldDebugView))]
+    public unsafe partial class World : IDisposable
     {
         internal static readonly List<World> s_AllWorlds = new List<World>();
 
@@ -89,6 +95,26 @@ namespace Unity.Entities
 
         Dictionary<Type, ComponentSystemBase> m_SystemLookup = new Dictionary<Type, ComponentSystemBase>();
         public static NoAllocReadOnlyCollection<World> All { get; } = new NoAllocReadOnlyCollection<World>(s_AllWorlds);
+
+        /// <summary>
+        /// Event invoked after world has been fully constructed.
+        /// </summary>
+        internal static event Action<World> WorldCreated;
+
+        /// <summary>
+        /// Event invoked before world is disposed.
+        /// </summary>
+        internal static event Action<World> WorldDestroyed;
+
+        /// <summary>
+        /// Event invoked after system has been fully constructed.
+        /// </summary>
+        internal static event Action<World, ComponentSystemBase> SystemCreated;
+
+        /// <summary>
+        /// Event invoked before system is disposed.
+        /// </summary>
+        internal static event Action<World, ComponentSystemBase> SystemDestroyed;
 
         List<ComponentSystemBase> m_Systems = new List<ComponentSystemBase>();
         public NoAllocReadOnlyCollection<ComponentSystemBase> Systems { get; }
@@ -130,15 +156,38 @@ namespace Unity.Entities
 
         public World(string name, WorldFlags flags = WorldFlags.Simulation)
         {
-            m_Unmanaged.Create(this, flags);
+            Name = name;
             Systems = new NoAllocReadOnlyCollection<ComponentSystemBase>(m_Systems);
 
-            // Debug.LogError("Create World "+ name + " - " + GetHashCode());
+            Init(flags, Allocator.Persistent);
+        }
+
+        public World(string name, WorldFlags flags, AllocatorManager.AllocatorHandle backingAllocatorHandle)
+        {
             Name = name;
+            Systems = new NoAllocReadOnlyCollection<ComponentSystemBase>(m_Systems);
+
+            Init(flags, backingAllocatorHandle);
+        }
+
+        void Init(WorldFlags flags, AllocatorManager.AllocatorHandle backingAllocatorHandle)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            SystemState.InitSystemIdCell();
+#endif
+
+            m_Unmanaged.Create(this, flags, backingAllocatorHandle);
+
             s_AllWorlds.Add(this);
 
             m_TimeSingletonQuery = EntityManager.CreateEntityQuery(ComponentType.ReadWrite<WorldTime>(),
                 ComponentType.ReadWrite<WorldTimeQueue>());
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            EntitiesJournaling.RecordWorldCreated(in m_Unmanaged);
+#endif
+
+            WorldCreated?.Invoke(this);
         }
 
         public void Dispose()
@@ -147,11 +196,22 @@ namespace Unity.Entities
                 throw new ArgumentException("The World has already been Disposed.");
             // Debug.LogError("Dispose World "+ Name + " - " + GetHashCode());
 
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            EntitiesJournaling.RecordWorldDestroyed(in m_Unmanaged);
+#endif
+
+            WorldDestroyed?.Invoke(this);
+
             m_Unmanaged.EntityManager.PreDisposeCheck();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Unmanaged.DisallowGetSystem();
 #endif
+            // We don't want any jobs making changes to this world as we are disposing it.
+            // This could be particularly bad if we are destroying blobs referenced by Components as a job attempts to access them.
+            EntityManager.ExclusiveEntityTransactionDependency.Complete();
+            EntityManager.EndExclusiveEntityTransaction();
+            EntityManager.CompleteAllJobs();
 
             DestroyAllSystemsAndLogException();
             m_Unmanaged.DestroyAllUnmanagedSystemsAndLogException();
@@ -183,12 +243,8 @@ namespace Unity.Entities
             {
                 if (m_TimeSingletonQuery.IsEmptyIgnoreFilter)
                 {
-        #if UNITY_EDITOR
                     var entity = EntityManager.CreateEntity(typeof(WorldTime), typeof(WorldTimeQueue));
                     EntityManager.SetName(entity , "WorldTime");
-        #else
-                    EntityManager.CreateEntity(typeof(WorldTime), typeof(WorldTimeQueue));
-        #endif
                 }
 
                 return m_TimeSingletonQuery.GetSingletonEntity();
@@ -273,6 +329,9 @@ namespace Unity.Entities
                 {
                     var statePtr = m_Unmanaged.AllocateSystemStateForManagedSystem(this, system);
                     system.CreateInstance(this, statePtr);
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+                    EntitiesJournaling.RecordSystemAdded(in m_Unmanaged, &statePtr->m_Handle);
+#endif
                 }
             }
             catch
@@ -281,12 +340,23 @@ namespace Unity.Entities
                 throw;
             }
             m_Unmanaged.BumpVersion();
+
+            SystemCreated?.Invoke(this, system);
         }
 
         void RemoveSystemInternal(ComponentSystemBase system)
         {
             if (!m_Systems.Remove(system))
                 throw new ArgumentException($"System does not exist in the world");
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            unsafe
+            {
+                var statePtr = system.m_StatePtr;
+                EntitiesJournaling.RecordSystemRemoved(in m_Unmanaged, statePtr != null ? &statePtr->m_Handle : null);
+            }
+#endif
+
             m_Unmanaged.BumpVersion();
 
             var type = system.GetType();
@@ -306,7 +376,7 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void CheckGetOrCreateSystem()
         {
             if (!IsCreated)
@@ -382,6 +452,7 @@ namespace Unity.Entities
         {
             CheckGetOrCreateSystem();
 
+            SystemDestroyed?.Invoke(this, system);
             RemoveSystemInternal(system);
             system.DestroyInstance();
         }
@@ -399,6 +470,7 @@ namespace Unity.Entities
             {
                 try
                 {
+                    SystemDestroyed?.Invoke(this, m_Systems[i]);
                     m_Systems[i].OnBeforeDestroyInternal();
                 }
                 catch (Exception e)
@@ -493,13 +565,15 @@ namespace Unity.Entities
 
         public bool QuitUpdate { get; set; }
 
+        public ref RewindableAllocator UpdateAllocator => ref Unmanaged.UpdateAllocator;
+
         public void Update()
         {
             GetExistingSystem<InitializationSystemGroup>()?.Update();
             GetExistingSystem<SimulationSystemGroup>()?.Update();
             GetExistingSystem<PresentationSystemGroup>()?.Update();
 
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             Assert.IsTrue(EntityManager.GetBuffer<WorldTimeQueue>(TimeSingleton).Length == 0, "PushTime without matching PopTime");
         #endif
         }
@@ -526,34 +600,59 @@ namespace Unity.Entities
             IEnumerator IEnumerable.GetEnumerator()
                 => throw new NotSupportedException($"To avoid boxing, do not cast {nameof(NoAllocReadOnlyCollection<T>)} to IEnumerable.");
         }
+
+        internal static unsafe SystemState* FindSystemStateForId(int systemId)
+        {
+            foreach (var world in World.All)
+            {
+                foreach (var system in world.Systems)
+                {
+                    if (system == null) continue;
+
+                    var statePtr = system.CheckedState();
+                    if (statePtr->m_SystemID == systemId)
+                        return statePtr;
+                }
+
+                var allUnmanaged_ = world.Unmanaged.GetAllUnmanagedSystemStates(Allocator.Temp);
+                using (var allUnmanaged = allUnmanaged_)
+                {
+                    for (int i = 0; i < allUnmanaged.Length; ++i)
+                    {
+                        var state = (SystemState*) allUnmanaged[i];
+                        if (state->m_SystemID == systemId)
+                            return state;
+                    }
+                }
+            }
+
+            return null;
+        }
     }
 
-    // TODO: Make methods public once ISystemBase is ready for users
     public static class WorldExtensions
     {
-        internal static SystemRef<T> AddSystem<T>(this World self) where T : struct, ISystemBase
+        public static SystemRef<T> AddSystem<T>(this World self) where T : unmanaged, ISystem
         {
-            return self.Unmanaged.CreateUnmanagedSystem<T>(self);
+            return self.Unmanaged.CreateUnmanagedSystem<T>(self, true);
         }
 
-        internal static SystemRef<T> GetExistingSystem<T>(this World self) where T : struct, ISystemBase
+        public static SystemRef<T> GetExistingSystem<T>(this World self) where T : unmanaged, ISystem
         {
             return self.Unmanaged.GetExistingUnmanagedSystem<T>();
         }
 
-        internal static SystemRef<T> GetOrCreateSystem<T>(this World self) where T : struct, ISystemBase
+        public static SystemRef<T> GetOrCreateSystem<T>(this World self) where T : unmanaged, ISystem
         {
             return self.Unmanaged.GetOrCreateUnmanagedSystem<T>(self);
         }
 
-#if !NET_DOTS && !UNITY_DOTSRUNTIME
-        internal static SystemHandleUntyped GetOrCreateUnmanagedSystem(this World self, Type unmanagedType)
+        public static SystemHandleUntyped GetOrCreateUnmanagedSystem(this World self, Type unmanagedType)
         {
             return self.Unmanaged.GetOrCreateUnmanagedSystem(self, unmanagedType);
         }
-#endif
 
-        internal static void DestroyUnmanagedSystem(this World self, SystemHandleUntyped sysHandle)
+        public static void DestroyUnmanagedSystem(this World self, SystemHandleUntyped sysHandle)
         {
             self.Unmanaged.DestroyUnmanagedSystem(sysHandle);
         }

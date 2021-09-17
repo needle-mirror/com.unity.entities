@@ -8,7 +8,8 @@ using Unity.Mathematics;
 
 namespace Unity.Transforms
 {
-    public abstract class LocalToParentSystem : JobComponentSystem
+    [BurstCompile]
+    public partial struct LocalToParentSystem : ISystem
     {
         private EntityQuery m_RootsQuery;
         private EntityQueryMask m_LocalToWorldWriteGroupMask;
@@ -75,9 +76,11 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreate()
+        //burst disabled pending burstable entityquerydesc
+        //[BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_RootsQuery = GetEntityQuery(new EntityQueryDesc
+            m_RootsQuery = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -91,7 +94,7 @@ namespace Unity.Transforms
                 Options = EntityQueryOptions.FilterWriteGroup
             });
 
-            m_LocalToWorldWriteGroupMask = EntityManager.GetEntityQueryMask(GetEntityQuery(new EntityQueryDesc
+            m_LocalToWorldWriteGroupMask = state.EntityManager.GetEntityQueryMask(state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -103,13 +106,22 @@ namespace Unity.Transforms
             }));
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
         {
-            var localToWorldType = GetComponentTypeHandle<LocalToWorld>(true);
-            var childType = GetBufferTypeHandle<Child>(true);
-            var childFromEntity = GetBufferFromEntity<Child>(true);
-            var localToParentFromEntity = GetComponentDataFromEntity<LocalToParent>(true);
-            var localToWorldFromEntity = GetComponentDataFromEntity<LocalToWorld>();
+        }
+
+        //disabling burst in dotsrt until burstable scheduling works
+#if !UNITY_DOTSRUNTIME
+        [BurstCompile]
+#endif
+        public void OnUpdate(ref SystemState state)
+        {
+            var localToWorldType = state.GetComponentTypeHandle<LocalToWorld>(true);
+            var childType = state.GetBufferTypeHandle<Child>(true);
+            var childFromEntity = state.GetBufferFromEntity<Child>(true);
+            var localToParentFromEntity = state.GetComponentDataFromEntity<LocalToParent>(true);
+            var localToWorldFromEntity = state.GetComponentDataFromEntity<LocalToWorld>();
 
             var updateHierarchyJob = new UpdateHierarchy
             {
@@ -119,10 +131,9 @@ namespace Unity.Transforms
                 LocalToParentFromEntity = localToParentFromEntity,
                 LocalToWorldFromEntity = localToWorldFromEntity,
                 LocalToWorldWriteGroupMask = m_LocalToWorldWriteGroupMask,
-                LastSystemVersion = LastSystemVersion
+                LastSystemVersion = state.LastSystemVersion
             };
-            var updateHierarchyJobHandle = updateHierarchyJob.ScheduleParallel(m_RootsQuery, 1, inputDeps);
-            return updateHierarchyJobHandle;
+            state.Dependency = updateHierarchyJob.ScheduleParallel(m_RootsQuery, state.Dependency);
         }
     }
 }

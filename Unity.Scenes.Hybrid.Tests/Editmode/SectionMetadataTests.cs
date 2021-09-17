@@ -15,6 +15,7 @@ namespace Unity.Scenes.Hybrid.Tests
         }
 
         // Only works in Editor for now until we can support SubScene building with new build settings in a test
+        [Ignore("Unstable on CI, DOTS-3750")]
         [Test]
         [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
         public void SectionMetadata()
@@ -66,7 +67,22 @@ namespace Unity.Scenes.Hybrid.Tests
                 var logPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesConversionLog);
                 Assert.NotNull(logPath);
                 var log = System.IO.File.ReadAllText(logPath);
-                Assert.IsTrue(log.Contains("The component type must contains only blittable/basic data types"));
+
+                var expectedDiagnostics = new[]
+                {
+                    $"SubScene section entities may only have components that satisfy the following conditions:",
+                    $"must be unmanaged",
+                    $"must not implement {nameof(ISystemStateComponentData)}",
+                    $"must implement {nameof(IComponentData)}",
+                    $"may not have any {nameof(Entity)} fields",
+                    $"and may not have any BlobAssetReference fields",
+                };
+
+                foreach (var expectedDiagnostic in expectedDiagnostics)
+                {
+                    Assert.IsTrue(log.Contains(expectedDiagnostic));
+                }
+
                 Assert.IsFalse(log.Contains("entities in the scene 'TestSubSceneWithSectionMetadata' had no SceneSection and as a result were not serialized at all."));
             }
         }

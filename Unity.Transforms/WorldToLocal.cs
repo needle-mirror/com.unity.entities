@@ -18,7 +18,8 @@ namespace Unity.Transforms
         public float3 Position => new float3(Value.c3.x, Value.c3.y, Value.c3.z);
     }
 
-    public abstract class WorldToLocalSystem : JobComponentSystem
+    [BurstCompile]
+    public partial struct WorldToLocalSystem : ISystem
     {
         private EntityQuery m_Query;
 
@@ -45,9 +46,11 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreate()
+        //burst disabled pending burstable entityquerydesc
+        //[BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc
+            m_Query = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -58,16 +61,24 @@ namespace Unity.Transforms
             });
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
+        {
+        }
+
+        //disabling burst in dotsrt until burstable scheduling works
+#if !UNITY_DOTSRUNTIME
+        [BurstCompile]
+#endif
+        public void OnUpdate(ref SystemState state)
         {
             var toWorldToLocalJob = new ToWorldToLocal
             {
-                LocalToWorldTypeHandle = GetComponentTypeHandle<LocalToWorld>(true),
-                WorldToLocalTypeHandle = GetComponentTypeHandle<WorldToLocal>(),
-                LastSystemVersion = LastSystemVersion
+                LocalToWorldTypeHandle = state.GetComponentTypeHandle<LocalToWorld>(true),
+                WorldToLocalTypeHandle = state.GetComponentTypeHandle<WorldToLocal>(),
+                LastSystemVersion = state.LastSystemVersion
             };
-            var toWorldToLocalJobHandle = toWorldToLocalJob.ScheduleParallel(m_Query, 1, inputDeps);
-            return toWorldToLocalJobHandle;
+            state.Dependency = toWorldToLocalJob.ScheduleParallel(m_Query, state.Dependency);
         }
     }
 }

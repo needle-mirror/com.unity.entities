@@ -222,8 +222,8 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [Test, Performance]
-        public void CreateArchetypeChunkArray_Performance_LargeScale([Values(1000000, 5000000,10000000,20000000)] int entityCount,
-            [Values(100,500,1000,5000,10000)] int archetypeCount)
+        public void CreateArchetypeChunkArray_Performance_LargeScale([Values(1000000, 5000000)] int entityCount,
+            [Values(100,500,1000)] int archetypeCount)
         {
             CreateArchetypeChunkArrayPerformance(entityCount,archetypeCount);
         }

@@ -15,7 +15,6 @@ namespace Unity.Entities
         public NativeArray<T> Source;
         public T Value;
 
-        // #todo Need equivalent of IJobParallelFor that's per-chunk so we can do memset per chunk here.
         public void Execute(int index)
         {
             Source[index] = Value;

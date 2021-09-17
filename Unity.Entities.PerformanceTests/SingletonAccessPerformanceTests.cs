@@ -8,9 +8,9 @@ using Unity.Jobs;
 
 namespace Unity.Entities.PerformanceTests
 {
-    public class SingletonAccessTestFixture : ECSTestsFixture
+    public partial class SingletonAccessTestFixture : ECSTestsFixture
     {
-        protected class TestComponentSystem : SystemBase
+        protected partial class TestComponentSystem : SystemBase
         {
             readonly int k_Count = 100000;
             EntityQuery m_Query;

@@ -45,7 +45,7 @@ namespace Unity.Entities
         [FieldOffset(32)]
         public uint Flags;
 
-        // Incrementing automatically for each chunk
+        // SequenceNumber is a unique number for each chunk, across all worlds. (Chunk* is not guranteed unique, in particular because chunk allocations are pooled)
         [FieldOffset(kSerializedHeaderSize)]
         public ulong SequenceNumber;
 

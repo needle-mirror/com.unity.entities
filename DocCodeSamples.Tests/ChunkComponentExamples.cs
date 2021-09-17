@@ -18,7 +18,7 @@ namespace Doc.CodeSamples.Tests
 
     #region full-chunk-example
 
-    public class ChunkComponentExamples : SystemBase
+    public partial class ChunkComponentExamples : SystemBase
     {
         private EntityQuery ChunksWithChunkComponentA;
         protected override void OnCreate()
@@ -56,8 +56,7 @@ namespace Doc.CodeSamples.Tests
                     = GetComponentTypeHandle<ChunkComponentA>()
             };
             this.Dependency
-                = job.ScheduleParallel(ChunksWithChunkComponentA, 1,
-                               this.Dependency);
+                = job.ScheduleParallel(ChunksWithChunkComponentA, this.Dependency);
         }
     }
     #endregion
@@ -71,7 +70,7 @@ namespace Doc.CodeSamples.Tests
 
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [UpdateBefore(typeof(UpdateAABBSystem))]
-    public class AddAABBSystem : SystemBase
+    public partial class AddAABBSystem : SystemBase
     {
         EntityQuery queryWithoutChunkComponent;
         protected override void OnCreate()
@@ -99,7 +98,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     [UpdateInGroup(typeof(PresentationSystemGroup))]
-    public class UpdateAABBSystem : SystemBase
+    public partial class UpdateAABBSystem : SystemBase
     {
         EntityQuery queryWithChunkComponent;
         protected override void OnCreate()
@@ -156,13 +155,13 @@ namespace Doc.CodeSamples.Tests
                 L2WChangeVersion = this.LastSystemVersion
             };
             this.Dependency
-                = job.ScheduleParallel(queryWithChunkComponent, 1, this.Dependency);
+                = job.ScheduleParallel(queryWithChunkComponent, this.Dependency);
         }
     }
     #endregion
 
     //snippets
-    public class ChunkComponentSnippets : SystemBase
+    public partial class ChunkComponentSnippets : SystemBase
     {
         protected override void OnUpdate()
         {

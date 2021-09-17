@@ -336,7 +336,7 @@ namespace Unity.Entities
         ///
         /// * **`WithReadOnly(myvar)`** — restricts access to the variable as read-only.
         ///
-        /// * **`WithDisposeOnCompletion(myvar)`** — indicates that you want captured NativeContainers or types that 
+        /// * **`WithDisposeOnCompletion(myvar)`** — indicates that you want captured NativeContainers or types that
         ///   contain NativeContainers to be Disposed of after your lambda runs.
         ///
         /// * **`WithNativeDisableParallelForRestriction(myvar)`** — permits multiple threads to access the same
@@ -402,13 +402,10 @@ namespace Unity.Entities
                     catch
                     {
                         state->AfterOnUpdate();
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                        var hasSafetyError = false;
-                        var details = default(SystemDependencySafetyUtility.SafetyErrorDetails);
-                        state->CheckSafety(ref details, ref hasSafetyError);
-#endif
-
+                        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                        // Limit follow up errors if we arrived here due to a job related exception by syncing all jobs
+                        state->m_DependencyManager->Safety.PanicSyncAll();
+                        #endif
                         throw;
                     }
                     finally
@@ -417,18 +414,6 @@ namespace Unity.Entities
                     }
 
                     state->AfterOnUpdate();
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    {
-                        var hasSafetyError = false;
-                        var details = default(SystemDependencySafetyUtility.SafetyErrorDetails);
-                        state->CheckSafety(ref details, ref hasSafetyError);
-                        if (hasSafetyError)
-                        {
-                            throw new InvalidOperationException(details.FormatToString(GetType()));
-                        }
-                    }
-#endif
                 }
                 else if (state->PreviouslyEnabled)
                 {
@@ -464,12 +449,6 @@ namespace Unity.Entities
                 SystemBaseRegistry.CallOnUpdate(state);
 
                 state->AfterOnUpdate();
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                var details = default(SystemDependencySafetyUtility.SafetyErrorDetails);
-                state->CheckSafety(ref details, ref hasSafetyError);
-                errorDetails = details;
-#endif
             }
             else if (state->PreviouslyEnabled)
             {
@@ -645,12 +624,14 @@ namespace Unity.Entities
         /// inside a job scheduled using [Entities.ForEach], this method gets replaced with component access methods
         /// through <see cref="BufferFromEntity{T}"/>.
         /// </remarks>
+        /// <param name="isReadOnly">Whether the buffer data is only read or is also written. Access data in
+        /// a read-only fashion whenever possible.</param>
         /// <typeparam name="T">The type of the buffer's elements.</typeparam>
         /// <returns>The DynamicBuffer object for accessing the buffer contents.</returns>
         /// <exception cref="ArgumentException">Thrown if T is an unsupported type.</exception>
-        public DynamicBuffer<T> GetBuffer<T>(Entity entity) where T : struct, IBufferElementData
+        public DynamicBuffer<T> GetBuffer<T>(Entity entity, bool isReadOnly = false) where T : struct, IBufferElementData
         {
-            return EntityManager.GetBuffer<T>(entity);
+            return CheckedState()->GetBuffer<T>(entity, isReadOnly);
         }
 
         /// <summary>
@@ -673,6 +654,22 @@ namespace Unity.Entities
         public new BufferFromEntity<T> GetBufferFromEntity<T>(bool isReadOnly = false) where T : struct, IBufferElementData
         {
             return base.GetBufferFromEntity<T>(isReadOnly);
+        }
+
+        /// <summary>
+        /// Gets a StorageInfoFromEntity object that can access a <seealso cref="EntityStorageInfo"/>.
+        /// </summary>
+        /// <remarks>Assign the returned object to a field of your Job struct so that you can access the
+        /// contents in a Job.
+        ///
+        /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
+        /// </remarks>
+        /// <returns>A dictionary-like object that provides access to information about how Entities are stored,
+        /// indexed by <see cref="Entity"/>.</returns>
+        /// <seealso cref="StorageInfoFromEntity"/>
+        public new StorageInfoFromEntity GetStorageInfoFromEntity()
+        {
+            return base.GetStorageInfoFromEntity();
         }
     }
 }

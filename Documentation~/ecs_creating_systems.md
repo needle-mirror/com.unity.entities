@@ -24,6 +24,7 @@ All the system events run on the main thread. Ideally, your [OnUpdate()] functio
 
 * [Entities.ForEach] -- the simplest way to iterate over ECS component data.
 * [Job.WithCode] -- execute a lambda function as a single, background job.
+* [IJobEntity] -- the second simplest way to iterate over ECS component data. Use this when wanting to write once, and do multiple schedule.
 * [IJobEntityBatch] -- a "lower level" mechanism for iterating over ECS component data chunk-by-chunk.
 * [C# Job System] -- create and schedule general purpose C# jobs.
 
@@ -33,6 +34,7 @@ The following example illustrates using [Entities.ForEach] to implement a system
 
 [ComponentSystemGroup]: xref:ecs-system-update-order
 [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
+[IJobEntity]: ecs_ijobentity.md
 [Job.WithCode]: xref:Unity.Entities.SystemBase.Job
 [EntityCommandBufferSystem]: xref:ecs-entity-command-buffer
 [EntityCommandBuffer]: xref:Unity.Entities.EntityCommandBuffer

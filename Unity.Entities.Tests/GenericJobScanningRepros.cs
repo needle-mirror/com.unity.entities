@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using Unity.Transforms;
 
-#if !UNITY_DOTSRUNTIME
+#if !NET_DOTS && UNITY_2020_2_OR_NEWER // Regex is not supported in NET_DOTS
 using System.Text.RegularExpressions;
 #endif
 
@@ -150,14 +150,14 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
         }
     }
 
-    public abstract class CustomSystemBase : SystemBase
+    public abstract partial class CustomSystemBase : SystemBase
     {
         public EntityQuery GetEntityQueryPublic(ComponentType[] componentTypes)
         {
             return GetEntityQuery(componentTypes);
         }
     }
-    public class MySystem : CustomSystemBase
+    public partial class MySystem : CustomSystemBase
     {
         protected override void OnCreate()
         {
@@ -188,14 +188,18 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
         }
     }
 
-#if !NET_DOTS && UNITY_2020_2_OR_NEWER // Regex is not supported in NET_DOTS
+// This should work in !NET_DOTS with UNITY_DOTSRUNTIME just fine, but that
+// actually happening is currently WIP - so disable completely in UNITY_DOTSRUNTIME
+// temporarily.
+#if !UNITY_DOTSRUNTIME && UNITY_2020_2_OR_NEWER // Regex is not supported in NET_DOTS (and this is totally broken in DOTS Runtime temporarily)
+//#if !NET_DOTS && UNITY_2020_2_OR_NEWER // Regex is not supported in NET_DOTS
     public class UserGenericJobCode1 : ECSTestsFixture
     {
         [Test]
         public void NoReflectionDataForHiddenGenerics()
         {
             // This should throw, as we can't pre-make the reflection data for this type of generic job
-            LogAssert.Expect(LogType.Exception, new Regex("Job reflection data"));
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException: Reflection data"));
             var repro = World.GetOrCreateSystem<MySystem>();
             var simulationGroup = World.GetOrCreateSystem<SimulationSystemGroup>();
             simulationGroup.AddSystemToUpdateList(repro);
@@ -230,7 +234,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum2
         }
     }
 
-    public class MySystem : SystemBase
+    public partial class MySystem : SystemBase
     {
         EntityQuery query;
 
@@ -300,7 +304,6 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
                 public TJob wrappedJob;
 
                 [ReadOnly]
-                [DeallocateOnJobCompletion]
                 public NativeArray<Foo> foos;
 
                 [ReadOnly]
@@ -369,7 +372,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
                 Thing = new BlahBlah<Q>.WrapperJob
                 {
                     wrappedJob = jobData,
-                    foos = new NativeArray<Foo>(10, Allocator.TempJob),
+                    foos = CollectionHelper.CreateNativeArray<Foo, RewindableAllocator>(10, ref system.EntityManager.World.UpdateAllocator),
                     entityType = system.EntityManager.GetEntityTypeHandle(),
                     bazType = system.EntityManager.GetComponentTypeHandle<Baz>(false),
                     t0Type = system.EntityManager.GetBufferTypeHandle<T0>(false),
@@ -410,14 +413,14 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
         }
     }
 
-    public abstract class CustomSystemBase : SystemBase
+    public abstract partial class CustomSystemBase : SystemBase
     {
         public EntityQuery GetEntityQueryPublic(ComponentType[] componentTypes)
         {
             return GetEntityQuery(componentTypes);
         }
     }
-    public class MySystem : CustomSystemBase
+    public partial class MySystem : CustomSystemBase
     {
         protected override void OnCreate()
         {

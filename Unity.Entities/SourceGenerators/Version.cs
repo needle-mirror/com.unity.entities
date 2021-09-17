@@ -5,3 +5,5 @@ namespace Unity.Entities.SourceGenerator
         public static int version = 1;
     }
 }
+
+

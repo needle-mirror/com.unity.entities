@@ -8,11 +8,12 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.CompilationPipeline.Common.Diagnostics;
+using Unity.Entities.Serialization;
 
 namespace Unity.Entities.CodeGen
 {
     [UsedImplicitly]
-    internal class BlobAssetSafetyVerifier : EntitiesILPostProcessor
+    class BlobAssetSafetyVerifier : EntitiesILPostProcessor
     {
         private static bool _enable = true;
 
@@ -42,12 +43,17 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        public static bool IsOrHasReferenceTypeField(TypeReference type, HashSet<TypeReference> validatedTypes, MethodDefinition method, List<DiagnosticMessage> diagnosticMessages, out string fieldDescription)
+        public static bool IsOrHasReferenceTypeField(TypeReference type, HashSet<TypeReference> validatedTypes, MethodDefinition method, List<DiagnosticMessage> diagnosticMessages,
+            out string fieldDescription, out string errorString)
         {
             fieldDescription = null;
             if (!type.IsValueType())
+            {
+                errorString = "is a reference or pointer.  Only non-reference types are allowed in Blobs.";
                 return true;
+            }
 
+            errorString = null;
             if (validatedTypes.Contains(type))
                 return false;
 
@@ -60,13 +66,18 @@ namespace Unity.Entities.CodeGen
                 {
                     var instance = (GenericInstanceType) type;
                     if (instance.GenericArguments.Count == 1 && IsOrHasReferenceTypeField(instance.GenericArguments[0],
-                        validatedTypes, method, diagnosticMessages, out var fieldInGenericArg))
+                        validatedTypes, method, diagnosticMessages, out var fieldInGenericArg, out errorString))
                     {
                         var genericIdentifier = isBlobArray ? "[]" : ".Value";
                         fieldDescription = genericIdentifier + fieldInGenericArg;
                         return true;
                     }
                 }
+            }
+            else if(type.TypeReferenceEquals(typeof(UntypedWeakReferenceId)))
+            {
+                errorString = "is an UntypedWeakReferenceId. Weak asset references are not yet supported in Blobs.";
+                return true;
             }
 
             // Allow this if we fail resolve but generate warning (in TryResolve)
@@ -78,7 +89,7 @@ namespace Unity.Entities.CodeGen
                 if(field.IsStatic)
                     continue;
 
-                if (IsOrHasReferenceTypeField(field.FieldType, validatedTypes, method, diagnosticMessages, out var fieldInFieldType))
+                if (IsOrHasReferenceTypeField(field.FieldType, validatedTypes, method, diagnosticMessages, out var fieldInFieldType, out errorString))
                 {
                     fieldDescription = "." + field.Name + fieldInFieldType;
                     return true;
@@ -149,10 +160,12 @@ namespace Unity.Entities.CodeGen
                     foreach (var arg in genericTargetMethod.GenericArguments)
                     {
                         var validatedTypes = new HashSet<TypeReference>();
-                        if (IsOrHasReferenceTypeField(arg, validatedTypes, method, diagnosticMessages, out var fieldDescription))
+                        if (arg.IsGenericParameter)
+                            continue;
+                        if (IsOrHasReferenceTypeField(arg, validatedTypes, method, diagnosticMessages, out var fieldDescription, out var errorString))
                         {
                             string errorFieldPath = fieldDescription == null ? arg.Name : arg.Name + fieldDescription;
-                            var message = $"You may not build a type {arg.Name} with {nameof(BlobBuilder.Construct)} as {errorFieldPath} is a reference or pointer.  Only non-reference types are allowed in Blobs.";
+                            var message = $"You may not build a type {arg.Name} with {nameof(BlobBuilder.Construct)} as {errorFieldPath} {errorString}";
                             diagnosticMessages.Add(UserError.MakeError("ConstructBlobWithRefTypeViolation", message, method, instruction));
                         }
                     }

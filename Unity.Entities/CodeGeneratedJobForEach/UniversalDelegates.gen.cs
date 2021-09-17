@@ -5,6 +5,8 @@ using Unity.Entities;
 namespace Unity.Entities.UniversalDelegates
 {
     [EntitiesForEachCompatible]
+    public delegate void Empty();
+    [EntitiesForEachCompatible]
     public delegate void R<T0>(ref T0 t0);
     [EntitiesForEachCompatible]
     public delegate void I<T0>(in T0 t0);
@@ -336,6 +338,7 @@ namespace Unity.Entities.UniversalDelegates
 
 public static partial class LambdaForEachDescriptionConstructionMethods
 {
+    public static TDescription ForEach<TDescription>(this TDescription description, [AllowDynamicValue] Empty codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();
     public static TDescription ForEach<TDescription, T0>(this TDescription description, [AllowDynamicValue] R<T0> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();
     public static TDescription ForEach<TDescription, T0>(this TDescription description, [AllowDynamicValue] I<T0> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();
     public static TDescription ForEach<TDescription, T0>(this TDescription description, [AllowDynamicValue] V<T0> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Policy;
 using Unity.Build;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -19,11 +20,8 @@ using UnityEngine.SceneManagement;
 using static Unity.Entities.GameObjectConversionUtility;
 using Hash128 = Unity.Entities.Hash128;
 using UnityObject = UnityEngine.Object;
-#if UNITY_2020_2_OR_NEWER
 using AssetImportContext = UnityEditor.AssetImporters.AssetImportContext;
-#else
-using AssetImportContext = UnityEditor.Experimental.AssetImporters.AssetImportContext;
-#endif
+using BinaryWriter = Unity.Entities.Serialization.BinaryWriter;
 
 namespace Unity.Scenes.Editor
 {
@@ -34,6 +32,7 @@ namespace Unity.Scenes.Editor
         public BuildAssemblyCache BuildAssemblyCache;
         public string OutputPath;
         public Codec Codec;
+        public Entity PrefabRoot;
 #pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
     }
 
@@ -44,7 +43,7 @@ namespace Unity.Scenes.Editor
         static readonly ProfilerMarker k_ProfileEntitiesSceneSaveConversionLog = new ProfilerMarker("EntitiesScene.WriteConversionLog");
         static readonly ProfilerMarker k_ProfileEntitiesSceneWriteObjRefs = new ProfilerMarker("EntitiesScene.WriteObjectReferences");
 
-        [Obsolete("IsEntitySubScene is deprecated, use Scene.isSubScene")]
+        [Obsolete("IsEntitySubScene is deprecated, use Scene.isSubScene (RemovedAfter 2021-04-27)")]
         public static bool IsEntitySubScene(Scene scene)
         {
             return scene.isSubScene;
@@ -145,6 +144,11 @@ namespace Unity.Scenes.Editor
             settings.ConversionWorldPreDispose += conversionWorld =>
             {
                 var mappingSystem = conversionWorld.GetExistingSystem<GameObjectConversionMappingSystem>();
+                if (settings.PrefabRoot != null)
+                {
+                    writeEntitySettings.PrefabRoot = mappingSystem.GetPrimaryEntity(settings.PrefabRoot);
+                }
+
                 if (settings.AssetImportContext != null)
                     RegisterDependencies(settings.AssetImportContext, ref mappingSystem.Dependencies);
 
@@ -219,6 +223,7 @@ namespace Unity.Scenes.Editor
             string sceneName, AssetImportContext importContext, int framesToRetainBlobAssets,
             List<ReferencedUnityObjects> sectionRefObjs, WriteEntitySceneSettings writeEntitySceneSettings, ref ConversionJournalData journalData)
         {
+            var prefabRoot = writeEntitySceneSettings.PrefabRoot;
             using (var allTypes = new NativeHashMap<ComponentType, int>(100, Allocator.Temp))
             using (var archetypes = new NativeList<EntityArchetype>(Allocator.Temp))
             {
@@ -250,6 +255,7 @@ namespace Unity.Scenes.Editor
                 TypeDependencyCache.AddAllSystemsDependency(importContext);
 
             var sceneSections = new List<SceneSectionData>();
+            var sceneSectionBlobHeaders = new List<BlobAssetReference<DotsSerialization.BlobHeader>>();
 
             var subSectionList = new List<SceneSection>();
             entityManager.GetAllUniqueSharedComponentData(subSectionList);
@@ -284,6 +290,8 @@ namespace Unity.Scenes.Editor
                     Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
                 }
             );
+
+            var weakAssetRefs = new NativeHashSet<UntypedWeakReferenceId>(16, Allocator.Persistent);
 
             {
                 var section = new SceneSection {SceneGUID = sceneGUID, Section = 0};
@@ -333,7 +341,7 @@ namespace Unity.Scenes.Editor
 
                 var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
                 sectionManager.MoveEntitiesFrom(entityManager, sectionQuery, entityRemapping);
-
+                writeEntitySceneSettings.PrefabRoot = EntityRemapUtility.RemapEntity(ref entityRemapping, prefabRoot);
                 AddRetainBlobAssetsEntity(sectionManager, framesToRetainBlobAssets);
 
                 // The section component is only there to break the conversion world into different sections
@@ -341,8 +349,10 @@ namespace Unity.Scenes.Editor
                 //@TODO: Component should be removed but currently leads to corrupt data file. Figure out why.
                 //sectionManager.RemoveComponent(sectionManager.UniversalQuery, typeof(SceneSection));
 
-                var (decompressedSectionFileSize, compressedSectionFileSize) = WriteEntitySceneSection(sectionManager, sceneGUID, "0",
-                    importContext, writeEntitySceneSettings, out var objectRefCount, out var objRefs, default);
+                var writeResult = WriteEntitySceneSection(sectionManager, sceneGUID, "0",
+                    importContext, writeEntitySceneSettings, out var objectRefCount, out var objRefs, weakAssetRefs);
+
+                sceneSectionBlobHeaders.Add(writeResult.Header);
 
                 if (objRefs != null)
                     sectionRefObjs?.Add(objRefs);
@@ -351,13 +361,13 @@ namespace Unity.Scenes.Editor
 
                 sceneSections.Add(new SceneSectionData
                 {
-                    FileSize = compressedSectionFileSize,
+                    FileSize = writeResult.CompressedSize,
                     SceneGUID = sceneGUID,
                     ObjectReferenceCount = objectRefCount,
                     SubSectionIndex = 0,
                     BoundingVolume = bounds,
                     Codec = writeEntitySceneSettings.Codec,
-                    DecompressedFileSize = decompressedSectionFileSize
+                    DecompressedFileSize = writeResult.DecompressedSize
                 });
 
                 entityRemapping.Dispose();
@@ -419,6 +429,7 @@ namespace Unity.Scenes.Editor
                         }
 
                         sectionManager.MoveEntitiesFrom(entityManager, sectionQuery, entityRemapping);
+                        writeEntitySceneSettings.PrefabRoot = EntityRemapUtility.RemapEntity(ref entityRemapping, prefabRoot);
 
                         AddRetainBlobAssetsEntity(sectionManager, framesToRetainBlobAssets);
                         // Now that all the required entities have been moved over, we can get rid of the gap between
@@ -462,21 +473,23 @@ namespace Unity.Scenes.Editor
                         //@TODO: Component should be removed but currently leads to corrupt data file. Figure out why.
                         //sectionManager.RemoveComponent(sectionManager.UniversalQuery, typeof(SceneSection));
 
-                        var (decompressedFileSize, compressedFileSize) = WriteEntitySceneSection(sectionManager, sceneGUID,
+                        var writeResult = WriteEntitySceneSection(sectionManager, sceneGUID,
                             subSection.Section.ToString(), importContext, writeEntitySceneSettings, out var objectRefCount,
-                            out var objRefs, entityRemapping);
+                            out var objRefs, weakAssetRefs, entityRemapping);
+
+                        sceneSectionBlobHeaders.Add(writeResult.Header);
 
                         if (objRefs != null)
                             sectionRefObjs?.Add(objRefs);
                         sceneSections.Add(new SceneSectionData
                         {
-                            FileSize = compressedFileSize,
+                            FileSize = writeResult.CompressedSize,
                             SceneGUID = sceneGUID,
                             ObjectReferenceCount = objectRefCount,
                             SubSectionIndex = subSection.Section,
                             BoundingVolume = bounds,
                             Codec = writeEntitySceneSettings.Codec,
-                            DecompressedFileSize = decompressedFileSize
+                            DecompressedFileSize = writeResult.DecompressedSize
                         });
 
                         entityRemapping.Dispose();
@@ -510,8 +523,16 @@ namespace Unity.Scenes.Editor
 
             // Save the new header
             var sceneSectionsArray = sceneSections.ToArray();
-            WriteSceneHeader(sceneGUID, sceneSectionsArray, sceneName, importContext, entityManager, writeEntitySceneSettings);
+            WriteSceneHeader(sceneGUID, sceneSectionsArray, sceneName, importContext, entityManager, writeEntitySceneSettings, sceneSectionBlobHeaders);
 
+            WriteWeakAssetRefs(weakAssetRefs, sceneGUID, importContext, writeEntitySceneSettings);
+
+            foreach (var blobHeader in sceneSectionBlobHeaders)
+            {
+                blobHeader.Dispose();
+            }
+
+            weakAssetRefs.Dispose();
             sectionQuery.Dispose();
             sectionBoundsQuery.Dispose();
             entitiesInMainSection.Dispose();
@@ -522,7 +543,7 @@ namespace Unity.Scenes.Editor
         public static void Write(EntityManager scene, string binaryPath, string objectReferencesPath)
         {
             // Write binary entity file
-            WriteEntityBinary(scene, out var objRefs, default, binaryPath, new WriteEntitySceneSettings());
+            WriteEntityBinary(scene, out var objRefs, default, binaryPath, default, new WriteEntitySceneSettings());
             WriteObjectReferences(objRefs, objectReferencesPath);
         }
 
@@ -541,8 +562,16 @@ namespace Unity.Scenes.Editor
             UnityObject.DestroyImmediate(referencedUnityObjects);
         }
 
-        internal static (int decompressedSize, int compressedSize) WriteEntitySceneSection(EntityManager scene, Hash128 sceneGUID, string subsection,
+        internal struct EntitySectionWriteResult
+        {
+            internal int DecompressedSize;
+            internal int CompressedSize;
+            internal BlobAssetReference<DotsSerialization.BlobHeader> Header;
+        }
+
+        internal static EntitySectionWriteResult WriteEntitySceneSection(EntityManager scene, Hash128 sceneGUID, string subsection,
             AssetImportContext importContext, WriteEntitySceneSettings writeEntitySceneSettings, out int objectReferenceCount, out ReferencedUnityObjects objRefs,
+            NativeHashSet<UntypedWeakReferenceId> weakAssetRefs,
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos = default)
         {
             k_ProfileEntitiesSceneSave.Begin();
@@ -562,11 +591,16 @@ namespace Unity.Scenes.Editor
             objectReferenceCount = 0;
 
             // Write binary entity file
-            var (decompressedSize, compressedSize) = WriteEntityBinary(scene, out objRefs, entityRemapInfos, entitiesBinaryPath, writeEntitySceneSettings);
+            var (decompressedSize, compressedSize, blobHeader) = WriteEntityBinary(scene, out objRefs, entityRemapInfos, entitiesBinaryPath, weakAssetRefs, writeEntitySceneSettings, true);
             objectReferenceCount = WriteObjectReferences(objRefs, objRefsPath);
 
             k_ProfileEntitiesSceneSave.End();
-            return (decompressedSize, compressedSize);
+            return new EntitySectionWriteResult
+            {
+                CompressedSize = compressedSize,
+                DecompressedSize = decompressedSize,
+                Header = blobHeader
+            };
         }
 
         static int WriteObjectReferences(ReferencedUnityObjects objRefs, string objRefsPath)
@@ -615,42 +649,39 @@ namespace Unity.Scenes.Editor
 
                 objRefs.CompanionObjectIndices = companionObjectIndices.ToArray();
 
-
                 UnityEditorInternal.InternalEditorUtility.SaveToSerializedFileAndForget(serializedObjectList.ToArray(), objRefsPath, false);
 
                 return objRefs.Array.Length;
             }
         }
 
-        private static unsafe (int decompressedSize, int compressedSize) WriteEntityBinary(EntityManager scene, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, string entitiesBinaryPath, WriteEntitySceneSettings writeEntitySceneSettings)
+        private static unsafe (int decompressedSize, int compressedSize, BlobAssetReference<DotsSerialization.BlobHeader>)
+            WriteEntityBinary(EntityManager scene, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, string entitiesBinaryPath, NativeHashSet<UntypedWeakReferenceId> weakAssetRefs,
+            WriteEntitySceneSettings writeEntitySceneSettings,  bool buildBlobHeader = false)
         {
+            BlobAssetReference<DotsSerialization.BlobHeader> blobHeader = default;
+            SerializeUtility.Settings serializeSetting = default;
+            serializeSetting.PrefabRoot = writeEntitySceneSettings.PrefabRoot;
+
+            objRefs = null;
             int decompressedSize;
             int compressedSize;
             using (var writer = new StreamBinaryWriter(entitiesBinaryPath))
             using (var entitiesWriter = new MemoryBinaryWriter())
             {
-                if (!writeEntitySceneSettings.IsDotsRuntime)
-                {
-                    if (entityRemapInfos.IsCreated)
-                        SerializeUtilityHybrid.Serialize(scene, entitiesWriter, out objRefs, entityRemapInfos);
-                    else
-                        SerializeUtilityHybrid.Serialize(scene, entitiesWriter, out objRefs);
-                }
-                else
-                {
-                    objRefs = null;
-                    if (entityRemapInfos.IsCreated)
-                        SerializeUtility.SerializeWorldInternal(scene, entitiesWriter, out var unused, entityRemapInfos,
-                            writeEntitySceneSettings.IsDotsRuntime);
-                    else
-                    {
-                        var tmpRemapInfo =
-                            new NativeArray<EntityRemapUtility.EntityRemapInfo>(scene.EntityCapacity, Allocator.Temp);
-                        SerializeUtility.SerializeWorldInternal(scene, entitiesWriter, out var unused, tmpRemapInfo,
-                            writeEntitySceneSettings.IsDotsRuntime);
-                        tmpRemapInfo.Dispose();
-                    }
-                }
+                var isDotsRuntime = writeEntitySceneSettings.IsDotsRuntime;
+                var entityRemapInfosCreated = entityRemapInfos.IsCreated;
+                if(!entityRemapInfosCreated)
+                    entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(scene.EntityCapacity, Allocator.Temp);
+
+                blobHeader = SerializeUtility.SerializeWorldInternal(scene, entitiesWriter, out var referencedObjects,
+                    entityRemapInfos, weakAssetRefs, serializeSetting, isDotsRuntime, buildBlobHeader);
+
+                if(!isDotsRuntime)
+                    SerializeUtilityHybrid.SerializeObjectReferences((UnityEngine.Object[])referencedObjects, out objRefs);
+
+                if (!entityRemapInfosCreated)
+                    entityRemapInfos.Dispose();
 
                 decompressedSize = entitiesWriter.Length;
                 compressedSize = decompressedSize;
@@ -669,10 +700,52 @@ namespace Unity.Scenes.Editor
                 }
             }
 
-            return (decompressedSize, compressedSize);
+            return (decompressedSize, compressedSize, blobHeader);
         }
 
-        internal static void WriteSceneHeader(Entities.Hash128 sceneGUID, SceneSectionData[] sections, string sceneName, AssetImportContext ctx, EntityManager entityManager, WriteEntitySceneSettings writeEntitySceneSettings)
+        // Workaround to be able to store UntypedWeakReferenceId in a blob.
+        // Usually we want to issue an error when storing UntypedWeakReferenceId in a blob to alert users that this is not yet supported
+        // But in this specific case we know what we are doing. This type must be binary compatible with  UntypedWeakReferenceId
+        struct UnsafeUntypedWeakReferenceId
+        {
+            public UnsafeUntypedWeakReferenceId(UntypedWeakReferenceId weakAssetRef)
+            {
+                AssetId = weakAssetRef.AssetId;
+                LfId = weakAssetRef.LfId;
+                GenerationType = weakAssetRef.GenerationType;
+            }
+
+            public Hash128 AssetId;
+            public long LfId;
+            public WeakReferenceGenerationType GenerationType;
+        }
+
+        static void WriteWeakAssetRefs(NativeHashSet<UntypedWeakReferenceId> weakAssetRefs, Hash128 sceneGUID, AssetImportContext ctx, WriteEntitySceneSettings writeEntitySceneSettings)
+        {
+            string path;
+            if (ctx != null)
+                path = GetSceneWritePath(EntityScenesPaths.PathType.EntitiesWeakAssetRefs, "", ctx);
+            else
+                path = GetSceneWritePath(EntityScenesPaths.PathType.EntitiesWeakAssetRefs, "", sceneGUID, writeEntitySceneSettings.OutputPath);
+
+            var builder = new BlobBuilder(Allocator.Temp);
+            ref var root = ref builder.ConstructRoot<BlobArray<UnsafeUntypedWeakReferenceId>>();
+            var array = builder.Allocate(ref root, weakAssetRefs.Count());
+
+            int i = 0;
+            foreach (var asset in weakAssetRefs)
+            {
+                array[i++] = new UnsafeUntypedWeakReferenceId(asset);
+            }
+
+            BlobAssetReference<BlobArray<UnsafeUntypedWeakReferenceId>>.Write(builder, path, 1);
+
+            builder.Dispose();
+        }
+
+        internal static unsafe void WriteSceneHeader(Hash128 sceneGUID, SceneSectionData[] sections, string sceneName,
+            AssetImportContext ctx, EntityManager entityManager, WriteEntitySceneSettings writeEntitySceneSettings,
+            List<BlobAssetReference<DotsSerialization.BlobHeader>> sceneSectionBlobHeaders)
         {
             k_ProfileEntitiesSceneSaveHeader.Begin();
 
@@ -684,15 +757,74 @@ namespace Unity.Scenes.Editor
 
             var builder = new BlobBuilder(Allocator.TempJob);
             ref var metaData = ref builder.ConstructRoot<SceneMetaData>();
-            builder.Construct(ref metaData.Sections, sections);
+            var sceneSectionDataArray = builder.Construct(ref metaData.Sections, sections);
             builder.AllocateString(ref metaData.SceneName, sceneName);
 
             SerializeSceneSectionCustomMetadata(sections, ref metaData, builder, sceneName, entityManager);
+            long headerSize = 0;
+            using (var writer = new StreamBinaryWriter(headerPath))
+            {
+                var blobAssetPtrs = new NativeArray<BlobAssetPtr>(sceneSectionBlobHeaders.Count, Allocator.Temp);
+                for (int i = 0; i < sceneSectionBlobHeaders.Count; ++i)
+                {
+                    blobAssetPtrs[i] = sceneSectionBlobHeaders[i].ToBlobAssetPtr();
+                }
+                var totalBlobAssetBatchSize = SerializeUtility.CalculateBlobAssetBatchTotalSize(blobAssetPtrs, out var blobAssetOffsets);
 
-            BlobAssetReference<SceneMetaData>.Write(builder, headerPath, SceneMetaDataSerializeUtility.CurrentFileFormatVersion);
+                for (int i = 0; i < sceneSectionDataArray.Length; ++i)
+                {
+                    sceneSectionDataArray[i].BlobHeader.m_BlobAssetRefStorage = blobAssetOffsets[i];
+                }
+
+                blobAssetOffsets.Dispose();
+
+                metaData.HeaderBlobAssetBatchSize = totalBlobAssetBatchSize;
+                BlobAssetReference<SceneMetaData>.Write(writer, builder, SceneMetaDataSerializeUtility.CurrentFileFormatVersion);
+
+                SerializeUtility.WriteBlobAssetBatch(writer, blobAssetPtrs, totalBlobAssetBatchSize);
+                headerSize = writer.Position;
+                blobAssetPtrs.Dispose();
+            }
+
             builder.Dispose();
 
+            if (headerSize > SerializeUtility.MaxSubsceneHeaderSize)
+            {
+                string errorMessage =
+                    $"Entity scene header of scene '{sceneName}' is to large. Size = {headerSize}, Maximum size = {SerializeUtility.MaxSubsceneHeaderSize}";
+                Debug.LogError(errorMessage);
+                File.Delete(headerPath);
+            }
             k_ProfileEntitiesSceneSaveHeader.End();
+        }
+
+        internal static unsafe void WriteHeader(string headerPath, ref SceneMetaData metaData, BlobBuilderArray<SceneSectionData> sectionDataArray, BlobBuilder builder)
+        {
+            var sectionCount = sectionDataArray.Length;
+            using (var writer = new StreamBinaryWriter(headerPath))
+            {
+                var blobAssetPtrs = new NativeArray<BlobAssetPtr>(sectionCount, Allocator.Temp);
+                for (int i = 0; i < sectionCount; ++i)
+                {
+                    var blobAssetRef = ((BlobAssetReference<DotsSerialization.BlobHeader>) sectionDataArray[i].BlobHeader);
+                    blobAssetPtrs[i] = blobAssetRef.ToBlobAssetPtr();
+
+                }
+                var totalBlobAssetBatchSize = SerializeUtility.CalculateBlobAssetBatchTotalSize(blobAssetPtrs, out var blobAssetOffsets);
+
+                for (int i = 0; i < sectionCount; ++i)
+                {
+                    sectionDataArray[i].BlobHeader.m_BlobAssetRefStorage = blobAssetOffsets[i];
+                }
+
+                blobAssetOffsets.Dispose();
+
+                metaData.HeaderBlobAssetBatchSize = totalBlobAssetBatchSize;
+                BlobAssetReference<SceneMetaData>.Write(writer, builder, SceneMetaDataSerializeUtility.CurrentFileFormatVersion);
+
+                SerializeUtility.WriteBlobAssetBatch(writer, blobAssetPtrs, totalBlobAssetBatchSize);
+                blobAssetPtrs.Dispose();
+            }
         }
 
         private static void SerializeSceneSectionCustomMetadata(SceneSectionData[] sections, ref SceneMetaData metaData,
@@ -722,8 +854,20 @@ namespace Unity.Scenes.Editor
                 bool simpleComponentData = !type.IsManagedComponent && !type.IsSystemStateComponent && typeInfo.Category == TypeManager.TypeCategory.ComponentData;
                 if (!simpleComponentData || typeInfo.EntityOffsetCount > 0 || typeInfo.BlobAssetRefOffsetCount > 0)
                 {
+                    string Amount(int value) => $"{(value == 1 ? "is" : "are")} {value}";
+
+                    var reasons = new[]
+                    {
+                        $"must be unmanaged ({(type.IsManagedComponent ? "it is managed" : "it is unmanaged")})",
+                        $"must not implement {nameof(ISystemStateComponentData)} ({(type.IsSystemStateComponent ? "it does" : "it doesn't")})",
+                        $"must implement {nameof(IComponentData)} ({(typeInfo.Category == TypeManager.TypeCategory.ComponentData ? "it does" : "it doesn't")})",
+                        $"may not have any {nameof(Entity)} fields (there {Amount(typeInfo.EntityOffsetCount)})",
+                        $"and may not have any BlobAssetReference fields (there {Amount(typeInfo.BlobAssetRefOffsetCount)})"
+                    };
+
                     UnityEngine.Debug.LogError(
-                        $"Can't serialize Custom Metadata {typeInfo.Type.Name} of SceneSection {sectionData.SubSectionIndex} of SubScene {sceneName}. The component type must contains only blittable/basic data types");
+                        $"Can't serialize Custom Metadata {typeInfo.Type.Name} of SceneSection {sectionData.SubSectionIndex} of SubScene {sceneName}. " +
+                        $"SubScene section entities may only have components that satisfy the following conditions: {string.Join(", ", reasons)}.");
                     continue;
                 }
                 types[componentCount++] = type;
@@ -766,7 +910,7 @@ namespace Unity.Scenes.Editor
             var dependencies = AssetDatabase.GetDependencies(AssetDatabaseCompatibility.GuidToPath(sceneGUID));
             foreach (var dependency in dependencies)
             {
-                if (dependency.ToLower().EndsWith(".prefab"))
+                if (dependency.ToLower().EndsWith(".prefab", StringComparison.Ordinal))
                 {
                     GUID dependencyGUID = AssetDatabaseCompatibility.PathToGUID(dependency);
                     context.DependsOnArtifact(dependencyGUID);
@@ -781,7 +925,6 @@ namespace Unity.Scenes.Editor
         {
             return GameObjectSceneMetaDataImporter.GetSubScenes(guid);
         }
-
 
         internal static void WriteConversionLog(Hash128 sceneGUID, List<(int objectInstanceId, LogEventData eventData)> journalData, AssetImportContext ctx, string outputPath)
         {

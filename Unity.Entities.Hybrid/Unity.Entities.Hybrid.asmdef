@@ -11,7 +11,8 @@
         "Unity.Build.Classic",
         "Unity.Properties",
         "Unity.Properties.Editor",
-        "Unity.Scenes"
+        "Unity.Scenes",
+        "Unity.Entities.Hybrid.HybridComponents"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

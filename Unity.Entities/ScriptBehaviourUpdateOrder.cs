@@ -73,50 +73,84 @@ namespace Unity.Entities
 #if !UNITY_DOTSRUNTIME
     public static class ScriptBehaviourUpdateOrder
     {
-        static bool AppendSystemToPlayerLoopListImpl(ComponentSystemBase system, ref PlayerLoopSystem playerLoop,
-            Type playerLoopSystemType)
+        delegate bool RemoveFromPlayerLoopDelegate(ref PlayerLoopSystem playerLoop);
+
+        /// <summary>
+        /// Append the update function to the matching player loop system type.
+        /// </summary>
+        /// <param name="updateType">The update function type.</param>
+        /// <param name="updateFunction">The update function.</param>
+        /// <param name="playerLoop">The player loop.</param>
+        /// <param name="playerLoopSystemType">The player loop system type.</param>
+        /// <returns><see langword="true"/> if successfully appended to player loop, <see langword="false"/> otherwise.</returns>
+        internal static bool AppendToPlayerLoop(Type updateType, PlayerLoopSystem.UpdateFunction updateFunction, ref PlayerLoopSystem playerLoop, Type playerLoopSystemType)
         {
-            if (playerLoop.type == playerLoopSystemType)
-            {
-                var del = new DummyDelegateWrapper(system);
-                int oldListLength = (playerLoop.subSystemList != null) ? playerLoop.subSystemList.Length : 0;
-                var newSubsystemList = new PlayerLoopSystem[oldListLength + 1];
-                for (var i = 0; i < oldListLength; ++i)
-                    newSubsystemList[i] = playerLoop.subSystemList[i];
-                newSubsystemList[oldListLength].type = system.GetType();
-                newSubsystemList[oldListLength].updateDelegate = del.TriggerUpdate;
-                playerLoop.subSystemList = newSubsystemList;
-                return true;
-            }
-            if (playerLoop.subSystemList != null)
-            {
-                for(int i=0; i<playerLoop.subSystemList.Length; ++i)
-                {
-                    if (AppendSystemToPlayerLoopListImpl(system, ref playerLoop.subSystemList[i], playerLoopSystemType))
-                        return true;
-                }
-            }
-            return false;
+            return AppendToPlayerLoopList(updateType, updateFunction, ref playerLoop, playerLoopSystemType);
         }
 
         /// <summary>
-        /// Add an ECS system to a specific point in the Unity player loop, so that it is updated every frame.
+        /// Append the update function to the current player loop matching system type.
         /// </summary>
         /// <remarks>
-        /// This function does not change the currently active player loop. If this behavior is desired, it's necessary
-        /// to call PlayerLoop.SetPlayerLoop(playerLoop) after the systems have been removed.
+        /// The player loop is not updated when failing to find the player loop system type.
         /// </remarks>
-        /// <param name="system">The ECS system to add to the player loop.</param>
-        /// <param name="playerLoop">Existing player loop to modify (e.g. PlayerLoop.GetCurrentPlayerLoop())</param>
-        /// <param name="playerLoopSystemType">The Type of the PlayerLoopSystem subsystem to which the ECS system should be appended.
-        /// See the UnityEngine.PlayerLoop namespace for valid values.</param>
-        public static void AppendSystemToPlayerLoopList(ComponentSystemBase system, ref PlayerLoopSystem playerLoop, Type playerLoopSystemType)
+        /// <param name="updateType">The type of the update function.</param>
+        /// <param name="updateFunction">The update function.</param>
+        /// <param name="playerLoopSystemType">The player loop system type to add to.</param>
+        /// <returns><see langword="true"/> if successfully appended to player loop, <see langword="false"/> otherwise.</returns>
+        internal static bool AppendToCurrentPlayerLoop(Type updateType, PlayerLoopSystem.UpdateFunction updateFunction, Type playerLoopSystemType)
         {
-            if (!AppendSystemToPlayerLoopListImpl(system, ref playerLoop, playerLoopSystemType))
-            {
-                throw new ArgumentException(
-                    $"Could not find PlayerLoopSystem with type={playerLoopSystemType}");
-            }
+            var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            if (!AppendToPlayerLoop(updateType, updateFunction, ref playerLoop, playerLoopSystemType))
+                return false;
+
+            PlayerLoop.SetPlayerLoop(playerLoop);
+            return true;
+        }
+
+        /// <summary>
+        /// Determine if the update function is part of the player loop.
+        /// </summary>
+        /// <param name="updateFunction">The update function.</param>
+        /// <param name="playerLoop">The player loop.</param>
+        /// <returns><see langword="true"/> if update function is part of player loop, <see langword="false"/> otherwise.</returns>
+        internal static bool IsInPlayerLoop(PlayerLoopSystem.UpdateFunction updateFunction, ref PlayerLoopSystem playerLoop)
+        {
+            return IsInPlayerLoopList(updateFunction, ref playerLoop);
+        }
+
+        /// <summary>
+        /// Determine if the update function is part of the current player loop.
+        /// </summary>
+        /// <param name="updateFunction">The update function.</param>
+        /// <param name="playerLoop">The player loop.</param>
+        /// <returns><see langword="true"/> if update function is part of player loop, <see langword="false"/> otherwise.</returns>
+        internal static bool IsInCurrentPlayerLoop(PlayerLoopSystem.UpdateFunction updateFunction)
+        {
+            var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            return IsInPlayerLoopList(updateFunction, ref playerLoop);
+        }
+
+        /// <summary>
+        /// Remove the update function from the player loop.
+        /// </summary>
+        /// <param name="updateFunction">The update function.</param>
+        /// <param name="playerLoop">The player loop.</param>
+        /// <returns><see langword="true"/> if successfully removed from player loop, <see langword="false"/> otherwise.</returns>
+        internal static bool RemoveFromPlayerLoop(PlayerLoopSystem.UpdateFunction updateFunction, ref PlayerLoopSystem playerLoop)
+        {
+            return RemoveFromPlayerLoopList(updateFunction, ref playerLoop);
+        }
+
+        /// <summary>
+        /// Remove the update function from the current player loop.
+        /// </summary>
+        /// <param name="updateFunction">The update function.</param>
+        internal static void RemoveFromCurrentPlayerLoop(PlayerLoopSystem.UpdateFunction updateFunction)
+        {
+            var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            if (RemoveFromPlayerLoop(updateFunction, ref playerLoop))
+                PlayerLoop.SetPlayerLoop(playerLoop);
         }
 
         /// <summary>
@@ -138,25 +172,29 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="world">The three top-level system groups from this World will be added to the provided player loop.</param>
         /// <param name="playerLoop">Existing player loop to modify (e.g.  (e.g. PlayerLoop.GetCurrentPlayerLoop())</param>
-        public static void AddWorldToPlayerLoop(World world, ref PlayerLoopSystem playerLoop)
+        public static void AppendWorldToPlayerLoop(World world, ref PlayerLoopSystem playerLoop)
         {
             if (world == null)
                 return;
 
             var initGroup = world.GetExistingSystem<InitializationSystemGroup>();
             if (initGroup != null)
-                AppendSystemToPlayerLoopList(initGroup, ref playerLoop, typeof(Initialization));
+                AppendSystemToPlayerLoop(initGroup, ref playerLoop, typeof(Initialization));
 
             var simGroup = world.GetExistingSystem<SimulationSystemGroup>();
             if (simGroup != null)
-                AppendSystemToPlayerLoopList(simGroup, ref playerLoop, typeof(Update));
+                AppendSystemToPlayerLoop(simGroup, ref playerLoop, typeof(Update));
 
             var presGroup = world.GetExistingSystem<PresentationSystemGroup>();
             if (presGroup != null)
-                AppendSystemToPlayerLoopList(presGroup, ref playerLoop, typeof(PreLateUpdate));
+                AppendSystemToPlayerLoop(presGroup, ref playerLoop, typeof(PreLateUpdate));
         }
+
+        [Obsolete("AddWorldToPlayerLoop has been renamed to AppendWorldToPlayerLoop. (RemovedAfter 2021-06-30)", false)]
+        public static void AddWorldToPlayerLoop(World world, ref PlayerLoopSystem playerLoop) => AppendWorldToPlayerLoop(world, ref playerLoop);
+
         /// <summary>
-        /// Add this World's three default top-level system groups to the current Unity player loop.
+        /// Append this World's three default top-level system groups to the current Unity player loop.
         /// </summary>
         /// <remarks>
         /// This is a convenience wrapper around AddWorldToPlayerLoop() that retrieves the current player loop,
@@ -165,43 +203,15 @@ namespace Unity.Entities
         /// Note that modifications to the active player loop do not take effect until to the next iteration through the player loop.
         /// </remarks>
         /// <param name="world">The three top-level system groups from this World will be added to the provided player loop.</param>
-        public static void AddWorldToCurrentPlayerLoop(World world)
+        public static void AppendWorldToCurrentPlayerLoop(World world)
         {
             var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
-            AddWorldToPlayerLoop(world, ref playerLoop);
+            AppendWorldToPlayerLoop(world, ref playerLoop);
             PlayerLoop.SetPlayerLoop(playerLoop);
         }
 
-        static bool IsDelegateForWorldSystem(World world, PlayerLoopSystem pls)
-        {
-            if (typeof(ComponentSystemBase).IsAssignableFrom(pls.type))
-            {
-                var wrapper = pls.updateDelegate.Target as ScriptBehaviourUpdateOrder.DummyDelegateWrapper;
-                if (wrapper.System.World == world)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        static bool IsWorldInPlayerLoopSystem(World world, PlayerLoopSystem pls)
-        {
-            // Is *this* system a delegate for a component system associated with the current World?
-            if (IsDelegateForWorldSystem(world, pls))
-                return true;
-            // How about anything in the subsystem list?
-            if (pls.subSystemList != null)
-            {
-                for (int i = 0; i < pls.subSystemList.Length; ++i)
-                {
-                    if (IsWorldInPlayerLoopSystem(world, pls.subSystemList[i]))
-                        return true;
-                }
-            }
-            // Nope.
-            return false;
-        }
+        [Obsolete("AddWorldToCurrentPlayerLoop has been renamed to AppendWorldToCurrentPlayerLoop. (RemovedAfter 2021-06-30)", false)]
+        public static void AddWorldToCurrentPlayerLoop(World world) => AppendWorldToCurrentPlayerLoop(world);
 
         /// <summary>
         /// Search the provided player loop for any systems added by this World.
@@ -216,10 +226,9 @@ namespace Unity.Entities
         /// <returns>True if any of this World's systems are found in the provided player loop; otherwise, false.</returns>
         public static bool IsWorldInPlayerLoop(World world, PlayerLoopSystem playerLoop)
         {
-            if (world == null)
-                return false;
-            return IsWorldInPlayerLoopSystem(world, playerLoop);
+            return IsWorldInPlayerLoopList(world, ref playerLoop);
         }
+
         /// <summary>
         /// Search the currently active player loop for any systems added by this World.
         /// </summary>
@@ -230,23 +239,6 @@ namespace Unity.Entities
         public static bool IsWorldInCurrentPlayerLoop(World world)
         {
             return IsWorldInPlayerLoop(world, PlayerLoop.GetCurrentPlayerLoop());
-        }
-
-
-        static void RemoveWorldFromPlayerLoopSystem(World world, ref PlayerLoopSystem pls)
-        {
-            if (pls.subSystemList == null || pls.subSystemList.Length == 0)
-                return;
-
-            var newSubsystemList = new List<PlayerLoopSystem>(pls.subSystemList.Length);
-            for (int i = 0; i < pls.subSystemList.Length; ++i)
-            {
-                RemoveWorldFromPlayerLoopSystem(world, ref pls.subSystemList[i]);
-                if (!IsDelegateForWorldSystem(world, pls.subSystemList[i]))
-                    newSubsystemList.Add(pls.subSystemList[i]);
-            }
-
-            pls.subSystemList = newSubsystemList.ToArray();
         }
 
         /// <summary>
@@ -263,9 +255,9 @@ namespace Unity.Entities
         /// <param name="playerLoop">Existing player loop to modify (e.g. PlayerLoop.GetCurrentPlayerLoop())</param>
         public static void RemoveWorldFromPlayerLoop(World world, ref PlayerLoopSystem playerLoop)
         {
-            if (world != null)
-                RemoveWorldFromPlayerLoopSystem(world, ref playerLoop);
+            RemoveWorldFromPlayerLoopList(world, ref playerLoop);
         }
+
         /// <summary>
         /// Remove all of this World's systems from the currently active player loop.
         /// </summary>
@@ -279,40 +271,141 @@ namespace Unity.Entities
         public static void RemoveWorldFromCurrentPlayerLoop(World world)
         {
             var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
-            RemoveWorldFromPlayerLoopSystem(world, ref playerLoop);
+            RemoveWorldFromPlayerLoop(world, ref playerLoop);
             PlayerLoop.SetPlayerLoop(playerLoop);
         }
 
         /// <summary>
-        /// Update the player loop with a world's root-level systems
+        /// Add an ECS system to a specific point in the Unity player loop, so that it is updated every frame.
         /// </summary>
-        /// <param name="world">World with root-level systems that need insertion into the player loop. These root-level systems will be created if they don't already exist.</param>
-        /// <param name="existingPlayerLoop">Optional parameter to preserve existing player loops (e.g. PlayerLoop.GetCurrentPlayerLoop())</param>
-        [Obsolete("Use AddWorldToPlayerLoop() instead. (RemovedAfter 2020-10-31)")]
-        public static void UpdatePlayerLoop(World world, PlayerLoopSystem? existingPlayerLoop = null)
+        /// <remarks>
+        /// This function does not change the currently active player loop. If this behavior is desired, it's necessary
+        /// to call PlayerLoop.SetPlayerLoop(playerLoop) after the systems have been removed.
+        /// </remarks>
+        /// <param name="system">The ECS system to add to the player loop.</param>
+        /// <param name="playerLoop">Existing player loop to modify (e.g. PlayerLoop.GetCurrentPlayerLoop())</param>
+        /// <param name="playerLoopSystemType">The Type of the PlayerLoopSystem subsystem to which the ECS system should be appended.
+        /// See the UnityEngine.PlayerLoop namespace for valid values.</param>
+        public static void AppendSystemToPlayerLoop(ComponentSystemBase system, ref PlayerLoopSystem playerLoop, Type playerLoopSystemType)
         {
-            var playerLoop = existingPlayerLoop ?? PlayerLoop.GetDefaultPlayerLoop();
-            if (world != null)
-            {
-                // The previous implementation of this function created the top-level system groups if they didn't already
-                // exist. World.AddToPlayerLoop() does not assume these systems exist, and ignores any that are missing.
-                // For compatibility with the previous UpdatePlayerLoop() implementation, we need to add these groups
-                // before calling World.AddToPlayerLoop().
-                world.GetOrCreateSystem<InitializationSystemGroup>();
-                world.GetOrCreateSystem<SimulationSystemGroup>();
-                world.GetOrCreateSystem<PresentationSystemGroup>();
-                AddWorldToPlayerLoop(world, ref playerLoop);
-            }
-            PlayerLoop.SetPlayerLoop(playerLoop);
+            var wrapper = new DummyDelegateWrapper(system);
+            if (!AppendToPlayerLoop(system.GetType(), wrapper.TriggerUpdate, ref playerLoop, playerLoopSystemType))
+                throw new ArgumentException($"Could not find PlayerLoopSystem with type={playerLoopSystemType}");
         }
 
-        [Obsolete("Use IsWorldInCurrentPlayerLoop() instead. (RemovedAfter 2020-10-31). (UnityUpgradeable) -> IsWorldInCurrentPlayerLoop(*)", false)]
-        public static bool IsWorldInPlayerLoop(World world)
+        [Obsolete("AppendSystemToPlayerLoopList has been renamed to AppendSystemToPlayerLoop. (RemovedAfter 2021-06-30)", false)]
+        public static void AppendSystemToPlayerLoopList(ComponentSystemBase system, ref PlayerLoopSystem playerLoop, Type playerLoopSystemType) => AppendSystemToPlayerLoop(system, ref playerLoop, playerLoopSystemType);
+
+        static bool AppendToPlayerLoopList(Type updateType, PlayerLoopSystem.UpdateFunction updateFunction, ref PlayerLoopSystem playerLoop, Type playerLoopSystemType)
         {
-            if (world == null)
+            if (updateType == null || updateFunction == null || playerLoopSystemType == null)
                 return false;
 
-            return IsWorldInCurrentPlayerLoop(world);
+            if (playerLoop.type == playerLoopSystemType)
+            {
+                var oldListLength = playerLoop.subSystemList != null ? playerLoop.subSystemList.Length : 0;
+                var newSubsystemList = new PlayerLoopSystem[oldListLength + 1];
+                for (var i = 0; i < oldListLength; ++i)
+                    newSubsystemList[i] = playerLoop.subSystemList[i];
+                newSubsystemList[oldListLength] = new PlayerLoopSystem
+                {
+                    type = updateType,
+                    updateDelegate = updateFunction
+                };
+                playerLoop.subSystemList = newSubsystemList;
+                return true;
+            }
+
+            if (playerLoop.subSystemList != null)
+            {
+                for (var i = 0; i < playerLoop.subSystemList.Length; ++i)
+                {
+                    if (AppendToPlayerLoopList(updateType, updateFunction, ref playerLoop.subSystemList[i], playerLoopSystemType))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        static bool IsInPlayerLoopList(PlayerLoopSystem.UpdateFunction updateFunction, ref PlayerLoopSystem playerLoop)
+        {
+            if (updateFunction == null)
+                return false;
+
+            for (var i = 0; i < playerLoop.subSystemList.Length; ++i)
+            {
+                if (IsInPlayerLoopList(updateFunction, ref playerLoop.subSystemList[i]))
+                    return true;
+            }
+
+            return playerLoop.updateDelegate == updateFunction;
+        }
+
+        static bool IsWorldInPlayerLoopList(World world, ref PlayerLoopSystem playerLoop)
+        {
+            if (world == null || !world.IsCreated)
+                return false;
+
+            // Is *this* system a delegate for a component system associated with the current World?
+            if (IsDelegateForWorldSystem(world, ref playerLoop))
+                return true;
+
+            // How about anything in the subsystem list?
+            if (playerLoop.subSystemList != null)
+            {
+                for (int i = 0; i < playerLoop.subSystemList.Length; ++i)
+                {
+                    if (IsWorldInPlayerLoopList(world, ref playerLoop.subSystemList[i]))
+                        return true;
+                }
+            }
+
+            // Nope.
+            return false;
+        }
+
+        static bool RemoveFromPlayerLoopList(RemoveFromPlayerLoopDelegate removeDelegate, ref PlayerLoopSystem playerLoop)
+        {
+            if (removeDelegate == null || playerLoop.subSystemList == null || playerLoop.subSystemList.Length == 0)
+                return false;
+
+            var result = false;
+            var newSubSystemList = new List<PlayerLoopSystem>(playerLoop.subSystemList.Length);
+            for (var i = 0; i < playerLoop.subSystemList.Length; ++i)
+            {
+                ref var playerLoopSubSystem = ref playerLoop.subSystemList[i];
+                result |= RemoveFromPlayerLoopList(removeDelegate, ref playerLoopSubSystem);
+                if (!removeDelegate(ref playerLoopSubSystem))
+                    newSubSystemList.Add(playerLoopSubSystem);
+            }
+
+            if (newSubSystemList.Count != playerLoop.subSystemList.Length)
+            {
+                playerLoop.subSystemList = newSubSystemList.ToArray();
+                result = true;
+            }
+            return result;
+        }
+
+        static bool RemoveFromPlayerLoopList(PlayerLoopSystem.UpdateFunction updateFunction, ref PlayerLoopSystem playerLoop)
+        {
+            return RemoveFromPlayerLoopList((ref PlayerLoopSystem pl) => pl.updateDelegate == updateFunction, ref playerLoop);
+        }
+
+        static void RemoveWorldFromPlayerLoopList(World world, ref PlayerLoopSystem playerLoop)
+        {
+            RemoveFromPlayerLoopList((ref PlayerLoopSystem pl) => IsDelegateForWorldSystem(world, ref pl), ref playerLoop);
+        }
+
+        static bool IsDelegateForWorldSystem(World world, ref PlayerLoopSystem playerLoop)
+        {
+            if (typeof(ComponentSystemBase).IsAssignableFrom(playerLoop.type))
+            {
+                var wrapper = playerLoop.updateDelegate.Target as DummyDelegateWrapper;
+                if (wrapper.System.World == world)
+                    return true;
+            }
+            return false;
         }
 
         // FIXME: HACK! - mono 4.6 has problems invoking virtual methods as delegates from native, so wrap the invocation in a non-virtual class

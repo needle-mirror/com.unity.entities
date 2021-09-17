@@ -52,16 +52,6 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
         m_MappingSystem = World.GetExistingSystem<GameObjectConversionMappingSystem>();
     }
 
-    /// <summary>
-    /// Extremely specialized use that is a (hopefully) temporary workaround our inability to generate multiple prefabs
-    /// into the same World from the same source. Temporary because we want to switch to BlobAsset prefabs, but until
-    /// then we need a way to avoid duplication of EntityGuids for these multiple prefabs. So we reserve space for a
-    /// "namespace ID" in the EntityGuid, where if nonzero it is up to the developer to manage.
-    /// </summary>
-    [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
-    public GameObjectConversionSettings ForkSettings(byte entityGuidNamespaceID)
-        => m_MappingSystem.ForkSettings(entityGuidNamespaceID);
-
 #if UNITY_EDITOR
     // ** SETUP **
 
@@ -111,9 +101,6 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// <param name="dependsOn">The GameObject that the target depends on.</param>
     public void DeclareDependency(GameObject target, GameObject dependsOn)
     {
-#if !UNITY_2020_2_OR_NEWER
-        m_MappingSystem.RegisterForInstanceIdMapping(target);
-#endif
         m_MappingSystem.Dependencies.DependOnGameObject(target, dependsOn);
     }
 
@@ -143,9 +130,6 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
     /// <param name="dependsOn">The Component that the target depends on.</param>
     public void DeclareDependency(GameObject target, Component dependsOn)
     {
-#if !UNITY_2020_2_OR_NEWER
-        m_MappingSystem.RegisterForInstanceIdMapping(target);
-#endif
         m_MappingSystem.Dependencies.DependOnComponent(target, dependsOn);
     }
 
@@ -316,8 +300,9 @@ public abstract partial class GameObjectConversionSystem : ComponentSystem
 
 #endif
 
-    public void AddHybridComponent(UnityEngine.Component component) =>
-        m_MappingSystem.AddHybridComponent(component);
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+    internal void AddTypeToCompanionWhiteList(ComponentType type) => m_MappingSystem.AddTypeToCompanionWhiteList(type);
+#endif
 
     // ** EXPORT **
 

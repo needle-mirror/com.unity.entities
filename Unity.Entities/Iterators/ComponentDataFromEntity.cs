@@ -22,7 +22,7 @@ namespace Unity.Entities
     /// Pass a ComponentDataFromEntity container to a job by defining a public field of the appropriate type
     /// in your IJob implementation. You can safely read from ComponentDataFromEntity in any job, but by
     /// default, you cannot write to components in the container in parallel jobs (including
-    /// <see cref="IJobForEach{T0}"/> and <see cref="IJobChunk"/>). If you know that two instances of a parallel
+    /// <see cref="IJobEntity"/>, Entities.Foreach and <see cref="IJobEntityBatch"/>). If you know that two instances of a parallel
     /// job can never write to the same index in the container, you can disable the restriction on parallel writing
     /// by adding [NativeDisableParallelForRestrictionAttribute] to the ComponentDataFromEntity field definition in the job struct.
     ///
@@ -40,7 +40,7 @@ namespace Unity.Entities
         readonly AtomicSafetyHandle      m_Safety;
 #endif
         [NativeDisableUnsafePtrRestriction]
-        readonly EntityComponentStore*   m_EntityComponentStore;
+        readonly EntityDataAccess*       m_Access;
         readonly int                     m_TypeIndex;
         readonly uint                    m_GlobalSystemVersion;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -49,23 +49,23 @@ namespace Unity.Entities
         LookupCache                      m_Cache;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        internal ComponentDataFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore, AtomicSafetyHandle safety)
+        internal ComponentDataFromEntity(int typeIndex, EntityDataAccess* access, AtomicSafetyHandle safety)
         {
             m_Safety = safety;
             m_TypeIndex = typeIndex;
-            m_EntityComponentStore = entityComponentStoreComponentStore;
+            m_Access = access;
             m_Cache = default;
-            m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
+            m_GlobalSystemVersion = access->EntityComponentStore->GlobalSystemVersion;
             m_IsZeroSized = ComponentType.FromTypeIndex(typeIndex).IsZeroSized;
         }
 
 #else
-        internal ComponentDataFromEntity(int typeIndex, EntityComponentStore* entityComponentStoreComponentStore)
+        internal ComponentDataFromEntity(int typeIndex, EntityDataAccess* access)
         {
             m_TypeIndex = typeIndex;
-            m_EntityComponentStore = entityComponentStoreComponentStore;
+            m_Access = access;
             m_Cache = default;
-            m_GlobalSystemVersion = entityComponentStoreComponentStore->GlobalSystemVersion;
+            m_GlobalSystemVersion = access->EntityComponentStore->GlobalSystemVersion;
         }
 
 #endif
@@ -85,7 +85,42 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            return m_EntityComponentStore->HasComponent(entity, m_TypeIndex);
+            var ecs = m_Access->EntityComponentStore;
+            return ecs->HasComponent(entity, m_TypeIndex);
+        }
+
+        /// <summary>
+        /// Retrieves the component associated with the specified <see cref="Entity"/>, if it exists. Then reports if the instance still refers to a valid entity and that it has a
+        /// component of type T.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// /// <param name="componentData">The component of type T for the given entity, if it exists.</param>
+        /// <returns>True if the entity has a component of type T, and false if it does not.</returns>
+        /// <remarks>To report if the provided entity has a component of type T, this function confirms
+        /// whether the <see cref="EntityArchetype"/> of the provided entity includes components of type T.
+        /// </remarks>
+        public bool TryGetComponent(Entity entity, out T componentData)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            CheckComponentIsZeroSized();
+
+            var ecs = m_Access->EntityComponentStore;
+
+            var hasComponent = ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+            if (hasComponent)
+            {
+                void* ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+                UnsafeUtility.CopyPtrToStructure(ptr, out componentData);
+            }
+            else
+            {
+                componentData = default;
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -104,7 +139,8 @@ namespace Unity.Entities
         /// passed to the <paramref name="version"/> parameter.</returns>
         public bool DidChange(Entity entity, uint version)
         {
-            var chunk = m_EntityComponentStore->GetChunk(entity);
+            var ecs = m_Access->EntityComponentStore;
+            var chunk = ecs->GetChunk(entity);
 
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_TypeIndex);
             if (typeIndexInArchetype == -1) return false;
@@ -118,7 +154,7 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (m_IsZeroSized)
-                throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not index the component because it is zero sized, you can use Exists instead.");
+                throw new System.ArgumentException($"ComponentDataFromEntity<{typeof(T)}> indexer can not index the component because it is zero sized. Use HasComponent instead.");
 #endif
         }
 
@@ -146,11 +182,12 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-                m_EntityComponentStore->AssertEntityHasComponent(entity, m_TypeIndex);
+                var ecs = m_Access->EntityComponentStore;
+                ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
                 CheckComponentIsZeroSized();
 
-                void* ptr = m_EntityComponentStore->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+                void* ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
                 UnsafeUtility.CopyPtrToStructure(ptr, out T data);
 
                 return data;
@@ -160,13 +197,30 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
-                m_EntityComponentStore->AssertEntityHasComponent(entity, m_TypeIndex);
+                var ecs = m_Access->EntityComponentStore;
+                ecs->AssertEntityHasComponent(entity, m_TypeIndex);
 
                 CheckComponentIsZeroSized();
 
-                void* ptr = m_EntityComponentStore->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
+                void* ptr = ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
                 UnsafeUtility.CopyStructureToPtr(ref value, ptr);
             }
+        }
+
+        internal bool IsComponentEnabled(Entity entity)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            return m_Access->IsComponentEnabled(entity, m_TypeIndex);
+        }
+
+        internal void SetComponentEnabled(Entity entity, bool value)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+#endif
+            m_Access->SetComponentEnabled(entity, m_TypeIndex, value);
         }
     }
 }

@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+    [AddComponentMenu("")]
     public class MockDataAuthoring : MonoBehaviour, IConvertGameObjectToEntity
     {
         public int Value;

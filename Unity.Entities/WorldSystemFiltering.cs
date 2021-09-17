@@ -6,7 +6,7 @@ namespace Unity.Entities
     /// Prevents a system from being automatically created and run.
     /// </summary>
     /// <remarks>
-    /// By default, all systems (classes derived from <see cref="ComponentSystemBase"/>) are automatically discovered,
+    /// By default, all systems (classes derived from <see cref="ComponentSystemBase"/> or <see cref="ISystem"/>) are automatically discovered,
     /// instantiated, and added to the default <see cref="World"/> when that World is created.
     ///
     /// Add this attribute to a system class that you do not want created automatically. Note that the attribute is not
@@ -16,7 +16,7 @@ namespace Unity.Entities
     /// using Unity.Entities;
     ///
     /// [DisableAutoCreation]
-    /// public class CustomSystem : JobComponentSystem
+    /// public partial class CustomSystem : SystemBase
     /// { // Implementation... }
     /// </code>
     ///
@@ -33,7 +33,7 @@ namespace Unity.Entities
     /// namespace Tests{}
     /// </code>
     /// </remarks>
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Assembly)]
+    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class | AttributeTargets.Assembly, Inherited=false)]
     public sealed class DisableAutoCreationAttribute : Attribute
     {
     }
@@ -75,7 +75,7 @@ namespace Unity.Entities
         DotsRuntimeGameObjectConversion = 1 << 5,
         /// <summary>
         /// The main World created when running in the Editor.
-        /// Example: Editor LiveLink system
+        /// Example: Editor LiveConversion system
         /// </summary>
         Editor                          = 1 << 6,
         /// <summary>
@@ -90,7 +90,7 @@ namespace Unity.Entities
     /// </summary>
     /// <remarks>Defines where internal Unity systems should be created. The existence of these Worlds
     /// is subject to change.</remarks>
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
     public sealed class WorldSystemFilterAttribute : Attribute
     {
         /// <summary>

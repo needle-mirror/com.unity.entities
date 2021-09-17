@@ -1,10 +1,5 @@
-#if !UNITY_WEBGL
-#define USE_VIRTUAL_MEMORY
-#endif
 using System;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -14,7 +9,7 @@ namespace Unity.Entities
     internal unsafe struct BlockAllocator : IDisposable
     {
         BufferAllocator m_bufferAllocator;
-        private UnsafeIntList m_allocations;
+        private UnsafeList<int> m_allocations;
         int m_currentBlockIndex;
         ulong m_nextPtr;
 
@@ -28,7 +23,7 @@ namespace Unity.Entities
             m_bufferAllocator = new BufferAllocator(budgetInBytes, ms_BlockSize, handle);
             m_nextPtr = 0;
             var blocks = (budgetInBytes + ms_BlockSize - 1) >> ms_Log2BlockSize;
-            m_allocations = new UnsafeIntList(blocks, handle);
+            m_allocations = new UnsafeList<int>(blocks, handle);
 
             for (int i = 0; i < blocks; ++i)
             {
@@ -44,6 +39,19 @@ namespace Unity.Entities
             m_allocations.Dispose();
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void CheckBlockHasAllocations(int blockIndex)
+        {
+            if (m_allocations.Ptr[blockIndex] <= 0) // if that block has no allocations, we can't proceed
+                throw new ArgumentException($"Cannot free this pointer from BlockAllocator: no more allocations to free in its block.");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void ThrowCouldNotFindPointer()
+        {
+            throw new ArgumentException($"Cannot free this pointer from BlockAllocator: can't be found in any block.");
+        }
+
         public void Free(void* pointer)
         {
             if (pointer == null)
@@ -54,10 +62,7 @@ namespace Unity.Entities
                 var block = (byte*)m_bufferAllocator[i]; // get a pointer to the block.
                 if (pointer >= block && pointer < block + ms_BlockSize) // is the pointer we want to free in this block?
                 {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    if (m_allocations.Ptr[i] <= 0) // if that block has no allocations, we can't proceed
-                        throw new ArgumentException($"Cannot free this pointer from BlockAllocator: no more allocations to free in its block.");
-#endif
+                    CheckBlockHasAllocations(i);
                     if (--m_allocations.Ptr[i] == 0) // if this was the last allocation in the block,
                     {
                         if (i == blocks - 1) // if it's the last block,
@@ -77,9 +82,7 @@ namespace Unity.Entities
                     return;
                 }
             }
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            throw new ArgumentException($"Cannot free this pointer from BlockAllocator: can't be found in any block.");
-#endif
+            ThrowCouldNotFindPointer();
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -106,270 +109,6 @@ namespace Unity.Entities
             if (m_bufferAllocator.IsEmpty)
                 throw new ArgumentException($"Cannot exceed budget of {ms_BudgetInBytes} in BlockAllocator.");
         }
-
-#if USE_VIRTUAL_MEMORY
-        internal struct BufferAllocator : IDisposable
-        {
-            readonly VMRange ReservedRange;
-            readonly int BufferSizeInBytes;
-            readonly int MaxBufferCount;
-
-            // Should be a bit array with fast search for zero bits.
-            UnsafeIntList FreeList;
-
-            /// <summary>
-            /// Constructs an allocator.
-            /// </summary>
-            /// <param name="budgetInBytes">Budget of the allocator in bytes.</param>
-            /// <param name="bufferSizeInBytes">Size of each buffer to be allocated in bytes.</param>
-            /// <param name="handle">An AllocatorHandle to use for internal bookkeeping structures.</param>
-            /// <exception cref="InvalidOperationException">Thrown if the allocator cannot reserve the address range required for the given budget.</exception>
-            public BufferAllocator(int budgetInBytes, int bufferSizeInBytes, AllocatorManager.AllocatorHandle handle)
-            {
-                BufferSizeInBytes = bufferSizeInBytes;
-
-                // Reserve the entire budget's worth of address space. The reserved space may be larger than the budget
-                // due to page sizes.
-                var pageCount = VirtualMemoryUtility.BytesToPageCount((uint)budgetInBytes, VirtualMemoryUtility.DefaultPageSizeInBytes);
-                BaselibErrorState errorState;
-                ReservedRange = VirtualMemoryUtility.ReserveAddressSpace(pageCount, VirtualMemoryUtility.DefaultPageSizeInBytes, out errorState);
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (!errorState.Success)
-                {
-                    throw new InvalidOperationException($"Failed to reserve address range for {budgetInBytes} bytes");
-                }
-#endif
-
-                // Init a free list of blocks.
-                MaxBufferCount = (int)VirtualMemoryUtility.BytesToPageCount((uint)budgetInBytes, (uint)bufferSizeInBytes);
-                FreeList = new UnsafeIntList(MaxBufferCount, handle);
-
-                for (int i = MaxBufferCount - 1; i >= 0; --i)
-                {
-                    FreeList.Add(i);
-                }
-            }
-
-            /// <summary>
-            /// Allocates an index which corresponds to a buffer.
-            /// </summary>
-            /// <returns>Allocated index. If allocation fails, returned index is negative.</returns>
-            /// <exception cref="InvalidOperationException">Thrown when allocator is exhausted or when buffer cannot be committed.</exception>
-            public int Allocate()
-            {
-                if (FreeList.IsEmpty)
-                {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    throw new InvalidOperationException("Cannot allocate, allocator is exhausted.");
-#else
-                    return -1;
-#endif
-                }
-
-                int lastFreeListIndex = FreeList.Length - 1;
-                int index = FreeList.Ptr[lastFreeListIndex];
-                BaselibErrorState errorState;
-                var range = new VMRange((IntPtr)this[index], (uint)BufferSizeInBytes, VirtualMemoryUtility.DefaultPageSizeInBytes);
-                VirtualMemoryUtility.CommitMemory(range, out errorState);
-
-                if (!errorState.Success)
-                {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    throw new InvalidOperationException($"Failed to commit address range {range}.");
-#else
-                    return -1;
-#endif
-                }
-
-                FreeList.RemoveAtSwapBack(lastFreeListIndex);
-
-                return index;
-            }
-
-            /// <summary>
-            /// Frees the buffer represented by the given index.
-            /// </summary>
-            /// <param name="index">Index to buffer.</param>
-            /// <exception cref="ArgumentException">Thrown when index is less than zero or when greater than or equal to BufferCapacity</exception>
-            /// <exception cref="InvalidOperationException">Thrown if the buffer cannot be decommitted.</exception>
-            public void Free(int index)
-            {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (index < 0 || index >= BufferCapacity)
-                {
-                    throw new ArgumentException($"Cannot free index {index}, it is outside the expected range [0, {BufferCapacity}).");
-                }
-#endif
-                BaselibErrorState errorState;
-                var range = new VMRange((IntPtr)this[index], (uint)BufferSizeInBytes, VirtualMemoryUtility.DefaultPageSizeInBytes);
-                VirtualMemoryUtility.DecommitMemory(range, out errorState);
-
-                if (!errorState.Success)
-                {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    throw new InvalidOperationException($"Failed to decommit address range {range}.");
-#endif
-                }
-
-                FreeList.Add(index);
-            }
-
-            /// <summary>
-            /// Converts an index to a pointer.
-            /// </summary>
-            /// <param name="index">Index to a buffer.</param>
-            public void* this[int index] => (void*) (ReservedRange.ptr + (BufferSizeInBytes * index));
-
-            /// <summary>
-            /// Maximum number of buffers that can be allocated at once.
-            /// </summary>
-            public int BufferCapacity => MaxBufferCount;
-
-            /// <summary>
-            /// Checks if all the buffers in the allocator have been allocated.
-            /// </summary>
-            public bool IsEmpty => FreeList.IsEmpty;
-
-            /// <summary>
-            /// Disposes the allocator and frees the reserved address range.
-            /// </summary>
-            /// <exception cref="InvalidOperationException">Thrown if the reserved address range cannot be freed.</exception>
-            public void Dispose()
-            {
-                FreeList.Dispose();
-
-                BaselibErrorState errorState;
-                VirtualMemoryUtility.FreeAddressSpace(ReservedRange, out errorState);
-
-                if (!errorState.Success)
-                {
-                    throw new InvalidOperationException($"Failed to free the reserved address range {ReservedRange}.");
-                }
-            }
-        }
-#else
-        internal struct BufferAllocator : IDisposable
-        {
-            UnsafePtrList Buffers;
-            UnsafeIntList FreeList;
-            readonly AllocatorManager.AllocatorHandle Handle;
-            readonly int BufferSizeInBytes;
-
-            const int kBufferAlignment = 64; //cache line size
-
-            /// <summary>
-            /// Constructs an allocator.
-            /// </summary>
-            /// <param name="budgetInBytes">Budget of the allocator in bytes.</param>
-            /// <param name="bufferSizeInBytes">Size of each buffer to be allocated in bytes.</param>
-            /// <param name="handle">An AllocatorHandle to use for buffer allocations and internal bookkeeping structures.</param>
-            public BufferAllocator(int budgetInBytes, int bufferSizeInBytes, AllocatorManager.AllocatorHandle handle)
-            {
-                Handle = handle;
-                BufferSizeInBytes = bufferSizeInBytes;
-                var bufferCount = (budgetInBytes + bufferSizeInBytes - 1) / bufferSizeInBytes;
-                Buffers = new UnsafePtrList(bufferCount, handle);
-
-                for (int i = 0; i < bufferCount; ++i)
-                {
-                    Buffers.Add(IntPtr.Zero);
-                }
-
-                FreeList = new UnsafeIntList(bufferCount, handle);
-
-                for (int i = bufferCount - 1; i >= 0; --i)
-                {
-                    FreeList.Add(i);
-                }
-            }
-
-            /// <summary>
-            /// Allocates an index which corresponds to a buffer.
-            /// </summary>
-            /// <returns>Allocated index. If allocation fails, returned index is negative.</returns>
-            /// <exception cref="InvalidOperationException">Thrown when allocator is exhausted.</exception>
-            public int Allocate()
-            {
-                if (FreeList.IsEmpty)
-                {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    throw new InvalidOperationException("Cannot allocate, allocator is exhausted.");
-#else
-                    return -1;
-#endif
-                }
-
-                int lastFreeListIndex = FreeList.Length - 1;
-                int index = FreeList.Ptr[lastFreeListIndex];
-                var bufferPtr = AllocatorManager.Allocate(Handle, sizeof(byte), kBufferAlignment, BufferSizeInBytes);
-
-                if (bufferPtr == null)
-                {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    throw new InvalidOperationException("Failed to allocate buffer.");
-#else
-                    return -1;
-#endif
-                }
-
-                FreeList.RemoveAtSwapBack(lastFreeListIndex);
-                Buffers[index] = (IntPtr)bufferPtr;
-
-                return index;
-            }
-
-            /// <summary>
-            /// Frees the buffer represented by the given index.
-            /// </summary>
-            /// <param name="index">Index to buffer.</param>
-            /// <exception cref="ArgumentException">Thrown when index is less than zero or when greater than or equal to BufferCapacity</exception>
-            public void Free(int index)
-            {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (index < 0 || index >= BufferCapacity)
-                {
-                    throw new ArgumentException($"Cannot free index {index}, it is outside the expected range [0, {BufferCapacity}).");
-                }
-#endif
-
-                AllocatorManager.Free(Handle, (void*)Buffers[index]);
-                FreeList.Add(index);
-                Buffers[index] = IntPtr.Zero;
-            }
-
-            /// <summary>
-            /// Converts an index to a pointer.
-            /// </summary>
-            /// <param name="index">Index to a buffer.</param>
-            public void* this[int index] => (void*)Buffers[index];
-
-            /// <summary>
-            /// Maximum number of buffers that can be allocated at once.
-            /// </summary>
-            public int BufferCapacity => Buffers.Length;
-
-            /// <summary>
-            /// Checks if all the buffers in the allocator have been allocated.
-            /// </summary>
-            public bool IsEmpty => FreeList.IsEmpty;
-
-            /// <summary>
-            /// Disposes the allocator.
-            /// </summary>
-            /// <exception cref="InvalidOperationException">Thrown if the reserved address range cannot be freed.</exception>
-            public void Dispose()
-            {
-                for (int i = 0; i < Buffers.Length; ++i)
-                {
-                    AllocatorManager.Free(Handle, (void*) Buffers[i]);
-                }
-
-                Buffers.Dispose();
-                FreeList.Dispose();
-            }
-        }
-#endif
 
         /// <summary>
         /// Allocates memory out of a block.

@@ -3,12 +3,12 @@ using System.Text;
 
 namespace Unity.Entities.CodeGen
 {
-    internal static class ListExtensions
+    static class ListExtensions
     {
         public static void Add<T>(this List<T> list, IEnumerable<T> elementsToAdd) => list.AddRange(elementsToAdd);
     }
 
-    internal static class StringExtensions
+    static class StringExtensions
     {
         public static string SeparateBy(this IEnumerable<string> elements, string delimiter)
         {

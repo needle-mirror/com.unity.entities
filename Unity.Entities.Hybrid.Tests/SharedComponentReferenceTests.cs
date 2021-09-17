@@ -92,7 +92,5 @@ namespace Unity.Entities.Tests
             query.SetSharedComponentFilter(sharedComponent);
             Assert.AreEqual(0, query.CalculateEntityCount());
         }
-
-        //@TODO: Adding two entities with both broken object reference. removes right one...s
     }
 }

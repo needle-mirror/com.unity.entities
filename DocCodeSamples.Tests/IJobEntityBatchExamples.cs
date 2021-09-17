@@ -1,4 +1,4 @@
-﻿using Unity.Burst;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -19,7 +19,7 @@ namespace Doc.CodeSamples.Tests
         public Entity entity;
     }
 
-    public class BatchedChaserSystem : SystemBase
+    public partial class BatchedChaserSystem : SystemBase
     {
         private EntityQuery query; // Initialized in Oncreate()
 
@@ -45,8 +45,7 @@ namespace Doc.CodeSamples.Tests
             {
                 // Within Execute(), the scope of the ArchetypeChunk is limited to the current batch.
                 // For example, these NativeArrays will have Length = batchInChunk.BatchEntityCount,
-                // where batchInChunk.BatchEntityCount is roughly batchInChunk.Capacity divided by the
-                // batchesInChunk parameter passed to ScheduleParallelBatched().
+                // where batchInChunk.BatchEntityCount may be less than the full chunk entity count.
                 NativeArray<Translation> positions = batchInChunk.GetNativeArray<Translation>(PositionTypeHandleAccessor);
                 NativeArray<Target> targets = batchInChunk.GetNativeArray<Target>(TargetTypeHandleAccessor);
 
@@ -76,8 +75,9 @@ namespace Doc.CodeSamples.Tests
             job.EntityPositions = this.GetComponentDataFromEntity<LocalToWorld>(true);
             job.deltaTime = this.Time.DeltaTime;
 
-            int batchesPerChunk = 4; // Partition each chunk into this many batches. Each batch will be processed concurrently.
-            this.Dependency = job.ScheduleParallel(query, batchesPerChunk, this.Dependency);
+            // In cases where relatively few entities are being processed, and the processing per entity is relatively
+            // expensive, using ScheduleGranularity.Entity can lead to better load balancing of work among worker threads.
+            this.Dependency = job.ScheduleParallel(query, ScheduleGranularity.Entity, default, this.Dependency);
         }
     }
     #endregion
@@ -86,7 +86,7 @@ namespace Doc.CodeSamples.Tests
     {
         public float3 Value;
     }
-    
+
     #region typical-struct
     public struct UpdateTranslationFromVelocityJob : IJobEntityBatch
     {
@@ -115,7 +115,7 @@ namespace Doc.CodeSamples.Tests
     #endregion
 
     #region schedule-job
-    public class UpdateTranslationFromVelocitySystem : SystemBase
+    public partial class UpdateTranslationFromVelocitySystem : SystemBase
     {
         EntityQuery query;
 
@@ -149,7 +149,7 @@ namespace Doc.CodeSamples.Tests
 
             // Schedule the job
             this.Dependency
-                = updateFromVelocityJob.ScheduleParallel(query, 1, this.Dependency);
+                = updateFromVelocityJob.ScheduleParallel(query, this.Dependency);
         }
         #endregion
     }
@@ -213,7 +213,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
-    public class OneLinerSystem : SystemBase
+    public partial class OneLinerSystem : SystemBase
     {
         EntityQuery query;
 
@@ -245,7 +245,7 @@ namespace Doc.CodeSamples.Tests
                 = this.GetComponentTypeHandle<LocalToWorld>(true);
             updateFromVelocityJob.DeltaTime = World.Time.DeltaTime;
 
-            this.Dependency = updateFromVelocityJob.ScheduleParallel(query, 1, this.Dependency);
+            this.Dependency = updateFromVelocityJob.ScheduleParallel(query, this.Dependency);
         }
     }
 
@@ -280,7 +280,7 @@ namespace Doc.CodeSamples.Tests
     #endregion
 
     #region skip-unchanged-batches-system
-    public class UpdateDataOnChangeSystem : SystemBase {
+    public partial class UpdateDataOnChangeSystem : SystemBase {
 
         EntityQuery query;
 
@@ -294,7 +294,7 @@ namespace Doc.CodeSamples.Tests
             job.InputBTypeHandle = GetComponentTypeHandle<InputB>(true);
             job.OutputTypeHandle = GetComponentTypeHandle<Output>(false);
 
-            this.Dependency = job.ScheduleParallel(query, 1, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, this.Dependency);
         }
 
         protected override void OnCreate()
@@ -310,7 +310,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
     #endregion
-    public class UpdateFilteredDataSystem : SystemBase
+    public partial class UpdateFilteredDataSystem : SystemBase
     {
 
         #region filter-query
@@ -347,7 +347,7 @@ namespace Doc.CodeSamples.Tests
             job.InputBTypeHandle = GetComponentTypeHandle<InputB>(true);
             job.OutputTypeHandle = GetComponentTypeHandle<Output>(false);
 
-            this.Dependency = job.ScheduleParallel(query, 1, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, this.Dependency);
         }
 
     }

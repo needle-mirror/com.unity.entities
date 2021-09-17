@@ -49,10 +49,6 @@ A simple GameObject component that references an authoring scene and will either
 The result of converting an authoring scene. Because entity scenes are the output of an asset import, they are stored in the Library folder. Entity scenes can be made of multiple sections, and each of those can be independently loaded.
 - __LiveConversion__ <br>
 When an authoring scene is loaded as GameObjects for editing, every change will trigger an update to the entity scene, making it look as if the entity scene was directly edited, we call this process _LiveConversion_.
-- __LiveConnection__ <br>
-The Unity Editor can be connected to a _LiveLink Player_ eventually running on a different machine. This is out of scope for this document but the main thing to know about it is that it shouldn't require any particular attention. It's part of the framework, not something that has to be implemented for each feature.
-- __LiveLink__ <br>
-We call _LiveLink_ the set of features that make live editing possible. It's not something optional, it's a concept which is deeply embedded in everything related to conversion. The main consequence you should pay attention to is that this can cause ECS data to change at any time. Taking this into consideration while designing ECS systems is where the real challenge is.
 
 ## Scene conversion
 
@@ -87,7 +83,7 @@ The conversion workflow allows dealing efficiently with large scenes thanks to t
 
 The conversion of entity scenes is usually done through the use of a Subscene. This Monobehaviour does very little. It references an authoring scene and triggers the conversion and loading of the resulting entity scene.
 
-There is a toggle to control the automatic loading of the entity scene, and button to a load and unload the sections manually. You also have a button to force the reimport (redoing the conversion) of the scene.
+There is a toggle to control the automatic loading of the entity scene at runtime, and button to a load and unload the sections manually. You also have a button to force the reimport (redoing the conversion) of the scene.
 
 > [!WARNING]
 > Be aware that forcing the reimport can hide problems, this option is intended for testing and debugging purposes. If the reimport doesn't happen automatically, it might be because some dependencies or versioning info are missing. Please read the further sections about the asset pipeline for more details.
@@ -95,10 +91,6 @@ There is a toggle to control the automatic loading of the entity scene, and butt
 More importantly, you can toggle between edit mode (authoring) and closed (runtime). The contents of a scene can only be accessed by the Unity editor when the Subscene that references it is in edit mode.
 
 Since authoring scenes are normal Unity scenes they can also be directly opened like any other scene.
-
-## DOTS > Live Link Mode
-
-This menu offers two options (one on/off, one toggle), it's important to understand their implications when using conversion.
 
 ### 1. Live Conversion in Edit Mode
 
@@ -148,7 +140,7 @@ Every entity in the destination world is associated with a GameObject in the con
 
 At creation time, based on conversion settings, the entities in the destination world will contain a combination of the following components:
 - `Static`, to bake transforms.
-- `EntityGuid`, for LiveLink.
+- `EntityGuid`, for LiveConversion.
 - `Disabled`, to mark entities coming from disabled GameObjects as disabled.
 - `SceneSection`, for streaming sections.
 

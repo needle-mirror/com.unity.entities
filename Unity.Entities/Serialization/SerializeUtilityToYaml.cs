@@ -226,7 +226,7 @@ namespace Unity.Entities.Serialization
                 }
 
                 // First pass to sort by component type
-                var entitiesByChunkIndex = new Dictionary<int, Entity>();
+                var entitiesByChunkIndex = new Entity[initialChunk->Count];
                 var componentDataList = new List<int>();
                 var chunkComponentDataList = new List<int>();
                 var chunkTypes = archetype->Types;
@@ -255,7 +255,7 @@ namespace Unity.Entities.Serialization
                                 var entity = *(Entity*)(initialChunk->Buffer + archetype->SizeOfs[0] * i);
                                 Assert.IsTrue(entityManager.Exists(entity));
 
-                                entitiesByChunkIndex.Add(i, entity);
+                                entitiesByChunkIndex[i] = entity;
                                 i++;
                             }
                         }
@@ -297,13 +297,13 @@ namespace Unity.Entities.Serialization
                                 var entityData = new Dictionary<string, string>();
 
                                 // Dump all entities in this chunk
-                                foreach (var kvp in entitiesByChunkIndex)
+                                for (int i = 0; i < entitiesByChunkIndex.Length; i++)
                                 {
-                                    var entity = kvp.Value;
+                                    var entity = entitiesByChunkIndex[i];
                                     entityData.Clear();
 
                                     // Get the location of the component data
-                                    var compData = componentsBuffer + kvp.Key * componentSize;
+                                    var compData = componentsBuffer + i * componentSize;
 
                                     // If the component we are dumping is a Dynamic Buffer
                                     if (typeof(IBufferElementData).IsAssignableFrom(componentType))

@@ -1,16 +1,11 @@
-using System;
-using JetBrains.Annotations;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 #if !UNITY_DOTSRUNTIME
 using UnityEngine.LowLevel;
 #endif
-using UnityEngine.Profiling;
 
 #if !NET_DOTS
-using System.Linq;
 #endif
 
 namespace Unity.Entities.Tests
@@ -44,22 +39,21 @@ namespace Unity.Entities.Tests
         }
     }
 #else
-    public class EmptySystem : JobComponentSystem
+    public partial class EmptySystem : SystemBase
     {
-        protected override JobHandle OnUpdate(JobHandle dep) { return dep; }
+        protected override void OnUpdate() {}
 
-
-        new public EntityQuery GetEntityQuery(params EntityQueryDesc[] queriesDesc)
+        public new EntityQuery GetEntityQuery(params EntityQueryDesc[] queriesDesc)
         {
             return base.GetEntityQuery(queriesDesc);
         }
 
-        new public EntityQuery GetEntityQuery(params ComponentType[] componentTypes)
+        public new EntityQuery GetEntityQuery(params ComponentType[] componentTypes)
         {
             return base.GetEntityQuery(componentTypes);
         }
 
-        new public EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
+        public new EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
         {
             return base.GetEntityQuery(componentTypes);
         }
@@ -73,7 +67,7 @@ namespace Unity.Entities.Tests
         public virtual void Setup()
         {
 #if UNITY_DOTSRUNTIME
-            Unity.Core.TempMemoryScope.EnterScope();
+            Unity.Runtime.TempMemoryScope.EnterScope();
 #endif
         }
 
@@ -81,7 +75,7 @@ namespace Unity.Entities.Tests
         public virtual void TearDown()
         {
 #if UNITY_DOTSRUNTIME
-            Unity.Core.TempMemoryScope.ExitScope();
+            Unity.Runtime.TempMemoryScope.ExitScope();
 #endif
         }
     }
@@ -119,6 +113,9 @@ namespace Unity.Entities.Tests
             // force it enabled for all tests, and restore the original value at teardown.
             JobsDebuggerWasEnabled = JobsUtility.JobDebuggerEnabled;
             JobsUtility.JobDebuggerEnabled = true;
+#if !UNITY_DOTSRUNTIME
+            JobsUtility.ClearSystemIds();
+#endif
         }
 
         [TearDown]
@@ -144,6 +141,9 @@ namespace Unity.Entities.Tests
             }
 
             JobsUtility.JobDebuggerEnabled = JobsDebuggerWasEnabled;
+#if !UNITY_DOTSRUNTIME
+            JobsUtility.ClearSystemIds();
+#endif
 
 #if !UNITY_DOTSRUNTIME
             PlayerLoop.SetPlayerLoop(m_PreviousPlayerLoop);

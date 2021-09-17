@@ -128,6 +128,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [Test]
+        [Ignore("Unstable on CI, DOTS-3750")]
         public void SubScene_WithoutContents_DeletingSceneAssetUnloadsScene()
         {
             var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "SubScene", false, null);

@@ -9,60 +9,6 @@ namespace Unity.Entities.Tests.Conversion
     class GameObjectConversionSettingsTests
     {
         [Test]
-        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
-        public void Fork_WithZeroNamespaceID_Throws()
-        {
-            var settings = new GameObjectConversionSettings();
-
-            Assert.That(() => settings.Fork(0), Throws.Exception
-                .With.TypeOf<ArgumentException>()
-                .With.Message.Contains("is reserved"));
-        }
-
-        [Test]
-        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
-        public void Fork_CopiesOnlyForkedFields()
-        {
-            using (var world = new World("test world"))
-            {
-                var settings = new GameObjectConversionSettings
-                {
-                    DestinationWorld          = world,
-                    SceneGUID                 = new Hash128(1, 2, 3, 4),
-                    DebugConversionName       = "test name",
-                    ConversionFlags           = GameObjectConversionUtility.ConversionFlags.AddEntityGUID,
-#if UNITY_EDITOR
-                    BuildConfiguration        = BuildConfiguration.CreateInstance(),
-                    //AssetImportContext        = new AssetImportContext(), // << private
-#endif
-                    ExtraSystems              = new[] { typeof(int) },
-                    Systems                   = new List<Type> { typeof(int) },
-                    NamespaceID               = 123,
-                    ConversionWorldCreated    = _ => {},
-                    ConversionWorldPreDispose = _ => {},
-                };
-
-                var forked = settings.Fork(234);
-
-                // forked
-                Assert.That(forked.DestinationWorld,          Is.EqualTo(settings.DestinationWorld));
-                Assert.That(forked.SceneGUID,                 Is.EqualTo(settings.SceneGUID));
-                Assert.That(forked.DebugConversionName,       Is.EqualTo(settings.DebugConversionName + $":{234:x2}"));
-                Assert.That(forked.ConversionFlags,           Is.EqualTo(settings.ConversionFlags));
-#if UNITY_EDITOR
-                Assert.That(forked.BuildConfiguration,        Is.EqualTo(settings.BuildConfiguration));
-#endif
-
-                // non-forked
-                Assert.That(forked.ExtraSystems,              Is.Empty);
-                Assert.That(forked.Systems,                   Is.Null);
-                Assert.That(forked.NamespaceID,               Is.EqualTo(234));
-                Assert.That(forked.ConversionWorldCreated,    Is.Null);
-                Assert.That(forked.ConversionWorldPreDispose, Is.Null);
-            }
-        }
-
-        [Test]
         public void WithExtraSystems_WithRedundantCall_Throws()
         {
             var settings = new GameObjectConversionSettings();
@@ -108,7 +54,7 @@ namespace Unity.Entities.Tests.Conversion
                     {
                         if (system is ComponentSystemGroup || system == null)
                             continue;
-                        Assert.That(system is TestConversionSystem || system is GameObjectConversionMappingSystem, $"System is of unexpected type {system.GetType()}");
+                        Assert.That(system is TestConversionSystem || system is GameObjectConversionMappingSystem || system is IncrementalChangesSystem, $"System is of unexpected type {system.GetType()}");
                     }
                 }
             }

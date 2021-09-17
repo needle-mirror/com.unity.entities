@@ -62,6 +62,8 @@ namespace Unity.Entities.CodeGen
     internal partial class StaticTypeRegistryPostProcessor : EntitiesILPostProcessor
     {
         TypeReference m_SystemTypeRef;
+        TypeReference m_SystemIntRef;
+        TypeReference m_SystemLongRef;
         TypeReference m_TypeInfoRef;
         MethodReference m_TypeInfoConstructorRef;
         TypeReference m_FieldInfoRef;
@@ -73,6 +75,7 @@ namespace Unity.Entities.CodeGen
         MethodReference m_MemCpyFnRef;
         MethodReference m_Hash32FnRef;
         MethodReference m_SystemGuidHashFn;
+        MethodReference m_BurstRuntimeGetHashCode64Ref;
 
         TypeDefinition GeneratedRegistryDef;
         MethodDefinition GeneratedRegistryCCTORDef;
@@ -129,10 +132,17 @@ namespace Unity.Entities.CodeGen
         void InitializeReferences()
         {
             m_SystemTypeRef = AssemblyDefinition.MainModule.ImportReference(typeof(Type));
+            m_SystemIntRef = AssemblyDefinition.MainModule.ImportReference(typeof(int));
+            m_SystemLongRef = AssemblyDefinition.MainModule.ImportReference(typeof(long));
             m_GetTypeFromHandleFnRef = AssemblyDefinition.MainModule.ImportReference(typeof(Type).GetMethod("GetTypeFromHandle"));
 
             // I think we can remove this and make the GetHashCode generation less dumb
             m_SystemGuidHashFn = AssemblyDefinition.MainModule.ImportReference(typeof(System.Guid).GetMethod("GetHashCode"));
+            m_BurstRuntimeGetHashCode64Ref = AssemblyDefinition.MainModule.ImportReference(
+                typeof(Unity.Burst.BurstRuntime)
+                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                    .Single(m => m.Name == "GetHashCode64" && m.IsGenericMethod));
+            
 
             m_MemCmpFnRef = AssemblyDefinition.MainModule.ImportReference(typeof(UnsafeUtility).GetMethod("MemCmp"));
             m_MemCpyFnRef = AssemblyDefinition.MainModule.ImportReference(typeof(UnsafeUtility).GetMethod("MemCpy"));
@@ -144,7 +154,7 @@ namespace Unity.Entities.CodeGen
                 typeof(int), typeof(TypeCategory), typeof(int), typeof(int),
                 typeof(ulong), typeof(ulong), typeof(int), typeof(int), typeof(int),
                 typeof(int), typeof(int), typeof(int), typeof(int), typeof(bool),
-                typeof(int), typeof(int), typeof(int), typeof(int)
+                typeof(int), typeof(int), typeof(int), typeof(int), typeof(int), typeof(int)
             }));
 
             m_FieldInfoRef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager.FieldInfo));
@@ -233,10 +243,11 @@ namespace Unity.Entities.CodeGen
                         continue;
 
                     // only derivatives of ComponentSystemBase are systems
-                    if (!type.IsChildTypeOf(componentSystemBaseClass) && !type.TypeImplements(typeof(ISystemBase)))
+                    if (!type.IsChildTypeOf(componentSystemBaseClass) && !type.TypeImplements(typeof(ISystem)))
                         continue;
 
                     // the auto-creation system instantiates using the default ctor, so if we can't find one, exclude from list
+                    // that said, if it's a value type, it's fine, because you can just do default
                     if (!type.IsValueType && type.GetConstructors().All(c => c.HasParameters))
                     {
                         var disableTypeAutoCreation = type.CustomAttributes.Any(attr => attr.AttributeType.Name == nameof(DisableAutoCreationAttribute));
@@ -293,7 +304,7 @@ namespace Unity.Entities.CodeGen
                 }
 
                 PopulateWriteGroups(typeGenInfoList);
-                ReduceFieldInfos(); // Must happen after all typeInfos have been generated 
+                ReduceFieldInfos(); // Must happen after all typeInfos have been generated
             }
 
             return (typeGenInfoList, systemList);
@@ -440,6 +451,16 @@ namespace Unity.Entities.CodeGen
             //var systemTypeNames = IsReleaseConfig ? new List<string>() : systemList.Select(t => t.FullNameLikeRuntime()).ToList();
             var systemTypeNames = systemList.Select(t => t.FullNameLikeRuntime()).ToList();
             StoreStringArrayInField(il, systemTypeNames, systemTypeNamesFieldDef, false);
+            
+            //Store TypeRegistry.SystemTypeSizes[]
+            il.Emit(OpCodes.Ldloc_0);
+            var systemTypeSizesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemTypeSizes", BindingFlags.Public | BindingFlags.Instance));
+            GenerateSystemTypeSizeArray(il, systemList, systemTypeSizesFieldDef, false, ArchBits);
+            
+            //Generate calls to BurstRuntime.GetHashCode64 to populate TypeRegistry.SystemTypeHashes[]
+            il.Emit(OpCodes.Ldloc_0);
+            var systemTypeHashesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemTypeHashes", BindingFlags.Public | BindingFlags.Instance));
+            GenerateSystemTypeHashArray(il, systemList, systemTypeHashesFieldDef, false);
 
             // Store TypeRegistry.IsSystemGroup[]
             var isSystemGroupList = GetSystemIsGroupList(systemList);

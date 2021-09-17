@@ -11,10 +11,29 @@ namespace Unity.Entities.Editor
 {
     internal unsafe struct SystemSelection : IEquatable<SystemSelection>
     {
-        public struct UnmanagedData
+        public struct UnmanagedData : IEquatable<UnmanagedData>
         {
             public World World;
             public SystemHandleUntyped Handle;
+
+            public override int GetHashCode()
+            {
+                return Handle.GetHashCode() ^ (World != null ? World.GetHashCode() : 0);
+            }
+
+            public bool Equals(UnmanagedData other)
+            {
+                var ourWorld = World;
+                var theirWorld = other.World;
+
+                if (!object.ReferenceEquals(ourWorld, theirWorld))
+                    return false;
+
+                if (theirWorld == null)
+                    return ourWorld == null;
+
+                return Handle == other.Handle;
+            }
         }
 
         public readonly ComponentSystemBase Managed;
@@ -70,7 +89,10 @@ namespace Unity.Entities.Editor
 
         public bool Equals(SystemSelection other)
         {
-            return ReferenceEquals(Managed, other.Managed) && Unmanaged.Handle == other.Unmanaged.Handle;
+            if (Managed != null)
+                return ReferenceEquals(Managed, other.Managed);
+            else
+                return Unmanaged.Equals(other.Unmanaged);
         }
 
         public override int GetHashCode()
@@ -258,7 +280,12 @@ namespace Unity.Entities.Editor
             {
                 systemsById.Add(id, sel);
                 worldsById.Add(id, sel.World);
-                var recorder = Recorder.Get($"{sel.World?.Name ?? "none"} {type.FullName}");
+                Recorder recorder;
+                if (sel.Managed != null)
+                    recorder = Recorder.Get($"{sel.World?.Name ?? "none"} {type.FullName}");
+                else
+                    recorder = Recorder.Get($"{sel.World?.Name ?? "none"} {type.Name}");
+
                 if (!recordersBySystem.ContainsKey(sel))
                     recordersBySystem.Add(sel, new AverageRecorder(recorder));
                 else

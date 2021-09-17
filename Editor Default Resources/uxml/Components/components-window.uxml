@@ -1,0 +1,15 @@
+<UXML xmlns:ui="UnityEngine.UIElements" xmlns:properties="Unity.Properties.UI">
+    <ui:VisualElement class="components-window__container">
+        <ui:VisualElement class="components-window__search-element-container">
+            <properties:SearchElement
+                    class="components-window__search-element"
+                    search-data="Name"
+                    search-filters="category:Category"
+                    search-delay="0"
+                    handle-type="async"
+                    max-frame-time="5"
+            />
+        </ui:VisualElement>
+        <ui:ListView class="components-window__list-view" item-height="18" selection-type="Single"/>
+    </ui:VisualElement>
+</UXML>

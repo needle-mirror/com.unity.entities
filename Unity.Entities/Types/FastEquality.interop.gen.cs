@@ -16,6 +16,7 @@ using System;
 using Unity.Burst;
 using Unity.Collections;
 using System.Runtime.InteropServices;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {

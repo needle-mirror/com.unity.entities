@@ -11,6 +11,8 @@ The ECS API provides a number of ways to accomplish iteration, each with its own
 
 * [SystemBase.Entities.ForEach] — the simplest efficient way to process component data entity by entity.
 
+* [IJobEntity] — the second simplest way to iterate over ECS component data. Use this when wanting to write once, and do multiple schedule.
+
 * [IJobEntityBatch] — iterates over the eligible blocks of memory (called a **[chunk]**) that contain matching entities. The job `Execute()` function can use a for loop to iterate over batches of the elements inside each chunk. You can use [IJobEntityBatch] for more complex situations than [Entities.ForEach] supports, while maintaining maximum efficiency. 
 
 * [Manual iteration] — if the previous methods are insufficient, you can manually iterate over entities or Chunks. For example, you can use a job such as `IJobParallelFor` to iterate over a `NativeArray` that contains entities or the chunks of the entities that you want to process.
@@ -23,11 +25,10 @@ The [EntityQuery] class provides a way to construct a view of your data that con
 * IJobForEach
 * IJobForEachWithEntity
 * ComponentSystem
-* JobComponentSystem
 
-These types are being phased out in preference to [SystemBase] and will become obsolete once they have gone through a deprecation cycle. Use [SystemBase] and [SystemBase.Entities.ForEach] or [IJobEntityBatch] to replace them.
+These types are being phased out in preference to [SystemBase] and will become obsolete once they have gone through a deprecation cycle. Use [SystemBase] and [SystemBase.Entities.ForEach], [IJobEntity] or [IJobEntityBatch] to replace them.
 
-
+[IJobEntity]: ecs_ijobentity.md
 [SystemBase]: entities_job_foreach.md
 [Entities.ForEach]: entities_job_foreach.md
 [SystemBase.Entities.ForEach]: entities_job_foreach.md

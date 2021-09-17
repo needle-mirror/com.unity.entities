@@ -5,6 +5,7 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [ConverterVersion("sschoener", 1)]
+    [AddComponentMenu("")]
     public class TestComponentWithBlobAssetAuthoring : MonoBehaviour, IConvertGameObjectToEntity
     {
         public int Version;

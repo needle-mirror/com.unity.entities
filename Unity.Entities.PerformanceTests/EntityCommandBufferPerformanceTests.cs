@@ -884,7 +884,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    ecb.AddComponent(group, typeof(EcsTestData2));
+                    ecb.AddComponentForEntityQuery(group, typeof(EcsTestData2));
                 })
                 .SampleGroup("Record")
                 .WarmupCount(1)
@@ -918,7 +918,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    ecb.AddComponent(group, typeof(EcsTestData2));
+                    ecb.AddComponentForEntityQuery(group, typeof(EcsTestData2));
                 })
                 .CleanUp(() =>
                 {
@@ -938,7 +938,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    ecb.RemoveComponent(group, typeof(EcsTestData));
+                    ecb.RemoveComponentForEntityQuery(group, typeof(EcsTestData));
                 })
                 .SampleGroup("Record")
                 .WarmupCount(1)
@@ -972,7 +972,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    ecb.RemoveComponent(group, typeof(EcsTestData));
+                    ecb.RemoveComponentForEntityQuery(group, typeof(EcsTestData));
                 })
                 .CleanUp(() =>
                 {
@@ -992,7 +992,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    ecb.DestroyEntity(group);
+                    ecb.DestroyEntitiesForEntityQuery(group);
                 })
                 .SampleGroup("Record")
                 .WarmupCount(1)
@@ -1026,7 +1026,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    ecb.DestroyEntity(group);
+                    ecb.DestroyEntitiesForEntityQuery(group);
                 })
                 .CleanUp(() =>
                 {
@@ -1046,7 +1046,7 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(
                 () =>
                 {
-                    ecb.AddSharedComponent(group, new EcsTestSharedComp {value = 1});
+                    ecb.AddSharedComponentForEntityQuery(group, new EcsTestSharedComp {value = 1});
                 })
                 .SampleGroup("Record")
                 .WarmupCount(1)
@@ -1080,7 +1080,7 @@ namespace Unity.Entities.PerformanceTests
                     for (int i = 0; i < size; i++)
                         m_Manager.CreateEntity(archetype1);
                     ecb = new EntityCommandBuffer(Allocator.TempJob);
-                    ecb.AddSharedComponent(group, new EcsTestSharedComp {value = 1});
+                    ecb.AddSharedComponentForEntityQuery(group, new EcsTestSharedComp {value = 1});
                 })
                 .CleanUp(() =>
                 {
@@ -1088,6 +1088,114 @@ namespace Unity.Entities.PerformanceTests
                     {
                         m_Manager.DestroyEntity(entities);
                     }
+                    ecb.Dispose();
+                })
+                .Run();
+        }
+
+        [Test, Performance]
+        public void EntityCommandBuffer_AddComponent_SingleVsMultiple([Values(10, 100, 1000, 10000)] int size)
+        {
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var ecb = default(EntityCommandBuffer);
+            NativeArray<Entity> entities = default;
+            Measure.Method(
+                () =>
+                {
+                    for (int i = 0; i < size; ++i)
+                        ecb.AddComponent<EcsTestData2>(entities[i]);
+                    ecb.Playback(m_Manager);
+                })
+                .SampleGroup("Individual_Packed")
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SetUp(() =>
+                {
+                    entities = m_Manager.CreateEntity(archetype1, size, Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(entities);
+                    entities.Dispose();
+                    ecb.Dispose();
+                })
+                .Run();
+
+            Measure.Method(
+                    () =>
+                    {
+                        for (int i = 0; i < size; ++i)
+                            ecb.AddComponent<EcsTestData2>(entities[i]);
+                        ecb.Playback(m_Manager);
+                    })
+                .SampleGroup("Individual_Sparse")
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SetUp(() =>
+                {
+                    var allEntities = m_Manager.CreateEntity(archetype1, 2*size, Allocator.TempJob);
+                    entities = CollectionHelper.CreateNativeArray<Entity>(size, Allocator.TempJob,
+                        NativeArrayOptions.UninitializedMemory);
+                    for (int i = 0; i < size; ++i)
+                        entities[i] = allEntities[2 * i];
+                    allEntities.Dispose();
+                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(query);
+                    entities.Dispose();
+                    ecb.Dispose();
+                })
+                .Run();
+
+            Measure.Method(
+                    () =>
+                    {
+                        ecb.AddComponent<EcsTestData2>(entities);
+                        ecb.Playback(m_Manager);
+                    })
+                .SampleGroup("Batched_Packed")
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SetUp(() =>
+                {
+                    entities = m_Manager.CreateEntity(archetype1, size, Allocator.TempJob);
+                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(entities);
+                    entities.Dispose();
+                    ecb.Dispose();
+                })
+                .Run();
+
+            Measure.Method(
+                    () =>
+                    {
+                        ecb.AddComponent<EcsTestData2>(entities);
+                        ecb.Playback(m_Manager);
+                    })
+                .SampleGroup("Batched_Sparse")
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SetUp(() =>
+                {
+                    var allEntities = m_Manager.CreateEntity(archetype1, 2*size, Allocator.TempJob);
+                    entities = CollectionHelper.CreateNativeArray<Entity>(size, Allocator.TempJob,
+                        NativeArrayOptions.UninitializedMemory);
+                    for (int i = 0; i < size; ++i)
+                        entities[i] = allEntities[2 * i];
+                    allEntities.Dispose();
+                    ecb = new EntityCommandBuffer(Allocator.TempJob);
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(query);
+                    entities.Dispose();
                     ecb.Dispose();
                 })
                 .Run();

@@ -1,7 +1,6 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Unity.Build.Classic;
+using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Experimental;
 
@@ -11,20 +10,13 @@ namespace Unity.Scenes.Editor
     /// The set of Entity sections that will be included in the build.
     /// EntitySectionBundlesInBuild is attached to the BuildContext using BuildContext.GetOrCreateValue<EntitySectionBundlesInBuild>();
     /// </summary>
-    sealed public class EntitySectionBundlesInBuild
+    internal sealed class EntitySectionBundlesInBuild
     {
         /// <summary>
-        /// Adds an Entity Scene that will be produced by a ScriptedImporter from any data source.
         /// EntityScenes may only be added from the ClassicBuildPipelineCustomizer.OnBeforeRegisterAdditionalFilesToDeploy callback.
         /// </summary>
-        public void Add(GUID sceneGUID, GUID assetGUID, Type importerType)
-        {
-            SceneGUID.Add(sceneGUID);
-            ArtifactKeys.Add(new ArtifactKey(assetGUID, importerType));
-        }
-
-        internal List<GUID>        SceneGUID = new List<GUID>();
-        internal List<ArtifactKey> ArtifactKeys = new List<ArtifactKey>();
+        internal Hash128[] SceneGUIDs;
+        internal ArtifactKey[] ArtifactKeys;
     }
 
     class EntitySectionBundlesBuildCustomizer : ClassicBuildPipelineCustomizer
@@ -44,8 +36,10 @@ namespace Unity.Scenes.Editor
                 throw  new ArgumentException("Some of the EntityScenes target resolved guids in build are not unique");
 #endif
 
-            SubSceneBuildCode.PrepareAdditionalFiles(
-                binaryFiles.SceneGUID.ToArray(), binaryFiles.ArtifactKeys.ToArray(), BuildTarget, registerAdditionalFileToDeploy, StreamingAssetsDirectory, $"Library/SubsceneBundles");
+            if (BuildTarget != EditorUserBuildSettings.activeBuildTarget)
+                throw new InvalidOperationException($"ActiveBuildTarget must be switched before the {nameof(EntitySceneBuildUtility)} runs.");
+
+            EntitySceneBuildUtility.PrepareAdditionalFiles(binaryFiles.SceneGUIDs, binaryFiles.ArtifactKeys, BuildTarget, registerAdditionalFileToDeploy, StreamingAssetsDirectory);
         }
     }
 }

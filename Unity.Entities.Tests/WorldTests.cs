@@ -254,7 +254,7 @@ namespace Unity.Entities.Tests
                     world.SetTime(timeData);
                 }
 
-                sim.FixedRateManager = new FixedRateUtils.FixedRateSimpleManager(1.0f);
+                sim.RateManager = new RateUtils.FixedRateSimpleManager(1.0f);
 
                 // first frame will tick at elapsedTime=0
                 AdvanceWorldTime(0.5f);
@@ -312,7 +312,7 @@ namespace Unity.Entities.Tests
                     world.SetTime(timeData);
                 }
 
-                sim.FixedRateManager = new FixedRateUtils.FixedRateCatchUpManager(0.1f);
+                sim.RateManager = new RateUtils.FixedRateCatchUpManager(0.1f);
 
                 // first frame will tick at elapsedTime=0
                 AdvanceWorldTime(0.05f);
@@ -395,7 +395,7 @@ namespace Unity.Entities.Tests
 
 #endif
 
-#if UNITY_EDITOR
+#if !DOTS_DISABLE_DEBUG_NAMES
         [Test]
         public void WorldTimeSingletonHasAnEntityName()
         {
@@ -413,7 +413,7 @@ namespace Unity.Entities.Tests
 
 #endif
 
-        public class ContainerOwnerSystem : JobComponentSystem
+        public partial class ContainerOwnerSystem : SystemBase
         {
             public NativeArray<int> Container;
             protected override void OnCreate()
@@ -426,13 +426,10 @@ namespace Unity.Entities.Tests
                 Container.Dispose();
             }
 
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
-            {
-                return inputDeps;
-            }
+            protected override void OnUpdate() { }
         }
 
-        public class ContainerUsingSystem : JobComponentSystem
+        public partial class ContainerUsingSystem : SystemBase
         {
             public struct ContainerJob : IJob
             {
@@ -440,10 +437,10 @@ namespace Unity.Entities.Tests
                 public void Execute()
                 {}
             }
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
                 var job = new ContainerJob {Container = World.GetExistingSystem<ContainerOwnerSystem>().Container};
-                return job.Schedule(inputDeps);
+                Dependency = job.Schedule(Dependency);
             }
         }
 
@@ -544,54 +541,6 @@ namespace Unity.Entities.Tests
             world.Dispose();
             Assert.AreEqual(0, world.Systems.Count);
         }
-
-        struct BadUnmanagedSystem : ISystemBase
-        {
-            object m_TheThingThatShouldNotBe;
-
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
-        }
-
-        struct AcceptableUnmanagedSystem : ISystemBase
-        {
-            int m_TheThingThatIsOK;
-
-            public void OnCreate(ref SystemState state)
-            {
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            public void OnUpdate(ref SystemState state)
-            {
-            }
-        }
-
-        [Test]
-        [DotsRuntimeFixme]
-        public void CreatingUnmanagedSystemWithManagedTypesThrows()
-        {
-            using (World w = new World("foo"))
-            {
-                w.AddSystem<AcceptableUnmanagedSystem>();
-                w.GetOrCreateSystem<AcceptableUnmanagedSystem>();
-                Assert.Throws<ArgumentException>(() => w.GetOrCreateSystem<BadUnmanagedSystem>());
-                Assert.Throws<ArgumentException>(() => w.AddSystem<BadUnmanagedSystem>());
-            }
-        }
-
     }
 
     [BurstCompile]

@@ -25,8 +25,8 @@ namespace Unity.Entities.Tests
                 Value = math.mul(float4x4.RotateY((float)math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
             });
 
-            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
-            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
+            World.GetOrCreateSystem<LocalToParentSystem>().Update(World.Unmanaged);
             m_Manager.CompleteAllJobs();
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
@@ -49,8 +49,8 @@ namespace Unity.Entities.Tests
                 Value = math.mul(float4x4.RotateY((float)math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
             });
 
-            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
-            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
+            World.GetOrCreateSystem<LocalToParentSystem>().Update(World.Unmanaged);
             m_Manager.CompleteAllJobs();
 
             var expectedChildWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
@@ -62,8 +62,8 @@ namespace Unity.Entities.Tests
                 Value = math.mul(float4x4.RotateY((float)math.PI), float4x4.Translate(new float3(0.0f, 0.0f, 1.0f)))
             });
 
-            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
-            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
+            World.GetOrCreateSystem<LocalToParentSystem>().Update(World.Unmanaged);
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
 
@@ -180,7 +180,7 @@ namespace Unity.Entities.Tests
 
             private void CreateInternal(EntityArchetype bodyArchetype, EntityArchetype rootArchetype, float scaleValue)
             {
-                bodyEntities = new NativeArray<Entity>(16, Allocator.TempJob);
+                bodyEntities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(16, ref World.UpdateAllocator);
 
                 m_Manager.CreateEntity(bodyArchetype, bodyEntities);
 
@@ -288,14 +288,14 @@ namespace Unity.Entities.Tests
 
             public void Update()
             {
-                World.GetOrCreateSystem<EndFrameParentSystem>().Update();
-                World.GetOrCreateSystem<EndFrameCompositeRotationSystem>().Update();
-                World.GetOrCreateSystem<EndFrameCompositeScaleSystem>().Update();
-                World.GetOrCreateSystem<EndFrameParentScaleInverseSystem>().Update();
-                World.GetOrCreateSystem<EndFrameTRSToLocalToWorldSystem>().Update();
-                World.GetOrCreateSystem<EndFrameTRSToLocalToParentSystem>().Update();
-                World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
-                World.GetOrCreateSystem<EndFrameWorldToLocalSystem>().Update();
+                World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);
+                World.GetOrCreateSystem<CompositeRotationSystem>().Update(World.Unmanaged);
+                World.GetOrCreateSystem<CompositeScaleSystem>().Update(World.Unmanaged);
+                World.GetOrCreateSystem<ParentScaleInverseSystem>().Update(World.Unmanaged);
+                World.GetOrCreateSystem<TRSToLocalToWorldSystem>().Update(World.Unmanaged);
+                World.GetOrCreateSystem<TRSToLocalToParentSystem>().Update(World.Unmanaged);
+                World.GetOrCreateSystem<LocalToParentSystem>().Update(World.Unmanaged);
+                World.GetOrCreateSystem<WorldToLocalSystem>().Update(World.Unmanaged);
 
                 // Force complete so that main thread (tests) can have access to direct editing.
                 m_Manager.CompleteAllJobs();
@@ -716,7 +716,7 @@ namespace Unity.Entities.Tests
 
             // Add a lot more than parent count children on same frame
             var childCount = 5;
-            var children = new NativeArray<Entity>(testHierarchy.Entities.Length * childCount, Allocator.TempJob);
+            var children = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(testHierarchy.Entities.Length * childCount, ref World.UpdateAllocator);
             for (int i = 0; i < testHierarchy.Entities.Length; i++)
             {
                 var parent = testHierarchy.Entities[i];
@@ -741,7 +741,6 @@ namespace Unity.Entities.Tests
 
             testHierarchy.Update();
 
-            children.Dispose();
             testHierarchy.Dispose();
         }
 
@@ -755,7 +754,7 @@ namespace Unity.Entities.Tests
             // Add a lot more than parent count children on same frame
             var childCount = 5;
 
-            var children = new NativeArray<Entity>(testHierarchy.Entities.Length * childCount, Allocator.TempJob);
+            var children = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(testHierarchy.Entities.Length * childCount, ref World.UpdateAllocator);
             for (int i = 0; i < testHierarchy.Entities.Length; i++)
             {
                 var parent = testHierarchy.Entities[i];
@@ -782,7 +781,6 @@ namespace Unity.Entities.Tests
             }
 
             testHierarchy.Update();
-            children.Dispose();
             testHierarchy.Dispose();
         }
 
@@ -822,6 +820,67 @@ namespace Unity.Entities.Tests
             var expectedLocalToWorld = new float4x4(float3x3.identity, new float3(42));
 
             TestHierarchy.AssertCloseEnough(expectedLocalToWorld, localToWorld.Value);
+        }
+
+        [Test]
+        public void EnabledHierarchy_CreatesChildBuffer()
+        {
+            Entity SimpleHiearchy()
+            {
+                var parent = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LinkedEntityGroup));
+                var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
+
+                var linkedEntityGroup = m_Manager.GetBuffer<LinkedEntityGroup>(parent);
+                linkedEntityGroup.Add(new LinkedEntityGroup {Value = parent});
+                linkedEntityGroup.Add(new LinkedEntityGroup {Value = child});
+                m_Manager.SetComponentData(child, new Parent {Value = parent});
+
+                return parent;
+            }
+
+            var parentA = SimpleHiearchy();
+            var parentB = SimpleHiearchy();
+
+            var parentSystem = World.GetOrCreateSystem<ParentSystem>();
+
+            // with the hierarchy disabled, updating the transform system doesn't create a child buffer
+            m_Manager.SetEnabled(parentA, false);
+
+            Assert.IsFalse(m_Manager.HasComponent<Child>(parentA));
+            Assert.IsFalse(m_Manager.HasComponent<Child>(parentB));
+            parentSystem.Update(World.Unmanaged);
+            Assert.IsFalse(m_Manager.HasComponent<Child>(parentA));
+            Assert.IsTrue(m_Manager.HasComponent<Child>(parentB));
+
+            // with the hierarchy enabled, updating the transform system creates a child buffer
+            m_Manager.SetEnabled(parentA, true);
+
+            Assert.IsFalse(m_Manager.HasComponent<Child>(parentA));
+            Assert.IsTrue(m_Manager.HasComponent<Child>(parentB));
+            parentSystem.Update(World.Unmanaged);
+            Assert.IsTrue(m_Manager.HasComponent<Child>(parentA));
+            Assert.IsTrue(m_Manager.HasComponent<Child>(parentB));
+        }
+
+        [Test]
+        public void TRS_SetParent_OldParentIsDestroyed()
+        {
+            var parentSystem = World.GetOrCreateSystem<ParentSystem>();
+
+            var parentA = m_Manager.CreateEntity(typeof(LocalToWorld));
+            var parentB = m_Manager.CreateEntity(typeof(LocalToWorld));
+            var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
+
+            m_Manager.SetComponentData(child, new Parent {Value = parentA});
+
+            parentSystem.Update(World.Unmanaged);
+
+            m_Manager.DestroyEntity(parentA);
+            m_Manager.SetComponentData(child, new Parent {Value = parentB});
+
+            parentSystem.Update(World.Unmanaged);
+
+            Assert.AreEqual(parentB, m_Manager.GetComponentData<Parent>(child).Value);
         }
     }
 }

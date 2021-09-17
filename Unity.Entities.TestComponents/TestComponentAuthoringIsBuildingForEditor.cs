@@ -3,6 +3,7 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [ConverterVersion("christopherr", 5)]
+    [AddComponentMenu("")]
     public class TestComponentAuthoringIsBuildingForEditor : MonoBehaviour, IConvertGameObjectToEntity
     {
 

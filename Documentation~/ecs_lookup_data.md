@@ -6,11 +6,11 @@ uid: ecs-data-lookup
 
 The most efficient way to access and modify your ECS data is to use a system with an entity query and job. This provides the best utilization of CPU resources with the fewest memory cache misses. In fact, one of the goals of your data design should be to perform the bulk of your data transformation using the most efficient, fastest path. However, sometimes you need to access an arbitrary component of an arbitrary entity at an arbitrary point in your program.
 
-Given an Entity object, you can look up data in its [IComponentData] and [dynamic buffers]. The method varies depending on whether your code executes in a system using [Entities.ForEach] or using an [IJobChunk] job, or elsewhere on the main thread.
+Given an Entity object, you can look up data in its [IComponentData] and [dynamic buffers]. The method varies depending on whether your code executes in a system using [Entities.ForEach] or using an `IJobChunk` job, or elsewhere on the main thread.
 
 ## Looking up entity data in a system
 
-Use [GetComponent&lt;T&gt;(Entity)] to look up data stored in a component of an arbitrary entity from inside a system's [Entities.ForEach] or [Job.WithCode] function.
+Use [GetComponent&lt;T&gt;(Entity)] to look up data stored in a component of an arbitrary entity from inside a system's [Entities.ForEach] or `Job.WithCode` function.
 
 For example, if you have Target components with an Entity field identifying the entity to target, you can use the following code to rotate the tracking entities toward their target:
 

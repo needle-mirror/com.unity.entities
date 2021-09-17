@@ -12,6 +12,7 @@ namespace Unity.Entities.Serialization
     public interface BinaryWriter : IDisposable
     {
         unsafe void WriteBytes(void* data, int bytes);
+        long Position { get; set; }
     }
 
     public static unsafe class BinaryWriterExtensions
@@ -44,15 +45,26 @@ namespace Unity.Entities.Serialization
             writer.WriteBytes(data.GetUnsafeReadOnlyPtr(), data.Length * UnsafeUtility.SizeOf<T>());
         }
 
-        public static void WriteList<T>(this BinaryWriter writer, NativeList<T> data) where T: struct
+        public static void WriteList<T>(this BinaryWriter writer, NativeList<T> data) where T: unmanaged
         {
             writer.WriteBytes(data.GetUnsafePtr(), data.Length * UnsafeUtility.SizeOf<T>());
+        }
+
+        public static void WriteList<T>(this BinaryWriter writer, NativeList<T> data, int index, int count) where T: unmanaged
+        {
+            if (index + count > data.Length)
+            {
+                throw new ArgumentException("index + count must not go beyond the end of the list");
+            }
+            var size = UnsafeUtility.SizeOf<T>();
+            writer.WriteBytes((byte*)data.GetUnsafePtr() + size*index, count * size);
         }
     }
 
     public interface BinaryReader : IDisposable
     {
         unsafe void ReadBytes(void* data, int bytes);
+        long Position { get; set; }
     }
 
     public static unsafe class BinaryReaderExtensions
@@ -91,14 +103,19 @@ namespace Unity.Entities.Serialization
     }
 
 #if !NET_DOTS
-    public unsafe class StreamBinaryReader : BinaryReader
+    internal unsafe class StreamBinaryReader : BinaryReader
     {
+        internal string FilePath { get; }
 #if UNITY_EDITOR
         private Stream stream;
         private byte[] buffer;
+        public long Position
+        {
+            get => stream.Position;
+            set => stream.Position = value;
+        }
 #else
-        private readonly string filePath;
-        private long bytesRead;
+        public long Position { get; set; }
 #endif
 
         public StreamBinaryReader(string filePath, long bufferSize = 65536)
@@ -106,12 +123,12 @@ namespace Unity.Entities.Serialization
             if (string.IsNullOrEmpty(filePath))
                 throw new ArgumentException("The filepath can neither be null nor empty", nameof(filePath));
 
+            FilePath = filePath;
             #if UNITY_EDITOR
             stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             buffer = new byte[bufferSize];
             #else
-            bytesRead = 0;
-            this.filePath = filePath;
+            Position = 0;
             #endif
         }
 
@@ -141,31 +158,36 @@ namespace Unity.Entities.Serialization
             #else
             var readCmd = new ReadCommand
             {
-                Size = bytes, Offset = bytesRead, Buffer = data
+                Size = bytes, Offset = Position, Buffer = data
             };
-            Assert.IsFalse(string.IsNullOrEmpty(filePath));
+            Assert.IsFalse(string.IsNullOrEmpty(FilePath));
 #if ENABLE_PROFILER && UNITY_2020_2_OR_NEWER
             // When AsyncReadManagerMetrics are available, mark up the file read for more informative IO metrics.
             // Metrics can be retrieved by AsyncReadManagerMetrics.GetMetrics
-            var readHandle = AsyncReadManager.Read(filePath, &readCmd, 1, subsystem: AssetLoadingSubsystem.EntitiesStreamBinaryReader);
+            var readHandle = AsyncReadManager.Read(FilePath, &readCmd, 1, subsystem: AssetLoadingSubsystem.EntitiesStreamBinaryReader);
 #else
-            var readHandle = AsyncReadManager.Read(filePath, &readCmd, 1);
+            var readHandle = AsyncReadManager.Read(FilePath, &readCmd, 1);
 #endif
             readHandle.JobHandle.Complete();
 
             if (readHandle.Status != ReadStatus.Complete)
             {
-                throw new IOException($"Failed to read from {filePath}!");
+                throw new IOException($"Failed to read from {FilePath}!");
             }
-            bytesRead += bytes;
+            Position += bytes;
             #endif
         }
     }
 
-    public unsafe class StreamBinaryWriter : BinaryWriter
+    internal unsafe class StreamBinaryWriter : BinaryWriter
     {
         private Stream stream;
         private byte[] buffer;
+        public long Position
+        {
+            get => stream.Position;
+            set => stream.Position = value;
+        }
 
         public StreamBinaryWriter(string fileName, int bufferSize = 65536)
         {
@@ -205,6 +227,7 @@ namespace Unity.Entities.Serialization
         NativeList<byte> content = new NativeList<byte>(Allocator.Temp);
         public byte* Data => (byte*)content.GetUnsafePtr();
         public int Length => content.Length;
+        public long Position { get; set; }
 
         public void Dispose()
         {
@@ -215,19 +238,32 @@ namespace Unity.Entities.Serialization
 
         public void WriteBytes(void* data, int bytes)
         {
-            int length = content.Length;
-            content.ResizeUninitialized(length + bytes);
-            UnsafeUtility.MemCpy((byte*)content.GetUnsafePtr() + length, data, bytes);
+            content.ResizeUninitialized((int)Position + bytes);
+            UnsafeUtility.MemCpy((byte*)content.GetUnsafePtr() + (int)Position, data, bytes);
+            Position += bytes;
         }
     }
 
     public unsafe class MemoryBinaryReader : BinaryReader
     {
-        byte* content;
+        readonly byte* content;
+        readonly long length;
 
+        public long Position { get; set; }
+
+        [Obsolete("MemoryBinaryReader(byte* content) will be removed. Please use the constructor that also takes the length of the buffer. (RemovedAfter 2021-04-10)")]
         public MemoryBinaryReader(byte* content)
         {
             this.content = content;
+            this.length = long.MaxValue;
+            Position = 0L;
+        }
+
+        public MemoryBinaryReader(byte* content, long length)
+        {
+            this.content = content;
+            this.length = length;
+            Position = 0L;
         }
 
         public void Dispose()
@@ -236,8 +272,79 @@ namespace Unity.Entities.Serialization
 
         public void ReadBytes(void* data, int bytes)
         {
-            UnsafeUtility.MemCpy(data, content, bytes);
-            content += bytes;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (Position + bytes > length)
+                throw new ArgumentException("ReadBytes reads beyond end of memory block");
+#endif
+            UnsafeUtility.MemCpy(data, content + Position, bytes);
+            Position += bytes;
+        }
+        public static explicit operator BurstableMemoryBinaryReader(MemoryBinaryReader src)
+        {
+            return new BurstableMemoryBinaryReader {content = src.content, length = src.length, Position = src.Position};
+        }
+    }
+
+    [BurstCompatible]
+    public unsafe struct BurstableMemoryBinaryReader : BinaryReader
+    {
+        internal byte* content;
+        internal long length;
+
+        public long Position { get; set; }
+
+        public BurstableMemoryBinaryReader(byte* content, long length)
+        {
+            this.content = content;
+            this.length = length;
+            Position = 0L;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public byte ReadByte()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (Position + sizeof(byte) > length)
+                throw new ArgumentException("ReadByte reads beyond end of memory block");
+#endif
+            var res = *(content + Position);
+            Position += sizeof(byte);
+            return res;
+        }
+
+        public int ReadInt()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (Position + sizeof(int) > length)
+                throw new ArgumentException("ReadInt reads beyond end of memory block");
+#endif
+            var res = *(int*) (content + Position);
+            Position += sizeof(int);
+            return res;
+        }
+
+        public ulong ReadULong()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (Position + sizeof(ulong) > length)
+                throw new ArgumentException("ReadULong reads beyond end of memory block");
+#endif
+            var res = *(ulong*) (content + Position);
+            Position += sizeof(ulong);
+            return res;
+        }
+
+        public void ReadBytes(void* data, int bytes)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (Position + bytes > length)
+                throw new ArgumentException("ReadBytes reads beyond end of memory block");
+#endif
+            UnsafeUtility.MemCpy(data, content + Position, bytes);
+            Position += bytes;
         }
     }
 }

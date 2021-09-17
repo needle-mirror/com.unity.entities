@@ -3,32 +3,32 @@
 # ECS Debugging file
 Archetypes:
   Archetype:
-    name: "  - Entity  - EcsComplexEntityRefElement [B]"
+    name: "  - Unity.Entities.Entity  - Unity.Entities.Tests.EcsComplexEntityRefElement [Buffer]"
     TypesCount: 2
     ChunkCount: 1
     ChunkCapacity: 226
     properties: []
   Archetype:
-    name: "  - Entity  - TestComponentData1  - TestComponentData2  - EcsTestData  - EcsIntElement [B]"
+    name: "  - Unity.Entities.Entity  - Unity.Entities.Tests.SerializeTests+TestComponentData1  - Unity.Entities.Tests.SerializeTests+TestComponentData2  - Unity.Entities.Tests.EcsTestData  - Unity.Entities.Tests.EcsIntElement [Buffer]"
     TypesCount: 5
     ChunkCount: 1
     ChunkCapacity: 192
     properties: []
   Archetype:
-    name: "  - Entity  - TestComponentData2  - EcsTestData  - EcsTestData2"
+    name: "  - Unity.Entities.Entity  - Unity.Entities.Tests.SerializeTests+TestComponentData2  - Unity.Entities.Tests.EcsTestData  - Unity.Entities.Tests.EcsTestData2"
     TypesCount: 4
     ChunkCount: 1
     ChunkCapacity: 506
     properties: []
   Archetype:
-    name: "  - Entity  - TestComponentData1  - EcsTestData  - EcsTestData2  - EcsIntElement [B]"
+    name: "  - Unity.Entities.Entity  - Unity.Entities.Tests.SerializeTests+TestComponentData1  - Unity.Entities.Tests.EcsTestData  - Unity.Entities.Tests.EcsTestData2  - Unity.Entities.Tests.EcsIntElement [Buffer]"
     TypesCount: 5
     ChunkCount: 1
     ChunkCapacity: 202
     properties: []
 ChunksData:
   Archetype:
-    name: "  - Entity  - EcsComplexEntityRefElement [B]"
+    name: "  - Unity.Entities.Entity  - Unity.Entities.Tests.EcsComplexEntityRefElement [Buffer]"
     ChunkData:
       Header:
         metaChunkEntity: {index: 0, version: 0}
@@ -48,7 +48,7 @@ ChunksData:
               0001: {Dummy: "2", Entity: "Entity(2:1)"}
               0002: {Dummy: "3", Entity: "Entity(3:1)"}
   Archetype:
-    name: "  - Entity  - TestComponentData1  - TestComponentData2  - EcsTestData  - EcsIntElement [B]"
+    name: "  - Unity.Entities.Entity  - Unity.Entities.Tests.SerializeTests+TestComponentData1  - Unity.Entities.Tests.SerializeTests+TestComponentData2  - Unity.Entities.Tests.EcsTestData  - Unity.Entities.Tests.EcsIntElement [Buffer]"
     ChunkData:
       Header:
         metaChunkEntity: {index: 0, version: 0}
@@ -87,7 +87,7 @@ ChunksData:
               0008: {Value: "9"}
               0009: {Value: "10"}
   Archetype:
-    name: "  - Entity  - TestComponentData2  - EcsTestData  - EcsTestData2"
+    name: "  - Unity.Entities.Entity  - Unity.Entities.Tests.SerializeTests+TestComponentData2  - Unity.Entities.Tests.EcsTestData  - Unity.Entities.Tests.EcsTestData2"
     ChunkData:
       Header:
         metaChunkEntity: {index: 0, version: 0}
@@ -111,7 +111,7 @@ ChunksData:
           Entities:
             Entity(2:1): {value0: "-2", value1: "-2"}
   Archetype:
-    name: "  - Entity  - TestComponentData1  - EcsTestData  - EcsTestData2  - EcsIntElement [B]"
+    name: "  - Unity.Entities.Entity  - Unity.Entities.Tests.SerializeTests+TestComponentData1  - Unity.Entities.Tests.EcsTestData  - Unity.Entities.Tests.EcsTestData2  - Unity.Entities.Tests.EcsIntElement [Buffer]"
     ChunkData:
       Header:
         metaChunkEntity: {index: 0, version: 0}

@@ -67,13 +67,16 @@ string NTypeParameters(int amount)
     return SeparateByComma(Enumerable.Range(0, amount).Select(i=>$"T{i}"));
 }
 
-for (int paramCount=1; paramCount<=maxParamCount; paramCount++)
+for (int paramCount=0; paramCount<=maxParamCount; paramCount++)
 {
     var combinations = AllModeCombinationsFor(paramCount);
     foreach(var combination in combinations)
     {
         WriteLine("    [EntitiesForEachCompatible]");
-        Write($"    public delegate void {combination}<{NTypeParameters(paramCount)}>(");
+        if(combination.Length > 0)
+            Write($"    public delegate void {combination}<{NTypeParameters(paramCount)}>(");
+        else
+            Write("    public delegate void Empty(");
 
         bool first = true;
         int count = 0;
@@ -98,13 +101,20 @@ for (int paramCount=1; paramCount<=maxParamCount; paramCount++)
 public static partial class LambdaForEachDescriptionConstructionMethods
 {
 <#
-for (int paramCount=1; paramCount<=maxParamCount; paramCount++)
+for (int paramCount=0; paramCount<=maxParamCount; paramCount++)
 {
     var combinations = AllModeCombinationsFor(paramCount);
     foreach(var combination in combinations)
     {
         var ts = NTypeParameters(paramCount);
-        WriteLine($"    public static TDescription ForEach<TDescription,{ts}>(this TDescription description, [AllowDynamicValue] {combination}<{ts}> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();");
+        if(combination.Length > 0)
+            WriteLine($"    public static TDescription ForEach<TDescription,{ts}>(this TDescription description, [AllowDynamicValue] {combination}<{ts}> codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();");
+        else
+        {
+            WriteLine("#if !SYSTEM_SOURCEGEN_DISABLED");
+            WriteLine("    public static TDescription ForEach<TDescription>(this TDescription description, [AllowDynamicValue] Empty codeToRun) where TDescription : struct, ISupportForEachWithUniversalDelegate => ThrowCodeGenException<TDescription>();");
+            WriteLine("#endif");
+        }
     }
 }
 #>

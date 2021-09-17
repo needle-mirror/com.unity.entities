@@ -11,7 +11,7 @@ using Unity.Entities.Editor;
 namespace Unity.Entities.CodeGen.Tests
 {
     [TestFixture]
-    public abstract class IntegrationTest : LambdaJobsPostProcessorTestBase
+    public abstract class IntegrationTest
     {
         // Make sure to not check this in with true or your tests will always pass!
         readonly bool overwriteExpectationWithReality = false;
@@ -84,7 +84,7 @@ namespace Unity.Entities.CodeGen.Tests
 
             string TrimEnd(string source, string value)
             {
-                return !source.EndsWith(value) ? source : source.Remove(source.LastIndexOf(value));
+                return !source.EndsWith(value, StringComparison.Ordinal) ? source : source.Remove(source.LastIndexOf(value, StringComparison.Ordinal));
             }
         }
 
@@ -136,7 +136,8 @@ namespace Unity.Entities.CodeGen.Tests
                     continue;
                 }
 
-                if (expectedLine == actualLine)
+                string StripNewLines(string input) => Regex.Replace(input, @"\r\n?|\n", "");
+                if (StripNewLines(expectedLine) == StripNewLines(actualLine))
                 {
                     continue;
                 }

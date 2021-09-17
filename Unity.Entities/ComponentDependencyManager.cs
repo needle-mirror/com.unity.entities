@@ -110,7 +110,7 @@ namespace Unity.Entities
             m_Marker = new ProfilerMarker("CompleteAllJobs");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void AssertCompleteSyncPoint()
         {
             if (JobsUtility.IsExecutingJob)
@@ -201,7 +201,7 @@ namespace Unity.Entities
         {
             var typeArrayIndex = m_TypeArrayIndices[type & TypeManager.ClearFlagsMask];
             if (typeArrayIndex == NullTypeIndex)
-                return true;
+                return false;
 
             var writer = m_DependencyHandles[typeArrayIndex].WriteFence;
             if (JobHandle.CheckFenceIsDependencyOrDidSyncFence(dependency, writer))

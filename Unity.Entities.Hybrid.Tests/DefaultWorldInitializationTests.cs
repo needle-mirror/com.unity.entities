@@ -44,7 +44,7 @@ namespace Unity.Entities.Tests
             Assert.IsNotNull(m_World.GetExistingSystem<CyclicReferenceSystemC>(), nameof(CyclicReferenceSystemC) + " was not created");
         }
 
-        class SystemWithGetOrCreate : SystemBase
+        partial class SystemWithGetOrCreate : SystemBase
         {
             protected override void OnCreate()
             {
@@ -57,14 +57,14 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class GetOrCreateTargetSystem : SystemBase
+        partial class GetOrCreateTargetSystem : SystemBase
         {
             protected override void OnUpdate()
             {
             }
         }
 
-        class CyclicReferenceSystemA : SystemBase
+        partial class CyclicReferenceSystemA : SystemBase
         {
             protected override void OnCreate()
             {
@@ -75,7 +75,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() {}
         }
 
-        class CyclicReferenceSystemB : SystemBase
+        partial class CyclicReferenceSystemB : SystemBase
         {
             protected override void OnCreate()
             {
@@ -86,7 +86,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate() {}
         }
 
-        class CyclicReferenceSystemC : SystemBase
+        partial class CyclicReferenceSystemC : SystemBase
         {
             protected override void OnCreate()
             {

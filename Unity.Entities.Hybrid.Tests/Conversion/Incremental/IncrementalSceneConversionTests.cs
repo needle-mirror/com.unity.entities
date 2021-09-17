@@ -1,4 +1,3 @@
-#if UNITY_2020_2_OR_NEWER
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
@@ -15,12 +14,14 @@ namespace Unity.Entities.Tests.Conversion
         private TestWithObjects _Objects;
         private World DestinationWorld;
         private World ConversionWorld;
+        private EntityDiffer.CachedComponentChanges CachedComponentChanges;
 
         [SetUp]
         public void SetUp()
         {
             _Objects.SetUp();
             DestinationWorld = new World("Test World");
+            CachedComponentChanges = new EntityDiffer.CachedComponentChanges(1024);
         }
 
         [TearDown]
@@ -29,6 +30,7 @@ namespace Unity.Entities.Tests.Conversion
             ConversionWorld?.Dispose();
             DestinationWorld.Dispose();
             _Objects.TearDown();
+            CachedComponentChanges.Dispose();
         }
 
         [OneTimeSetUp]
@@ -67,10 +69,10 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         private const GameObjectConversionUtility.ConversionFlags ConversionFlags =
-            GameObjectConversionUtility.ConversionFlags.GameViewLiveLink |
+            GameObjectConversionUtility.ConversionFlags.GameViewLiveConversion |
             GameObjectConversionUtility.ConversionFlags.AddEntityGUID;
 
-        static void CheckAgainstFullConversion(World destinationWorld)
+        static void CheckAgainstFullConversion(World destinationWorld, ref EntityDiffer.CachedComponentChanges cachedComponentChanges)
         {
             var dstEntityManager = destinationWorld.EntityManager;
             using (var fullConversionWorld = new World("FullConversion"))
@@ -90,6 +92,7 @@ namespace Unity.Entities.Tests.Conversion
                     {
                         EntityDiffer.PrecomputeBlobAssetCache(fullConversionWorld.EntityManager, EntityManagerDiffer.EntityGuidQueryDesc, blobAssetCache);
                         using (var changes = EntityDiffer.GetChanges(
+                            ref cachedComponentChanges,
                             dstEntityManager,
                             fullConversionWorld.EntityManager,
                             options,
@@ -119,7 +122,7 @@ namespace Unity.Entities.Tests.Conversion
             args.EnsureFullyInitialized();
             GameObjectConversionUtility.ConvertIncremental(ConversionWorld, ConversionFlags, ref args);
             args.Dispose();
-            CheckAgainstFullConversion(DestinationWorld);
+            CheckAgainstFullConversion(DestinationWorld, ref CachedComponentChanges);
         }
 
         [Test]
@@ -243,4 +246,3 @@ namespace Unity.Entities.Tests.Conversion
         }
     }
 }
-#endif

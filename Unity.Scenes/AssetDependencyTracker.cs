@@ -1,4 +1,4 @@
-﻿// #define DEBUG_ASSET_DEPENDENCY_TRACKER
+// #define DEBUG_ASSET_DEPENDENCY_TRACKER
 #if UNITY_EDITOR
 using System;
 using System.Diagnostics;
@@ -11,7 +11,7 @@ namespace Unity.Scenes
     //@TODO: This doesn't yet automatically handle triggering a refresh if a dependent asset was changed on disk but refresh hasn't been called yet.
     //       Fixing that requires 20.2 branch from asset pipeline team to land.
 
-    internal class AssetDependencyTracker<T> : IDisposable where T : struct, IEquatable<T>
+    internal class AssetDependencyTracker<T> : IDisposable where T : unmanaged, IEquatable<T>
     {
         public struct Completed
         {
@@ -35,26 +35,42 @@ namespace Unity.Scenes
             public bool Async;
         }
 
+        struct RefCount
+        {
+            public int Async;
+            public int Synchronous;
+
+            public bool ChangRefCount(int refcount, bool async)
+            {
+                if (async)
+                    Async += refcount;
+                else
+                    Synchronous += refcount;
+                return Async != 0 || Synchronous != 0;
+            }
+        }
+
         private NativeMultiHashMap<GUID, ReportedValue> _AllAssets;
+        private NativeHashMap<GUID, RefCount>               _AllAssetsRefCount;
 
         private NativeList<GUID> _InProgress;
         private NativeList<Hash128> _ArtifactCache;
 
-        Type _AssetImportType;
-        bool _RequestRefresh;
+        Type   _AssetImportType;
+        bool   _RequestRefresh;
 
         // Tracks if any dependencies have changed anywhere in the project.
         // When they change we have to call ProduceAsset
-        ulong _GlobalArtifactDependencyVersion;
+        ulong  _GlobalArtifactDependencyVersion;
         // Tracks if any artifacts might have completed imported.
         // We need to lookup if something has changed based on this.
-        ulong _GlobalArtifactProcessedVersion;
+        ulong  _GlobalArtifactProcessedVersion;
 
-        int _ProgressID;
-        bool _UpdateProgressBar;
-        int _TotalProgressAssets;
+        int    _ProgressID;
+        bool   _UpdateProgressBar;
+        int    _TotalProgressAssets;
         string _ProgressSummary;
-        bool _IsAssetWorker;
+        bool   _IsAssetWorker;
 
         public AssetDependencyTracker(Type importerType, string progressSummary)
         {
@@ -63,6 +79,7 @@ namespace Unity.Scenes
             _ProgressSummary = progressSummary;
 
              _AllAssets = new NativeMultiHashMap<GUID, ReportedValue>(1024, Allocator.Persistent);
+             _AllAssetsRefCount = new NativeHashMap<GUID, RefCount>(1024, Allocator.Persistent);
              _InProgress = new NativeList<GUID>(1024, Allocator.Persistent);
             _ArtifactCache = new NativeList<Hash128>(1024, Allocator.Persistent);
             _IsAssetWorker = AssetDatabaseCompatibility.IsAssetImportWorkerProcess();
@@ -74,27 +91,38 @@ namespace Unity.Scenes
                 Progress.Remove(_ProgressID);
 
             _AllAssets.Dispose();
+            _AllAssetsRefCount.Dispose();
             _InProgress.Dispose();
             _ArtifactCache.Dispose();
         }
 
         public void Add(GUID asset, T userKey, bool async)
         {
-            if (GetIterator(asset, userKey, out var temp))
+            if (GetIterator(asset, userKey, out var temp, out var temp2))
                 throw new ArgumentException("Add must not be called with an asset & userKey that has already been Added.");
 
             LogDependencyTracker($"Add: {asset}");
-            // Progress is tracked per asset (Not per asset / userKey combination)
-            // So we only increase _TotalProgressAssets when we see a new asset
-            if (!_AllAssets.ContainsKey(asset))
-            {
-                _TotalProgressAssets += 1;
-                _UpdateProgressBar = true;
-            }
 
             var value = new ReportedValue
                 {ReportedHash = default, UserKey = userKey, Async = async, DidReport = false};
             _AllAssets.Add(asset, value);
+
+            //@TODO: Don't trigger full _GlobalArtifactDependencyVersion if no new assets were added?
+            var refcount = new RefCount();
+            refcount.ChangRefCount(1, async);
+            if (_AllAssetsRefCount.TryAdd(asset, refcount))
+            {
+                // Progress is tracked per asset (Not per asset / userKey combination)
+                // So we only increase _TotalProgressAssets when we see a new asset
+                _TotalProgressAssets += 1;
+                _UpdateProgressBar = true;
+            }
+            else
+            {
+                refcount = _AllAssetsRefCount[asset];
+                refcount.ChangRefCount(1, async);
+                _AllAssetsRefCount[asset] = refcount;
+            }
 
             // For now we just ask the asset pipeline to produce all assets when adding a new asset
             _GlobalArtifactDependencyVersion = 0;
@@ -104,14 +132,19 @@ namespace Unity.Scenes
         {
             LogDependencyTracker($"Remove: {asset}");
 
-            if (GetIterator(asset, userKey, out var iterator))
+            if (GetIterator(asset, userKey, out var iterator, out var reportedValue))
             {
                 _AllAssets.Remove(iterator);
 
-                // Progress is tracked per asset (Not per asset / userKey combination)
-                // So we only decrease _TotalProgressAssets when we remove that asset completely
-                if (!_AllAssets.ContainsKey(asset))
+                var refcount = _AllAssetsRefCount[asset];
+                if (refcount.ChangRefCount(-1, reportedValue.Async))
+                    _AllAssetsRefCount[asset] = refcount;
+                else
                 {
+                    _AllAssetsRefCount.Remove(asset);
+
+                    // Progress is tracked per asset (Not per asset / userKey combination)
+                    // So we only decrease _TotalProgressAssets when we remove that asset completely
                     _TotalProgressAssets -= 1;
                     _UpdateProgressBar = true;
                 }
@@ -168,21 +201,14 @@ namespace Unity.Scenes
                 _GlobalArtifactDependencyVersion = globalArtifactDependencyVersion;
                 LogDependencyTracker($"Update refresh: {globalArtifactDependencyVersion}");
 
-                using (var all = _AllAssets.GetKeyArray(Allocator.TempJob))
+                using (var all = _AllAssetsRefCount.GetKeyArray(Allocator.TempJob))
                 using (var allSync = new NativeList<GUID>(Allocator.TempJob))
                 {
                     // Get all Synchronous import assets
-                    for (int i = 0; i != all.Length; i++)
+                    foreach (var asset in _AllAssetsRefCount)
                     {
-                        var guid = all[i];
-                        foreach (var value in _AllAssets.GetValuesForKey(all[i]))
-                        {
-                            if (!value.Async)
-                            {
-                                allSync.Add(guid);
-                                break;
-                            }
-                        }
+                        if (asset.Value.Synchronous != 0)
+                            allSync.Add(asset.Key);
                     }
 
                     // Process any sync imported assets
@@ -322,9 +348,9 @@ namespace Unity.Scenes
             get { return _InProgress.Length; }
         }
 
-        bool GetIterator(GUID asset, T userKey, out NativeMultiHashMapIterator<GUID> iterator)
+        bool GetIterator(GUID asset, T userKey, out NativeMultiHashMapIterator<GUID> iterator, out ReportedValue value)
         {
-            if (_AllAssets.TryGetFirstValue(asset, out var value, out iterator))
+            if (_AllAssets.TryGetFirstValue(asset, out value, out iterator))
             {
                 do
                 {
@@ -333,6 +359,7 @@ namespace Unity.Scenes
                 } while (_AllAssets.TryGetNextValue(out value, ref iterator));
             }
 
+            value = default;
             return false;
         }
 

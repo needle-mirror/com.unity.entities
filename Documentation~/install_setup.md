@@ -2,61 +2,70 @@
 uid: install-setup
 ---
 
-# DOTS Project Setup
+# Entities installation and setup
 
-Compared to creating a classic Unity project, a few additional steps are required for a DOTS project.
+When you set up an Entities project, there are additional steps you must follow. This page contains information on the packages included in the Entities release, and how to install them.
 
 ## Package installation
 
+The Entities packages aren't listed in the Package Manager, even if you've enabled the **Preview Packages** setting. You can use the following ways to install the Entities packages:
+
+* Use **Add package from git URL...** under the **+** menu at the top left of the package manager to add packages either by name (such as `com.unity.entities`), or by Git URL (but this option isn't available for DOTS packages). If you want to use a Git URL instead of just a name in the Package Manager, you must have the git command line tools installed.
+* Directly edit the `Packages\manifest.json` file in the Unity project. You must add both the package name and its version to the file, which you can find by looking at the documentation of each package (such as `"com.unity.entities" : "x.x.x-preview.x"`).
+
+For more information, see the documentation on [Installing hidden packages](https://docs.unity3d.com/Packages/Installation/manual/index.html).
+
+## Entities 0.50 packages
+
+The following table lists the ECS-based packages that have been tested together with Unity 2020 LTS:
+
+| **Package name** | **Version number** |
+|---|---|
+|Entities (this package)|0.50.0|
+|[Hybrid Renderer](https://docs.unity3d.com/Packages/com.unity.rendering.hybrid@latest)|0.50.0|
+|[Netcode](https://docs.unity3d.com/Packages/com.unity.netcode@latest)|	0.50.0|
+|[Physics](https://docs.unity3d.com/Packages/com.unity.physics@latest)|	0.50.0|
+
+The following packages are also automatically included when installing the Entities package:
+
+|**Package name**|**Version number**|
+|---|---|
+|[Burst](https://docs.unity3d.com/Packages/com.unity.burst@latest)|	1.6.4|
+|[Collections](https://docs.unity3d.com/Packages/com.unity.collections@latest)|	1.2.3|
+|[Jobs](https://docs.unity3d.com/Packages/com.unity.jobs@latest)|0.50.0|
+|[Mathematics](https://docs.unity3d.com/Packages/com.unity.mathematics@latest)|	1.2.6|
+
+## IDE support
+Entities 0.50 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
+
+* Visual Studio 2022+
+* Rider 2021.3.3+
+
+## Building your application
+
+To build your application, you must install the [Entities Platforms package](https://docs.unity3d.com/Packages/com.unity.platforms@latest). For more information on how to build your application, see the documentation on [Building an Entities project](ecs_building_projects.md).
+
+## IDE support
+Entities 0.50 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
+
+* Visual Studio 2022+
+* Rider 2021.3.3+
+
+## Building your application
+
+To build your application, you must install the [Entities Platforms package](https://docs.unity3d.com/Packages/com.unity.platforms@latest). For more information on how to build your application, see the documentation on [Building an Entities project](ecs_building_projects.md).
+
+## Supported platforms
+
+The following platforms are supported build targets for Entities projects:
+
+* **Mobile:** Android, iOS **Note:** Hybrid Renderer only supports Vulkan on Android in 0.50.
+* **Desktop:** Windows, macOS, Linux
+* **Consoles:** Xbox (One, Series), Playstation (4, 5)
+
+## Domain Reload setting
+
+To get the best performance in your Entities project, you should disable Unity's [Domain Reload](https://docs.unity3d.com/Manual/ConfigurableEnterPlayMode.html) setting. To do this, go to **Edit &gt; Project Settings &gt; Editor** menu, and enable the **Enter Play Mode Options** setting, but leave the **Reload Domain** and **Reload Scene** boxes disabled.
+
 > [!NOTE]
-> In all following steps, check each package's documentation to determine which versions of Unity are compatible with the package.
-
-Starting with Unity 2020.1, the DOTS packages are not listed in the package manager, even when preview packages are enabled. There are two alternative options to install those packages:
-
-* You can use "Add package from git URL..." under the **+** menu at the top left of the package manager to add packages either by name (such as `com.unity.entities`), or by git URL (but this option isn't available for DOTS packages). Note that it might take a few moments before the package starts installing.
-* Alternatively, you can add DOTS packages by directly editing the `Packages\manifest.json` file in your project. This file requires not only the package name but also a version which can be found by looking at the documentation of each package (such as `"com.unity.entities" : "x.x.x-preview.x"`).
-
-> [!NOTE]
-> The use of a Git URL instead of just a name in the Package Manager requires having the git command line tools installed.
-
-Follow the link for more information about [installing hidden packages](https://docs.unity3d.com/Packages/Installation/manual/index.html).
-
-## Recommended packages
-
-Check the overview of the currently available [DOTS packages](https://unity.com/dots/packages).
-
-The recommended set of core packages to be added to a DOTS project is:
-
-* [com.unity.entities](https://docs.unity3d.com/Packages/com.unity.entities@latest)
-* [com.unity.rendering.hybrid](https://docs.unity3d.com/Packages/com.unity.rendering.hybrid@latest)
-* [com.unity.dots.editor](https://docs.unity3d.com/Packages/com.unity.dots.editor@latest)
-
-## Domain Reload
-
-In most DOTS projects, you'll want to avoid the slow [Domain Reload](https://docs.unity3d.com/Manual/ConfigurableEnterPlayMode.html) that occurs upon entering playmode. To do this, under the `"Edit > Project Settings > Editor"` menu, check the "Enter Play Mode Options" checkbox but leave the "Reload Domain" and "Reload Scene" boxes unchecked. Keep in mind that you must [be mindful of your use of static fields and static event handlers](https://docs.unity3d.com/Manual/DomainReloading.html) when Domain Reloads are disabled.
-
-## Standalone Builds
-
-Making standalone builds of DOTS projects requires installing the corresponding platform package for each of your target platforms:
-
-* [com.unity.platforms.android](https://docs.unity3d.com/Packages/com.unity.platforms.android@latest)
-* [com.unity.platforms.ios](https://docs.unity3d.com/Packages/com.unity.platforms.ios@latest)
-* [com.unity.platforms.linux](https://docs.unity3d.com/Packages/com.unity.platforms.linux@latest)
-* [com.unity.platforms.macos](https://docs.unity3d.com/Packages/com.unity.platforms.macos@latest)
-* [com.unity.platforms.web](https://docs.unity3d.com/Packages/com.unity.platforms.web@latest)
-* [com.unity.platforms.windows](https://docs.unity3d.com/Packages/com.unity.platforms.windows@latest)
-
-After installing the platform packages you need, create a "Classic Build Configuration" asset for each platform (via the `"Assets > Create > Build"` menu). The properties of that asset will contain a "Scene List", which is the only way of adding subscenes to a standalone project. Make sure you add at least one scene or that the "Build Current Scene" checkbox is toggled on.
-
-> [!WARNING]
-> **Do not use** the Build and Run menu "`File > Build and Run`" to build DOTS projects. It might work in some cases but this approach is not supported. You must build your project using the Build or Build and Run buttons at the top of the Build Configuration Asset Inspector window.
->
-> In particular, entity subscenes are not included in builds made via the Build and Run menu and will fail to load with the following error message showing up in a development build: "Could not open `<path>/<guid>.entityheader` for read".)
-
-## Live Link Build
-
-In order to connect the editor to a player and have the changes made to the authoring GameObjects synchronized, a Live Link Build has to be created. Simply add the "Live Link" component to the build configuration (and apply the changes).
-
-![](images/livelink_menu.png)
-
-The build configuration can now be selected in the Live Link menu (right of the Play/Pause/Stop buttons) via "Start Live Link ...". Make sure only one editor is running on the host machine, as having multiple editors running will confuse the player.
+> If you disable **Domain Reloads** [be mindful of your use of static fields and static event handlers](https://docs.unity3d.com/Manual/DomainReloading.html).

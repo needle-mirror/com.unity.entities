@@ -6,6 +6,8 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Unity.Burst;
+using Unity.Collections;
 
 #if !UNITY_PORTABLE_TEST_RUNNER
 using System.Text.RegularExpressions;
@@ -20,9 +22,9 @@ namespace Unity.Entities.Tests
         {
         }
 
-        private class TestSystemBase : JobComponentSystem
+        private partial class TestSystemBase : SystemBase
         {
-            protected override JobHandle OnUpdate(JobHandle inputDeps) => throw new System.NotImplementedException();
+            protected override void OnUpdate() => throw new System.NotImplementedException();
         }
 
         public override void Setup()
@@ -42,6 +44,17 @@ namespace Unity.Entities.Tests
 
         class TestSystem : TestSystemBase
         {
+            protected override void OnUpdate() { Dependency = default; }
+        }
+
+        class TestSystem2 : TestSystemBase
+        {
+            protected override void OnUpdate() { Dependency = default; }
+        }
+
+        class TestSystem3 : TestSystemBase
+        {
+            protected override void OnUpdate() { Dependency = default; }
         }
 
         [Test]
@@ -58,9 +71,11 @@ namespace Unity.Entities.Tests
         [UpdateAfter(typeof(Sibling2System))]
         class Sibling1System : TestSystemBase
         {
+            protected override void OnUpdate()  { Dependency = default; }
         }
         class Sibling2System : TestSystemBase
         {
+            protected override void OnUpdate()  { Dependency = default; }
         }
 
         [Test]
@@ -147,7 +162,7 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(foundCycleMatch);
         }
 
-#endif // UNITY_DOTSRUNTIME_IL2CPP
+#endif
 
         class Unconstrained1System : TestSystemBase
         {
@@ -506,14 +521,13 @@ namespace Unity.Entities.Tests
             parent.Operations.Clear();
         }
 
-        class TrackUpdatedSystem : JobComponentSystem
+        partial class TrackUpdatedSystem : SystemBase
         {
             public List<ComponentSystemBase> Updated;
 
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
                 Updated.Add(this);
-                return inputDeps;
             }
         }
 
@@ -835,7 +849,36 @@ namespace Unity.Entities.Tests
         }
 
         [UpdateAfter(typeof(TestSystem))]
-        struct MyUnmanagedSystem : ISystemBase
+        struct MyUnmanagedSystem : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+            {
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+            }
+        }
+
+        struct MyUnmanagedSystem2 : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+            {
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+            }
+        }
+        struct MyUnmanagedSystem3 : ISystem
         {
             public void OnCreate(ref SystemState state)
             {
@@ -901,7 +944,7 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(expectedSystems, group.m_systemsToRemove);
         }
 
-        struct UnmanagedTestSystem : ISystemBase
+        struct UnmanagedTestSystem : ISystem
         {
             public void OnCreate(ref SystemState state)
             {
@@ -957,10 +1000,10 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void ComponentSystemGroup_NullFixedRateManager_DoesntThrow()
+        public void ComponentSystemGroup_NullRateManager_DoesntThrow()
         {
             var group = World.CreateSystem<TestGroup>();
-            group.FixedRateManager = null;
+            group.RateManager = null;
             Assert.DoesNotThrow(() => { group.Update(); });
         }
 
@@ -996,6 +1039,12 @@ namespace Unity.Entities.Tests
             {
                 EnableSystemSorting = false;
             }
+
+            // Toggling sorting at runtime is NOT an expected use case; this is a hack for testing purposes
+            public void SetSortingEnabled(bool enabled)
+            {
+                EnableSystemSorting = enabled;
+            }
         }
 
         [Test]
@@ -1016,25 +1065,113 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void ComponentSystemGroup_RemoveFromManuallySortedGroup_Throws()
+        public void ComponentSystemGroup_ReEnableSorting_SystemsAreSorted()
         {
             var group = World.CreateSystem<NoSortGroup>();
-            var sys = World.CreateSystem<TestSystem>();
-            group.AddSystemToUpdateList(sys);
-            Assert.Throws<InvalidOperationException>(() => group.RemoveSystemFromUpdateList(sys));
+            var sibling1 = World.CreateSystem<Sibling1System>();
+            var sibling2 = World.CreateSystem<Sibling2System>();
+            group.AddSystemToUpdateList(sibling1);
+            group.AddSystemToUpdateList(sibling2);
+            CollectionAssert.AreEqual(new TestSystemBase[]{sibling1, sibling2}, group.Systems);
+            // With sorting disabled, the group's systems are updated in insertion order.
+            group.Update();
+            CollectionAssert.AreEqual(new TestSystemBase[]{sibling1, sibling2}, group.Systems);
+            // sibling1 has [UpdateAfter(sibling2)], so if sorting has happened, they should update as [sibling2, sibling1]
+            group.SetSortingEnabled(true);
+            group.Update();
+            CollectionAssert.AreEqual(new TestSystemBase[]{sibling2, sibling1}, group.Systems);
         }
 
-        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
         [Test]
-        public void ComponentSystemGroup_RemoveUnmanagedFromManuallySortedGroup_Throws()
+        public unsafe void ComponentSystemGroup_RemoveManagedFromManuallySortedGroup()
         {
             var group = World.CreateSystem<NoSortGroup>();
-            var sysHandle = World.AddSystem<MyUnmanagedSystem>().Handle;
-            group.AddUnmanagedSystemToUpdateList(sysHandle);
-            Assert.Throws<InvalidOperationException>(() => group.RemoveUnmanagedSystemFromUpdateList(sysHandle));
+            var unmanaged1  = World.AddSystem<MyUnmanagedSystem>();
+            var unmanaged2 = World.AddSystem<MyUnmanagedSystem2>();
+            var unmanaged3 = World.AddSystem<MyUnmanagedSystem3>();
+
+            var managed1 = World.CreateSystem<TestSystem>();
+            var managed2 = World.CreateSystem<TestSystem2>();
+            var managed3 = World.CreateSystem<TestSystem3>();
+
+            group.AddUnmanagedSystemToUpdateList(unmanaged1.Handle);
+            group.AddSystemToUpdateList(managed1);
+            group.AddUnmanagedSystemToUpdateList(unmanaged2.Handle);
+            group.AddSystemToUpdateList(managed2);
+            group.AddUnmanagedSystemToUpdateList(unmanaged3.Handle);
+            group.AddSystemToUpdateList(managed3);
+
+            group.RemoveSystemFromUpdateList(managed2);
+
+            group.Update();
+
+            var expectedUpdateList = new[]
+            {
+                new UpdateIndex(0, false),
+                new UpdateIndex(0, true),
+                new UpdateIndex(1, false),
+                new UpdateIndex(2, false),
+                new UpdateIndex(1, true)
+            };
+
+            for (int i = 0; i < expectedUpdateList.Length; ++i)
+            {
+                Assert.AreEqual(expectedUpdateList[i], group.m_MasterUpdateList[i]);
+            }
+
+            Assert.AreEqual(unmanaged1.Handle.UntypedHandle,group.m_UnmanagedSystemsToUpdate[0]);
+            Assert.AreEqual(managed1.CheckedState()->m_SystemID,group.m_systemsToUpdate[0].CheckedState()->m_SystemID);
+            Assert.AreEqual(unmanaged2.Handle.UntypedHandle,group.m_UnmanagedSystemsToUpdate[1]);
+            Assert.AreEqual(unmanaged3.Handle.UntypedHandle,group.m_UnmanagedSystemsToUpdate[2]);
+            Assert.AreEqual(managed3.CheckedState()->m_SystemID,group.m_systemsToUpdate[1].CheckedState()->m_SystemID);
+
         }
 
-        [DotsRuntimeFixme]  // DOTSR-1591 Need ILPP support for ISystemBase in DOTS Runtime
+        [Test]
+        public unsafe void ComponentSystemGroup_RemoveUnmanagedFromManuallySortedGroup()
+        {
+            var group = World.CreateSystem<NoSortGroup>();
+            var unmanaged1  = World.AddSystem<MyUnmanagedSystem>();
+            var unmanaged2 = World.AddSystem<MyUnmanagedSystem2>();
+            var unmanaged3 = World.AddSystem<MyUnmanagedSystem3>();
+
+            var managed1 = World.CreateSystem<TestSystem>();
+            var managed2 = World.CreateSystem<TestSystem2>();
+            var managed3 = World.CreateSystem<TestSystem3>();
+
+            group.AddUnmanagedSystemToUpdateList(unmanaged1.Handle);
+            group.AddSystemToUpdateList(managed1);
+            group.AddUnmanagedSystemToUpdateList(unmanaged2.Handle);
+            group.AddSystemToUpdateList(managed2);
+            group.AddUnmanagedSystemToUpdateList(unmanaged3.Handle);
+            group.AddSystemToUpdateList(managed3);
+
+            group.RemoveUnmanagedSystemFromUpdateList(unmanaged2.Handle);
+
+            group.Update();
+
+            var expectedUpdateList = new[]
+            {
+                new UpdateIndex(0, false),
+                new UpdateIndex(0, true),
+                new UpdateIndex(1, true),
+                new UpdateIndex(1, false),
+                new UpdateIndex(2, true)
+            };
+
+            for (int i = 0; i < expectedUpdateList.Length; ++i)
+            {
+                Assert.AreEqual(expectedUpdateList[i], group.m_MasterUpdateList[i]);
+            }
+
+            Assert.AreEqual(unmanaged1.Handle.UntypedHandle,group.m_UnmanagedSystemsToUpdate[0]);
+            Assert.AreEqual(managed1.CheckedState()->m_SystemID,group.m_systemsToUpdate[0].CheckedState()->m_SystemID);
+            Assert.AreEqual(managed2.CheckedState()->m_SystemID,group.m_systemsToUpdate[1].CheckedState()->m_SystemID);
+            Assert.AreEqual(unmanaged3.Handle.UntypedHandle,group.m_UnmanagedSystemsToUpdate[1]);
+            Assert.AreEqual(managed3.CheckedState()->m_SystemID,group.m_systemsToUpdate[2].CheckedState()->m_SystemID);
+
+        }
+
         [Test]
         public void ComponentSystemGroup_DisableAutoSorting_UpdatesInInsertionOrder()
         {
@@ -1068,44 +1205,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(expectedUpdateList[i], noSortGroup.m_MasterUpdateList[i]);
             }
-        }
-
-        struct UnmanagedSystemWithSyncPointAfterSchedule : ISystemBase
-        {
-            struct MyJob : IJobChunk
-            {
-                public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
-                {
-                }
-            }
-
-            private EntityQuery m_Query;
-
-            public void OnCreate(ref SystemState state)
-            {
-                state.EntityManager.CreateEntity(typeof(EcsTestData));
-                m_Query = state.GetEntityQuery(typeof(EcsTestData));
-            }
-
-            public void OnDestroy(ref SystemState state)
-            {
-            }
-
-            public void OnUpdate(ref SystemState state)
-            {
-                state.GetComponentTypeHandle<EcsTestData>();
-                state.Dependency = new MyJob().ScheduleParallel(m_Query, state.Dependency);
-                state.EntityManager.CreateEntity();
-            }
-        }
-
-        [Test]
-        public void ISystemBase_CanHaveSyncPointAfterSchedule()
-        {
-            var group = World.CreateSystem<TestGroup>();
-            var sys = World.AddSystem<UnmanagedSystemWithSyncPointAfterSchedule>();
-            group.AddSystemToUpdateList(sys.Handle);
-            Assert.DoesNotThrow(() => group.Update());
         }
     }
 }

@@ -17,11 +17,10 @@ namespace Unity.Entities.Tests
 
             var entity = m_Manager.CreateEntity(archetype);
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(1, arr.Length);
             Assert.AreEqual(42, arr[0].value);
 
-            arr.Dispose();
             m_Manager.DestroyEntity(entity);
         }
 
@@ -66,7 +65,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(entities[i], new EcsTestData(i));
             }
 
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(entities.Length, arr.Length);
             Dictionary<int, bool> values = new Dictionary<int, bool>();    // Tiny doesn't support HashSet, does support Dictionary
             for (int i = 0; i < arr.Length; i++)
@@ -78,7 +77,6 @@ namespace Unity.Entities.Tests
                 values.Add(i, true);
             }
 
-            arr.Dispose();
             for (int i = 0; i < entities.Length; i++)
                 m_Manager.DestroyEntity(entities[i]);
         }
@@ -104,7 +102,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(entities[i], new EcsTestData(i));
             }
 
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(entities.Length, arr.Length);
             Dictionary<int, bool> values = new Dictionary<int, bool>();    // Tiny doesn't support HashSet, does support Dictionary
             for (int i = 0; i < arr.Length; ++i)
@@ -116,7 +114,6 @@ namespace Unity.Entities.Tests
                 values.Add(i, true);
             }
 
-            arr.Dispose();
             for (int i = 0; i < entities.Length; i++)
                 m_Manager.DestroyEntity(entities[i]);
         }
@@ -149,7 +146,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(entities.Length / 2, arr.Length);
             Dictionary<int, bool> values = new Dictionary<int, bool>();    // Tiny doesn't support HashSet, does support Dictionary
             for (int i = 0; i < arr.Length; i++)
@@ -167,8 +164,7 @@ namespace Unity.Entities.Tests
                 if (i % 2 == 0)
                     m_Manager.RemoveComponent<EcsTestData>(entities[i]);
             }
-            arr.Dispose();
-            arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(entities.Length / 4, arr.Length);
             values = new Dictionary<int, bool>();
             for (int i = 0; i < arr.Length; i++)
@@ -186,7 +182,6 @@ namespace Unity.Entities.Tests
                 if (i % 2 == 0)
                     m_Manager.DestroyEntity(entities[i]);
             }
-            arr.Dispose();
         }
 
         [Test]
@@ -314,7 +309,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(archetype);
 
             m_Manager.SetComponentData(entity, new EcsTestData(42));
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(1, arr.Length);
             Assert.AreEqual(42, arr[0].value);
 
@@ -323,7 +318,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, classArr.Length);
             Assert.AreEqual("SomeString", classArr[0].value);
 
-            arr.Dispose();
             m_Manager.DestroyEntity(entity);
         }
 
@@ -350,7 +344,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(entities[i], new EcsTestManagedComponent() { value = i.ToString() });
             }
 
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             var classArr = group.ToComponentDataArray<EcsTestManagedComponent>();
             Assert.AreEqual(entities.Length, arr.Length);
             Assert.AreEqual(entities.Length, classArr.Length);
@@ -371,7 +365,6 @@ namespace Unity.Entities.Tests
                 classValues.Add(i.ToString());
             }
 
-            arr.Dispose();
             for (int i = 0; i < entities.Length; i++)
                 m_Manager.DestroyEntity(entities[i]);
         }
@@ -399,7 +392,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(entities[i], new EcsTestManagedComponent() { value = i.ToString() });
             }
 
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             var classArr = group.ToComponentDataArray<EcsTestManagedComponent>();
             Assert.AreEqual(entities.Length, arr.Length);
             Assert.AreEqual(entities.Length, classArr.Length);
@@ -420,7 +413,6 @@ namespace Unity.Entities.Tests
                 classValues.Add(i.ToString());
             }
 
-            arr.Dispose();
             for (int i = 0; i < entities.Length; i++)
                 m_Manager.DestroyEntity(entities[i]);
         }
@@ -455,7 +447,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             var classArr = group.ToComponentDataArray<EcsTestManagedComponent>();
             Assert.AreEqual(entities.Length / 2, arr.Length);
             Assert.AreEqual(entities.Length / 2, classArr.Length);
@@ -483,8 +475,7 @@ namespace Unity.Entities.Tests
                 if (i % 2 == 0)
                     m_Manager.RemoveComponent<EcsTestData>(entities[i]);
             }
-            arr.Dispose();
-            arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            arr = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             classArr = group.ToComponentDataArray<EcsTestManagedComponent>();
             Assert.AreEqual(entities.Length / 4, arr.Length);
             Assert.AreEqual(entities.Length / 4, classArr.Length);
@@ -511,7 +502,6 @@ namespace Unity.Entities.Tests
                 if (i % 2 == 0)
                     m_Manager.DestroyEntity(entities[i]);
             }
-            arr.Dispose();
         }
 
         [Test]

@@ -33,25 +33,25 @@ namespace Unity.Entities
     {
         Allocator m_Allocator;
         int m_FramesToRetainBlobAssets;
-        UnsafeList* m_BlobAssets;
+        UnsafeList<BlobAssetPtr>* m_BlobAssets;
 
         public static DynamicBlobAssetBatch* Allocate(Allocator allocator)
         {
             var batch = (DynamicBlobAssetBatch*)Memory.Unmanaged.Allocate(sizeof(DynamicBlobAssetBatch), UnsafeUtility.AlignOf<DynamicBlobAssetBatch>(), allocator);
             batch->m_FramesToRetainBlobAssets = 1;
             batch->m_Allocator = allocator;
-            batch->m_BlobAssets = UnsafeList.Create(sizeof(BlobAssetPtr), UnsafeUtility.AlignOf<BlobAssetPtr>(), 1, allocator);
+            batch->m_BlobAssets = UnsafeList<BlobAssetPtr>.Create(1, allocator);
             return batch;
         }
 
         public static void Free(DynamicBlobAssetBatch* batch)
         {
-            var blobAssets = (BlobAssetPtr*)batch->m_BlobAssets->Ptr;
+            var blobAssets = batch->m_BlobAssets->Ptr;
 
             for (var i = 0; i < batch->m_BlobAssets->Length; i++)
                 Memory.Unmanaged.Free(blobAssets[i].Header, batch->m_Allocator);
 
-            UnsafeList.Destroy(batch->m_BlobAssets);
+            UnsafeList<BlobAssetPtr>.Destroy(batch->m_BlobAssets);
             Memory.Unmanaged.Free(batch, batch->m_Allocator);
         }
 
@@ -120,7 +120,7 @@ namespace Unity.Entities
                 //  it will be actually destroyed when both components will be removed at cleanup.
                 entityManager.DestroyEntity(entity);
 
-                m_BlobAssets->RemoveAtSwapBack<BlobAssetPtr>(i);
+                m_BlobAssets->RemoveAtSwapBack(i);
                 return;
             }
         }
@@ -135,7 +135,7 @@ namespace Unity.Entities
                     continue;
 
                 Memory.Unmanaged.Free(blobAssets[i].Header, m_Allocator);
-                m_BlobAssets->RemoveAtSwapBack<BlobAssetPtr>(i);
+                m_BlobAssets->RemoveAtSwapBack(i);
                 return;
             }
         }
@@ -149,7 +149,7 @@ namespace Unity.Entities
                 if (!usedBlobAssets.ContainsKey(blobAssets[i].Hash))
                 {
                     Memory.Unmanaged.Free(blobAssets[i].Header, m_Allocator);
-                    m_BlobAssets->RemoveAtSwapBack<BlobAssetPtr>(i--);
+                    m_BlobAssets->RemoveAtSwapBack(i--);
                 }
             }
         }

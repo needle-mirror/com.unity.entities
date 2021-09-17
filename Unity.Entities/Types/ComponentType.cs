@@ -27,6 +27,7 @@ namespace Unity.Entities
         public bool IsManagedComponent => TypeManager.IsManagedComponent(TypeIndex);
         public bool IsZeroSized => (TypeIndex & TypeManager.ZeroSizeInChunkTypeFlag) != 0;
         public bool IsChunkComponent => (TypeIndex & TypeManager.ChunkComponentTypeFlag) != 0;
+        internal bool IsEnableable => (TypeIndex & TypeManager.EnableableComponentFlag) != 0;
         public bool HasEntityReferences => (TypeIndex & TypeManager.HasNoEntityReferencesFlag) == 0;
 
         public static ComponentType ReadWrite<T>()
@@ -176,39 +177,26 @@ namespace Unity.Entities
             return true;
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [NotBurstCompatible]
         public override string ToString()
         {
-#if NET_DOTS
             if (TypeIndex == 0)
                 return "None";
 
             var info = TypeManager.GetTypeInfo(TypeIndex);
-            FixedString512 ns = default;
+            FixedString512Bytes ns = default;
             ns.Append(info.DebugTypeName);
 
             if (IsBuffer)
-                ns.Append(" [B]");
+                ns.Append(" [Buffer]");
             if (AccessModeType == AccessMode.Exclude)
-                ns.Append(" [S]");
+                ns.Append(" [Exclude]");
             if (AccessModeType == AccessMode.ReadOnly)
-                ns.Append(" [RO]");
+                ns.Append(" [ReadOnly]");
 
             return ns.ToString();
-#else
-            var name = GetManagedType().Name;
-            if (IsBuffer)
-                return $"{name} [B]";
-            if (AccessModeType == AccessMode.Exclude)
-                return $"{name} [S]";
-            if (AccessModeType == AccessMode.ReadOnly)
-                return $"{name} [RO]";
-            if (TypeIndex == 0)
-                return "None";
-            return name;
-#endif
+
         }
-#endif
 
         public bool Equals(ComponentType other)
         {

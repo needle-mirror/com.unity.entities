@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+    [AddComponentMenu("")]
     public class DependsOnTransformTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
     {
         public Transform Dependency;

@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.Entities.Serialization;
+using Unity.Collections.LowLevel.Unsafe;
 #if !NET_DOTS
 using Unity.Properties;
-using Unity.Properties.Adapters;
 using Unity.Properties.Internal;
 #endif
 
@@ -14,7 +13,9 @@ namespace Unity.Entities
     unsafe class ManagedObjectBlobs :
         IPropertyBagVisitor,
         IPropertyVisitor,
-        IVisit<BlobAssetReferenceData>
+        ISetPropertyBagVisitor,
+        IListPropertyBagVisitor,
+        IDictionaryPropertyBagVisitor
     {
         /// <summary>
         /// Set used to track already visited references.
@@ -41,6 +42,7 @@ namespace Unity.Entities
             }
 
             var type = obj.GetType();
+
             var properties = PropertyBagStore.GetPropertyBag(type);
 
             if (null == properties)
@@ -59,16 +61,21 @@ namespace Unity.Entities
         /// <summary>
         /// Invoked by Unity.Properties for each container type (i.e. struct or class).
         /// </summary>
-        /// <remarks>
-        /// We do not explicitly override collection visitation. Instead it will simply fall through to this call and enumerate all elements.
-        /// </remarks>
         /// <param name="properties">The property bag being visited.</param>
         /// <param name="container">The container being visited.</param>
         /// <typeparam name="TContainer">The container type.</typeparam>
         void IPropertyBagVisitor.Visit<TContainer>(IPropertyBag<TContainer> properties, ref TContainer container)
         {
-            foreach (var property in properties.GetProperties(ref container))
-                ((IPropertyAccept<TContainer>)property).Accept(this, ref container);
+            if (properties is IPropertyList<TContainer> propertyList)
+            {
+                foreach (var property in propertyList.GetProperties(ref container))
+                    ((IPropertyAccept<TContainer>)property).Accept(this, ref container);
+            }
+            else
+            {
+                foreach (var property in properties.GetProperties(ref container))
+                    ((IPropertyAccept<TContainer>)property).Accept(this, ref container);
+            }
         }
 
         /// <summary>
@@ -80,10 +87,127 @@ namespace Unity.Entities
         /// <typeparam name="TValue">The value type.</typeparam>
         void IPropertyVisitor.Visit<TContainer, TValue>(Property<TContainer, TValue> property, ref TContainer container)
         {
-            var value = property.GetValue(ref container);
+            if (RuntimeTypeInfoCache<TValue>.IsContainerType)
+            {
+                VisitValue(property.GetValue(ref container));
+            }
+        }
 
-            if (RuntimeTypeInfoCache<TValue>.CanBeNull && null == value)
+        /// <summary>
+        /// Invoked by Unity.Properties for each ISet based container type.
+        /// </summary>
+        /// <remarks>
+        /// We specialize on well known types to avoid struct enumerator boxing.
+        /// </remarks>
+        void ISetPropertyBagVisitor.Visit<TSet, TElement>(ISetPropertyBag<TSet, TElement> properties, ref TSet container)
+        {
+            if (container is HashSet<TElement> hashSet)
+            {
+                foreach (var element in hashSet)
+                {
+                    VisitValue(element);
+                }
+            }
+            else
+            {
+                foreach (var element in container)
+                {
+                    VisitValue(element);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Invoked by Unity.Properties for each IList based container type.
+        /// </summary>
+        /// <remarks>
+        /// We specialize on well known types to avoid struct enumerator boxing.
+        /// </remarks>
+        void IListPropertyBagVisitor.Visit<TList, TElement>(IListPropertyBag<TList, TElement> properties, ref TList container)
+        {
+            if (container is List<TElement> list)
+            {
+                foreach (var element in list)
+                {
+                    VisitValue(element);
+                }
+            }
+            else if (container is TElement[] array)
+            {
+                foreach (var element in array)
+                {
+                    VisitValue(element);
+                }
+            }
+            else
+            {
+                foreach (var element in container)
+                {
+                    VisitValue(element);
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Invoked by Unity.Properties for each IDictionary based container type.
+        /// </summary>
+        /// <remarks>
+        /// We specialize on well known types to avoid struct enumerator boxing.
+        /// </remarks>
+        void IDictionaryPropertyBagVisitor.Visit<TDictionary, TKey, TValue>(IDictionaryPropertyBag<TDictionary, TKey, TValue> properties, ref TDictionary container)
+        {
+            if (container is Dictionary<TKey, TValue> dictionary)
+            {
+                foreach (var kvp in dictionary)
+                {
+                    VisitValue(kvp.Key);
+                    VisitValue(kvp.Value);
+                }
+            }
+            else
+            {
+                foreach (var kvp in container)
+                {
+                    VisitValue(kvp.Key);
+                    VisitValue(kvp.Value);
+                }
+            }
+        }
+
+        void VisitValue<TValue>(TValue value)
+        {
+            if (typeof(TValue) == typeof(BlobAssetReferenceData))
+            {
+                var blobAssetReferenceData = UnsafeUtility.As<TValue, BlobAssetReferenceData>(ref value);
+
+                if (null != blobAssetReferenceData.m_Ptr)
+                {
+                    var blobAssetPtr = new BlobAssetPtr(blobAssetReferenceData.Header);
+
+                    if (!m_BlobAssetMap.TryGetValue(blobAssetPtr, out _))
+                    {
+                        var index = m_BlobAssets.Length;
+                        m_BlobAssets.Add(blobAssetPtr);
+                        m_BlobAssetMap.Add(blobAssetPtr, index);
+                    }
+                }
+
                 return;
+            }
+            
+            if (!RuntimeTypeInfoCache<TValue>.IsContainerType)
+                return;
+
+            if (RuntimeTypeInfoCache<TValue>.CanBeNull)
+            {
+                if (null == value) 
+                    return;
+                
+#if !UNITY_DOTSRUNTIME
+                if (value is UnityEngine.Object)
+                    return;
+#endif
+            }
 
             if (!RuntimeTypeInfoCache<TValue>.IsValueType && typeof(string) != typeof(TValue))
             {
@@ -93,44 +217,8 @@ namespace Unity.Entities
                 if (!m_References.Add(value))
                     return;
             }
-
-#if !UNITY_DOTSRUNTIME
-            if (value is UnityEngine.Object)
-                return;
-#endif
-
-            if (this is IVisit<TValue> typed)
-            {
-                typed.Visit(property, ref container, ref value);
-                property.SetValue(ref container, value);
-                return;
-            }
-
-            property.Visit(this, ref value);
-        }
-
-        /// <summary>
-        /// Invoked for each <see cref="Entity"/> member encountered.
-        /// </summary>
-        /// <param name="property">The property being visited.</param>
-        /// <param name="container">The source container.</param>
-        /// <param name="value">The entity value.</param>
-        /// <typeparam name="TContainer">The container type.</typeparam>
-        /// <returns>The status of the adapter visit.</returns>
-        VisitStatus IVisit<BlobAssetReferenceData>.Visit<TContainer>(Property<TContainer, BlobAssetReferenceData> property, ref TContainer container, ref BlobAssetReferenceData value)
-        {
-            if (null == value.m_Ptr)
-                return VisitStatus.Stop;
-
-            var blobAssetPtr = new BlobAssetPtr(value.Header);
-
-            if (!m_BlobAssetMap.TryGetValue(blobAssetPtr, out _))
-            {
-                var index = m_BlobAssets.Length;
-                m_BlobAssets.Add(blobAssetPtr);
-                m_BlobAssetMap.Add(blobAssetPtr, index);
-            }
-            return VisitStatus.Stop;
+            
+            PropertyContainer.Visit(ref value, this, out _);
         }
     }
 #else

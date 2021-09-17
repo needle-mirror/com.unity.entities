@@ -4,11 +4,11 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
 
-namespace Unity.Entities.SourceGen
+namespace Unity.Entities.SourceGen.AuthoringComponent
 {
     public class AuthoringComponentReceiver : ISyntaxReceiver
     {
-        private readonly List<SyntaxNode> _candidateSyntaxes = new List<SyntaxNode>();
+        readonly List<SyntaxNode> _candidateSyntaxes = new List<SyntaxNode>();
 
         public IEnumerable<SyntaxNode> CandidateSyntaxes => _candidateSyntaxes;
 
@@ -20,7 +20,7 @@ namespace Unity.Entities.SourceGen
             }
         }
 
-        private static bool IsCandidate(TypeDeclarationSyntax typeDeclarationSyntax)
+        static bool IsCandidate(TypeDeclarationSyntax typeDeclarationSyntax)
         {
             return typeDeclarationSyntax.HasAttribute("GenerateAuthoringComponent");
         }

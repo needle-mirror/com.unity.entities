@@ -99,7 +99,7 @@ namespace Unity.Entities.Tests
                 All = Array.Empty<ComponentType>(), // all
             };
             var group = m_Manager.CreateEntityQuery(query);
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             Assert.AreEqual(14, chunks.Length);
@@ -144,8 +144,6 @@ namespace Unity.Entities.Tests
 
             foundValues++;
             Assert.AreEqual(0, foundValues);
-
-            chunks.Dispose();
         }
 
         struct ChangeMixedValuesSharedFilter : IJobParallelFor
@@ -211,7 +209,7 @@ namespace Unity.Entities.Tests
                 None = Array.Empty<ComponentType>(), // none
                 All = new ComponentType[] {typeof(EcsTestSharedComp)}, // all
             });
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             Assert.AreEqual(14, chunks.Length);
@@ -283,8 +281,6 @@ namespace Unity.Entities.Tests
 
             foundValues++;
             Assert.AreEqual(0, foundValues);
-
-            chunks.Dispose();
         }
 
         [Test]
@@ -293,7 +289,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
@@ -314,8 +310,6 @@ namespace Unity.Entities.Tests
                     }
                 }
             }
-
-            chunks.Dispose();
         }
 
         class BumpChunkBufferTypeVersionSystem : ComponentSystem
@@ -349,7 +343,7 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
-                var chunks = m_Group.CreateArchetypeChunkArray(Allocator.TempJob);
+                var chunks = m_Group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                 var ecsIntElements = GetBufferTypeHandle<EcsIntElement>();
                 var updateChunksJob = new UpdateChunks
                 {
@@ -358,8 +352,6 @@ namespace Unity.Entities.Tests
                 };
                 var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32);
                 updateChunksJobHandle.Complete();
-
-                chunks.Dispose();
             }
         }
 
@@ -369,7 +361,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
@@ -385,8 +377,6 @@ namespace Unity.Entities.Tests
                 bool hasMissingElements = chunk.Has(missingElements);
                 Assert.IsFalse(hasMissingElements, "Has(EcsComplexEntityRefElement) should be false");
             }
-
-            chunks.Dispose();
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -396,7 +386,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestManagedComponent>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var strComponents = m_Manager.GetComponentTypeHandle<EcsTestManagedComponent>(false);
@@ -412,8 +402,6 @@ namespace Unity.Entities.Tests
                 bool hasMissingElements = chunk.Has(missingComponents);
                 Assert.IsFalse(hasMissingElements, "Has(EcsComplexEntityRefElement) should be false");
             }
-
-            chunks.Dispose();
         }
 
 #endif
@@ -424,7 +412,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
@@ -456,8 +444,6 @@ namespace Unity.Entities.Tests
                 bool afterDidAddChange = chunk.DidChange(intElements, chunkBufferVersions[i]);
                 Assert.IsTrue(afterDidAddChange, "DidChange() is false after modifications");
             }
-
-            chunks.Dispose();
         }
 
         [Test]
@@ -466,7 +452,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
             var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(true);
 
@@ -475,8 +461,6 @@ namespace Unity.Entities.Tests
             var buffer = accessor[0];
 
             Assert.Throws<InvalidOperationException>(() => buffer.Add(12));
-
-            chunks.Dispose();
         }
 
         [Test]
@@ -487,7 +471,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(entityTypes);
-            using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
+            using (var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator))
             {
                 foreach (var chunk in chunks)
                 {
@@ -515,7 +499,7 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateEntity(typeof(Max3Capacity));
 
             var group = m_Manager.CreateEntityQuery(typeof(Max3Capacity));
-            using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
+            using (var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator))
             {
                 Assert.AreEqual(2, chunks.Length);
                 Assert.AreEqual(3, chunks[0].Capacity);
@@ -539,7 +523,7 @@ namespace Unity.Entities.Tests
                 All = Array.Empty<ComponentType>(), // all
             };
             var group = m_Manager.CreateEntityQuery(query);
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             Assert.AreEqual(14, chunks.Length);
@@ -588,8 +572,6 @@ namespace Unity.Entities.Tests
 
             foundValues++;
             Assert.AreEqual(0, foundValues);
-
-            chunks.Dispose();
         }
 
 
@@ -620,7 +602,7 @@ namespace Unity.Entities.Tests
             protected override void OnUpdate()
             {
                 var query = GetEntityQuery(typeof(EcsIntElement));
-                var chunks = query.CreateArchetypeChunkArray(Allocator.TempJob);
+                var chunks = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                 var updateChunksJob = new UpdateChunks
                 {
                     Chunks = chunks,
@@ -628,7 +610,6 @@ namespace Unity.Entities.Tests
                 };
                 var updateChunksJobHandle = updateChunksJob.Schedule(chunks.Length, 32);
                 updateChunksJobHandle.Complete();
-                chunks.Dispose();
             }
         }
 
@@ -638,7 +619,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var roComponentType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsIntElement)));
@@ -714,8 +695,6 @@ namespace Unity.Entities.Tests
                     }
                 }
             }
-
-            chunks.Dispose();
         }
 
         [Test]
@@ -813,7 +792,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var bufferType = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsIntElement)));
@@ -834,8 +813,6 @@ namespace Unity.Entities.Tests
                     chunk.GetUntypedBufferAccessor(ref componentType);
                 });
             }
-
-            chunks.Dispose();
         }
 
         [Test]
@@ -844,7 +821,7 @@ namespace Unity.Entities.Tests
             CreateEntities(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var ecsTestData = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
@@ -860,8 +837,6 @@ namespace Unity.Entities.Tests
                 bool hasMissingElements = chunk.Has(missingElements);
                 Assert.IsFalse(hasMissingElements, "Has(EcsTestData3) should be false");
             }
-
-            chunks.Dispose();
         }
 
         [Test]
@@ -870,7 +845,7 @@ namespace Unity.Entities.Tests
             CreateEntities2(128);
 
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData2>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var ecsTestData = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData2)));
@@ -903,8 +878,122 @@ namespace Unity.Entities.Tests
                 }
 
             }
+        }
 
-            chunks.Dispose();
+        [Test]
+        public unsafe void ArchetypeChunk_GetComponentDataPtr_MatchesNativeArrayPtr()
+        {
+            CreateEntities(1000);
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                var chunkIterator = query.GetArchetypeChunkIterator();
+                var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+                while (chunkIterator.MoveNext())
+                {
+                    var archetypeChunk = chunkIterator.CurrentArchetypeChunk;
+                    var roArrayPtr = archetypeChunk.GetNativeArray(typeHandle).GetUnsafePtr();
+
+                    var roRawPtr = archetypeChunk.GetComponentDataPtrRO(ref typeHandle);
+                    Assert.AreEqual((ulong)roArrayPtr, (ulong)roRawPtr);
+                    var rwRawPtr = archetypeChunk.GetComponentDataPtrRW(ref typeHandle);
+                    Assert.AreEqual((ulong)roArrayPtr, (ulong)rwRawPtr);
+                }
+            }
+        }
+
+        [Test]
+        public unsafe void ArchetypeChunk_GetComponentDataPtrRW_ThrowsOnReadOnlyHandle()
+        {
+            CreateEntities(1000);
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                var chunkIterator = query.GetArchetypeChunkIterator();
+                var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(true);
+                while (chunkIterator.MoveNext())
+                {
+                    var archetypeChunk = chunkIterator.CurrentArchetypeChunk;
+                    Assert.Throws<InvalidOperationException>(() =>
+                    {
+                        archetypeChunk.GetComponentDataPtrRW(ref typeHandle);
+                    });
+                }
+            }
+        }
+
+        partial class TypeHandleUpdateDummySystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                var ent = EntityManager.CreateEntity(typeof(EcsTestData));
+                EntityManager.SetComponentData(ent, new EcsTestData {value = 17});
+            }
+        }
+        partial class TypeHandleUpdateSystem : SystemBase
+        {
+            private ComponentTypeHandle<EcsTestData> typeHandle1;
+
+            protected override void OnCreate()
+            {
+                typeHandle1 = GetComponentTypeHandle<EcsTestData>();
+            }
+
+            protected override void OnUpdate()
+            {
+                var typeHandle2 = GetComponentTypeHandle<EcsTestData>();
+                // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
+                Assert.AreNotEqual(typeHandle2.GlobalSystemVersion, typeHandle1.GlobalSystemVersion);
+                Assert.AreNotEqual(typeHandle2.m_Safety, typeHandle1.m_Safety);
+                // After updating the cached handle, these values (and the handles as a whole) should match
+                typeHandle1.Update(this);
+                Assert.AreEqual(typeHandle2.GlobalSystemVersion, typeHandle1.GlobalSystemVersion);
+                Assert.AreEqual(typeHandle2.m_Safety, typeHandle1.m_Safety);
+            }
+        }
+
+        [Test]
+        public void ComponentTypeHandle_SystemBase_UpdateWorks()
+        {
+            var dummy = World.CreateSystem<TypeHandleUpdateDummySystem>();
+            var sys = World.CreateSystem<TypeHandleUpdateSystem>();
+            World.Update();
+            World.Update();
+            World.Update();
+        }
+
+        struct TypeHandleUpdateSystemUnmanaged : ISystem
+        {
+            private ComponentTypeHandle<EcsTestData> typeHandle1;
+
+            public void OnCreate(ref SystemState state)
+            {
+                typeHandle1 = state.GetComponentTypeHandle<EcsTestData>();
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                var typeHandle2 = state.GetComponentTypeHandle<EcsTestData>();
+                // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
+                Assert.AreNotEqual(typeHandle2.GlobalSystemVersion, typeHandle1.GlobalSystemVersion);
+                Assert.AreNotEqual(typeHandle2.m_Safety, typeHandle1.m_Safety);
+                // After updating the cached handle, these values (and the handles as a whole) should match
+                typeHandle1.Update(ref state);
+                Assert.AreEqual(typeHandle2.GlobalSystemVersion, typeHandle1.GlobalSystemVersion);
+                Assert.AreEqual(typeHandle2.m_Safety, typeHandle1.m_Safety);
+            }
+        }
+
+        [Test]
+        public void ComponentTypeHandle_ISystem_UpdateWorks()
+        {
+            var dummy = World.CreateSystem<TypeHandleUpdateDummySystem>();
+            var sys = World.AddSystem<TypeHandleUpdateSystemUnmanaged>();
+            World.Update();
+            World.Update();
+            World.Update();
         }
 
         // These tests require:
@@ -930,11 +1019,7 @@ namespace Unity.Entities.Tests
 
             var chunk = m_Manager.GetChunk(entity);
             Assert.That(() => { chunk.GetChunkComponentData(chunkComponentType); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<ObjectDisposedException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
                         "ComponentTypeHandle<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change."));
         }
@@ -954,11 +1039,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates ComponentTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<InvalidOperationException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
                         "ComponentTypeHandle<Unity.Entities.Tests.EcsTestData> UseComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
@@ -982,11 +1063,7 @@ namespace Unity.Entities.Tests
 
             var chunk = m_Manager.GetChunk(entity);
             Assert.That(() => { chunk.GetDynamicComponentDataArrayReinterpret<int>(chunkComponentType, UnsafeUtility.SizeOf<int>()); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<ObjectDisposedException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains("Unity.Entities.DynamicComponentTypeHandle which has been invalidated by a structural change"));
         }
 
@@ -1005,11 +1082,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates DynamicComponentTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<InvalidOperationException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains("Unity.Entities.DynamicComponentTypeHandle UseDynamicComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
 
@@ -1031,11 +1104,7 @@ namespace Unity.Entities.Tests
 
             var chunk = m_Manager.GetChunk(entity);
             Assert.That(() => { chunk.GetBufferAccessor(ecsTestData); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<ObjectDisposedException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
                         "BufferTypeHandle<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
         }
@@ -1054,11 +1123,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates BufferTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<InvalidOperationException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
                         "BufferTypeHandle<Unity.Entities.Tests.EcsIntElement> UseBufferTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
@@ -1083,11 +1148,7 @@ namespace Unity.Entities.Tests
 
             // No main-thread code currently references SharedComponentTypeHandle.m_Safety, so we have to manually verify that it's been invalidated
             Assert.That(() => { AtomicSafetyHandle.CheckReadAndThrow(ecsTestData.m_Safety); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<ObjectDisposedException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
                         "SharedComponentTypeHandle<Unity.Entities.Tests.EcsTestSharedComp> which has been invalidated by a structural change."));
         }
@@ -1108,11 +1169,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates SharedComponentTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<InvalidOperationException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
                         "SharedComponentTypeHandle<Unity.Entities.Tests.EcsTestSharedComp> UseSharedComponentTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
@@ -1136,11 +1193,7 @@ namespace Unity.Entities.Tests
 
             var chunk = m_Manager.GetChunk(entity);
             Assert.That(() => { chunk.GetNativeArray(chunkEntityType); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<ObjectDisposedException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
                         "Unity.Entities.EntityTypeHandle which has been invalidated by a structural change."));
         }
@@ -1160,11 +1213,7 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponent<EcsTestData2>(entity); // invalidates EntityTypeHandle
 
             Assert.That(() => { changeValuesJobs.Run(); },
-#if UNITY_2020_2_OR_NEWER
                 Throws.Exception.TypeOf<InvalidOperationException>()
-#else
-                Throws.InvalidOperationException
-#endif
                     .With.Message.Contains(
                         "Unity.Entities.EntityTypeHandle UseEntityTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }

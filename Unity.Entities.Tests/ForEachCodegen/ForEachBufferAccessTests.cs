@@ -54,9 +54,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     case ScheduleType.Schedule:
                         Entities.ForEach((ref EcsTestData td) => { td.value = GetBuffer<EcsIntElement>(entity)[0].Value; }).Schedule();
                         break;
+
+                    // Flagged as an DC0063 error at compile-time with sourcegen
+                    /*
                     case ScheduleType.ScheduleParallel:
                         Entities.ForEach((ref EcsTestData td) => { td.value = GetBuffer<EcsIntElement>(entity)[0].Value; }).ScheduleParallel();
                         break;
+                    */
                 }
 
                 Dependency.Complete();
@@ -100,6 +104,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
                             bfe[entity].Add(new EcsIntElement(){ Value = 2 });
                         }).Schedule();
                         break;
+                    // Flagged as an DC0063 error at compile-time with sourcegen
+                    /*
                     case ScheduleType.ScheduleParallel:
                         Entities.ForEach((ref EcsTestDataEntity tde) =>
                         {
@@ -108,6 +114,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                             bfe[entity].Add(new EcsIntElement(){ Value = 2 });
                         }).ScheduleParallel();
                         break;
+                    */
                 }
 
                 Dependency.Complete();
@@ -253,12 +260,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void GetBuffer_Throws([Values(ScheduleType.ScheduleParallel)] ScheduleType scheduleType)
-        {
-            Assert.Throws<InvalidOperationException>(() => TestSystem.GetBufffer_GetsValueFromBuffer(TestEntity2, scheduleType));
-        }
-
-        [Test]
         public void GetBufferFromGetBufferFromEntity_GetsValueFromBuffer([Values] ScheduleType scheduleType)
         {
             TestSystem.GetBufferFromGetBufferFromEntity_GetsValueFromBuffer(TestEntity2, scheduleType);
@@ -270,12 +271,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.AddToBufferThroughGetBufferFromEntity_AddsValueToBuffer(TestEntity1, scheduleType);
             Assert.AreEqual(2, m_Manager.GetBuffer<EcsIntElement>(TestEntity1)[0].Value);
-        }
-
-        [Test]
-        public void AddToBufferThroughGetBufferFromEntity_Throws([Values(ScheduleType.ScheduleParallel)] ScheduleType scheduleType)
-        {
-            Assert.Throws<InvalidOperationException>(() => TestSystem.AddToBufferThroughGetBufferFromEntity_AddsValueToBuffer(TestEntity1, scheduleType));
         }
 
         [Test]

@@ -51,7 +51,7 @@ namespace Unity.Entities.Tests.Conversion
         [Test]
         public void IncrementalConversionLinkedGroup()
         {
-            var conversionFlags = GameObjectConversionUtility.ConversionFlags.GameViewLiveLink | GameObjectConversionUtility.ConversionFlags.AssignName;
+            var conversionFlags = GameObjectConversionUtility.ConversionFlags.GameViewLiveConversion | GameObjectConversionUtility.ConversionFlags.AssignName;
             // Parent (LinkedEntityGroup) (2 additional entities)
             // - Child (2 additional entities)
             // All reference parent game object
@@ -77,9 +77,13 @@ namespace Unity.Entities.Tests.Conversion
             };
             using (var conversionWorld = GameObjectConversionUtility.InitializeIncrementalConversion(SceneManager.GetActiveScene(), settings))
             {
+#if !DOTS_DISABLE_DEBUG_NAMES
                 Entities.ForEach((ref EntityRefTestData data) =>
                     StringAssert.StartsWith("parent", m_Manager.GetName(data.Value)));
-
+#else
+            Entities.ForEach((ref EntityRefTestData data) =>
+                    StringAssert.IsMatch("", m_Manager.GetName(data.Value)));
+#endif
                 var entity = EmptySystem.GetSingletonEntity<LinkedEntityGroup>();
 
                 // Parent (LinkedEntityGroup) (2 additional entities)
@@ -89,7 +93,7 @@ namespace Unity.Entities.Tests.Conversion
                 child.AdditionalEntityCount = 1;
                 parent.Value = child.gameObject;
 #pragma warning disable 618
-                GameObjectConversionUtility.ConvertIncremental(conversionWorld, new[] { child.gameObject }, conversionFlags);
+                GameObjectConversionUtility.ConvertIncremental(conversionWorld, new[] { child.gameObject }, default, conversionFlags);
 #pragma warning restore 618
 
                 EntitiesAssert.ContainsOnly(m_Manager,
@@ -103,10 +107,13 @@ namespace Unity.Entities.Tests.Conversion
                 // We expect there to still only be one linked entity group and it should be the same entity as before
                 // since it is attached to the primary entity which is not getting destroyed.
                 Assert.AreEqual(entity, EmptySystem.GetSingletonEntity<LinkedEntityGroup>());
-
+#if !DOTS_DISABLE_DEBUG_NAMES
                 Entities.ForEach((ref EntityRefTestData data) =>
                     StringAssert.StartsWith("child", m_Manager.GetName(data.Value)));
-
+#else
+                Entities.ForEach((ref EntityRefTestData data) =>
+                    StringAssert.IsMatch("", m_Manager.GetName(data.Value)));
+#endif
                 foreach (var e in m_Manager.GetBuffer<LinkedEntityGroup>(entity).AsNativeArray())
                     Assert.IsTrue(m_Manager.Exists(e.Value));
             }

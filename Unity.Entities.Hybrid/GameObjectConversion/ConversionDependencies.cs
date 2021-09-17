@@ -19,12 +19,12 @@ namespace Unity.Entities.Conversion
         private NativeHashMap<int, DependencyTracker> _componentDependenciesByTypeIndex;
         private NativeHashSet<int> _unresolvedComponentInstanceIds;
         internal bool HasUnresolvedComponentInstanceIds => !_unresolvedComponentInstanceIds.IsEmpty;
-        readonly bool _isLiveLink;
+        readonly bool _isLiveConversion;
 
-        internal ConversionDependencies(bool isLiveLink)
+        internal ConversionDependencies(bool isLiveConversion)
         {
-            _isLiveLink = isLiveLink;
-            if (_isLiveLink)
+            _isLiveConversion = isLiveConversion;
+            if (_isLiveConversion)
             {
                 GameObjectDependencyTracker = new DependencyTracker(Allocator.Persistent);
                 _componentDependenciesByTypeIndex = new NativeHashMap<int, DependencyTracker>(0, Allocator.Persistent);
@@ -46,15 +46,15 @@ namespace Unity.Entities.Conversion
 
         internal void RegisterComponentTypeForDependencyTracking(int typeIndex)
         {
-            if (!_componentDependenciesByTypeIndex.ContainsKey(typeIndex))
+            if (_componentDependenciesByTypeIndex.IsCreated && !_componentDependenciesByTypeIndex.ContainsKey(typeIndex))
                 _componentDependenciesByTypeIndex.Add(typeIndex, new DependencyTracker(Allocator.Persistent));
         }
 
         internal void DependOnGameObject(GameObject dependent, GameObject dependsOn)
         {
-            if (!_isLiveLink)
+            if (!_isLiveConversion)
             {
-                // this dependency only needs to be tracked when using LiveLink, since otherwise subscenes are converted
+                // this dependency only needs to be tracked when using LiveConversion, since otherwise subscenes are converted
                 // as a whole.
                 return;
             }
@@ -93,9 +93,9 @@ namespace Unity.Entities.Conversion
 
         internal void DependOnComponent(GameObject dependent, Component dependsOn)
         {
-            if (!_isLiveLink)
+            if (!_isLiveConversion)
             {
-                // this dependency only needs to be tracked when using LiveLink, since otherwise subscenes are converted
+                // this dependency only needs to be tracked when using LiveConversion, since otherwise subscenes are converted
                 // as a whole.
                 return;
             }
@@ -183,9 +183,9 @@ namespace Unity.Entities.Conversion
         internal bool TryGetComponentDependencyTracker(int typeIndex, out DependencyTracker tracker)
             => _componentDependenciesByTypeIndex.TryGetValue(typeIndex, out tracker);
 
+
         internal void CalculateDependents(NativeArray<int> instanceIds, NativeHashSet<int> outDependents)
             => GameObjectDependencyTracker.CalculateDependents(instanceIds, outDependents);
-
 
         public void Dispose()
         {

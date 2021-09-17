@@ -166,6 +166,21 @@ namespace Unity.Entities.Tests
             Assert.Throws<IndexOutOfRangeException>(() => cache.GetCachedQuery(1));
         }
 
+        [Test]
+        public void GetEntityQuery_QueryWithNoneTypes_FoundInCache()
+        {
+            var queryDesc = new EntityQueryDesc
+            {
+                All = new ComponentType[] {typeof(EcsTestData)},
+                None = new ComponentType[] {typeof(EcsTestData2)}
+            };
+
+            var queryA = EmptySystem.GetEntityQuery(queryDesc);
+            var queryB = EmptySystem.GetEntityQuery(queryDesc);
+
+            Assert.AreEqual(queryA, queryB);
+        }
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 
         [Test]

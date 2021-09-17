@@ -18,9 +18,9 @@ namespace Unity.Entities.CodeGeneratedJobForEach
             }
         }
 
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
+        public void ScheduleTimeInitialize(ComponentSystemBase system, bool isReadOnly)
         {
-            _typeHandle = jobComponentSystem.GetEntityTypeHandle();
+            _typeHandle = system.GetEntityTypeHandle();
         }
 
         public unsafe Runtime PrepareToExecuteOnEntitiesIn(ref ArchetypeChunk chunk)
@@ -50,9 +50,9 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     {
         BufferTypeHandle<T> _typeHandle;
 
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
+        public void ScheduleTimeInitialize(ComponentSystemBase system, bool isReadOnly)
         {
-            _typeHandle = jobComponentSystem.GetBufferTypeHandle<T>(isReadOnly);
+            _typeHandle = system.GetBufferTypeHandle<T>(isReadOnly);
         }
 
         public struct Runtime
@@ -94,9 +94,9 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     {
         ComponentTypeHandle<T> _typeHandle;
 
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
+        public void ScheduleTimeInitialize(ComponentSystemBase system, bool isReadOnly)
         {
-            _typeHandle = jobComponentSystem.GetComponentTypeHandle<T>(isReadOnly);
+            _typeHandle = system.GetComponentTypeHandle<T>(isReadOnly);
         }
 
         public struct Runtime
@@ -156,7 +156,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     public struct LambdaParameterValueProvider_IComponentData_Tag<T>
         where T : struct, IComponentData
     {
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly) {}
+        public void ScheduleTimeInitialize(ComponentSystemBase system, bool isReadOnly) {}
 
         public struct Runtime
         {
@@ -186,9 +186,9 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         private EntityManager _entityManager;
         private ComponentTypeHandle<T> _typeHandle;
 
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
+        public void ScheduleTimeInitialize(ComponentSystemBase system, bool isReadOnly)
         {
-            _entityManager = jobComponentSystem.EntityManager;
+            _entityManager = system.EntityManager;
             _typeHandle = _entityManager.GetComponentTypeHandle<T>(isReadOnly);
         }
 
@@ -227,10 +227,10 @@ namespace Unity.Entities.CodeGeneratedJobForEach
         SharedComponentTypeHandle<T> _typeHandle;
         EntityManager _entityManager;
 
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
+        public void ScheduleTimeInitialize(ComponentSystemBase system, bool isReadOnly)
         {
-            _typeHandle = jobComponentSystem.GetSharedComponentTypeHandle<T>();
-            _entityManager = jobComponentSystem.EntityManager;
+            _typeHandle = system.GetSharedComponentTypeHandle<T>();
+            _entityManager = system.EntityManager;
         }
 
         public struct Runtime
@@ -263,7 +263,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
 
     public struct LambdaParameterValueProvider_EntityInQueryIndex
     {
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
+        public void ScheduleTimeInitialize(ComponentSystemBase system, bool isReadOnly)
         {
         }
 
@@ -294,7 +294,7 @@ namespace Unity.Entities.CodeGeneratedJobForEach
     {
         [NativeSetThreadIndexAttribute] internal int _nativeThreadIndex;
 
-        public void ScheduleTimeInitialize(ComponentSystemBase jobComponentSystem, bool isReadOnly)
+        public void ScheduleTimeInitialize(ComponentSystemBase system, bool isReadOnly)
         {
         }
 

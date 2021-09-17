@@ -34,7 +34,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(entity, new EcsTestData(42));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
             job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
 
             Assert.AreEqual(42, job.data[job.entities[0]].value);
@@ -50,8 +50,6 @@ namespace Unity.Entities.Tests
 
             fence.Complete();
             Assert.AreEqual(43, job.data[job.entities[0]].value);
-
-            job.entities.Dispose();
         }
 
         // These tests require:
@@ -161,14 +159,12 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
             job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             group.AddDependency(job.Schedule());
 
             // Implicit Wait for job, returns value after job has completed.
             Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData>(entity).value);
-
-            job.entities.Dispose();
         }
 
         [Test]
@@ -179,21 +175,18 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
             job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             group.AddDependency(job.Schedule());
 
             m_Manager.DestroyEntity(entity);
 
-            var componentData = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var componentData = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             // @TODO: This is maybe a little bit dodgy way of determining if the job has been completed...
             //        Probably should expose api to inspector job debugger state...
             Assert.AreEqual(1, componentData.Length);
             Assert.AreEqual(1, componentData[0].value);
-
-            job.entities.Dispose();
-            componentData.Dispose();
         }
 
         // This does what normal TearDown does, minus shutting down engine subsystems
@@ -233,7 +226,7 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
             job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             var jobHandle = job.Schedule();
 
@@ -243,7 +236,6 @@ namespace Unity.Entities.Tests
             // Manually complete the job before cleaning up for real
             jobHandle.Complete();
             CleanupWorld();
-            job.entities.Dispose();
 #if !NET_DOTS
             LogAssert.NoUnexpectedReceived();
 #endif
@@ -256,14 +248,13 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
             job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             var fence = job.Schedule();
 
             Assert.Throws<System.InvalidOperationException>(() => { m_Manager.DestroyEntity(entity); });
 
             fence.Complete();
-            job.entities.Dispose();
         }
 
         [Test]
@@ -273,15 +264,13 @@ namespace Unity.Entities.Tests
             var group = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             var job = new TestIncrementJob();
-            job.entities = group.ToEntityArray(Allocator.TempJob);
+            job.entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
             job.data = m_Manager.GetComponentDataFromEntity<EcsTestData>();
             var jobHandle = job.Schedule();
 
             Assert.Throws<System.InvalidOperationException>(() => { m_Manager.GetComponentData<EcsTestData>(entity); });
 
             jobHandle.Complete();
-
-            job.entities.Dispose();
         }
 
         struct EntityOnlyDependencyJob : IJobChunk
@@ -299,10 +288,10 @@ namespace Unity.Entities.Tests
             }
         }
 
-        class EntityOnlyDependencySystem : JobComponentSystem
+        partial class EntityOnlyDependencySystem : SystemBase
         {
             public JobHandle JobHandle;
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
                 var group = GetEntityQuery(new ComponentType[] {});
@@ -310,33 +299,30 @@ namespace Unity.Entities.Tests
                 {
                     EntityTypeHandle = EntityManager.GetEntityTypeHandle()
                 };
-                JobHandle = job.Schedule(group, inputDeps);
-                return JobHandle;
+                Dependency = JobHandle = job.Schedule(group, Dependency);
             }
         }
 
-        class NoComponentDependenciesSystem : JobComponentSystem
+        partial class NoComponentDependenciesSystem : SystemBase
         {
             public JobHandle JobHandle;
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
                 EntityManager.CreateEntity(typeof(EcsTestData));
                 var group = GetEntityQuery(new ComponentType[] {});
                 var job = new NoDependenciesJob {};
 
-                JobHandle = job.Schedule(group, inputDeps);
-                return JobHandle;
+                Dependency = JobHandle = job.Schedule(group, Dependency);
             }
         }
 
-        class DestroyAllEntitiesSystem : JobComponentSystem
+        partial class DestroyAllEntitiesSystem : SystemBase
         {
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
                 var allEntities = EntityManager.GetAllEntities();
                 EntityManager.DestroyEntity(allEntities);
                 allEntities.Dispose();
-                return inputDeps;
             }
         }
 
@@ -380,7 +366,7 @@ namespace Unity.Entities.Tests
             handle.Complete();
         }
 
-        class SharedComponentSystem : JobComponentSystem
+        partial class SharedComponentSystem : SystemBase
         {
             EntityQuery group;
             protected override void OnCreate()
@@ -396,12 +382,12 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
+            protected override void OnUpdate()
             {
-                return new SharedComponentJobChunk
+                Dependency = new SharedComponentJobChunk
                 {
                     EcsTestSharedCompTypeHandle = GetSharedComponentTypeHandle<EcsTestSharedComp>()
-                }.Schedule(group, inputDeps);
+                }.Schedule(group, Dependency);
             }
         }
 
@@ -418,13 +404,11 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
         }
 
-#if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
-#pragma warning disable 618
-        struct BufferSafetyJobA : IJobChunk
+#if !UNITY_DOTSRUNTIME
+        struct BufferSafetyJobA : IJobEntityBatchWithIndex
         {
             public BufferTypeHandle<EcsIntElement> BufferTypeHandleRO;
 
-            [DeallocateOnJobCompletion]
             public NativeArray<int> MyArray;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
@@ -444,7 +428,6 @@ namespace Unity.Entities.Tests
         struct BufferSafetyJobB : IJobParallelFor
         {
             [ReadOnly]
-            [DeallocateOnJobCompletion]
             public NativeArray<Entity> Entities;
 
             [ReadOnly]
@@ -457,7 +440,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        struct BufferSafetyJobC : IJobChunk
+        struct BufferSafetyJobC : IJobEntityBatchWithIndex
         {
             [ReadOnly]
             public EntityTypeHandle EntityTypeHandle;
@@ -465,7 +448,6 @@ namespace Unity.Entities.Tests
             [ReadOnly]
             public BufferFromEntity<EcsIntElement> BufferFromEntityRO;
 
-            [DeallocateOnJobCompletion]
             public NativeArray<int> MyArray;
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
@@ -481,7 +463,6 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-#pragma warning restore 618
 
         public void SetupDynamicBufferJobTestEnvironment()
         {
@@ -501,12 +482,13 @@ namespace Unity.Entities.Tests
 
             var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
 
-            var jobA = new BufferSafetyJobA{BufferTypeHandleRO = m_Manager.GetBufferTypeHandle<EcsIntElement>(true), MyArray = new NativeArray<int>(1, Allocator.TempJob)};
+            var jobA = new BufferSafetyJobA{BufferTypeHandleRO = m_Manager.GetBufferTypeHandle<EcsIntElement>(true),
+                                            MyArray = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator) };
             var jobAHandle = jobA.Schedule(query, default(JobHandle));
 
             var jobB = new BufferSafetyJobB
             {
-                Entities = query.ToEntityArray(Allocator.TempJob),
+                Entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator),
                 BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
             };
             var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, default(JobHandle));
@@ -521,12 +503,13 @@ namespace Unity.Entities.Tests
 
             var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
 
-            var jobA = new BufferSafetyJobC{EntityTypeHandle = m_Manager.GetEntityTypeHandle(), BufferFromEntityRO = m_Manager.GetBufferFromEntity<EcsIntElement>(true), MyArray = new NativeArray<int>(1, Allocator.TempJob)};
+            var jobA = new BufferSafetyJobC{EntityTypeHandle = m_Manager.GetEntityTypeHandle(), BufferFromEntityRO = m_Manager.GetBufferFromEntity<EcsIntElement>(true),
+                                            MyArray = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator) };
             var jobAHandle = jobA.Schedule(query, default(JobHandle));
 
             var jobB = new BufferSafetyJobB
             {
-                Entities = query.ToEntityArray(Allocator.TempJob),
+                Entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator),
                 BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
             };
             var jobBHandle = jobB.Schedule(jobB.Entities.Length, 1, default(JobHandle));
@@ -534,14 +517,12 @@ namespace Unity.Entities.Tests
             jobAHandle.Complete();
             jobBHandle.Complete();
         }
-
-#pragma warning disable 618
-        struct BufferSafetyJob_TwoReadOnly : IJobForEachWithEntity_EB<EcsIntElement>
+        partial struct BufferSafetyJob_TwoReadOnly : IJobEntity
         {
             [ReadOnly]
             public BufferFromEntity<EcsIntElement> BuffersFromEntity;
 
-            public void Execute(Entity e, int _, [ReadOnly] DynamicBuffer<EcsIntElement> bufferA)
+            public void Execute(Entity e, in DynamicBuffer<EcsIntElement> bufferA)
             {
                 var bufferB = BuffersFromEntity[e];
 
@@ -549,28 +530,12 @@ namespace Unity.Entities.Tests
                 var totalB = bufferB[0] + bufferB[1] + bufferB[2];
             }
         }
-#pragma warning restore 618
 
-        [Test]
-        public void SingleJobUsingSameReadOnlyDynamicBuffer()
-        {
-            SetupDynamicBufferJobTestEnvironment();
-
-            var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
-
-            var job = new BufferSafetyJob_TwoReadOnly
-            {
-                BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(true)
-            };
-            job.Run(query);
-        }
-
-#pragma warning disable 618
-        struct BufferSafetyJob_OneRead_OneWrite : IJobForEachWithEntity_EB<EcsIntElement>
+        partial struct BufferSafetyJob_OneRead_OneWrite : IJobEntity
         {
             public BufferFromEntity<EcsIntElement> BuffersFromEntity;
 
-            public void Execute(Entity e, int _, [ReadOnly] DynamicBuffer<EcsIntElement> bufferA)
+            public void Execute(Entity e, in DynamicBuffer<EcsIntElement> bufferA)
             {
                 var bufferB = BuffersFromEntity[e];
 
@@ -579,42 +544,67 @@ namespace Unity.Entities.Tests
                 bufferB[3] = new EcsIntElement {Value = totalB};
             }
         }
-#pragma warning restore 618
+
+        unsafe partial struct BufferSafetyJob_GetUnsafePtrReadWrite : IJobEntity
+        {
+            public void Execute(DynamicBuffer<EcsIntElement> b0, in EcsTestData c1, in EcsTestData2 c2)
+            {
+                b0.GetUnsafePtr();
+            }
+        }
+
+        public partial class TestSystem : SystemBase
+        {
+            public void BufferSafetyJob_GetUnsafePtrReadWrite_Run()
+            {
+                var job = new BufferSafetyJob_GetUnsafePtrReadWrite();
+                job.Run();
+            }
+            public void BufferSafetyJob_TwoReadOnly_Run()
+            {
+                var job = new BufferSafetyJob_TwoReadOnly
+                {
+                    BuffersFromEntity = GetBufferFromEntity<EcsIntElement>(true)
+                };
+                job.Run();
+            }
+
+            public void BufferSafetyJob_OneRead_OneWrite_Run()
+            {
+                var job = new BufferSafetyJob_OneRead_OneWrite
+                {
+                    BuffersFromEntity = GetBufferFromEntity<EcsIntElement>(false)
+                };
+                job.Run();
+            }
+
+            protected override void OnUpdate() { }
+        }
+
+        TestSystem _testSystem => World.GetOrCreateSystem<TestSystem>();
+
+        [Test]
+        public void SingleJobUsingSameReadOnlyDynamicBuffer()
+        {
+            SetupDynamicBufferJobTestEnvironment();
+            _testSystem.BufferSafetyJob_TwoReadOnly_Run();
+        }
 
         [Test]
         public void SingleJobUsingSameReadOnlyAndReadWriteDynamicBufferThrows()
         {
             SetupDynamicBufferJobTestEnvironment();
-
-            var query = EmptySystem.GetEntityQuery(typeof(EcsIntElement));
-
-            var job = new BufferSafetyJob_OneRead_OneWrite
-            {
-                BuffersFromEntity = EmptySystem.GetBufferFromEntity<EcsIntElement>(false)
-            };
             Assert.Throws<InvalidOperationException>(() =>
             {
-                job.Run(query);
+                _testSystem.BufferSafetyJob_OneRead_OneWrite_Run();
             });
         }
-
-#pragma warning disable 618
-        unsafe struct BufferSafetyJob_GetUnsafePtrReadWrite : IJobForEach_BCC<EcsIntElement, EcsTestData, EcsTestData2>
-        {
-            public void Execute(DynamicBuffer<EcsIntElement> b0, [ReadOnly] ref EcsTestData c1, [ReadOnly] ref EcsTestData2 c2)
-            {
-                b0.GetUnsafePtr();
-            }
-        }
-#pragma warning restore 618
 
         [Test]
         public void DynamicBuffer_UnsafePtr_DoesntThrowWhenReadWrite()
         {
             SetupDynamicBufferJobTestEnvironment();
-
-            var job = new BufferSafetyJob_GetUnsafePtrReadWrite {};
-            job.Run(EmptySystem);
+            _testSystem.BufferSafetyJob_GetUnsafePtrReadWrite_Run();
         }
 #endif // !UNITY_DOTSRUNTIME
 

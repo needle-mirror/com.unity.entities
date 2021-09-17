@@ -325,6 +325,116 @@ namespace Unity.Scenes.Hybrid.Tests
                 }
             }
         }
+
+        [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
+        private class Group1 : ComponentSystemGroup {}
+
+        [UpdateBefore(typeof(Group1))]
+        [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
+        private class Group2 : ComponentSystemGroup {}
+
+        [UpdateInGroup(typeof(Group1))]
+        [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
+        private partial class System1 : SystemBase
+        {
+            public static int CounterRead;
+            protected override void OnUpdate()
+            {
+                CounterRead = s_Counter++;
+            }
+        }
+
+        [UpdateInGroup(typeof(Group2))]
+        [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
+        private partial class System2 : SystemBase
+        {
+            public static int CounterRead;
+            protected override void OnUpdate()
+            {
+                CounterRead = s_Counter++;
+            }
+        }
+
+        private static int s_Counter = 0;
+
+        [Test]
+        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
+        public void PostProcessAfterLoadGroup_SupportsSystemGroups()
+        {
+            using (var world = TestWorldSetup.CreateEntityWorld("World", false))
+            {
+                var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                var loadParams = new SceneSystem.LoadParameters
+                {
+                    Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn | SceneLoadFlags.NewInstance
+                };
+                Assert.IsTrue(SceneGUID.IsValid);
+
+                sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                world.Update();
+                Assert.Greater(System1.CounterRead, System2.CounterRead);
+            }
+        }
+
+        [UnityTest]
+        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
+        public IEnumerator SubscenesCompleteLoading_When_ConcurrentSectionStreamCountIsSetTo0()
+        {
+            var postLoadCommandBuffers =
+                Enumerable.Range(1, 10).Select(i => CreateTestProcessAfterLoadDataCommandBuffer(i)).ToArray();
+
+            using (var world = TestWorldSetup.CreateEntityWorld("World", false))
+            {
+                var sceneSystem = world.GetExistingSystem<SceneSystem>();
+                var sceneSectionStreamingSystem = world.GetExistingSystem<SceneSectionStreamingSystem>();
+
+                var loadParams = new SceneSystem.LoadParameters
+                {
+                    Flags = SceneLoadFlags.NewInstance | SceneLoadFlags.BlockOnImport
+                };
+
+                Assert.IsTrue(SceneGUID.IsValid);
+
+                sceneSectionStreamingSystem.MaximumWorldsMovedPerUpdate = 0;
+
+                var scenes = postLoadCommandBuffers.Select(cb =>
+                {
+                    var scene = sceneSystem.LoadSceneAsync(SceneGUID, loadParams);
+                    world.EntityManager.AddComponentData(scene, cb);
+                    return scene;
+                }).ToArray();
+
+                // Increase ConcurrentSectionStreamCount to 10 so all streams are started in the first update
+                sceneSectionStreamingSystem.ConcurrentSectionStreamCount = 10;
+                world.Update();
+                world.GetExistingSystem<SceneSectionStreamingSystem>().ConcurrentSectionStreamCount = 0;
+                //All streams should still be in progress
+                Assert.AreEqual(10, sceneSectionStreamingSystem.StreamArrayLength);
+
+                while (!sceneSectionStreamingSystem.AllStreamsComplete)
+                {
+                    world.Update();
+                    yield return null;
+                }
+
+                var ecsTestDataQuery = world.EntityManager.CreateEntityQuery(typeof(TestProcessAfterLoadData));
+                // No scenes should have been moved yet since MaximumMoveEntitiesFromPerFrame is 0
+                Assert.AreEqual(0, ecsTestDataQuery.CalculateEntityCount());
+
+                // Move all scenes in one update
+                sceneSectionStreamingSystem.MaximumWorldsMovedPerUpdate = 10;
+                world.Update();
+
+                //All streams are completed so the stream array should have been resized to ConcurrentSectionStreamCount (0)
+                Assert.AreEqual(0, sceneSectionStreamingSystem.StreamArrayLength);
+                using (var ecsTestDataArray = ecsTestDataQuery.ToComponentDataArray<TestProcessAfterLoadData>(Allocator.TempJob))
+                {
+                    CollectionAssert.AreEquivalent(Enumerable.Range(2, 10), ecsTestDataArray.ToArray().Select(e => e.Value));
+                }
+                sceneSectionStreamingSystem.ConcurrentSectionStreamCount = 5;
+                Assert.AreEqual(5, sceneSectionStreamingSystem.StreamArrayLength);
+            }
+        }
 #endif
     }
 

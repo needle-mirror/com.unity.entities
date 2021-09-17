@@ -5,11 +5,8 @@ using System.IO;
 using System.Text;
 #if UNITY_EDITOR
 using UnityEditor;
-#if UNITY_2020_2_OR_NEWER
 using UnityEditor.AssetImporters;
-#else
-using UnityEditor.Experimental.AssetImporters;
-#endif
+using UnityEngine;
 #endif
 using ConversionFlags = Unity.Entities.GameObjectConversionUtility.ConversionFlags;
 using UnityObject = UnityEngine.Object;
@@ -26,12 +23,12 @@ namespace Unity.Entities
         public UnityEditor.GUID         BuildConfigurationGUID;
         public Build.BuildConfiguration BuildConfiguration;
         public AssetImportContext       AssetImportContext;
+        public GameObject               PrefabRoot;
 #endif
         public WorldSystemFilterFlags FilterFlags = WorldSystemFilterFlags.GameObjectConversion;
         public Type[]                   ExtraSystems = Array.Empty<Type>();
         public List<Type>               Systems;
-        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
-        public byte                     NamespaceID; // this must be internal
+        internal byte                   NamespaceID;
         public Action<World>            ConversionWorldCreated;        // get a callback right after the conversion world is created and systems have been added to it (good for tests that want to inject something)
         public Action<World>            ConversionWorldPreDispose;     // get a callback right before the conversion world gets disposed (good for tests that want to validate world contents)
 
@@ -50,29 +47,6 @@ namespace Unity.Entities
         Dictionary<UnityObject, ExportedAsset> m_ExportedAssets = new Dictionary<UnityObject, ExportedAsset>();
 
         public GameObjectConversionSettings() {}
-
-        // not a clone - only copies what makes sense for creating entities into a separate guid namespace
-        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
-        public GameObjectConversionSettings Fork(byte entityGuidNamespaceID)
-        {
-            if (entityGuidNamespaceID == 0)
-                throw new ArgumentException("0 is reserved for the default", nameof(entityGuidNamespaceID));
-
-            return new GameObjectConversionSettings
-            {
-                DestinationWorld = DestinationWorld,
-                SceneGUID = SceneGUID,
-                DebugConversionName = $"{DebugConversionName}:{entityGuidNamespaceID:x2}",
-                ConversionFlags = ConversionFlags,
-                NamespaceID = entityGuidNamespaceID,
-                BlobAssetStore = BlobAssetStore,
-#if UNITY_EDITOR
-                BuildConfiguration = BuildConfiguration,
-                BuildConfigurationGUID = BuildConfigurationGUID,
-                AssetImportContext = AssetImportContext,
-#endif
-            };
-        }
 
         // ** CONFIGURATION **
 
@@ -141,7 +115,7 @@ namespace Unity.Entities
                             ExportFileInfo = new FileInfo(exportFileInfo),
                         });
                     }
-                    //TODO: Set the exported asset path for LiveLink case because AssetImportContext might still be null
+                    //TODO: Set the exported asset path for LiveConversion case because AssetImportContext might still be null
                 }
             }
             if(found != null)
@@ -180,6 +154,12 @@ namespace Unity.Entities
         {
             if (uobject == null)
                 throw new ArgumentNullException(nameof(uobject));
+
+#if UNITY_EDITOR
+            // if there's no import context then we're not actually writing anything
+            if (AssetImportContext == null)
+                return null;
+#endif
 
             if (!m_ExportedAssets.TryGetValue(uobject, out var item))
             {

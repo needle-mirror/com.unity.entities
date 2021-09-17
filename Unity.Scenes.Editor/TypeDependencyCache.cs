@@ -2,11 +2,7 @@ using System;
 using Unity.Entities;
 using UnityEditor;
 using UnityEngine;
-#if UNITY_2020_2_OR_NEWER
 using UnityEditor.AssetImporters;
-#else
-using UnityEditor.Experimental.AssetImporters;
-#endif
 using System.Reflection;
 using Unity.Entities.Serialization;
 using Unity.Profiling;

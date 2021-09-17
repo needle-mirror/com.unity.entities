@@ -17,7 +17,6 @@ The major limitations associated with Hybrid Components include:
 - Only for data-like components, most [event functions] won’t be called.
 - No performance benefits over GameObjects, including no jobs, no Burst, no improvement in memory usage.
 - Not a general purpose feature, the use of hybrid components is explicit (opt-in).
-- As of entities 0.16, hybrid components aren’t fully supported by LiveLink.
 - Hybrid Components can only be created at conversion time.
 
 ## Component Objects

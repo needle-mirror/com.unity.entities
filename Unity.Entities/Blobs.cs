@@ -79,7 +79,7 @@ namespace Unity.Entities
         {
             var batch = (BlobAssetBatch*)buffer;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (batch->TotalDataSize != expectedTotalDataSize)
                 throw new System.ArgumentException($"TotalSize '{batch->TotalDataSize}' and expected Total size '{expectedTotalDataSize}' are out of sync");
             if (batch->RefCount != 1)
@@ -114,7 +114,7 @@ namespace Unity.Entities
             {
                 // Debug.Log("Freeing blob");
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (newRefCount < 0)
                     throw new InvalidOperationException("BlobAssetBatch refcount is less than zero. It has been corrupted.");
 
@@ -195,7 +195,7 @@ namespace Unity.Entities
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 8)]
-    internal unsafe struct BlobAssetReferenceData
+    internal unsafe struct BlobAssetReferenceData : IEquatable<BlobAssetReferenceData>
     {
         [NativeDisableUnsafePtrRestriction]
         [FieldOffset(0)]
@@ -260,7 +260,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException("The BlobAssetReference is not valid. Likely it has already been unloaded or released.");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ValidateBurst()
         {
             void* validationPtr = Header->ValidationPtr;
@@ -268,7 +268,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException("The BlobAssetReference is not valid. Likely it has already been unloaded or released.");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void ValidateNotNull()
         {
             if(m_Ptr == null)
@@ -278,7 +278,7 @@ namespace Unity.Entities
             ValidateBurst();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void ValidateAllowNull()
         {
             if (m_Ptr == null)
@@ -288,7 +288,7 @@ namespace Unity.Entities
             ValidateBurst();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void ValidateNotDeserialized()
         {
             if (Header->Allocator == Allocator.None)
@@ -303,6 +303,22 @@ namespace Unity.Entities
             Memory.Unmanaged.Free(Header, Header->Allocator);
             m_Ptr = null;
         }
+
+        public bool Equals(BlobAssetReferenceData other)
+        {
+            return m_Ptr == other.m_Ptr;
+        }
+
+        public override int GetHashCode()
+        {
+#if UNITY_64
+            int low = (int) m_Ptr;
+            int hi  = (int) m_Ptr >> 32;
+            return (low * 397) ^ hi;
+#else
+            return (int) m_Ptr;
+#endif
+        }
     }
 
     /// <summary>
@@ -311,12 +327,16 @@ namespace Unity.Entities
     /// <remarks>Create a blob asset using a <see cref="BlobBuilder"/> or by deserializing a serialized blob asset.</remarks>
     /// <typeparam name="T">The struct data type defining the data structure of the blob asset.</typeparam>
     [ChunkSerializable]
+#if !NET_DOTS
+    [DebuggerTypeProxy(typeof(DebugProxies.BlobAssetReferenceProxy<>))]
+    [DebuggerDisplay(nameof(BlobAssetReference<T>))]
+#endif
     public unsafe struct BlobAssetReference<T> : IDisposable, IEquatable<BlobAssetReference<T>>
         where T : struct
     {
-        #if !NET_DOTS
+#if !NET_DOTS
         [Properties.CreateProperty]
-        #endif
+#endif
         internal BlobAssetReferenceData m_data;
         /// <summary>
         /// Reports whether this instance references a valid blob asset.
@@ -477,6 +497,7 @@ namespace Unity.Entities
             }
         }
 #else
+
         /// <summary>
         /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
         /// </summary>
@@ -484,9 +505,35 @@ namespace Unity.Entities
         /// <param name="version">Expected version number of the blob data.</param>
         /// <param name="result">The resulting BlobAssetReference if the data was read successful.</param>
         /// <returns>A bool if the read was successful or not.</returns>
+        [Obsolete("TryRead(byte* data, int version, out BlobAssetReference<T> result) will be removed. Please use the overload of TryRead that also takes the length of the buffer. (RemovedAfter 2021-04-10)")]
         public static bool TryRead(byte* data, int version, out BlobAssetReference<T> result)
         {
-            var binaryReader = new MemoryBinaryReader(data);
+            var binaryReader = new MemoryBinaryReader(data, long.MaxValue);
+            var storedVersion = binaryReader.ReadInt();
+            if (storedVersion != version)
+            {
+                result = default;
+                return false;
+            }
+
+            result = binaryReader.Read<T>();
+
+            return true;
+        }
+
+
+
+        /// <summary>
+        /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
+        /// </summary>
+        /// <param name="data">A byte stream of the blob data to read.</param>
+        /// <param name="length">Length in bytes of the data block/param>
+        /// <param name="version">Expected version number of the blob data.</param>
+        /// <param name="result">The resulting BlobAssetReference if the data was read successful.</param>
+        /// <returns>A bool if the read was successful or not.</returns>
+        public static bool TryRead(byte* data, long length, int version, out BlobAssetReference<T> result)
+        {
+            var binaryReader = new MemoryBinaryReader(data, length);
             var storedVersion = binaryReader.ReadInt();
             if (storedVersion != version)
             {
@@ -499,6 +546,46 @@ namespace Unity.Entities
             return true;
         }
 #endif
+
+        /// <summary>
+        /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
+        /// The returned blob reuses the data from the passed in pointer and is only valid as long as the buffer stays allocated.
+        /// Also the returned blob asset reference can not be disposed.
+        /// </summary>
+        /// <param name="data">A pointer to the buffer containing the serialized blob data.</param>
+        /// <param name="size">Size in bytes of the buffer containing the serialized blob data.</param>
+        /// <param name="version">Expected version number of the blob data.</param>
+        /// <param name="result">The resulting BlobAssetReference if the data was read successful.</param>
+        /// <param name="numBytesRead">Number of bytes of the data buffer that are read.</param>
+        /// <returns>A bool if the read was successful or not.</returns>
+        internal static unsafe bool TryReadInplace(byte* data, long size, int version, out BlobAssetReference<T> result, out int numBytesRead)
+        {
+            result = default;
+            numBytesRead = 0;
+
+            if (size < sizeof(int) + sizeof(BlobAssetHeader))
+                return false;
+
+            var storedVersion = *(int*)data;
+            if (storedVersion != version)
+                return false;
+
+            ref var header = ref *((BlobAssetHeader*)(data + sizeof(int)));
+
+            if (size < sizeof(int) + sizeof(BlobAssetHeader) + header.Length)
+                return false;
+
+            numBytesRead = sizeof(int) + sizeof(BlobAssetHeader) + header.Length;
+
+            var buffer = data + sizeof(int);
+            header.ValidationPtr = buffer + sizeof(BlobAssetHeader);
+
+            BlobAssetReference<T> blobAssetReference;
+            blobAssetReference.m_data.m_Align8Union = 0;
+            blobAssetReference.m_data.m_Ptr = buffer + sizeof(BlobAssetHeader);
+            result = blobAssetReference;
+            return true;
+        }
 
         public static void Write<U>(U writer, BlobBuilder builder, int verison)
         where U : BinaryWriter
@@ -581,6 +668,8 @@ namespace Unity.Entities
         {
             return m_data.GetHashCode();
         }
+
+        internal BlobAssetPtr ToBlobAssetPtr() => new BlobAssetPtr(m_data.Header);
     }
 
     /// <summary>
@@ -589,7 +678,8 @@ namespace Unity.Entities
     /// <typeparam name="T">The data type of the referenced object.</typeparam>
     /// <seealso cref="BlobBuilder"/>
     [MayOnlyLiveInBlobStorage]
-    unsafe public struct BlobPtr<T> where T : struct
+    [DebuggerDisplay("Cannot display the value of a " + nameof(BlobPtr<T>) + " by itself. Please inspect the root BlobAssetReference instead.")]
+    public unsafe struct BlobPtr<T> where T : struct
     {
         internal int m_OffsetPtr;
 
@@ -598,7 +688,7 @@ namespace Unity.Entities
         /// </summary>
         public bool IsValid => m_OffsetPtr != 0;
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void AssertIsValid()
         {
             if (!IsValid)
@@ -652,7 +742,8 @@ namespace Unity.Entities
     /// <typeparam name="T">The data type of the elements in the array. Must be a struct or other value type.</typeparam>
     /// <seealso cref="BlobBuilder"/>
     [MayOnlyLiveInBlobStorage]
-    unsafe public struct BlobArray<T> where T : struct
+    [DebuggerDisplay("Cannot display the value of a " + nameof(BlobArray<T>) + " by itself. Please inspect the root BlobAssetReference instead.")]
+    public unsafe struct BlobArray<T> where T : struct
     {
         internal int m_OffsetPtr;
         internal int m_Length;
@@ -682,7 +773,7 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void AssertIndexInRange(int index)
         {
             if ((uint)index >= (uint)m_Length)
@@ -747,7 +838,8 @@ namespace Unity.Entities
     /// </summary>
     /// <seealso cref="BlobBuilder"/>
     [MayOnlyLiveInBlobStorage]
-    unsafe public struct BlobString
+    [DebuggerDisplay("Cannot display the value of a " + nameof(BlobString) + " by itself. Please inspect the root BlobAssetReference instead.")]
+    public unsafe struct BlobString
     {
         internal BlobArray<byte> Data;
         /// <summary>
@@ -762,13 +854,14 @@ namespace Unity.Entities
         /// Converts this BlobString to a standard C# <see cref="string"/>.
         /// </summary>
         /// <returns>The C# string.</returns>
-        public new string ToString()
+        public new string ToString() => ToString((byte*)Data.GetUnsafePtr(), Length);
+
+        internal static string ToString(byte* data, int lengthInBytes)
         {
-            var utf16_capacity = math.max(1, Length * 2);
-            var c = stackalloc char[utf16_capacity];
-            int utf16_length = 0;
-            Unicode.Utf8ToUtf16((byte*)Data.GetUnsafePtr(), Length, c, out utf16_length, utf16_capacity);
-            return new String(c, 0, utf16_length);
+            var utf16Capacity = math.max(1, lengthInBytes * 2);
+             var c = stackalloc char[utf16Capacity];
+             Unicode.Utf8ToUtf16(data, lengthInBytes, c, out var utf16Length, utf16Capacity);
+             return new String(c, 0, utf16Length);
         }
     }
 
@@ -784,16 +877,16 @@ namespace Unity.Entities
         /// <param name="blobStr">A reference to the field in the blob asset that will store the string. This
         /// function allocates memory for that field and sets the string value.</param>
         /// <param name="value">The string to copy into the blob asset.</param>
-        unsafe public static void AllocateString(ref this BlobBuilder builder, ref BlobString blobStr, string value)
+        public static unsafe void AllocateString(ref this BlobBuilder builder, ref BlobString blobStr, string value)
         {
             fixed (char* c = value)
             {
-                var utf8_capacity = value.Length * 2 + 1;
-                byte* b = (byte*)UnsafeUtility.Malloc(utf8_capacity, 1, Allocator.Temp);
-                Unicode.Utf16ToUtf8(c, value.Length, b, out int utf8_length, utf8_capacity);
-                b[utf8_length] = 0;
-                var res = builder.Allocate(ref blobStr.Data, utf8_length + 1);
-                UnsafeUtility.MemCpy(res.GetUnsafePtr(), b, utf8_length + 1);
+                var utf8Capacity = value.Length * 2 + 1;
+                byte* b = (byte*)UnsafeUtility.Malloc(utf8Capacity, 1, Allocator.Temp);
+                Unicode.Utf16ToUtf8(c, value.Length, b, out int utf8Length, utf8Capacity);
+                b[utf8Length] = 0;
+                var res = builder.Allocate(ref blobStr.Data, utf8Length + 1);
+                UnsafeUtility.MemCpy(res.GetUnsafePtr(), b, utf8Length + 1);
             }
         }
     }
@@ -811,7 +904,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The blob asset's root data type.</typeparam>
         /// <seealso cref="StreamBinaryWriter"/>
         /// <seealso cref="MemoryBinaryWriter"/>
-        unsafe public static void Write<T>(this BinaryWriter binaryWriter, BlobAssetReference<T> blob) where T : struct
+        public static unsafe void Write<T>(this BinaryWriter binaryWriter, BlobAssetReference<T> blob) where T : struct
         {
             var blobAssetLength = blob.m_data.Header->Length;
             var serializeReadyHeader = BlobAssetHeader.CreateForSerialize(blobAssetLength, blob.m_data.Header->Hash);
@@ -828,7 +921,7 @@ namespace Unity.Entities
         /// <returns>A reference to the deserialized blob asset.</returns>
         /// <seealso cref="StreamBinaryReader"/>
         /// <seealso cref="MemoryBinaryReader"/>
-        unsafe public static BlobAssetReference<T> Read<T>(this BinaryReader binaryReader) where T : struct
+        public static unsafe BlobAssetReference<T> Read<T>(this BinaryReader binaryReader) where T : struct
         {
             BlobAssetHeader header;
             binaryReader.ReadBytes(&header, sizeof(BlobAssetHeader));

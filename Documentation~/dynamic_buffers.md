@@ -4,124 +4,238 @@ uid: ecs-dynamic-buffers
 
 # Dynamic buffer components
 
-Use dynamic buffer components to associate array-like data with an entity. Dynamic buffers are ECS components that can hold a variable number of elements, and automatically resize as necessary. 
+A dynamic buffer is a kind of component which is a resizeable array. A dynamic buffer type is defined by a struct implementing `IBufferElementData`:
 
-To create a dynamic buffer, first declare a struct that implements [IBufferElementData](xref:Unity.Entities.IBufferElementData) and defines the elements stored in the buffer. For example, you can use the following struct for a buffer component that stores integers:
-
-[!code-cs[declare-element](../DocCodeSamples.Tests/DynamicBufferExamples.cs#declare-element)]
-
-To associate a dynamic buffer with an entity, add an [IBufferElementData](xref:Unity.Entities.IBufferElementData) component directly to the entity rather than adding the [dynamic buffer container](xref:Unity.Entities.DynamicBuffer`1) itself. 
-
-ECS manages the container. For most purposes, you can use a declared `IBufferElementData` type to treat a dynamic buffer the same as any other ECS component. For example, you can use the `IBufferElementData` type in [entity queries](xref:Unity.Entities.EntityQuery) as well as when you add or remove the buffer component. However, you must use different functions to access a buffer component and those functions provide the [DynamicBuffer](xref:Unity.Entities.DynamicBuffer`1) instance, which gives an array-like interface to the buffer data.
-
-To specify an “internal capacity" for a dynamic buffer component, use the [InternalBufferCapacity attribute](xref:Unity.Entities.InternalBufferCapacityAttribute). The internal capacity defines the number of elements the dynamic buffer stores in the [ArchetypeChunk](xref:Unity.Entities.ArchetypeChunk) along with the other components of an entity. If you increase the size of a buffer beyond the internal capacity, the buffer allocates a heap memory block outside the current chunk and moves all existing elements. ECS manages this external buffer memory automatically, and frees the memory when the buffer component is removed. 
-
-> [!NOTE]
-> If the data in a buffer is not dynamic, you can use a [blob asset](xref:Unity.Entities.BlobBuilder) instead of a dynamic buffer. Blob assets can store structured data, including arrays. Multiple entities can share blob assets.
- 
-## Declaring buffer element types
-
-To declare a buffer, declare a struct that defines the type of element that you want to put into the buffer. The struct must implement [IBufferElementData](xref:Unity.Entities.IBufferElementData), like so:
-
-[!code-cs[declare-element-full](../DocCodeSamples.Tests/DynamicBufferExamples.cs#declare-element-full)]
-
-
-## Adding buffer types to entities
-
-To add a buffer to an entity, add the `IBufferElementData` struct that defines the data type of the buffer element, and then add that type directly to an entity or to an [archetype](xref:Unity.Entities.EntityArchetype):
-
-### Using EntityManager.AddBuffer()
-
-For more information, see the documentation on [EntityManager.AddBuffer()](xref:Unity.Entities.EntityManager.AddBuffer*).
-
-[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#add-with-manager)]
-
-### Using an archetype
-
-[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#add-with-archetype)]
-
-### Using the `[GenerateAuthoringComponent]` attribute
-
-You can use `[GenerateAuthoringComponent]`to generate authoring components for simple IBufferElementData implementations that contain only one field. Setting this attribute allows you add an ECS IBufferElementData component to a GameObject so that you can set the buffer elements in the Editor.  
-
-For example, if you declare the following type, you can add it directly to a GameObject in the Editor:
-
-```
-[GenerateAuthoringComponent]
-public struct IntBufferElement: IBufferElementData
+```csharp
+// An entity with this dynamic buffer component has a 
+// MyElement array with space for 16 elements stored directly in the chunk.
+//
+// When the internal buffer capacity is exceeded, the buffer is 
+// copied to a new separate array outside the chunk.
+[InternalBufferCapacity(16)]
+public struct MyElement : IBufferElementData
 {
     public int Value;
 }
 ```
 
-In the background, Unity generates a class named `IntBufferElementAuthoring` (which inherits from `MonoBehaviour`), which exposes a public field of `List<int>` type. When the GameObject containing this generated authoring component is converted into an entity, the list is converted into `DynamicBuffer<IntBufferElement>`, and then added to the converted entity.
+If omitted, `InternalBufferCapacity` defaults to the number of elements that fits within 128 bytes (see [DefaultBufferCapacityNumerator](xref:Unity.Entities.TypeManager.DefaultBufferCapacityNumerator)).
 
-Note the following restrictions:
-- Only one component in a single C# file can have a generated authoring component, and the C# file must not have another MonoBehaviour in it.
-- `IBufferElementData` authoring components cannot be automatically generated for types that contain more than one field.
-- `IBufferElementData` authoring components cannot be automatically generated for types that have an explicit layout.
+An `IBufferElementData` struct is unmanaged and so subject to the same constraints as an `IComponentData` struct.
 
-### Using an [EntityCommandBuffer](xref:Unity.Entities.EntityCommandBuffer)
+Be clear that an `IBufferElementData` struct defines the elements of a dynamic buffer type and also represents the dynamic buffer component type itself. Meanwhile, a `DynamicBuffer` struct represents just an individual dynamic buffer, not a component type.
 
-You can add or set a buffer component when you add commands to an entity command buffer. 
+Each buffer also stores a `Length`, a `Capacity`, and a pointer:
 
-Use [AddBuffer](xref:Unity.Entities.EntityCommandBuffer.AddBuffer``1(Unity.Entities.Entity)) to create a new buffer for the entity, which changes the entity's archetype. Use [SetBuffer](xref:Unity.Entities.EntityCommandBuffer.SetBuffer``1(Unity.Entities.Entity)) to wipe out the existing buffer (which must exist) and create a new, empty buffer in its place. Both functions return a [DynamicBuffer](xref:Unity.Entities.DynamicBuffer`1) instance that you can use to populate the new buffer. You can add elements to the buffer immediately, but they are not otherwise accessible until the buffer is added to the entity when the command buffer is executed.
+* The `Length` is the logical length. It starts at 0 and increments when a value is appended into the buffer.
+* The `Capacity` is the actual amount of storage in the buffer. It starts out matching the internal buffer capacity. Setting `Capacity` resizes the buffer.
+* Until a buffer grows beyond its internal buffer capacity, the buffer's data is stored directly in the chunk, and its pointer remains null. Once the internal capacity is exceeded, all the buffer's data is copied to a new larger array separately allocated outside the chunk, and the pointer is set to point to this new array.
 
-The following job creates a new entity using a command buffer and then adds a dynamic buffer component using [EntityCommandBuffer.AddBuffer](xref:Unity.Entities.EntityCommandBuffer.AddBuffer``1(Unity.Entities.Entity)). The job also adds a number of elements to the dynamic buffer. 
-
-[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#add-in-job)]
+The internal buffer capacity is part of the chunk and so is only deallocated when the chunk itself is deallocated. Any external arrays that get created are automatically deallocated when no longer needed, such as when the entity is destroyed.
 
 > [!NOTE]
-> You are not required to add data to the dynamic buffer immediately. However, you won't have access to the buffer again until after the entity command buffer you are using is executed.
+> If the data in a buffer need not ever change after creation, you can instead use a [blob asset](xref:Unity.Entities.BlobBuilder). Blob assets can store structured data, including arrays, and multiple entities can share a single blob asset.
 
-## Accessing buffers
+## Basic dynamic buffer usage
 
-You can use [EntityManager](xref:Unity.Entities.EntityManager), [systems](ecs_systems.md), and jobs to access the [DynamicBuffer](xref:Unity.Entities.DynamicBuffer`1) instance in much the same way as you access other component types of entities. 
 
-### EntityManager
+A dynamic buffer component can be added, removed, and queried just like other components:
 
-You can use an instance of the [EntityManager](xref:Unity.Entities.EntityManager) to access a dynamic buffer:
+```csharp
+// ...The IBufferElementData struct MyElement is defined above.
 
-[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#access-manager)]
+// Create an entity with a dynamic buffer with elements of type MyElement.
+EntityManager.CreateEntity(typeof(MyElement));    
 
-### Looking up buffers of another entity
+// Add a MyElement dynamic buffer to an existing entity.
+EntityManager.AddComponent<MyElement>(e);    
 
-When you need to look up the buffer data belonging to another entity in a job, you can pass a [BufferFromEntity](xref:Unity.Entities.BufferFromEntity`1) variable to the job.
+// Remove the MyElement  dynamic buffer from an entity.
+EntityManager.RemoveComponent<MyElement>(e);
 
-[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#lookup-snippet)]
+// A query that matches entities with a MyElement dynamic buffer.
+EntityQuery query = GetEntityQuery(typeof(MyElement));
+```
 
-### SystemBase Entities.ForEach
+A `DynamicBuffer` struct represents an individual buffer and lets you read, write, and append values in the buffer, and set the buffer's `Length` and `Capacity`:
 
-You can access dynamic buffers associated with the entities you process with Entities.ForEach by passing the buffer as one of your lambda function parameters. The following example adds all the values stored in the buffers of type, `MyBufferElement`:
+```csharp
+// Get a DynamicBuffer representing the entity's MyElement buffer.
+DynamicBuffer<MyElement> myBuff = EntityManager.GetBuffer<MyElement>(e);
 
-[!code-cs[access-buffer-system](../DocCodeSamples.Tests/DynamicBufferExamples.cs#access-buffer-system)]
+// Read and set index 5 of the buffer. 
+// Throws a safety check exception if 5 is >= Length.
+int x = myBuff[5].Value;
+myBuff[5] = new MyElement { Value = x + 1 };
 
-Note that we can write directly to the captured `sum` variable in this example because we execute the code with `Run()`. If we scheduled the function to run in a job, we could only write to a native container such as NativeArray, even though the result is a single value.
+// Append a new value at index Length and increments Length.
+// If new Length exceeds Capacity, the buffer is resized to double Capacity.
+myBuff.Add(new MyElement { Value = 100 });
 
-### IJobChunk
+// Effectively, set the range of usable indexes to 0 through 9.
+// If necessary, will increase Capacity to accommodate the new Length.  
+myBuff.Length = 10; 
 
-To access an individual buffer in an `IJobChunk` job, pass the buffer data type to the job and use that to get a [BufferAccessor](xref:Unity.Entities.BufferAccessor`1). A buffer accessor is an array-like structure that provides access to all of the dynamic buffers in the current chunk. 
+// Resize the array to this precise size.
+// Throws a safety check exception if less than Length.
+myBuff.Capacity = 20;
+```
 
-Like the previous example, the following example adds up the contents of all dynamic buffers that contain elements of type, `MyBufferElement`. `IJobChunk` jobs can also run in parallel on each chunk, so in the example, it first stores the intermediate sum for each buffer in a native array and then uses a second job to calculate the final sum. In this case, the intermediate array holds one result for each chunk, rather than one result for each entity.
+In `Entities.ForEach`, you can access a dynamic buffer component with a lambda parameter:
 
-[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#access-chunk-job)]
+```csharp
+Entities.ForEach((in DynamicBuffer<MyElement> myBuff) => {
+    for (int i = 0; i < myBuff.Length; i++)
+    {
+        // ... read myBuff[i]
+    }
+}).Schedule();
+```
+
+For write access, make the parameter `ref` instead of `in`.
+
+### Structural changes invalidate a DynamicBuffer
+ 
+Because a [structural change](sync_points.md#structural-changes) might destroy or move the underlying array referenced by a `DynamicBuffer`, a `DynamicBuffer` struct cannot be used after any structural change. The `DynamicBuffer` must be reacquired to access the buffer again.
+
+```csharp
+DynamicBuffer<MyElement> myBuff = EntityManager.GetBuffer<MyElement>(e);
+
+// This structural change invalidates the previously acquired DynamicBuffer.
+EntityManager.CreateEntity();
+
+// Safety check will throw an exception on any read or write of the buffer.
+var x = myBuff[0];   // Exception!
+
+// Reacquire the DynamicBuffer.
+myBuff = EntityManager.GetBuffer<MyElement>(e);
+
+var y = myBuff[0];   // OK
+```
+    
+### Random lookup of buffers through BufferFromEntity        
+
+If all entities of an `Entities.ForEach` need the same buffer, you can just capture that buffer as a local variable on the main thread:
+
+```csharp
+var myBuff = EntityManager.GetBuffer<MyElement>(someEntity);  
+
+Entities.ForEach((in SomeComp someComp) => {    
+    // ... use myBuff
+}).Schedule();
+```
+
+> [!NOTE]
+> If using `ScheduleParallel`, be aware that a buffer cannot be written in parallel. You can however use an `EntityCommandBuffer.ParallelWriter` to record changes in parallel.
+
+If though an `Entities.ForEach` needs to lookup one or more buffers in its code, you need a `BufferFromEntity` struct, which provides random lookup of buffers by entity. For the sake of job safety, a system needs to keep track of which components it accesses, so a `BufferFromEntity` is created via `GetBufferFromEntity` of `SystemBase`. (There's also [GetBuffer of SystemBase](xref:Unity.Entities.SystemBase.GetBuffer), which implicitly creates a `BufferFromEntity` when used in an `Entities.ForEach` job.)
+
+```csharp
+// ...in the OnUpdate of a SystemBase class
+BufferFromEntity<MyElement> lookup = GetBufferFromEntity<MyElement>();
+
+Entities.ForEach((in SomeComp someComp) => {
+    // EntityManager cannot be used in the job, so instead we use
+    // the captured BufferFromEntity to lookup MyElement buffers by entity.
+    DynamicBuffer<MyElement> myBuff = lookup[someComp.OtherEntity];
+    
+    // ... use myBuff
+}).Schedule();
+```
+
+## Generating an authoring component
+
+```csharp
+[GenerateAuthoringComponent]
+public struct MyElement: IBufferElementData
+{
+    public int Value;
+}
+```
+
+This will generate a `MonoBehaviour` class named `MyElementAuthoring` with a public field of type `List<int>`. When a `GameObject` with this authoring component is converted into an entity, the list of ints is added to the entity as a `DynamicBuffer<Bar>` component. Note that: 
+
+- `[GenerateAuthoringComponent]` cannot be applied to `IBufferElementData` structs which have more than one field or which use `[StructLayout (LayoutKind.Explicit)]`
+- As always, `[GenerateAuthoringComponent]` can only be applied to one type in a source file, and the file must not define any other `MonoBehaviour` classes.
+
+## Modifying dynamic buffers with an EntityCommandBuffer
+
+An `EntityCommandBuffer` can record commands to add buffer components to entities, remove them, or set them.
+
+```csharp
+// ...The IBufferElementData struct MyElement is defined above.
+
+EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.TempJob);
+
+// Record a command to remove the MyElement dynamic buffer from an entity.
+ecb.RemoveComponent<MyElement>(e);
+
+// Record a command to add a MyElement dynamic buffer to an existing entity.
+// The data of the returned DynamicBuffer is stored in the EntityCommandBuffer, 
+// so changes to the returned buffer are also recorded changes. 
+DynamicBuffer<MyElement> myBuff = ecb.AddBuffer<MyElement>(e); 
+
+// After playback, the entity will have a MyElement buffer with 
+// Length 20 and these recorded values.
+myBuff.Length = 20;
+myBuff[0] = new MyElement { Value = 5 };
+myBuff[3] = new MyElement { Value = -9 };
+
+// SetBuffer is like AddBuffer, but safety checks will throw an exception at playback if 
+// the entity doesn't already have a MyElement buffer. 
+DynamicBuffer<MyElement> otherBuf = ecb.SetBuffer<MyElement>(otherEntity);
+
+// Records a MyElement value to append to the buffer. Throws an exception at 
+// playback if the entity doesn't already have a MyElement buffer.
+ecb.AppendToBuffer<MyElement>(otherEntity, new MyElement { Value = 12 });
+```
+ 
+When you set the `Length`, `Capacity`, and content of the `DynamicBuffer` returned by `AddBuffer`, those changes are recorded into the `EntityCommandBuffer`. Upon playback, the buffer added to the entity will have those changes.
+
+### Get all buffers of a chunk
+
+The `ArchetypeChunk` method `GetBufferAccessor` takes a `BufferTypeHandle<T>` and returns a `BufferAccessor`. Indexing the `BufferAccessor<T>` returns the chunk's buffers of type `T`:
+
+```csharp
+// ... assume a chunk with MyElement dynamic buffers
+
+// Get a BufferTypeHandle representing dynamic buffer type MyElement from SystemBase.
+BufferTypeHandle<MyElement> myElementHandle = GetBufferTypeHandle<MyElement>();
+
+// Get a BufferAccessor from the chunk.
+BufferAccessor<MyElement> buffers = chunk.GetBufferAccessor(myElementHandle);
+
+// Iterate through all MyElement buffers of each entity in the chunk. 
+for (int i = 0; i < chunk.Count; i++)
+{
+    DynamicBuffer<MyElement> buffer = buffers[i];
+    
+    // Iterate through all elements of the buffer.
+    for (int i = 0; i < buffer.Length; i++)
+    {
+        // ...
+    }
+}
+```
 
 ## Reinterpreting buffers
 
-Buffers can be reinterpreted as a type of the same size. The intention is to
-allow controlled type-punning and to get rid of the wrapper element types when
-they get in the way. To reinterpret, call [Reinterpret&lt;T&gt;](xref:Unity.Entities.DynamicBuffer`1.Reinterpret*):
+A `DynamicBuffer<T>` can be 'reinterpreted' such that you get another `DynamicBuffer<U>`, where `T` and `U` have the same size. This reinterpretation aliases the same memory, so changing the value at index `i` of one changes the value at index `i` of the other:
 
-[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#reinterpret-snippet)]
+```csharp
+DynamicBuffer<MyElement> myBuff = EntityManager.GetBuffer<MyElement>(e);
 
-The reinterpreted buffer instance retains the safety handle of the original
-buffer, and is safe to use. Reinterpreted buffers reference original data, so
-modifications to one reinterpreted buffer are immediately reflected in
-others.
+// Valid as long as each MyElement struct is four bytes. 
+DynamicBuffer<int> intBuffer = myBuff.Reinterpret<int>();
 
-**Note:** The reinterpret function only enforces that the types involved have the same length. For example, you can alias a `uint` and `float` buffer without raising an error because both types are 32-bits long. You must make sure that the reinterpretation makes sense logically.
+intBuffer[2] = 6;  // same effect as: myBuff[2] = new MyElement { Value = 6 };
 
-## Buffer reference invalidation
-Every [structural change](sync_points.md#structural-changes) invalidates all references to dynamic buffers. Structural changes generally cause entities to move from one chunk to another. Small dynamic buffers can reference memory within a chunk (as opposed to from main memory) and therefore, they need to be reacquired after a structural change.
+// The MyElement value has the same four bytes as int value 6. 
+MyElement myElement = myBuff[2];
+Debug.Log(myElement.Value);    // 6
+```
 
-[!code-cs[declare](../DocCodeSamples.Tests/DynamicBufferExamples.cs#invalidation)]
+The reinterpreted buffer shares the safety handle of the original and so is subject to all the same safety restrictions. 
+
+> [!NOTE]
+> The `Reinterpret` method only enforces that the original type and new type have the same size. For example, you can reinterpret a `uint` to a `float` because both types are 32-bit. It is your responsibility to decide whether the reinterpretation makes sense for your purposes.

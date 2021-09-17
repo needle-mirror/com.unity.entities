@@ -40,6 +40,7 @@ namespace Unity.Entities.PerformanceTests
                     TypeManager.Equals(ref a, ref b);
                 })
                 .WarmupCount(10)
+                .MeasurementCount(100)
                 .IterationsPerMeasurement(1000)
                 .Run();
         }
@@ -55,6 +56,7 @@ namespace Unity.Entities.PerformanceTests
                     TypeManager.Equals(ref a, ref b);
                 })
                 .WarmupCount(10)
+                .MeasurementCount(100)
                 .IterationsPerMeasurement(1000)
                 .Run();
         }
@@ -69,6 +71,7 @@ namespace Unity.Entities.PerformanceTests
                     TypeManager.GetHashCode(ref a);
                 })
                 .WarmupCount(10)
+                .MeasurementCount(100)
                 .IterationsPerMeasurement(1000)
                 .Run();
         }
@@ -83,6 +86,7 @@ namespace Unity.Entities.PerformanceTests
                     TypeManager.GetHashCode(ref a);
                 })
                 .WarmupCount(10)
+                .MeasurementCount(100)
                 .IterationsPerMeasurement(1000)
                 .Run();
         }

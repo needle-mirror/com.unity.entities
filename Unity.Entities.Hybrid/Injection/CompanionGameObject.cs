@@ -1,17 +1,12 @@
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-using System;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities
 {
 #if UNITY_EDITOR
-    struct EditorCompanionHideFlagsSet : IComponentData {}
-    struct EditorCompanionInPreviewSceneTag : IComponentData {}
-
-    [UnityEditor.InitializeOnLoad] // ensures type manager is initialized on domain reload when not playing
+    [InitializeOnLoad] // ensures type manager is initialized on domain reload when not playing
 #endif
     static unsafe class AttachToEntityClonerInjection
     {
@@ -22,13 +17,13 @@ namespace Unity.Entities
             Initialize();
         }
 
-        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Initialize()
         {
             TypeManager.Initialize();
             ManagedComponentStore.CompanionLinkTypeIndex = TypeManager.GetTypeIndex(typeof(CompanionLink));
-            ManagedComponentStore.InstantiateHybridComponent = InstantiateHybridComponentDelegate;
-            ManagedComponentStore.AssignHybridComponentsToCompanionGameObjects = AssignHybridComponentsToCompanionGameObjectsDelegate;
+            ManagedComponentStore.InstantiateCompanionComponent = InstantiateCompanionComponentDelegate;
+            ManagedComponentStore.AssignCompanionComponentsToCompanionGameObjects = AssignCompanionComponentsToCompanionGameObjectsDelegate;
         }
 
         /// <summary>
@@ -41,7 +36,7 @@ namespace Unity.Entities
         /// <param name="dstArray">Array of destination managed component indices. One per <paramref name="componentCount"/>*<paramref name="instanceCount"/>. All indices for the first component stored first etc.</param>
         /// <param name="instanceCount">Number of instances being created</param>
         /// <param name="managedComponentStore">Managed Store that owns the instances we create</param>
-        static void InstantiateHybridComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstCompanionLinkIndices, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore)
+        static void InstantiateCompanionComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstCompanionLinkIndices, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore)
         {
             if (dstCompanionLinkIndices != null)
             {
@@ -50,7 +45,9 @@ namespace Unity.Entities
                 {
                     var companionLink = (CompanionLink)managedComponentStore.GetManagedComponent(dstCompanionLinkIndices[i]);
                     dstCompanionGameObjects[i] = companionLink.Companion;
-                    CompanionLink.SetCompanionName(dstEntities[i], dstCompanionGameObjects[i]);
+                    #if UNITY_EDITOR
+                    CompanionGameObjectUtility.SetCompanionName(dstEntities[i], dstCompanionGameObjects[i]);
+                    #endif
                 }
 
                 for (int src = 0; src < componentCount; ++src)
@@ -80,7 +77,7 @@ namespace Unity.Entities
             }
         }
 
-        static void AssignHybridComponentsToCompanionGameObjectsDelegate(EntityManager entityManager, NativeArray<Entity> entities)
+        static void AssignCompanionComponentsToCompanionGameObjectsDelegate(EntityManager entityManager, NativeArray<Entity> entities)
         {
             for (int i = 0; i < entities.Length; ++i)
             {
@@ -101,16 +98,12 @@ namespace Unity.Entities
                     if (type.Category != TypeManager.TypeCategory.UnityEngineObject)
                         continue;
 
-                    var hybridComponent = companionGameObject.GetComponent(type.Type);
-                    entityManager.SetComponentObject(entity, ComponentType.FromTypeIndex(type.TypeIndex), hybridComponent);
+                    var companionComponent = companionGameObject.GetComponent(type.Type);
+                    entityManager.SetComponentObject(entity, ComponentType.FromTypeIndex(type.TypeIndex), companionComponent);
                 }
             }
 
             entityManager.RemoveComponent<CompanionGameObjectActiveSystemState>(entities);
-            #if UNITY_EDITOR
-            entityManager.RemoveComponent<EditorCompanionHideFlagsSet>(entities);
-            entityManager.RemoveComponent<EditorCompanionInPreviewSceneTag>(entities);
-            #endif
         }
     }
 }

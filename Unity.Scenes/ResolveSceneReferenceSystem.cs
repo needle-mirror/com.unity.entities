@@ -1,7 +1,7 @@
 //#define LOG_RESOLVING
-
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Entities;
 using Hash128 = Unity.Entities.Hash128;
@@ -18,7 +18,7 @@ namespace Unity.Scenes
         public Hash128 BundleId;
     }
 
-    struct SceneEntityReference : IComponentData
+    public struct SceneEntityReference : IComponentData
     {
         public Entity SceneEntity;
     }
@@ -30,9 +30,8 @@ namespace Unity.Scenes
 
     struct ResolvedSectionPath : IComponentData
     {
-        //@TODO: Switch back to NativeString512 once bugs are fixed
-        public Words ScenePath;
-        public Words HybridPath;
+        public FixedString512Bytes ScenePath;
+        public FixedString512Bytes HybridPath;
     }
 
     struct SceneSectionCustomMetadata
@@ -41,12 +40,15 @@ namespace Unity.Scenes
         public BlobArray<byte> Data;
     }
 
+    // Size of SceneMetaData should be 16 byte aligned since this is stored as a blob with additional data following it
+    [StructLayout(LayoutKind.Sequential, Size = 48)]
     struct SceneMetaData
     {
         public BlobArray<SceneSectionData> Sections;
         public BlobString                  SceneName;
         public BlobArray<BlobArray<Hash128>> Dependencies;
         public BlobArray<BlobArray<SceneSectionCustomMetadata>> SceneSectionCustomMetadata;
+        public int HeaderBlobAssetBatchSize;
     }
 
     public struct DisableSceneResolveAndLoad : IComponentData
@@ -68,7 +70,7 @@ namespace Unity.Scenes
     [AlwaysUpdateSystem]
     [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(SceneSystem))]
-    class ResolveSceneReferenceSystem : SystemBase
+    partial class ResolveSceneReferenceSystem : SystemBase
     {
         struct AssetDependencyTrackerState : ISystemStateComponentData
         {
@@ -78,9 +80,14 @@ namespace Unity.Scenes
         EntityQuery m_AddScenes;
         EntityQuery m_RemoveScenes;
         EntityQueryMask m_ValidSceneMask;
+        ResolveSceneSectionArchetypes m_ResolveSceneSectionArchetypes;
 
         AssetDependencyTracker<Entity> _AssetDependencyTracker;
         NativeList<AssetDependencyTracker<Entity>.Completed> _Changed;
+
+        SceneSystem _sceneSystem;
+
+        SceneHeaderUtility _SceneHeaderUtility;
 
         [Conditional("LOG_RESOLVING")]
         void LogResolving(string type, Hash128 sceneGUID)
@@ -98,15 +105,12 @@ namespace Unity.Scenes
         {
             SceneWithBuildConfigurationGUIDs.ValidateBuildSettingsCache();
 
-            var sceneSystem = World.GetExistingSystem<SceneSystem>();
-            var buildConfigurationGUID = sceneSystem.BuildConfigurationGUID;
+            var buildConfigurationGUID = _sceneSystem.BuildConfigurationGUID;
 
             // Add scene entities that haven't been encountered yet
             if (!m_AddScenes.IsEmptyIgnoreFilter)
             {
-                //@TODO: Should use Entities.ForEach but we are missing
-                // 1. Entities.ForEach support with execute always (ILPP compilation not taking effect on first domain reload)
-                // 2. Entities.ForEach not supporting explicit queries
+                //@TODO: Should use Entities.ForEach but we are missing Entities.ForEach support for explicit queries
 
                 using (var addScenes = m_AddScenes.ToEntityArray(Allocator.TempJob))
                 {
@@ -159,24 +163,83 @@ namespace Unity.Scenes
                 var sceneEntity = change.UserKey;
                 LogResolving($"Resolving: {change.Asset} -> {change.ArtifactID}");
 
+                // This happens when instantiating an already fully resolved scene entity,
+                // AssetDependencyTrackerState will be added and results in a completed change request,
+                // but since this scene is already fully resolved with the same hash we can simply skip it.
+                if (HasComponent<ResolvedSceneHash>(sceneEntity) &&
+                    GetComponent<ResolvedSceneHash>(sceneEntity).ArtifactHash == (Hash128)change.ArtifactID)
+                    continue;
+
                 if (!m_ValidSceneMask.Matches(sceneEntity))
                     throw new InvalidOperationException("entity should have been removed from tracker already");
 
                 // Unload any previous state
                 var unloadFlags = SceneSystem.UnloadParameters.DestroySectionProxyEntities |
                                   SceneSystem.UnloadParameters.DontRemoveRequestSceneLoaded;
-                sceneSystem.UnloadScene(sceneEntity, unloadFlags);
+                _sceneSystem.UnloadScene(sceneEntity, unloadFlags);
 
                 // Resolve new state
                 var scene = EntityManager.GetComponentData<SceneReference>(change.UserKey);
                 var request = EntityManager.GetComponentData<RequestSceneLoaded>(change.UserKey);
                 if (change.ArtifactID != default)
-                    ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, change.UserKey, scene.SceneGUID,
-                        request, change.ArtifactID);
+                {
+                    LogResolving($"Schedule header load: {change.ArtifactID}");
+                    SceneHeaderUtility.ScheduleHeaderLoadOnEntity(EntityManager, change.UserKey, scene.SceneGUID, request, change.ArtifactID, _sceneSystem.SceneLoadDir);
+                }
                 else
                     Debug.LogError(
                         $"Failed to import entity scene because the automatically generated SceneAndBuildConfigGUID asset was not present: '{AssetDatabaseCompatibility.GuidToPath(scene.SceneGUID)}' -> '{AssetDatabaseCompatibility.GuidToPath(change.Asset)}'");
             }
+
+            _SceneHeaderUtility.CleanupHeaders(EntityManager);
+
+            bool headerLoadInProgress = false;
+            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity>().ForEach(
+                (Entity sceneEntity, ref RequestSceneHeader requestHeader, ref SceneReference scene,
+                    ref ResolvedSceneHash resolvedSceneHash, ref RequestSceneLoaded requestSceneLoaded) =>
+                {
+                        if (!requestHeader.IsCompleted)
+                        {
+                            if ((requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0)
+                            {
+                                headerLoadInProgress = true;
+                                return;
+                            }
+                            requestHeader.Complete();
+                        }
+
+                        using(var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, _sceneSystem.SceneLoadDir))
+                        {
+                            LogResolving($"Finished header load: {scene.SceneGUID}");
+                            if (!headerLoadResult.Success)
+                            {
+                                requestHeader.Dispose();
+                                EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
+                                EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+                                return;
+                            }
+
+                            ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
+                                m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths, headerLoadResult.HeaderBlobOwner);
+                            requestHeader.Dispose();
+                            EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+                        }
+#if UNITY_EDITOR
+                        if (EntityManager.HasComponent<SubScene>(sceneEntity))
+                        {
+                            var subScene = EntityManager.GetComponentObject<SubScene>(sceneEntity);
+                            // Add SubScene component to section entities
+                            using (var sectionEntities = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity).ToNativeArray(Allocator.Temp))
+                            {
+                                for (int iSection = 0; iSection < sectionEntities.Length;++iSection)
+                                    EntityManager.AddComponentObject(sectionEntities[iSection].SectionEntity, subScene);
+                            }
+                        }
+#endif
+                }).Run();
+
+            if(headerLoadInProgress)
+                EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
 
             if (!isDone)
                 EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
@@ -184,10 +247,11 @@ namespace Unity.Scenes
 
         protected override void OnCreate()
         {
+            _sceneSystem = World.GetExistingSystem<SceneSystem>();
             _AssetDependencyTracker =
                 new AssetDependencyTracker<Entity>(EntityScenesPaths.SubSceneImporterType, "Import EntityScene");
             _Changed = new NativeList<AssetDependencyTracker<Entity>.Completed>(32, Allocator.Persistent);
-
+            _SceneHeaderUtility = new SceneHeaderUtility(this);
             m_ValidSceneMask = EntityManager.GetEntityQueryMask(
                 GetEntityQuery(new EntityQueryDesc
                 {
@@ -215,7 +279,6 @@ namespace Unity.Scenes
                     }
                 });
 
-            //@TODO: This syntax is horrible. We need a reactive query syntax that lets me simply invert the m_AddScenes EntityQueryDesc
             m_RemoveScenes = GetEntityQuery(
                 new EntityQueryDesc
                 {
@@ -242,30 +305,19 @@ namespace Unity.Scenes
                     }
                 }
             );
+
+            m_ResolveSceneSectionArchetypes = ResolveSceneSectionUtility.CreateResolveSceneSectionArchetypes(EntityManager);
         }
 
         protected override void OnDestroy()
         {
             _AssetDependencyTracker.Dispose();
             _Changed.Dispose();
+            _SceneHeaderUtility.Dispose(EntityManager);
         }
     }
 
 #else
-#if UNITY_DOTSRUNTIME
-    internal struct RequestSceneHeader : ISystemStateComponentData
-    {
-        // DOTS Runtime IO handle. When the AsyncReadManager provides a mechanism to read files without knowing the size
-        // this type can be changed to a common type.
-        internal int IOHandle;
-    }
-
-    internal struct SceneMetaDataLoaded : ISystemStateComponentData
-    {
-        public bool Success;
-    }
-#endif
-
     /// <summary>
     /// Scenes are made out of sections, but to find out how many sections there are and extract their data like bounding volume or file size.
     /// The meta data for the scene has to be loaded first.
@@ -274,35 +326,64 @@ namespace Unity.Scenes
     [AlwaysUpdateSystem]
     [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(SceneSystem))]
-    class ResolveSceneReferenceSystem : SystemBase
+    partial class ResolveSceneReferenceSystem : SystemBase
     {
-        protected override void OnUpdate()
+        private SceneSystem _sceneSystem;
+        private SceneHeaderUtility _SceneHeaderUtility;
+        private ResolveSceneSectionArchetypes m_ResolveSceneSectionArchetypes;
+
+        protected override void OnCreate()
         {
-#if !UNITY_DOTSRUNTIME
-            Enabled = !LiveLinkUtility.LiveLinkEnabled;
-            if (!Enabled)
-                return;
+            _sceneSystem = World.GetExistingSystem<SceneSystem>();
+            _SceneHeaderUtility = new SceneHeaderUtility(this);
+            m_ResolveSceneSectionArchetypes = ResolveSceneSectionUtility.CreateResolveSceneSectionArchetypes(EntityManager);
+        }
 
-            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity>().
+        protected override void OnDestroy()
+        {
+            _SceneHeaderUtility.Dispose(EntityManager);
+        }
+
+        protected unsafe override void OnUpdate()
+        {
+            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity, RequestSceneHeader>().
                 ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
                 {
-                    ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, scene.SceneGUID, requestSceneLoaded, default);
+                    SceneHeaderUtility.ScheduleHeaderLoadOnEntity(EntityManager, sceneEntity, scene.SceneGUID, requestSceneLoaded, default, _sceneSystem.SceneLoadDir);
                 }).Run();
+
+            _SceneHeaderUtility.CleanupHeaders(EntityManager);
+
+            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity>().ForEach(
+                (Entity sceneEntity, ref RequestSceneHeader requestHeader, ref SceneReference scene, ref ResolvedSceneHash resolvedSceneHash, ref RequestSceneLoaded requestSceneLoaded) =>
+                {
+                    if (!requestHeader.IsCompleted)
+                    {
+#if !UNITY_DOTSRUNTIME // DOTS Runtime does not support blocking on IO
+                        if((requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0)
+                            return;
+                        requestHeader.Complete();
 #else
-            // Asynchronously load the SceneMetaData from the SceneHeader
-            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity, SceneMetaDataLoaded>().
-                ForEach((Entity sceneEntity, ref SceneReference scene) =>
-                {
-                    ResolveSceneSectionUtility.RequestLoadAndPollSceneMetaData(EntityManager, sceneEntity, scene.SceneGUID);
-                }).Run();
-
-            // Once the SceneHeader is loaded, resolve the sections from the scene header
-            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity>().WithAll<SceneMetaDataLoaded>().
-                ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
-                {
-                    ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, scene.SceneGUID, requestSceneLoaded, default);
-                }).Run();
+                        return;
 #endif
+                    }
+
+                    using(var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, _sceneSystem.SceneLoadDir))
+                    {
+                        if (!headerLoadResult.Success)
+                        {
+                            requestHeader.Dispose();
+                            EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
+                            EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+                            return;
+                        }
+
+                        ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
+                            m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths, headerLoadResult.HeaderBlobOwner);
+                    }
+                    requestHeader.Dispose();
+                    EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+                }).Run();
         }
     }
 #endif

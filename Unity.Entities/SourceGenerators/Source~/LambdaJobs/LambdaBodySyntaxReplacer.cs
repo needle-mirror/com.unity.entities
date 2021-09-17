@@ -1,4 +1,4 @@
-// Copyright (c) Tunnel Vision Laboratories, LLC. All Rights Reserved.
+﻿// Copyright (c) Tunnel Vision Laboratories, LLC. All Rights Reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System;
@@ -7,10 +7,11 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using Unity.Entities.SourceGen.Common;
 
-namespace Unity.Entities.SourceGen
+namespace Unity.Entities.SourceGen.LambdaJobs
 {
     // Find all cases where a member access could be used with explicit `this`
     sealed class LambdaBodySyntaxReplacer : CSharpSyntaxWalker
@@ -82,7 +83,13 @@ namespace Unity.Entities.SourceGen
             {
                 try
                 {
-                    return SyntaxFactory.ParseExpression(localSymbol.ConstantValue.ToString());
+                    // Need to special case float or else it is output as a double value
+                    if (localSymbol.ConstantValue is float floatConstant)
+                        return SyntaxFactory.ParseExpression($"{floatConstant.ToString(CultureInfo.InvariantCulture)}f");
+                    else if (localSymbol.Type.GetTypedConstantKind() == TypedConstantKind.Enum)
+                        return SyntaxFactory.ParseExpression($"({localSymbol.Type.ToFullName()}){localSymbol.ConstantValue}");
+                    else
+                        return SyntaxFactory.ParseExpression(localSymbol.ConstantValue.ToString());
                 }
                 catch (Exception)
                 {
@@ -109,7 +116,7 @@ namespace Unity.Entities.SourceGen
             }
             else if (node is MemberAccessExpressionSyntax memberAccessExpression)
             {
-                IdentifierNameSyntax nameExpression = memberAccessExpression.Expression as IdentifierNameSyntax;
+                var nameExpression = memberAccessExpression.Expression as IdentifierNameSyntax;
                 HandleIdentifierNameImpl(nameExpression);
             }
 
@@ -158,7 +165,7 @@ namespace Unity.Entities.SourceGen
                         break;
                     }
 
-                    switch (node?.Parent?.Parent?.Kind() ?? SyntaxKind.None)
+                    switch (node?.Parent?.Parent?.Kind())
                     {
                         case SyntaxKind.AttributeArgument:
                         case SyntaxKind.AnonymousObjectMemberDeclarator:
@@ -167,12 +174,12 @@ namespace Unity.Entities.SourceGen
 
                     break;
 
-                case SyntaxKind.Argument when IsPartOfConstructorInitializer((SimpleNameSyntax)node):
+                case SyntaxKind.Argument when IsPartOfConstructorInitializer(node):
                     // constructor invocations cannot contain this.
                     return;
             }
 
-            HandleIdentifierNameImpl((SimpleNameSyntax)node);
+            HandleIdentifierNameImpl(node);
         }
 
         void HandleIdentifierNameImpl(SimpleNameSyntax nameExpression)
@@ -231,9 +238,6 @@ namespace Unity.Entities.SourceGen
                         case MethodKind.Constructor:
                         case MethodKind.LocalFunction:
                             return;
-
-                        default:
-                            break;
                     }
                 }
 
@@ -293,8 +297,7 @@ namespace Unity.Entities.SourceGen
 
                     case SyntaxKind.PropertyDeclaration:
                         var propertySyntax = (PropertyDeclarationSyntax)node;
-                        return !propertySyntax.Modifiers.Any(SyntaxKind.StaticKeyword)
-                            && propertySyntax.Initializer == null;
+                        return !propertySyntax.Modifiers.Any(SyntaxKind.StaticKeyword) && propertySyntax.Initializer == null;
 
                     case SyntaxKind.MultiLineDocumentationCommentTrivia:
                     case SyntaxKind.SingleLineDocumentationCommentTrivia:

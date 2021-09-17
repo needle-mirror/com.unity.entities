@@ -1,16 +1,25 @@
 {
     "name": "Unity.Entities.Editor.Tests",
     "references": [
+        "Unity.Build",
+        "Unity.Burst",
         "Unity.Collections",
         "Unity.Entities",
-        "Unity.Mathematics",
-        "Unity.Scenes.Editor",
+        "Unity.Entities.Hybrid",
         "Unity.Entities.Editor",
         "Unity.Entities.Tests",
-        "Unity.Build",
-        "Unity.Build.Classic",
-        "Unity.Build.Classic.Private",
-        "Unity.Properties"
+        "Unity.InternalAPIEditorBridge.002",
+        "Unity.InternalAPIEngineBridge.002",
+        "Unity.Mathematics",
+        "Unity.Properties",
+        "Unity.Properties.Editor",
+        "Unity.Properties.UI",
+        "Unity.Properties.UI.Editor",
+        "Unity.Scenes",
+        "Unity.Scenes.Editor",
+        "Unity.Serialization",
+        "Unity.Serialization.Editor",
+        "Unity.Transforms"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"
@@ -20,5 +29,15 @@
     ],
     "precompiledReferences": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": true
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

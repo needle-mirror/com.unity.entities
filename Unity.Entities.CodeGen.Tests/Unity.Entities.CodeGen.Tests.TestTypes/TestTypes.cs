@@ -1,3 +1,5 @@
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 
 namespace Unity.Entities.CodeGen.Tests.TestTypes
@@ -14,6 +16,11 @@ namespace Unity.Entities.CodeGen.Tests.TestTypes
     public struct VelocityInAnotherAssembly : IComponentData
     {
         public float Value;
+    }
+
+    public struct StructWithNativeArrayInAnotherAssembly
+    {
+        public NativeArray<int> Array;
     }
 
     public struct AccelerationInAnotherAssembly : IComponentData

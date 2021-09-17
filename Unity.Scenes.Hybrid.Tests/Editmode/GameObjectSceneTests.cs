@@ -134,6 +134,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editor
         // 5- Disable Autoload on SubScenes in the Scene
         // 6- Enter PlayMode
         // 7- Validate NONE of the Entities we expect were loaded
+        [Ignore("Unstable on CI, DOTS-3750")]
         [UnityTest]
         public IEnumerator LoadSceneWithSubSceneAutoLoad_OnAndOff()
         {

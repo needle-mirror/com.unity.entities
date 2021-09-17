@@ -9,7 +9,8 @@ namespace Unity.Entities.Tests
     {
         BlockAllocator Allocator;
         const int kAllocatorBlockBytes = 64 * 1024; // This value should be the same as BlockAllocator.ms_BlockSize.
-        const int kBudgetBytes = kAllocatorBlockBytes * 2; // 2 blocks.
+        const int kBlockCount = 64;
+        const int kBudgetBytes = kAllocatorBlockBytes * kBlockCount;
 
         bool AllSameValue(byte* ptr, long bytes, byte value)
         {

@@ -7,7 +7,7 @@ namespace Unity.Entities.Tests
     [BurstCompile]
     public class EntityManagerUnmanagedTests : ECSTestsFixture
     {
-        private struct MyUnmanagedSystem2 : ISystemBase
+        private partial struct MyUnmanagedSystem2 : ISystem
         {
             public int UpdateCount;
             public int Dummy;
@@ -26,7 +26,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        private unsafe struct MyUnmanagedSystemWithStartStop : ISystemBase, ISystemBaseStartStop
+        private unsafe partial struct MyUnmanagedSystemWithStartStop : ISystem, ISystemStartStop
         {
             public int* Ptr;
             public int createdFlag;
@@ -58,7 +58,7 @@ namespace Unity.Entities.Tests
         }
 
         [BurstCompile]
-        private struct MyUnmanagedSystem2WithBurst : ISystemBase
+        private partial struct MyUnmanagedSystem2WithBurst : ISystem
         {
             public int UpdateCount;
             public int Dummy;
@@ -200,47 +200,115 @@ namespace Unity.Entities.Tests
         }
 
         [BurstCompile]
-        private struct SnoopSystemBase : ISystemBase
+        private struct SnoopSystem : ISystem, ISystemStartStop
         {
-            internal static int Flags = 0;
+            [Flags]
+            public enum CallFlags
+            {
+                None = 0,
+                OnCreate = 1 << 0,
+                OnUpdate = 1 << 1,
+                OnDestroy = 1 << 2,
+                OnStartRunning = 1 << 3,
+                OnStopRunning = 1 << 4,
+            }
+            internal static CallFlags Flags = CallFlags.None;
 
             public void OnCreate(ref SystemState state)
             {
-                Flags |= 1;
+                Flags |= CallFlags.OnCreate;
             }
 
             public void OnUpdate(ref SystemState state)
             {
-                Flags |= 2;
+                Flags |= CallFlags.OnUpdate;
             }
 
             public void OnDestroy(ref SystemState state)
             {
-                Flags |= 4;
+                Flags |= CallFlags.OnDestroy;
+            }
+
+            public void OnStartRunning(ref SystemState state)
+            {
+                Flags |= CallFlags.OnStartRunning;
+            }
+
+            public void OnStopRunning(ref SystemState state)
+            {
+                Flags |= CallFlags.OnStopRunning;
+            }
+
+            public static void AssertCallsWereMade(CallFlags flags)
+            {
+                if (flags != (Flags & flags))
+                {
+                    Assert.Fail($"Expected {flags} but have {Flags & flags}");
+                }
+            }
+
+            public static void AssertCallsWereNotMade(CallFlags flags)
+            {
+                if (0 != (Flags & flags))
+                {
+                    Assert.Fail($"Expected nothing, but have {Flags & flags}");
+                }
             }
         }
 
         [Test]
         public void UnmanagedSystemUpdate()
         {
-            SnoopSystemBase.Flags = 0;
+            SnoopSystem.Flags = 0;
 
             using (var world = new World("Temp"))
             {
                 var group = world.GetOrCreateSystem<SimulationSystemGroup>();
 
-                var sysRef = world.AddSystem<SnoopSystemBase>();
+                var sysRef = world.AddSystem<SnoopSystem>();
 
                 @group.AddSystemToUpdateList(sysRef.Handle);
 
-                Assert.AreEqual(1, SnoopSystemBase.Flags, "OnCreate was not called");
+                SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnCreate);
 
                 world.Update();
 
-                Assert.AreEqual(3, SnoopSystemBase.Flags, "OnUpdate was not called");
+                SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnUpdate | SnoopSystem.CallFlags.OnStartRunning);
             }
 
-            Assert.AreEqual(7, SnoopSystemBase.Flags, "OnDestroy was not called");
+            SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnDestroy | SnoopSystem.CallFlags.OnStopRunning);
+        }
+
+        [Test]
+        public unsafe void UnmanagedSystemNoDuplicateStopSystem()
+        {
+            SnoopSystem.Flags = 0;
+
+            using (var world = new World("Temp"))
+            {
+                var group = world.GetOrCreateSystem<SimulationSystemGroup>();
+
+                var sysRef = world.AddSystem<SnoopSystem>();
+
+                @group.AddSystemToUpdateList(sysRef.Handle);
+
+                world.Update();
+
+                SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnUpdate);
+
+                world.Unmanaged.ResolveSystemState(sysRef.Handle)->Enabled = false;
+
+                SnoopSystem.Flags = SnoopSystem.CallFlags.None;
+                world.Update();
+
+                SnoopSystem.AssertCallsWereNotMade(SnoopSystem.CallFlags.OnUpdate);
+                SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnStopRunning);
+
+                SnoopSystem.Flags = SnoopSystem.CallFlags.None;
+            }
+
+            SnoopSystem.AssertCallsWereMade(SnoopSystem.CallFlags.OnDestroy);
+            SnoopSystem.AssertCallsWereNotMade(SnoopSystem.CallFlags.OnStopRunning);
         }
     }
 }

@@ -22,7 +22,6 @@ namespace Unity.Scenes
         }
 
         // Currently used to allow us to force subscenes to reimport
-        // TODO: Remove this when we have the ability to solve this with the asset database
         public long DirtyValue;
 
         static HashSet<Hash128> s_BuildConfigurationCreated = new HashSet<Hash128>();

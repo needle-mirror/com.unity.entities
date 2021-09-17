@@ -2,7 +2,7 @@ using System;
 
 namespace Unity.Entities
 {
-    [AttributeUsage(AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
     public class AlwaysUpdateSystemAttribute : Attribute
     {
     }

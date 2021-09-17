@@ -82,6 +82,7 @@ namespace Unity.Scenes
 
     struct ExternalEntityRefInfo : IComponentData
     {
+        public Entity SceneRef;
         public Hash128 SceneGUID;
         public int SubSectionIndex;
         public int EntityIndexStart;

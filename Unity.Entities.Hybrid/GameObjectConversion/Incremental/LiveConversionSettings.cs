@@ -7,7 +7,8 @@ namespace Unity.Entities.Conversion
 {
     static class LiveConversionSettings
     {
-        private const string EditorPrefsName = "com.unity.entities.conversion_mode";
+        private const string EditorPrefsConversionMode = "com.unity.entities.conversion_mode";
+        private const string EditorPrefsConversionDebugLog = "com.unity.entities.conversion_debug_logging";
         public enum ConversionMode
         {
             /// <summary>
@@ -36,19 +37,20 @@ namespace Unity.Entities.Conversion
         internal static bool EnableInternalDebugValidation;
         internal static readonly List<Type> AdditionalConversionSystems = new List<Type>();
 
-#if !UNITY_2020_2_OR_NEWER
-        public static bool IsFullyIncremental => false;
-        public static ConversionMode Mode => ConversionMode.AlwaysCleanConvert;
-#else
+        public static bool IsDebugLoggingEnabled
+        {
+            get => SessionState.GetBool(EditorPrefsConversionDebugLog, false);
+            set => SessionState.SetBool(EditorPrefsConversionDebugLog, value);
+        }
+
         public static bool IsFullyIncremental => Mode == ConversionMode.IncrementalConversion ||
                                                  Mode == ConversionMode.IncrementalConversionWithDebug;
 
         public static ConversionMode Mode
         {
-            get => (ConversionMode) SessionState.GetInt(EditorPrefsName, (int) ConversionMode.IncrementalConversion);
-            set => SessionState.SetInt(EditorPrefsName, (int) value);
+            get => (ConversionMode) SessionState.GetInt(EditorPrefsConversionMode, (int) ConversionMode.IncrementalConversion);
+            set => SessionState.SetInt(EditorPrefsConversionMode, (int) value);
         }
-#endif
 
     }
 }

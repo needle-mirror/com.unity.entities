@@ -281,7 +281,7 @@ namespace Unity.Entities
                 // in the editor or with full .NET, return the full name to make it easy to find types
                 return stype.FullName;
 #else
-                return "[NOT A SYSTEM TYPE]";
+                return "(unknown type / type not inheriting from SystemBase/ComponentSystem)";
 #endif
             }
 
@@ -311,7 +311,7 @@ namespace Unity.Entities
                         Debug.LogWarning(
                             $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} targeting {SysName(dep.SystemType)}.\n"
                             + $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n"
-                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({SysName(parentType)})],\n"
+                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({SysName(parentType)}))],\n"
                             + $"or by manually adding both systems to the same group's update list.");
                         continue;
                     }
@@ -333,7 +333,7 @@ namespace Unity.Entities
                         Debug.LogWarning(
                             $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} targeting {SysName(dep.SystemType)}.\n"
                             + $"This attribute can only order systems that are members of the same {nameof(ComponentSystemGroup)} instance.\n"
-                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({SysName(parentType)})],\n"
+                            + $"Make sure that both systems are in the same system group with [UpdateInGroup(typeof({SysName(parentType)}))],\n"
                             + $"or by manually adding both systems to the same group's update list.");
                         continue;
                     }
@@ -346,10 +346,10 @@ namespace Unity.Entities
 
         private static bool CheckBeforeConstraints(Type parentType, UpdateBeforeAttribute dep, Type systemType)
         {
-            if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
+            if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType) && !typeof(ISystem).IsAssignableFrom(dep.SystemType))
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)}.\n"
+                    $"Ignoring invalid [UpdateBefore] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)} or {nameof(ISystem)}.\n"
                     + $"Set the target parameter of [UpdateBefore] to a system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }
@@ -381,10 +381,10 @@ namespace Unity.Entities
 
         private static bool CheckAfterConstraints(Type parentType, UpdateAfterAttribute dep, Type systemType)
         {
-            if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType))
+            if (!typeof(ComponentSystemBase).IsAssignableFrom(dep.SystemType) && !typeof(ISystem).IsAssignableFrom(dep.SystemType))
             {
                 Debug.LogWarning(
-                    $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)}.\n"
+                    $"Ignoring invalid [UpdateAfter] attribute on {SysName(systemType)} because {SysName(dep.SystemType)} is not a subclass of {nameof(ComponentSystemBase)} or {nameof(ISystem)}.\n"
                     + $"Set the target parameter of [UpdateAfter] to a system class in the same {nameof(ComponentSystemGroup)} as {SysName(systemType)}.");
                 return true;
             }

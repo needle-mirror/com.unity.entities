@@ -22,7 +22,8 @@ namespace Unity.Transforms
     // (or) LocalToWorld = Translation * CompositeRotation * Scale
     // (or) LocalToWorld = Translation * Rotation * CompositeScale
     // (or) LocalToWorld = Translation * CompositeRotation * CompositeScale
-    public abstract class TRSToLocalToWorldSystem : JobComponentSystem
+    [BurstCompile]
+    public partial struct TRSToLocalToWorldSystem : ISystem
     {
         private EntityQuery m_Query;
 
@@ -236,10 +237,11 @@ namespace Unity.Transforms
                 }
             }
         }
-
-        protected override void OnCreate()
+        //burst disabled pending burstable entityquerydesc
+        //[BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc()
+            m_Query = state.GetEntityQuery(new EntityQueryDesc()
             {
                 All = new ComponentType[]
                 {
@@ -257,16 +259,25 @@ namespace Unity.Transforms
                 Options = EntityQueryOptions.FilterWriteGroup
             });
         }
-
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
         {
-            var rotationType = GetComponentTypeHandle<Rotation>(true);
-            var compositeRotationType = GetComponentTypeHandle<CompositeRotation>(true);
-            var translationType = GetComponentTypeHandle<Translation>(true);
-            var nonUniformScaleType = GetComponentTypeHandle<NonUniformScale>(true);
-            var scaleType = GetComponentTypeHandle<Scale>(true);
-            var compositeScaleType = GetComponentTypeHandle<CompositeScale>(true);
-            var localToWorldType = GetComponentTypeHandle<LocalToWorld>(false);
+        }
+        
+        //disabling burst in dotsrt until burstable scheduling works
+#if !UNITY_DOTSRUNTIME
+        [BurstCompile]
+#endif
+        public void OnUpdate(ref SystemState state)
+        {
+            var rotationType = state.GetComponentTypeHandle<Rotation>(true);
+            var compositeRotationType = state.GetComponentTypeHandle<CompositeRotation>(true);
+            var translationType = state.GetComponentTypeHandle<Translation>(true);
+            var nonUniformScaleType = state.GetComponentTypeHandle<NonUniformScale>(true);
+            var scaleType = state.GetComponentTypeHandle<Scale>(true);
+            var compositeScaleType = state.GetComponentTypeHandle<CompositeScale>(true);
+            var localToWorldType = state.GetComponentTypeHandle<LocalToWorld>(false);
             var trsToLocalToWorldJob = new TRSToLocalToWorld()
             {
                 RotationTypeHandle = rotationType,
@@ -276,10 +287,9 @@ namespace Unity.Transforms
                 NonUniformScaleTypeHandle = nonUniformScaleType,
                 CompositeScaleTypeHandle = compositeScaleType,
                 LocalToWorldTypeHandle = localToWorldType,
-                LastSystemVersion = LastSystemVersion
+                LastSystemVersion = state.LastSystemVersion
             };
-            var trsToLocalToWorldJobHandle = trsToLocalToWorldJob.ScheduleParallel(m_Query, 1, inputDeps);
-            return trsToLocalToWorldJobHandle;
+            state.Dependency = trsToLocalToWorldJob.ScheduleParallel(m_Query, state.Dependency);
         }
     }
 }

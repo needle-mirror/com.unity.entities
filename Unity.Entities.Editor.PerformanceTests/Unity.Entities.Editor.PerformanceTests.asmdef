@@ -1,0 +1,30 @@
+{
+    "name": "Unity.Entities.Editor.PerformanceTests",
+    "references": [
+        "Unity.Burst",
+        "Unity.Collections",
+        "Unity.Entities",
+        "Unity.Entities.Editor",
+        "Unity.Entities.Editor.Tests",
+        "Unity.InternalAPIEditorBridge.002",
+        "Unity.InternalAPIEngineBridge.002",
+        "Unity.Jobs",
+        "Unity.Mathematics",
+        "Unity.PerformanceTesting",
+        "Unity.Properties.UI.Editor",
+        "Unity.Transforms"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}

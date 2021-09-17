@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.CodeGeneratedJobForEach;
@@ -26,8 +27,7 @@ namespace Unity.Entities
     /// <remarks>
     /// Define an EntityQueryDesc object to describe complex queries. Inside a system,
     /// pass an EntityQueryDesc object to <see cref="ComponentSystemBase.GetEntityQuery(EntityQueryDesc[])"/>
-    /// to create the <see cref="EntityQuery"/>. Outside a system, use
-    /// <see cref="EntityManager.CreateEntityQuery(EntityQueryDesc[])"/>.
+    /// to create the <see cref="EntityQuery"/>.
     ///
     /// A query description combines the component types you specify in `All`, `Any`, and `None` sets according to the
     /// following rules:
@@ -51,7 +51,7 @@ namespace Unity.Entities
     ///
     /// In other words, the query created from this description selects the Enemy1 and Enemy2 entities, but not the Player entity.
     /// </remarks>
-    public class EntityQueryDesc
+    public class EntityQueryDesc : IEquatable<EntityQueryDesc>
     {
         /// <summary>
         /// Include archetypes that contain at least one (but possibly more) of the
@@ -78,7 +78,7 @@ namespace Unity.Entities
         /// </remarks>
         public EntityQueryOptions Options = EntityQueryOptions.Default;
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ValidateComponentTypes(ComponentType[] componentTypes, ref NativeArray<int> allComponentTypeIds, ref int curComponentTypeIndex)
         {
             for (int i = 0; i < componentTypes.Length; i++)
@@ -90,7 +90,7 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void Validate()
         {
             // Determine the number of ComponentTypes contained in the filters
@@ -133,6 +133,77 @@ namespace Unity.Entities
             }
 
             allComponentTypeIds.Dispose();
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as EntityQueryDesc);
+        }
+
+        public bool Equals(EntityQueryDesc other)
+        {
+            if (ReferenceEquals(this, other))
+                return true;
+
+            if (ReferenceEquals(null, other))
+                return false;
+
+            if (!Options.Equals(other.Options))
+                return false;
+
+            if (!ArraysEqual(All, other.All))
+                return false;
+
+            if (!ArraysEqual(Any, other.Any))
+                return false;
+
+            if (!ArraysEqual(None, other.None))
+                return false;
+
+            return true;
+        }
+
+        public static bool operator ==(EntityQueryDesc lhs, EntityQueryDesc rhs)
+        {
+            if (ReferenceEquals(lhs, null))
+                return ReferenceEquals(rhs, null);
+
+            return lhs.Equals(rhs);
+        }
+
+        public static bool operator !=(EntityQueryDesc lhs, EntityQueryDesc rhs)
+        {
+            return !(lhs == rhs);
+        }
+
+        public override int GetHashCode()
+        {
+            int result = 17;
+            result = (result * 397) ^ Options.GetHashCode();
+            result = (result * 397) ^ (All ?? Array.Empty<ComponentType>()).GetHashCode();
+            result = (result * 397) ^ (Any ?? Array.Empty<ComponentType>()).GetHashCode();
+            result = (result * 397) ^ (None ?? Array.Empty<ComponentType>()).GetHashCode();
+            return result;
+        }
+
+        static bool ArraysEqual<T>(T[] a1, T[] a2)
+        {
+            if (ReferenceEquals(a1, a2))
+                return true;
+
+            if (a1 == null || a2 == null)
+                return false;
+
+            if (a1.Length != a2.Length)
+                return false;
+
+            var comparer = EqualityComparer<T>.Default;
+            for (int i = 0; i < a1.Length; ++i)
+            {
+                if (!comparer.Equals(a1[i], a2[i]))
+                    return false;
+            }
+            return true;
         }
     }
 
@@ -209,20 +280,21 @@ namespace Unity.Entities
         }
     };
 
-    internal unsafe struct EntityQueryImpl
+    [GenerateBurstMonoInterop("EntityQuery")]
+    internal unsafe partial struct EntityQueryImpl
     {
-        //64KB limit before branch off for certain immediate/async functions
-        private  const int kImmediateMemoryThreshold = 64 * 1024;
+        // limit before branch off for certain functions that can either be implemented
+        // as immediate main-thread operations or parallel jobs
+        private  const int kImmediateMemoryThreshold = 128 * 1024;
 
         internal EntityDataAccess*              _Access;
         internal EntityQueryData* _QueryData;
         internal EntityQueryFilter          _Filter;
         internal ulong _SeqNo;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         internal bool                    _DisallowDisposing;
 #endif
-
 
         internal GCHandle                _CachedState;
 
@@ -246,19 +318,60 @@ namespace Unity.Entities
         {
             get
             {
-                if (!_Filter.RequiresMatchesFilter)
+                var queryRequiresBatching = _QueryData->DoesQueryRequireBatching;
+                if (!_Filter.RequiresMatchesFilter && !queryRequiresBatching)
                     return IsEmptyIgnoreFilter;
 
-                for (var m = 0; m < _QueryData->MatchingArchetypes.Length; ++m)
+                SyncFilterTypes();
+                int archetypeCount = _QueryData->MatchingArchetypes.Length;
+                var ptrs = _QueryData->MatchingArchetypes.Ptr;
+                if (queryRequiresBatching)
                 {
-                    var match = _QueryData->MatchingArchetypes.Ptr[m];
-                    var archetype = match->Archetype;
-                    if (archetype->EntityCount > 0)
+                    var batches = stackalloc ArchetypeChunk[ChunkIterationUtility.kMaxBatchesPerChunk];
+                    for (var m = 0; m < archetypeCount; ++m)
                     {
-                        for (var c = 0; c < archetype->Chunks.Count; ++c)
+                        var match = ptrs[m];
+                        var archetype = match->Archetype;
+                        if (archetype->EntityCount > 0)
                         {
-                            if (match->ChunkMatchesFilter(c, ref _Filter) && archetype->Chunks[c]->Count > 0)
-                                return false;
+                            for (var chunkIndex = 0; chunkIndex < archetype->Chunks.Count; ++chunkIndex)
+                            {
+                                var chunk = archetype->Chunks[chunkIndex];
+                                var chunkMatchesFilter = match->ChunkMatchesFilter(chunkIndex, ref _Filter);
+                                if (!chunkMatchesFilter)
+                                    continue;
+
+                                var chunkRequiresBatching = ChunkIterationUtility.DoesChunkRequireBatching(chunk, match, out var skipChunk);
+                                if (skipChunk)
+                                    continue;
+
+                                if (chunkRequiresBatching)
+                                {
+                                    ChunkIterationUtility.FindBatchesForChunk(chunk, match, _QueryData->MatchingArchetypes.entityComponentStore, batches, out var batchCount);
+                                    if (batchCount > 0)
+                                        return false;
+                                }
+                                else
+                                {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    for (var m = 0; m < archetypeCount; ++m)
+                    {
+                        var match = ptrs[m];
+                        var archetype = match->Archetype;
+                        if (archetype->EntityCount > 0)
+                        {
+                            for (var c = 0; c < archetype->Chunks.Count; ++c)
+                            {
+                                if (match->ChunkMatchesFilter(c, ref _Filter) && archetype->Chunks[c]->Count > 0)
+                                    return false;
+                            }
                         }
                     }
                 }
@@ -267,21 +380,9 @@ namespace Unity.Entities
             }
         }
 
-        public bool IsEmptyIgnoreFilter
-        {
-            get
-            {
-                for (var m = 0; m < _QueryData->MatchingArchetypes.Length; ++m)
-                {
-                    var match = _QueryData->MatchingArchetypes.Ptr[m];
-                    if (match->Archetype->EntityCount > 0)
-                        return false;
-                }
+        public bool IsEmptyIgnoreFilter => _QueryData->GetMatchingChunkCache().Length == 0;
 
-                return true;
-            }
-        }
-
+        [NotBurstCompatible]
         internal ComponentType[] GetQueryTypes()
         {
             using (var types = new NativeHashSet<ComponentType>(128, Allocator.Temp))
@@ -310,6 +411,7 @@ namespace Unity.Entities
             }
         }
 
+        [NotBurstCompatible]
         internal ComponentType[] GetReadAndWriteTypes()
         {
             var types = new ComponentType[_QueryData->ReaderTypesCount + _QueryData->WriterTypesCount];
@@ -328,28 +430,26 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            fixed(EntityQueryImpl* self = &this)
+            fixed (EntityQueryImpl* self = &this)
             {
-                _Access->AliveEntityQueries.Remove((ulong)(IntPtr)self);
-            }
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (_DisallowDisposing)
-                throw new InvalidOperationException("EntityQuery cannot currently be disposed");
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (_DisallowDisposing)
+                    throw new InvalidOperationException("EntityQuery cannot be disposed. Note that queries created with GetEntityQuery() should not be manually disposed; they are owned by the system, and will be destroyed along with the system itself.");
 #endif
+                _Access->AliveEntityQueries.Remove((ulong)(IntPtr)self);
 
-            if (_CachedState.IsAllocated)
-            {
-                ((IDisposable)_CachedState.Target).Dispose();
-                _CachedState.Free();
-                _CachedState = default;
+                if (_CachedState.IsAllocated)
+                {
+                    FreeCachedState(self);
+                    _CachedState = default;
+                }
+
+                if (_QueryData != null)
+                    ResetFilter();
+
+                _Access = null;
+                _QueryData = null;
             }
-
-            if (_QueryData != null)
-                ResetFilter();
-
-            _Access = null;
-            _QueryData = null;
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -358,7 +458,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list./param>
         /// <returns>AtomicSafetyHandle for a ComponentType</returns>
-        [BurstCompatible]
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         internal AtomicSafetyHandle GetSafetyHandle(int indexInEntityQuery)
         {
             var type = _QueryData->RequiredComponents + indexInEntityQuery;
@@ -371,7 +471,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list./param>
         /// <returns>AtomicSafetyHandle for a buffer</returns>
-        [BurstCompatible]
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         internal AtomicSafetyHandle GetBufferSafetyHandle(int indexInEntityQuery)
         {
             var type = _QueryData->RequiredComponents + indexInEntityQuery;
@@ -390,7 +490,7 @@ namespace Unity.Entities
         public int CalculateEntityCount()
         {
             SyncFilterTypes();
-            return ChunkIterationUtility.CalculateEntityCount(ref _QueryData->MatchingArchetypes, ref _Filter);
+            return ChunkIterationUtility.CalculateEntityCount(ref _QueryData->MatchingArchetypes, ref _Filter, _QueryData->DoesQueryRequireBatching ? 1 : 0);
         }
 
         public int CalculateEntityCount(NativeArray<Entity> entityArray)
@@ -404,7 +504,7 @@ namespace Unity.Entities
         public int CalculateEntityCountWithoutFiltering()
         {
             var dummyFilter = default(EntityQueryFilter);
-            return ChunkIterationUtility.CalculateEntityCount(ref _QueryData->MatchingArchetypes, ref dummyFilter);
+            return ChunkIterationUtility.CalculateEntityCount(ref _QueryData->MatchingArchetypes, ref dummyFilter, _QueryData->DoesQueryRequireBatching ? 1 : 0);
         }
 
         public int CalculateEntityCountWithoutFiltering(NativeArray<Entity> entityArray)
@@ -450,7 +550,7 @@ namespace Unity.Entities
 
         public ArchetypeChunkIterator GetArchetypeChunkIterator()
         {
-            return new ArchetypeChunkIterator(_QueryData->MatchingArchetypes, _Access->DependencyManager, _Access->EntityComponentStore->GlobalSystemVersion, ref _Filter);
+            return new ArchetypeChunkIterator(_QueryData->MatchingArchetypes, _Access->DependencyManager, _Access->EntityComponentStore->GlobalSystemVersion, ref _Filter, _Access->m_WorldUnmanaged.UpdateAllocator.ToAllocator);
         }
 
         internal int GetIndexInEntityQuery(int componentType)
@@ -459,7 +559,7 @@ namespace Unity.Entities
             while (componentIndex < _QueryData->RequiredComponentsCount && _QueryData->RequiredComponents[componentIndex].TypeIndex != componentType)
                 ++componentIndex;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (componentIndex >= _QueryData->RequiredComponentsCount || _QueryData->RequiredComponents[componentIndex].AccessModeType == ComponentType.AccessMode.Exclude)
                 throw new InvalidOperationException($"Trying to get iterator for {TypeManager.GetType(componentType)} but the required component type was not declared in the EntityQuery.");
 #endif
@@ -486,17 +586,20 @@ namespace Unity.Entities
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(Allocator allocator)
         {
             SyncFilterTypes();
-            var res = ChunkIterationUtility.CreateArchetypeChunkArray(_QueryData->MatchingArchetypes, allocator, ref _Filter);
+            var res = ChunkIterationUtility.CreateArchetypeChunkArray(_QueryData->GetMatchingChunkCache(), _QueryData->MatchingArchetypes, allocator, ref _Filter);
             return res;
         }
 
 
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         public NativeArray<Entity> ToEntityArrayAsync(Allocator allocator, out JobHandle jobhandle, EntityQuery outer)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (allocator == Allocator.Temp)
                 throw new ArgumentException("Allocator.Temp containers cannot be used when scheduling a job, use TempJob instead.");
+#endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var entityType = new EntityTypeHandle(SafetyHandles->GetSafetyHandleForEntityTypeHandle());
 #else
             var entityType = new EntityTypeHandle();
@@ -506,10 +609,12 @@ namespace Unity.Entities
                 outer,CalculateEntityCount(), out jobhandle, GetDependency());
         }
 
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         public NativeArray<Entity> ToEntityArray(Allocator allocator, EntityQuery outer)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var entityType = new EntityTypeHandle(SafetyHandles->GetSafetyHandleForEntityTypeHandle());
+            AtomicSafetyHandle.CheckReadAndThrow(entityType.m_Safety);
 #else
             var entityType = new EntityTypeHandle();
 #endif
@@ -532,18 +637,49 @@ namespace Unity.Entities
             return res;
         }
 
+        //internal function meant for debugging capabilities only, where scheduling jobs can result in undefined behavior
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
+        public NativeArray<Entity> ToEntityArrayImmediate(Allocator allocator, EntityQuery outer)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var entityType = new EntityTypeHandle(SafetyHandles->GetSafetyHandleForEntityTypeHandle());
+            AtomicSafetyHandle.CheckReadAndThrow(entityType.m_Safety);
+#else
+            var entityType = new EntityTypeHandle();
+#endif
+            CalculateChunkAndEntityCount(out int entityCount, out int chunkCount);
+
+            NativeArray<Entity> res;
+
+            res = ChunkIterationUtility.CreateEntityArray(
+                    _QueryData->MatchingArchetypes, allocator, entityType,outer,entityCount);
+
+            return res;
+        }
+
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         public NativeArray<Entity> ToEntityArray(NativeArray<Entity> entityArray, Allocator allocator)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var entityType = new EntityTypeHandle(SafetyHandles->GetSafetyHandleForEntityTypeHandle());
+            AtomicSafetyHandle.CheckReadAndThrow(entityType.m_Safety);
 #else
             var entityType = new EntityTypeHandle();
 #endif
             var ecs = _Access->EntityComponentStore;
             var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
 
-            var arrayPtr = ChunkIterationUtility.CreateEntityArrayFromEntityArray((Entity*)entityArray.GetUnsafeReadOnlyPtr(), entityArray.Length, allocator,_QueryData, ecs, ref mask, ref entityType, ref _Filter, out var arrayLength);
-            var res = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Entity>(arrayPtr, arrayLength, allocator);
+            var arrayPtr = ChunkIterationUtility.CreateEntityArrayFromEntityArray((Entity*)entityArray.GetUnsafeReadOnlyPtr(),
+                                                                                    entityArray.Length,
+                                                                                    allocator,
+                                                                                    _QueryData,
+                                                                                    ecs,
+                                                                                    ref mask,
+                                                                                    ref entityType,
+                                                                                    ref _Filter,
+                                                                                    out var arrayLength);
+
+            var res = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Entity>(arrayPtr, arrayLength, Allocator.None);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref res, AtomicSafetyHandle.Create());
@@ -552,6 +688,8 @@ namespace Unity.Entities
             return res;
         }
 
+
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         internal void GatherEntitiesToArray(out EntityQuery.GatherEntitiesResult result, EntityQuery outer)
         {
             ChunkIterationUtility.GatherEntitiesToArray(_QueryData, ref _Filter, out result);
@@ -587,20 +725,23 @@ namespace Unity.Entities
             }
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         public NativeArray<T> ToComponentDataArrayAsync<T>(Allocator allocator, out JobHandle jobhandle, EntityQuery outer)
             where T : struct, IComponentData
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (allocator == Allocator.Temp)
                 throw new ArgumentException("Allocator.Temp containers cannot be used when scheduling a job, use TempJob instead.");
+#endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
 #else
             var componentType = new ComponentTypeHandle<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
 
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
@@ -609,17 +750,19 @@ namespace Unity.Entities
             return ChunkIterationUtility.CreateComponentDataArrayAsync(allocator, componentType,CalculateEntityCount(), outer, out jobhandle, GetDependency());
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         public NativeArray<T> ToComponentDataArray<T>(NativeArray<Entity> entityArray, Allocator allocator)
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
+            AtomicSafetyHandle.CheckReadAndThrow(componentType.m_Safety);
 #else
             var componentType = new ComponentTypeHandle<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
 
             var typeIndex = TypeManager.GetTypeIndex<T>();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
                 throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
@@ -648,16 +791,18 @@ namespace Unity.Entities
             return res;
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         public NativeArray<T> ToComponentDataArray<T>(Allocator allocator, EntityQuery outer)
             where T : struct, IComponentData
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
+            AtomicSafetyHandle.CheckReadAndThrow(componentType.m_Safety);
 #else
             var componentType = new ComponentTypeHandle<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
@@ -682,17 +827,19 @@ namespace Unity.Entities
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [NotBurstCompatible]
         public T[] ToComponentDataArray<T>() where T : class, IComponentData
         {
             int typeIndex = TypeManager.GetTypeIndex<T>();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(typeIndex, true), true, _Access->EntityComponentStore->GlobalSystemVersion);
+            AtomicSafetyHandle.CheckReadAndThrow(componentType.m_Safety);
 #else
             var componentType = new ComponentTypeHandle<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
                 throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
@@ -703,9 +850,11 @@ namespace Unity.Entities
             var entityCount = ChunkIterationUtility.CalculateChunkAndEntityCount(ref matches, ref _Filter, out int dummyChunkCount);
             T[] res = new T[entityCount];
             int i = 0;
-            for (int mi = 0; mi < matches.Length; ++mi)
+            int archetypeCount = matches.Length;
+            var ptrs = _QueryData->MatchingArchetypes.Ptr;
+            for (int mi = 0; mi < archetypeCount; ++mi)
             {
-                var match = _QueryData->MatchingArchetypes.Ptr[mi];
+                var match = ptrs[mi];
                 var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(match->Archetype, typeIndex);
                 var chunks = match->Archetype->Chunks;
 
@@ -729,20 +878,24 @@ namespace Unity.Entities
 
 #endif
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray, EntityQuery outer)
             where T : struct, IComponentData
         {
             CalculateChunkAndEntityCount(out var entityCount, out var chunkCount);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (entityCount != componentDataArray.Length)
                 throw new ArgumentException($"Length of input array ({componentDataArray.Length}) does not match length of EntityQuery ({entityCount})");
+#endif
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(TypeManager.GetTypeIndex<T>(), false), false, _Access->EntityComponentStore->GlobalSystemVersion);
+            AtomicSafetyHandle.CheckWriteAndThrow(componentType.m_Safety);
 #else
             var componentType = new ComponentTypeHandle<T>(false, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
@@ -761,10 +914,11 @@ namespace Unity.Entities
             }
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         public void CopyFromComponentDataArrayAsync<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle, EntityQuery outer)
             where T : struct, IComponentData
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (componentDataArray.m_AllocatorLabel == Allocator.Temp)
             {
                 throw new ArgumentException(
@@ -783,7 +937,7 @@ namespace Unity.Entities
             var componentType = new ComponentTypeHandle<T>(false, _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             int typeIndex = TypeManager.GetTypeIndex<T>();
             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
             if (indexInEntityQuery == -1)
@@ -796,37 +950,61 @@ namespace Unity.Entities
 
         public Entity GetSingletonEntity()
         {
-            // Fast path with no filter
             if (!_Filter.RequiresMatchesFilter)
             {
-                var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var archetypeEntityCount);
-       #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (archetypeEntityCount != 1)
-                    throw new InvalidOperationException($"GetSingletonEntity() requires that exactly one entity exists that matches this query, but there are {archetypeEntityCount}.");
-       #endif
-                return UnsafeUtility.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(_QueryData->MatchingArchetypes.Ptr[archetypeIndex]->Archetype->Chunks[0], 0));
+                // Fast path with no filter
+                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
+                    throw new InvalidOperationException($"GetSingletonEntity() requires that exactly one entity exist that match this query, but there are {CalculateEntityCountWithoutFiltering()}.");
+#endif
+                var chunk = matchingChunkCache.Ptr[0];
+                // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
+                return UnsafeUtility.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, 0));
             }
-
-            // Slow path with filter, can't just use first matching archetype/chunk
-       #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var queryEntityCount = CalculateEntityCount();
-            if (queryEntityCount != 1)
-                throw new InvalidOperationException($"GetSingletonEntity() requires that exactly one entity exists that matches this query, but there are {queryEntityCount}.");
-       #endif
-            var iterator = GetArchetypeChunkIterator();
-            iterator.MoveNext();
-            var array = iterator.GetCurrentChunkComponentDataPtr(false, 0);
-            UnsafeUtility.CopyPtrToStructure(array, out Entity entity);
-            return entity;
+            else
+            {
+                // Slow path with filter, can't just use first matching archetype/chunk
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                var queryEntityCount = CalculateEntityCount();
+                if (queryEntityCount != 1)
+                    throw new InvalidOperationException(
+                        $"GetSingletonEntity() requires that exactly one entity exists that matches this query, but there are {queryEntityCount}.");
+#endif
+                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+                var chunkList = *matchingChunkCache.MatchingChunks;
+                var matchingArchetypeIndices = *matchingChunkCache.PerChunkMatchingArchetypeIndex;
+                var matchingArchetypes = _QueryData->MatchingArchetypes.Ptr;
+                int chunkCount = chunkList.Length;
+                for (int i = 0; i < chunkCount; ++i)
+                {
+                    var chunk = chunkList[i];
+                    var matchIndex = matchingArchetypeIndices[i];
+                    var match = matchingArchetypes[matchIndex];
+                    if (match->ChunkMatchesFilter(chunk->ListIndex, ref _Filter))
+                    {
+                        // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
+                        return UnsafeUtility.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, 0));
+                    }
+                }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                throw new InvalidOperationException(
+                    "Bug in GetSingleton(): found no chunk that matches the provided filter, but CalculateEntityCount() == 1");
+#else
+                return default;
+#endif
+            }
         }
 
         internal int GetFirstArchetypeIndexWithEntity(out int entityCount)
         {
             entityCount = 0;
             int archeTypeIndex = -1;
-            for (int i = 0; i < _QueryData->MatchingArchetypes.Length; i++)
+            int archetypeCount = _QueryData->MatchingArchetypes.Length;
+            var ptrs = _QueryData->MatchingArchetypes.Ptr;
+            for (int i = 0; i < archetypeCount; i++)
             {
-                var entityCountInArchetype = _QueryData->MatchingArchetypes.Ptr[i]->Archetype->EntityCount;
+                var entityCountInArchetype = ptrs[i]->Archetype->EntityCount;
                 if (archeTypeIndex == -1 && entityCountInArchetype > 0)
                     archeTypeIndex = i;
                 entityCount += entityCountInArchetype;
@@ -835,62 +1013,125 @@ namespace Unity.Entities
             return archeTypeIndex;
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public T GetSingleton<T>() where T : struct, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (TypeManager.IsZeroSized(typeIndex))
+                throw new InvalidOperationException($"Can't call GetSingleton<{typeof(T)}>() with zero-size type {typeof(T)}.");
+#endif
             _Access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
 
             // Fast path with no filter
             if (!_Filter.RequiresMatchesFilter && _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
-                var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var archetypeEntityCount);
-       #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (archetypeEntityCount != 1)
-                    throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {archetypeEntityCount}.");
-       #endif
-                var match = _QueryData->MatchingArchetypes.Ptr[archetypeIndex];
-                return UnsafeUtility.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(match->Archetype->Chunks[0], match->IndexInArchetype[1]));
+                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
+                    throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {CalculateEntityCountWithoutFiltering()}.");
+#endif
+                var chunk = matchingChunkCache.Ptr[0]; // only one matching chunk
+                var matchIndex = matchingChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
+                var match = _QueryData->MatchingArchetypes.Ptr[matchIndex];
+                // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
+                return UnsafeUtility.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, match->IndexInArchetype[1]));
             }
-
-            // Slow path with filter, can't just use first matching archetype/chunk
-       #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var queryEntityCount = CalculateEntityCount();
-            if (queryEntityCount != 1)
-                throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
-       #endif
-            var iterator = GetArchetypeChunkIterator();
-            iterator.MoveNext();
-            return UnsafeUtility.AsRef<T>(iterator.GetCurrentChunkComponentDataPtr(false, GetIndexInEntityQuery(typeIndex)));
+            else
+            {
+                // Slow path with filter, can't just use first matching archetype/chunk
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                var queryEntityCount = CalculateEntityCount();
+                if (queryEntityCount != 1)
+                    throw new InvalidOperationException(
+                        $"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+#endif
+                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+                var chunkList = *matchingChunkCache.MatchingChunks;
+                var matchingArchetypeIndices = *matchingChunkCache.PerChunkMatchingArchetypeIndex;
+                var matchingArchetypes = _QueryData->MatchingArchetypes.Ptr;
+                int chunkCount = chunkList.Length;
+                for (int i = 0; i < chunkCount; ++i)
+                {
+                    var chunk = chunkList[i];
+                    var matchIndex = matchingArchetypeIndices[i];
+                    var match = matchingArchetypes[matchIndex];
+                    if (match->ChunkMatchesFilter(chunk->ListIndex, ref _Filter))
+                    {
+                        // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
+                        return UnsafeUtility.AsRef<T>(
+                            ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, match->IndexInArchetype[1]));
+                    }
+                }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                throw new InvalidOperationException(
+                    "Bug in GetSingleton(): found no chunk that matches the provided filter, but CalculateEntityCount() == 1");
+#else
+                return default;
+#endif
+            }
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void SetSingleton<T>(T value) where T : struct, IComponentData
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (GetIsReadOnly(GetIndexInEntityQuery(typeIndex)))
+                throw new InvalidOperationException($"Can't call SetSingleton<{typeof(T)}>() on query where access to {typeof(T)} is read-only.");
+            if (TypeManager.IsZeroSized(typeIndex))
+                throw new InvalidOperationException($"Can't call SetSingleton<{typeof(T)}>() with zero-size type {typeof(T)}.");
+#endif
             _Access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
 
-            // Fast path with no filter & assuming this is a simple query with just one singleton component
             if (!_Filter.RequiresMatchesFilter && _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
-                var archetypeIndex = GetFirstArchetypeIndexWithEntity(out var entityCount);
-               #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (entityCount != 1)
-                    throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {entityCount}.");
-               #endif
-                var match = _QueryData->MatchingArchetypes.Ptr[archetypeIndex];
-                UnsafeUtility.CopyStructureToPtr(ref value, ChunkIterationUtility.GetChunkComponentDataPtr(match->Archetype->Chunks[0], true,
-                    match->IndexInArchetype[1], _Access->EntityComponentStore->GlobalSystemVersion));
-                return;
-            }
-
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var queryEntityCount = CalculateEntityCount();
-            if (queryEntityCount != 1)
-                throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+                // Fast path with no filter & assuming this is a simple query with just one singleton component
+                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
+                    throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {CalculateEntityCountWithoutFiltering()}.");
 #endif
-            var iterator = GetArchetypeChunkIterator();
-            iterator.MoveNext();
-            UnsafeUtility.CopyStructureToPtr(ref value, iterator.GetCurrentChunkComponentDataPtr(true, GetIndexInEntityQuery(typeIndex)));
+                var chunk = matchingChunkCache.Ptr[0]; // only one matching chunk
+                var matchIndex = matchingChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
+                var match = _QueryData->MatchingArchetypes.Ptr[matchIndex];
+                // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
+                UnsafeUtility.CopyStructureToPtr(ref value, ChunkIterationUtility.GetChunkComponentDataPtr(chunk, true,
+                    match->IndexInArchetype[1], _Access->EntityComponentStore->GlobalSystemVersion));
+            }
+            else
+            {
+                // Slower path w/filtering and/or a multiple-component query
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                var queryEntityCount = CalculateEntityCount();
+                if (queryEntityCount != 1)
+                    throw new InvalidOperationException(
+                        $"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+#endif
+                var matchingChunkCache = _QueryData->GetMatchingChunkCache();
+                var chunkList = *matchingChunkCache.MatchingChunks;
+                var matchingArchetypeIndices = *matchingChunkCache.PerChunkMatchingArchetypeIndex;
+                var matchingArchetypes = _QueryData->MatchingArchetypes.Ptr;
+                int chunkCount = chunkList.Length;
+                for (int i = 0; i < chunkCount; ++i)
+                {
+                    var chunk = chunkList[i];
+                    var matchIndex = matchingArchetypeIndices[i];
+                    var match = matchingArchetypes[matchIndex];
+                    if (match->ChunkMatchesFilter(chunk->ListIndex, ref _Filter))
+                    {
+                        // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
+                        UnsafeUtility.CopyStructureToPtr(ref value, ChunkIterationUtility.GetChunkComponentDataPtr(
+                            chunk, true,
+                            match->IndexInArchetype[1], _Access->EntityComponentStore->GlobalSystemVersion));
+                        return;
+                    }
+                }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                throw new InvalidOperationException(
+                    "Bug in SetSingleton(): found no chunk that matches the provided filter, but CalculateEntityCount() == 1");
+#endif
+            }
         }
 
         internal bool CompareComponents(ComponentType* componentTypes, int count)
@@ -913,17 +1154,39 @@ namespace Unity.Entities
 
         public bool CompareQuery(EntityQueryDesc[] queryDesc)
         {
+            var builder = new EntityQueryDescBuilder(Allocator.Temp);
+            EntityQueryManager.ConvertToEntityQueryDescBuilder(ref builder, queryDesc);
+            bool result = CompareQuery(builder);
+            builder.Dispose();
+            return result;
+        }
+
+        public bool CompareQuery(in EntityQueryDescBuilder queryDesc)
+        {
             return EntityQueryManager.CompareQuery(queryDesc, _QueryData);
         }
 
-        public void ResetFilter()
+        [BurstDiscard]
+        [BurstMonoInteropMethod]
+        internal static void _ResetFilter(EntityQueryImpl* self)
         {
-            var sharedCount = _Filter.Shared.Count;
+            var sharedCount = self->_Filter.Shared.Count;
             for (var i = 0; i < sharedCount; ++i)
-                _Access->RemoveSharedComponentReference(_Filter.Shared.SharedComponentIndex[i]);
+                self->_Access->RemoveSharedComponentReference(self->_Filter.Shared.SharedComponentIndex[i]);
 
-            _Filter.Changed.Count = 0;
-            _Filter.Shared.Count = 0;
+            self->_Filter.Changed.Count = 0;
+            self->_Filter.Shared.Count = 0;
+        }
+
+        [BurstDiscard]
+        [BurstMonoInteropMethod]
+        internal static void _FreeCachedState(EntityQueryImpl* self)
+        {
+            if (self->_CachedState.Target is IDisposable obj)
+            {
+                obj.Dispose();
+            }
+            self->_CachedState.Free();
         }
 
         public void SetSharedComponentFilter<SharedComponent1>(SharedComponent1 sharedComponent1)
@@ -931,6 +1194,14 @@ namespace Unity.Entities
         {
             ResetFilter();
             AddSharedComponentFilter(sharedComponent1);
+        }
+
+        public void ResetFilter()
+        {
+            fixed (EntityQueryImpl* self = &this)
+            {
+                ResetFilter(self);
+            }
         }
 
         public void SetSharedComponentFilter<SharedComponent1, SharedComponent2>(SharedComponent1 sharedComponent1,
@@ -983,9 +1254,7 @@ namespace Unity.Entities
             _Filter.Changed.Count = newFilterIndex + 1;
             _Filter.Changed.IndexInEntityQuery[newFilterIndex] = GetIndexInEntityQuery(componentType.TypeIndex);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             _Filter.AssertValid();
-#endif
         }
 
         public void AddSharedComponentFilter<SharedComponent>(SharedComponent sharedComponent)
@@ -999,18 +1268,14 @@ namespace Unity.Entities
             _Filter.Shared.IndexInEntityQuery[newFilterIndex] = GetIndexInEntityQuery(TypeManager.GetTypeIndex<SharedComponent>());
             _Filter.Shared.SharedComponentIndex[newFilterIndex] = _Access->InsertSharedComponent(sharedComponent);
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             _Filter.AssertValid();
-#endif
         }
 
         public void AddOrderVersionFilter()
         {
             _Filter.UseOrderFiltering = true;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             _Filter.AssertValid();
-#endif
         }
 
         public void CompleteDependency()
@@ -1041,7 +1306,7 @@ namespace Unity.Entities
             return version;
         }
 
-        internal bool AddReaderWritersToLists(ref UnsafeIntList reading, ref UnsafeIntList writing)
+        internal bool AddReaderWritersToLists(ref UnsafeList<int> reading, ref UnsafeList<int> writing)
         {
             bool anyAdded = false;
             for (int i = 0; i < _QueryData->ReaderTypesCount; ++i)
@@ -1063,6 +1328,7 @@ namespace Unity.Entities
 
         internal static void SyncFilterTypes(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, ComponentDependencyManager* safetyManager)
         {
+            filter.AssertValid();
             if (matchingArchetypes.Length < 1)
                 return;
 
@@ -1109,6 +1375,49 @@ namespace Unity.Entities
             var ecs = _Access->EntityComponentStore;
             var mask = _Access->EntityQueryManager->GetEntityQueryMask(_QueryData, ecs);
             return mask.Matches(e);
+        }
+
+        public EntityQueryDesc GetEntityQueryDesc()
+        {
+            var archetypeQuery = _QueryData->ArchetypeQuery;
+
+            var allComponentTypes = new ComponentType[archetypeQuery->AllCount];
+            for (var i = 0; i < archetypeQuery->AllCount; ++i)
+            {
+                allComponentTypes[i] = new ComponentType
+                {
+                    TypeIndex = archetypeQuery->All[i],
+                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->AllAccessMode[i]
+                };
+            }
+
+            var anyComponentTypes = new ComponentType[archetypeQuery->AnyCount];
+            for (var i = 0; i < archetypeQuery->AnyCount; ++i)
+            {
+                anyComponentTypes[i] = new ComponentType
+                {
+                    TypeIndex = archetypeQuery->Any[i],
+                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->AnyAccessMode[i]
+                };
+            }
+
+            var noneComponentTypes = new ComponentType[archetypeQuery->NoneCount];
+            for (var i = 0; i < archetypeQuery->NoneCount; ++i)
+            {
+                noneComponentTypes[i] = new ComponentType
+                {
+                    TypeIndex = archetypeQuery->None[i],
+                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->NoneAccessMode[i]
+                };
+            }
+
+            return new EntityQueryDesc
+            {
+                All = allComponentTypes,
+                Any = anyComponentTypes,
+                None = noneComponentTypes,
+                Options = archetypeQuery->Options
+            };
         }
 
         internal bool CheckChunkListCacheConsistency()
@@ -1171,7 +1480,7 @@ namespace Unity.Entities
     /// only need to check whether an optional component exists once per chunk -- not once per entity.
     ///
     /// Within a system class, use the [ComponentSystemBase.GetEntityQuery()] function
-    /// to get a EntityQuery instance. Outside a system, use the [EntityManager.CreateEntityQuery()] function.
+    /// to get a EntityQuery instance.
     ///
     /// You can filter entities based on
     /// whether they have [changed] or whether they have a specific value for a [shared component].
@@ -1192,7 +1501,6 @@ namespace Unity.Entities
     /// [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
     /// [Entities.WithStoreEntityQueryInField]: xref:Unity.Entities.SystemBase.Entities
     /// [ComponentSystemBase.GetEntityQuery()]: xref:Unity.Entities.ComponentSystemBase.GetEntityQuery*
-    /// [EntityManager.CreateEntityQuery()]: xref:Unity.Entities.EntityManager.CreateEntityQuery*
     /// [ComponentType.ReadOnly]: xref:Unity.Entities.ComponentType.ReadOnly``1
     /// [ComponentSystemBase.RequireForUpdate()]: xref:Unity.Entities.ComponentSystemBase.RequireForUpdate(Unity.Entities.EntityQuery)
     /// [ArchetypeChunk.Has()]: xref:Unity.Entities.ArchetypeChunk.Has``1(Unity.Entities.ComponentTypeHandle{``0})
@@ -1202,6 +1510,8 @@ namespace Unity.Entities
     /// [reset]: xref:Unity.Entities.EntityQuery.ResetFilter*
     /// [native array]: https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html
     /// </remarks>
+    [BurstCompatible]
+    [DebuggerTypeProxy(typeof(EntityQueryDebugView))]
     unsafe public struct EntityQuery : IDisposable
     {
         public bool Equals(EntityQuery other)
@@ -1209,6 +1519,7 @@ namespace Unity.Entities
             return __impl == other.__impl;
         }
 
+        [NotBurstCompatible]
         public override bool Equals(object obj)
         {
             return obj is EntityQuery other && Equals(other);
@@ -1246,6 +1557,7 @@ namespace Unity.Entities
         /// Gets the array of <see cref="ComponentType"/> objects included in this EntityQuery.
         /// </summary>
         /// <returns>An array of ComponentType objects</returns>
+        [NotBurstCompatible]
         internal ComponentType[] GetQueryTypes() => _GetImpl()->GetQueryTypes();
 
         /// <summary>
@@ -1253,6 +1565,7 @@ namespace Unity.Entities
         ///     ReadOnly ComponentTypes come before writable types in this array.
         /// </summary>
         /// <returns>Array of ComponentTypes</returns>
+        [NotBurstCompatible]
         internal ComponentType[] GetReadAndWriteTypes() => _GetImpl()->GetReadAndWriteTypes();
 
         /// <summary>
@@ -1277,8 +1590,10 @@ namespace Unity.Entities
             __impl = null;
         }
 
+        [NotBurstCompatible]
         internal IDisposable _CachedState
         {
+            [NotBurstCompatible]
             get
             {
                 var impl = _GetImpl();
@@ -1286,6 +1601,7 @@ namespace Unity.Entities
                     return null;
                 return (IDisposable)impl->_CachedState.Target;
             }
+            [NotBurstCompatible]
             set
             {
                 var impl = _GetImpl();
@@ -1306,6 +1622,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list./param>
         /// <returns>AtomicSafetyHandle for a ComponentType</returns>
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
         internal AtomicSafetyHandle GetSafetyHandle(int indexInEntityQuery) => _GetImpl()->GetSafetyHandle(indexInEntityQuery);
 
         /// <summary>
@@ -1313,6 +1630,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list./param>
         /// <returns>AtomicSafetyHandle for a buffer</returns>
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
         internal AtomicSafetyHandle GetBufferSafetyHandle(int indexInEntityQuery) => _GetImpl()->GetBufferSafetyHandle(indexInEntityQuery);
 
 #endif
@@ -1449,12 +1767,7 @@ namespace Unity.Entities
         /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
         public NativeArray<Entity> ToEntityArray(NativeArray<Entity>entityArray, Allocator allocator) => _GetImpl()->ToEntityArray(entityArray, allocator);
 
-        #if ROSLYN_SOURCEGEN_ENABLED
-        public
-#else
-        internal
-#endif
-        struct GatherEntitiesResult
+        public struct GatherEntitiesResult
         {
             public int StartingOffset;
             public int EntityCount;
@@ -1473,6 +1786,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>An array containing the specified component for all the entities selected
         /// by the EntityQuery.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public NativeArray<T> ToComponentDataArrayAsync<T>(Allocator allocator, out JobHandle jobhandle)            where T : struct, IComponentData
             => _GetImpl()->ToComponentDataArrayAsync<T>(allocator, out jobhandle, this);
 
@@ -1485,6 +1799,7 @@ namespace Unity.Entities
         /// by the EntityQuery.</returns>
         /// <exception cref="InvalidOperationException">Thrown if you ask for a component that is not part of
         /// the group.</exception>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public NativeArray<T> ToComponentDataArray<T>(Allocator allocator)            where T : struct, IComponentData
             => _GetImpl()->ToComponentDataArray<T>(allocator, this);
         /// <summary>
@@ -1494,16 +1809,20 @@ namespace Unity.Entities
         /// <param name="entityArray">The list of entities to be considered. Only entities in this list will be considered as output. </param>
         /// <param name="allocator">The type of memory to allocate.</param>
         /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public NativeArray<T> ToComponentDataArray<T>(NativeArray<Entity>entityArray, Allocator allocator) where T : struct, IComponentData
             => _GetImpl()->ToComponentDataArray<T>(entityArray, allocator);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [NotBurstCompatible]
         public T[] ToComponentDataArray<T>() where T : class, IComponentData
             => _GetImpl()->ToComponentDataArray<T>();
 #endif
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void CopyFromComponentDataArray<T>(NativeArray<T> componentDataArray)            where T : struct, IComponentData
             => _GetImpl()->CopyFromComponentDataArray<T>(componentDataArray, this);
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void CopyFromComponentDataArrayAsync<T>(NativeArray<T> componentDataArray, out JobHandle jobhandle)            where T : struct, IComponentData
             => _GetImpl()->CopyFromComponentDataArrayAsync<T>(componentDataArray, out jobhandle, this);
 
@@ -1519,6 +1838,7 @@ namespace Unity.Entities
         /// <seealso cref="SetSingleton{T}(T)"/>
         /// <seealso cref="GetSingletonEntity"/>
         /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public T GetSingleton<T>() where T : struct, IComponentData
             => _GetImpl()->GetSingleton<T>();
         /// <summary>
@@ -1562,6 +1882,7 @@ namespace Unity.Entities
         /// exists in the world or the component type appears in more than one archetype.</exception>
         /// <seealso cref="GetSingleton{T}"/>
         /// <seealso cref="GetSingletonEntity"/>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void SetSingleton<T>(T value) where T : struct, IComponentData
             => _GetImpl()->SetSingleton<T>(value);
         internal bool CompareComponents(ComponentType* componentTypes, int count) => _GetImpl()->CompareComponents(componentTypes, count);
@@ -1574,6 +1895,7 @@ namespace Unity.Entities
         /// <param name="componentTypes">An array of ComponentType objects.</param>
         /// <returns>True, if the list of types, including any read/write access specifiers,
         /// matches the list of required component types of this EntityQuery.</returns>
+        [NotBurstCompatible]
         public bool CompareComponents(ComponentType[] componentTypes) => _GetImpl()->CompareComponents(componentTypes);
         /// <summary>
         /// Compares a list of component types to the types defining this EntityQuery.
@@ -1594,13 +1916,24 @@ namespace Unity.Entities
         /// <param name="queryDesc">The query description to compare.</param>
         /// <returns>True, if the query description contains the same components with the same
         /// read/write access modifiers as this EntityQuery.</returns>
+        [Obsolete("Use unmanaged CompareQuery() equivalent instead. (RemovedAfter 2021-05-22)")]
         public bool CompareQuery(EntityQueryDesc[] queryDesc) => _GetImpl()->CompareQuery(queryDesc);
+        /// <summary>
+        /// Compares a query description to the description defining this EntityQuery.
+        /// </summary>
+        /// <remarks>The `All`, `Any`, and `None` components in the query description are
+        /// compared to the corresponding list in this EntityQuery.</remarks>
+        /// <param name="queryDesc">The query description to compare.</param>
+        /// <returns>True, if the query description contains the same components with the same
+        /// read/write access modifiers as this EntityQuery.</returns>
+        public bool CompareQuery(in EntityQueryDescBuilder queryDesc) => _GetImpl()->CompareQuery(queryDesc);
         /// <summary>
         /// Resets this EntityQuery's filter.
         /// </summary>
         /// <remarks>
         /// Removes references to shared component data, if applicable, then resets the filter type to None.
         /// </remarks>
+        [NotBurstCompatible]
         public void ResetFilter() => _GetImpl()->ResetFilter();
         /// <summary>
         /// Filters this EntityQuery so that it only selects entities with shared component values
@@ -1609,6 +1942,7 @@ namespace Unity.Entities
         /// <param name="sharedComponent1">The shared component values on which to filter.</param>
         /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
         /// one of the types used to create the EntityQuery.</typeparam>
+        [NotBurstCompatible]
         public void SetSharedComponentFilter<SharedComponent1>(SharedComponent1 sharedComponent1)            where SharedComponent1 : struct, ISharedComponentData
             => _GetImpl()->SetSharedComponentFilter<SharedComponent1>(sharedComponent1);
         /// <summary>
@@ -1624,6 +1958,7 @@ namespace Unity.Entities
         /// one of the types used to create the EntityQuery.</typeparam>
         /// <typeparam name="SharedComponent2">The type of shared component. (The type must also be
         /// one of the types used to create the EntityQuery.</typeparam>
+        [NotBurstCompatible]
         public void SetSharedComponentFilter<SharedComponent1, SharedComponent2>(SharedComponent1 sharedComponent1,
             SharedComponent2 sharedComponent2)            where SharedComponent1 : struct, ISharedComponentData
             where SharedComponent2 : struct, ISharedComponentData
@@ -1635,6 +1970,7 @@ namespace Unity.Entities
         ///     Saves a given ComponentType's index in RequiredComponents in this group's Changed filter.
         /// </remarks>
         /// <param name="componentType">ComponentType to mark as changed on this EntityQuery's filter.</param>
+        [NotBurstCompatible] // Due to talking to managed component store
         public void SetChangedVersionFilter(ComponentType componentType) => _GetImpl()->SetChangedVersionFilter(componentType);
         internal void SetChangedFilterRequiredVersion(uint requiredVersion) => _GetImpl()->SetChangedFilterRequiredVersion(requiredVersion);
 
@@ -1645,6 +1981,7 @@ namespace Unity.Entities
         ///     Saves a given ComponentType's index in RequiredComponents in this group's Changed filter.
         /// </remarks>
         /// <param name="componentType">ComponentTypes to mark as changed on this EntityQuery's filter.</param>
+        [NotBurstCompatible]
         public void SetChangedVersionFilter(ComponentType[] componentType) => _GetImpl()->SetChangedVersionFilter(componentType);
 
         /// <summary>
@@ -1663,12 +2000,14 @@ namespace Unity.Entities
         /// <param name="sharedComponent1">The shared component values on which to filter.</param>
         /// <typeparam name="SharedComponent1">The type of shared component. (The type must also be
         /// one of the types used to create the EntityQuery.</typeparam>
+        [NotBurstCompatible]
         public void AddSharedComponentFilter<SharedComponent>(SharedComponent sharedComponent)            where SharedComponent : struct, ISharedComponentData
             => _GetImpl()->AddSharedComponentFilter<SharedComponent>(sharedComponent);
 
         /// <summary>
         /// Filters out entities in chunks for which no structural changes have occurred.
         /// </summary>
+        [NotBurstCompatible]
         public void SetOrderVersionFilter() => _GetImpl()->SetOrderVersionFilter();
 
         /// <summary>
@@ -1701,7 +2040,7 @@ namespace Unity.Entities
         /// </summary>
         /// <returns></returns>
         public int GetCombinedComponentOrderVersion() => _GetImpl()->GetCombinedComponentOrderVersion();
-        internal bool AddReaderWritersToLists(ref UnsafeIntList reading, ref UnsafeIntList writing) => _GetImpl()->AddReaderWritersToLists(ref reading, ref writing);
+        internal bool AddReaderWritersToLists(ref UnsafeList<int> reading, ref UnsafeList<int> writing) => _GetImpl()->AddReaderWritersToLists(ref reading, ref writing);
         /// <summary>
         /// Syncs the needed types for the filter.
         /// For every type that is change filtered we need to CompleteWriteDependency to avoid race conditions on the
@@ -1736,6 +2075,13 @@ namespace Unity.Entities
         /// <remarks>This function creates an EntityQueryMask, if one does not exist for this query already. A maximum of 1024 EntityQueryMasks can be allocated per World.</remarks>
         public bool MatchesNoFilter(Entity e) => _GetImpl()->MatchesNoFilter(e);
 
+        /// <summary>
+        /// Returns an EntityQueryDesc, which can be used to re-create the EntityQuery.
+        /// </summary>
+        [NotBurstCompatible]
+        public EntityQueryDesc GetEntityQueryDesc() => _GetImpl()->GetEntityQueryDesc();
+
+        internal void InvalidateCache() => _GetImpl()->_QueryData->MatchingChunkCache.InvalidateCache();
         internal void UpdateCache() => ChunkIterationUtility.RebuildChunkListCache(_GetImpl()->_QueryData);
         internal bool CheckChunkListCacheConsistency() => _GetImpl()->CheckChunkListCacheConsistency();
         internal bool IsCacheValid => _GetImpl()->_QueryData->MatchingChunkCache.IsCacheValid;
@@ -1805,31 +2151,55 @@ namespace Unity.Entities
             impl->_Access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
             int managedComponentIndex;
 
-            // Fast path with no filter & assuming this is a simple query with just one singleton component
             if (!impl->_Filter.RequiresMatchesFilter && impl->_QueryData->RequiredComponentsCount <= 2 && impl->_QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
+                // Fast path with no filter & assuming this is a simple query with just one singleton component
                 var archetypeIndex = impl->GetFirstArchetypeIndexWithEntity(out var archetypeEntityCount);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (archetypeEntityCount != 1)
                     throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {archetypeEntityCount}.");
 #endif
                 var match = impl->_QueryData->MatchingArchetypes.Ptr[archetypeIndex];
+                // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
                 managedComponentIndex = *(int*)ChunkIterationUtility.GetChunkComponentDataPtr(match->Archetype->Chunks[0], true,
                     match->IndexInArchetype[1], impl->_Access->EntityComponentStore->GlobalSystemVersion);
                 return (T)impl->_Access->ManagedComponentStore.GetManagedComponent(managedComponentIndex);
             }
-
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var queryEntityCount = query.CalculateEntityCount();
-            if (queryEntityCount != 1)
-                throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+            else
+            {
+                // Slower path w/filtering and/or multi-component queries
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                var queryEntityCount = query.CalculateEntityCount();
+                if (queryEntityCount != 1)
+                    throw new InvalidOperationException($"GetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
 #endif
 
-            var iterator = query.GetArchetypeChunkIterator();
-            iterator.MoveNext();
-            managedComponentIndex = *(int*)iterator.GetCurrentChunkComponentDataPtr(true, 1);
-            return (T)impl->_Access->ManagedComponentStore.GetManagedComponent(managedComponentIndex);
+                var queryData = impl->_QueryData;
+                var matchingChunkCache = queryData->GetMatchingChunkCache();
+                var chunkList = *matchingChunkCache.MatchingChunks;
+                var matchingArchetypeIndices = *matchingChunkCache.PerChunkMatchingArchetypeIndex;
+                var matchingArchetypes = queryData->MatchingArchetypes.Ptr;
+                int chunkCount = chunkList.Length;
+                for (int i = 0; i < chunkCount; ++i)
+                {
+                    var chunk = chunkList[i];
+                    var matchIndex = matchingArchetypeIndices[i];
+                    var match = matchingArchetypes[matchIndex];
+                    if (match->ChunkMatchesFilter(chunk->ListIndex, ref impl->_Filter))
+                    {
+                        // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
+                        managedComponentIndex = *(int*)ChunkIterationUtility.GetChunkComponentDataPtr(match->Archetype->Chunks[0], true,
+                            match->IndexInArchetype[1], impl->_Access->EntityComponentStore->GlobalSystemVersion);
+                        return (T)impl->_Access->ManagedComponentStore.GetManagedComponent(managedComponentIndex);
+                    }
+                }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                throw new InvalidOperationException(
+                    "Bug in GetSingleton(): found no chunk that matches the provided filter, but CalculateEntityCount() == 1");
+#else
+                return default;
+#endif
+            }
         }
 
         /// <summary>
@@ -1881,34 +2251,59 @@ namespace Unity.Entities
 
             access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
             int* managedComponentIndex;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (value != null && value.GetType() != typeof(T))
                 throw new ArgumentException($"Assigning component value is of type: {value.GetType()} but the expected component type is: {typeof(T)}");
 #endif
 
             if (!impl->_Filter.RequiresMatchesFilter && impl->_QueryData->RequiredComponentsCount <= 2 && impl->_QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
+                // Fast path with no filter & assuming this is a simple query with just one singleton component
                 var archetypeIndex = impl->GetFirstArchetypeIndexWithEntity(out var entityCount);
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (entityCount != 1)
                     throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {entityCount}.");
 #endif
                 var match = impl->_QueryData->MatchingArchetypes.Ptr[archetypeIndex];
+                // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
                 managedComponentIndex = (int*)ChunkIterationUtility.GetChunkComponentDataPtr(match->Archetype->Chunks[0], true,
                     match->IndexInArchetype[1], access->EntityComponentStore->GlobalSystemVersion);
                 access->ManagedComponentStore.UpdateManagedComponentValue(managedComponentIndex, value, ref *access->EntityComponentStore);
             }
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var queryEntityCount = query.CalculateEntityCount();
-            if (queryEntityCount != 1)
-                throw new InvalidOperationException($"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
+            else
+            {
+                // Slower path w/filtering and/or multi-component query
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                var queryEntityCount = query.CalculateEntityCount();
+                if (queryEntityCount != 1)
+                    throw new InvalidOperationException(
+                        $"SetSingleton<{typeof(T)}>() requires that exactly one {typeof(T)} exist that match this query, but there are {queryEntityCount}.");
 #endif
-
-            var iterator = query.GetArchetypeChunkIterator();
-            iterator.MoveNext();
-            managedComponentIndex = (int*)iterator.GetCurrentChunkComponentDataPtr(true, 1);
-            access->ManagedComponentStore.UpdateManagedComponentValue(managedComponentIndex, value, ref *access->EntityComponentStore);
+                var queryData = impl->_QueryData;
+                var matchingChunkCache = queryData->GetMatchingChunkCache();
+                var chunkList = *matchingChunkCache.MatchingChunks;
+                var matchingArchetypeIndices = *matchingChunkCache.PerChunkMatchingArchetypeIndex;
+                var matchingArchetypes = queryData->MatchingArchetypes.Ptr;
+                int chunkCount = chunkList.Length;
+                for (int i = 0; i < chunkCount; ++i)
+                {
+                    var chunk = chunkList[i];
+                    var matchIndex = matchingArchetypeIndices[i];
+                    var match = matchingArchetypes[matchIndex];
+                    if (match->ChunkMatchesFilter(chunk->ListIndex, ref impl->_Filter))
+                    {
+                        // TODO(https://unity3d.atlassian.net/browse/DOTS-4625): Can't just grab the first entity here, it may be disabled
+                        managedComponentIndex = (int*)ChunkIterationUtility.GetChunkComponentDataPtr(match->Archetype->Chunks[0], true,
+                            match->IndexInArchetype[1], access->EntityComponentStore->GlobalSystemVersion);
+                        access->ManagedComponentStore.UpdateManagedComponentValue(managedComponentIndex, value, ref *access->EntityComponentStore);
+                        return;
+                    }
+                }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                throw new InvalidOperationException(
+                    "Bug in SetSingleton(): found no chunk that matches the provided filter, but CalculateEntityCount() == 1");
+#endif
+            }
         }
     }
 #endif

@@ -91,6 +91,7 @@ namespace Unity.Scenes.Editor
         public static LoadableScene[] GetLoadableScenes(SubScene[] scenes)
         {
             var loadables = new List<LoadableScene>();
+            DefaultWorldInitialization.DefaultLazyEditModeInitialize(); // workaround for occasional null World at this point
             var world = World.DefaultGameObjectInjectionWorld;
             var entityManager = world.EntityManager;
             foreach (var scene in scenes)
@@ -264,51 +265,70 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static LiveLinkMode LiveLinkMode
+        public static LiveConversionMode LiveConversionMode
         {
             get
             {
-                if (EditorApplication.isPlaying || LiveLinkEnabledInEditMode)
-                    return LiveLinkShowGameStateInSceneView ? LiveLinkMode.LiveConvertSceneView : LiveLinkMode.LiveConvertGameView;
+                if (EditorApplication.isPlaying || LiveConversionEnabled)
+                    return LiveConversionSceneViewShowRuntime ? LiveConversionMode.SceneViewShowsRuntime : LiveConversionMode.SceneViewShowsAuthoring;
                 else
-                    return LiveLinkMode.Disabled;
+                    return LiveConversionMode.Disabled;
             }
         }
 
-        public static bool LiveLinkEnabledInEditMode
+        public static bool LiveConversionEnabled
         {
             get
             {
-                return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode", false);
+                // DEPRECATE 2021-04-25
+                if (EditorPrefs.HasKey("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode"))
+                {
+                    var oldValue = EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode", false);
+                    EditorPrefs.DeleteKey("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode");
+                    LiveConversionEnabled = oldValue;
+                    return oldValue;
+                }
+
+                return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveConversionEnabled", false);
             }
             set
             {
-                if (LiveLinkEnabledInEditMode == value)
+                if (LiveConversionEnabled == value)
                     return;
 
-                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveLinkEnabledInEditMode", value);
-                LiveLinkConnection.GlobalDirtyLiveLink();
-                LiveLinkModeChanged();
+                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveConversionEnabled", value);
+                LiveConversionConnection.GlobalDirtyLiveConversion();
+                LiveConversionModeChanged();
             }
         }
 
-        public static bool LiveLinkShowGameStateInSceneView
+        public static bool LiveConversionSceneViewShowRuntime
         {
             get
             {
-                return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView", false);
+                // DEPRECATE 2021-04-25
+                if (EditorPrefs.HasKey("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView"))
+                {
+                    var oldValue = EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView", false);
+                    EditorPrefs.DeleteKey("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView");
+                    LiveConversionEnabled = oldValue;
+                    return oldValue;
+                }
+
+                return EditorPrefs.GetBool("Unity.Entities.Streaming.SubScene.LiveConversionSceneViewShowRuntime", false);
             }
             set
             {
-                if (LiveLinkShowGameStateInSceneView == value)
+                if (LiveConversionSceneViewShowRuntime == value)
                     return;
 
-                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveLinkShowGameStateInSceneView", value);
-                LiveLinkConnection.GlobalDirtyLiveLink();
-                LiveLinkModeChanged();
+                EditorPrefs.SetBool("Unity.Entities.Streaming.SubScene.LiveConversionSceneViewShowRuntime", value);
+                LiveConversionConnection.GlobalDirtyLiveConversion();
+                LiveConversionModeChanged();
             }
         }
 
-        public static event Action LiveLinkModeChanged = delegate {};
+        [Obsolete("LiveConversionModeChanged will no longer be public. Removed after 2021-04-25")]
+        public static event Action LiveConversionModeChanged = delegate {};
     }
 }

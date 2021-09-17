@@ -1,4 +1,3 @@
-#if UNITY_2020_2_OR_NEWER
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
@@ -47,18 +46,23 @@ namespace Unity.Entities.Hybrid.PerformanceTests
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
         }
 
-        void InitializeIncrementalConversion()
+        void InitializeIncrementalConversion(GameObjectConversionUtility.ConversionFlags conversionFlags)
         {
-            var settings = new GameObjectConversionSettings(DestinationWorld, ConversionFlags)
+            var settings = new GameObjectConversionSettings(DestinationWorld, conversionFlags)
             {
                 Systems = TestWorldSetup.GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags.GameObjectConversion).ToList()
             };
             ConversionWorld = GameObjectConversionUtility.InitializeIncrementalConversion(SceneManager.GetActiveScene(), settings);
         }
 
-        private const GameObjectConversionUtility.ConversionFlags ConversionFlags =
-            GameObjectConversionUtility.ConversionFlags.GameViewLiveLink |
+        private const GameObjectConversionUtility.ConversionFlags WithoutAssignName =
+            GameObjectConversionUtility.ConversionFlags.GameViewLiveConversion |
             GameObjectConversionUtility.ConversionFlags.AddEntityGUID;
+
+        const GameObjectConversionUtility.ConversionFlags WithAssignName =
+            GameObjectConversionUtility.ConversionFlags.GameViewLiveConversion |
+            GameObjectConversionUtility.ConversionFlags.AddEntityGUID |
+            GameObjectConversionUtility.ConversionFlags.AssignName;
 
         static void SwapDeleteAndReconvert(ref IncrementalConversionBatch batch)
         {
@@ -68,9 +72,9 @@ namespace Unity.Entities.Hybrid.PerformanceTests
         }
 
         [Test, Performance]
-        public void IncrementalConversionPerformance_CreateGameObjects([Values(1000)]int n)
+        public void IncrementalConversionPerformance_CreateGameObjects([Values(1000)]int n, [Values(WithAssignName, WithoutAssignName)] GameObjectConversionUtility.ConversionFlags conversionFlags)
         {
-            InitializeIncrementalConversion();
+            InitializeIncrementalConversion(conversionFlags);
             var reconvert = new NativeArray<int>(n, Allocator.TempJob);
             var args = new IncrementalConversionBatch
             {
@@ -81,13 +85,13 @@ namespace Unity.Entities.Hybrid.PerformanceTests
 
             Measure.Method(() =>
             {
-                GameObjectConversionUtility.ConvertIncremental(ConversionWorld, ConversionFlags, ref args);
+                GameObjectConversionUtility.ConvertIncremental(ConversionWorld, conversionFlags, ref args);
             }).SetUp(() =>
             {
                 foreach (var go in objs)
                     Object.DestroyImmediate(go);
                 SwapDeleteAndReconvert(ref args);
-                GameObjectConversionUtility.ConvertIncremental(ConversionWorld, ConversionFlags, ref args);
+                GameObjectConversionUtility.ConvertIncremental(ConversionWorld, conversionFlags, ref args);
                 for (int i = 0; i < n; i++)
                 {
                     var obj = _Objects.CreateGameObject();
@@ -101,9 +105,9 @@ namespace Unity.Entities.Hybrid.PerformanceTests
         }
 
         [Test, Performance]
-        public void IncrementalConversionPerformance_RemoveGameObjects([Values(1000)]int n)
+        public void IncrementalConversionPerformance_RemoveGameObjects([Values(1000)] int n, [Values(WithAssignName, WithoutAssignName)] GameObjectConversionUtility.ConversionFlags conversionFlags)
         {
-            InitializeIncrementalConversion();
+            InitializeIncrementalConversion(conversionFlags);
 
             var instanceIds = new NativeArray<int>(n, Allocator.TempJob);
             var objs = new List<GameObject>();
@@ -115,7 +119,7 @@ namespace Unity.Entities.Hybrid.PerformanceTests
 
             Measure.Method(() =>
             {
-                GameObjectConversionUtility.ConvertIncremental(ConversionWorld, ConversionFlags, ref args);
+                GameObjectConversionUtility.ConvertIncremental(ConversionWorld, conversionFlags, ref args);
             }).SetUp(() =>
             {
                 for (int i = 0; i < n; i++)
@@ -124,8 +128,9 @@ namespace Unity.Entities.Hybrid.PerformanceTests
                     objs.Add(obj);
                     instanceIds[i] = obj.GetInstanceID();
                 }
+
                 SwapDeleteAndReconvert(ref args);
-                GameObjectConversionUtility.ConvertIncremental(ConversionWorld, ConversionFlags, ref args);
+                GameObjectConversionUtility.ConvertIncremental(ConversionWorld, conversionFlags, ref args);
                 SwapDeleteAndReconvert(ref args);
                 foreach (var go in objs)
                     Object.DestroyImmediate(go);
@@ -134,4 +139,3 @@ namespace Unity.Entities.Hybrid.PerformanceTests
         }
     }
 }
-#endif

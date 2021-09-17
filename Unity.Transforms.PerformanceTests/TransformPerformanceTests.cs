@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Tests;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -12,36 +13,41 @@ namespace Unity.Entities.PerformanceTests
     [Category("Performance")]
     public sealed unsafe partial class TransformPerformanceTests : ECSTestsFixture
     {
-        private List<ComponentSystemBase> TransformSystems;
+        private List<SystemHandleUntyped> TransformSystems;
 
         public override void Setup()
         {
             base.Setup();
-            TransformSystems = new List<ComponentSystemBase>
+            TransformSystems = new List<SystemHandleUntyped>
             {
-                World.GetOrCreateSystem<EndFrameParentSystem>(),
-                World.GetOrCreateSystem<EndFrameCompositeRotationSystem>(),
-                World.GetOrCreateSystem<EndFrameCompositeScaleSystem>(),
-                World.GetOrCreateSystem<EndFrameParentScaleInverseSystem>(),
-                World.GetOrCreateSystem<EndFrameTRSToLocalToWorldSystem>(),
-                World.GetOrCreateSystem<EndFrameTRSToLocalToParentSystem>(),
-                World.GetOrCreateSystem<EndFrameLocalToParentSystem>(),
-                World.GetOrCreateSystem<EndFrameWorldToLocalSystem>(),
+                World.GetOrCreateSystem<ParentSystem>(),
+                World.GetOrCreateSystem<CompositeRotationSystem>(),
+                World.GetOrCreateSystem<CompositeScaleSystem>(),
+                World.GetOrCreateSystem<ParentScaleInverseSystem>(),
+                World.GetOrCreateSystem<TRSToLocalToWorldSystem>(),
+                World.GetOrCreateSystem<TRSToLocalToParentSystem>(),
+                World.GetOrCreateSystem<LocalToParentSystem>(),
+                World.GetOrCreateSystem<WorldToLocalSystem>(),
             };
         }
 
-        public void UpdateTransformSystems()
+        public unsafe void UpdateTransformSystems()
         {
             foreach (var sys in TransformSystems)
-                sys.Update();
+            {
+                var worldUnmanaged = World.Unmanaged;
+                ComponentSystemGroup.UpdateSystem(ref worldUnmanaged, sys);
+            }
+
             // Force complete so that main thread (tests) can have access to direct editing.
             m_Manager.CompleteAllJobs();
         }
 
         public void UpdateLocalToParentSystem()
         {
-            var sys = World.GetOrCreateSystem<EndFrameLocalToParentSystem>();
-            sys.Update();
+            var sys = World.GetOrCreateSystem<LocalToParentSystem>();
+            sys.Update(World.Unmanaged);
+
             m_Manager.CompleteAllJobs();
         }
 
@@ -102,7 +108,7 @@ namespace Unity.Entities.PerformanceTests
             var archetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Translation), typeof(Rotation),
                 typeof(Scale), typeof(RngComponent), typeof(ExpectedLocalToWorld));
 
-            using(var entities = m_Manager.CreateEntity(archetype, 10000, Allocator.TempJob))
+            using(var entities = m_Manager.CreateEntity(archetype, 10000, World.UpdateAllocator.ToAllocator))
             {
                 for(int i=0; i < entities.Length; ++i)
                 {
@@ -138,7 +144,7 @@ namespace Unity.Entities.PerformanceTests
             var childArchetype = m_Manager.CreateArchetype(typeof(LocalToWorld), typeof(Translation), typeof(Rotation),
                 typeof(Scale), typeof(RngComponent), typeof(ExpectedLocalToWorld), typeof(LocalToParent), typeof(Parent));
             var rootEnt = m_Manager.CreateEntity(rootArchetype);
-            using(var entities = m_Manager.CreateEntity(childArchetype, 10000, Allocator.TempJob))
+            using(var entities = m_Manager.CreateEntity(childArchetype, 10000, World.UpdateAllocator.ToAllocator))
             {
                 for(int i=0; i < entities.Length; ++i)
                 {
@@ -196,7 +202,7 @@ namespace Unity.Entities.PerformanceTests
                     AddChild(childEntity, depth+1);
             }
 
-            using(var rootEntities = m_Manager.CreateEntity(rootArchetype, roots, Allocator.TempJob))
+            using(var rootEntities = m_Manager.CreateEntity(rootArchetype, roots, World.UpdateAllocator.ToAllocator))
             {
                 for (int i = 0; i < rootEntities.Length; i++)
                 {

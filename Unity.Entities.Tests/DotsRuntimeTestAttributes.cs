@@ -50,14 +50,14 @@ namespace Unity.Entities.Tests
     }
 
 #else
-    internal class IgnoreInPortableTests : Attribute
+    internal class IgnoreInPortableTestsAttribute : Attribute
     {
-        public IgnoreInPortableTests(string reason)
+        public IgnoreInPortableTestsAttribute(string reason)
         {
         }
     }
 
-    class ManagedExceptionInPortableTests : Attribute
+    class ManagedExceptionInPortableTestsAttribute : Attribute
     {
     }
 #endif

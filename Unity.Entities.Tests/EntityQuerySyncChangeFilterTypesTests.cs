@@ -1,14 +1,10 @@
 #if !UNITY_DOTSRUNTIME
-// This is all based around IJobForEach which is deprecated - need to rewrite
-// https://unity3d.atlassian.net/browse/DOTSR-1432
 // TODO: IL2CPP_TEST_RUNNER doesn't support TextFixture with argument and other calls. Note these
 // are also generally flagged with DotsRuntimeFixme.
 
 using System;
-using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
 namespace Unity.Entities.Tests
@@ -17,16 +13,44 @@ namespace Unity.Entities.Tests
     [TestFixture("CompleteJob1")]
     [TestFixture("CompleteJob2")]
     [TestFixture("CompleteNoJobs")]
-    class EntityQuerySyncChangeFilterTypesTests : ECSTestsFixture
+    partial class EntityQuerySyncChangeFilterTypesTests : ECSTestsFixture
     {
+        public partial class SyncChangeFilterTypes_System : SystemBase
+        {
+            public EntityQuery EntityQuery;
+
+            public JobHandle SetEcsTestData1(JobHandle dependency)
+            {
+                return
+                    Entities
+                        .ForEach((ref EcsTestData data) => { data = new EcsTestData(1); })
+                        .Schedule(dependency);
+            }
+
+            public JobHandle SetEcsTestData2(JobHandle dependency)
+            {
+                return
+                    Entities
+                        .ForEach((ref EcsTestData2 data) => { data = new EcsTestData2(2); })
+                        .Schedule(dependency);
+            }
+
+            protected override void OnUpdate()
+            {
+            }
+
+            protected override void OnCreate()
+            {
+            }
+        }
+
+        SyncChangeFilterTypes_System _syncChangeFilterTypesSystem => World.GetOrCreateSystem<SyncChangeFilterTypes_System>();
+
         bool completeJob1;
         bool completeJob2;
 
         JobHandle job1;
         JobHandle job2;
-
-        EntityQuery entityQuery;
-        Entity entity;
 
         public EntityQuerySyncChangeFilterTypesTests(string variation)
         {
@@ -39,31 +63,29 @@ namespace Unity.Entities.Tests
             base.Setup();
 
             m_Manager.Debug.SetGlobalSystemVersion(10);
-            entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), ComponentType.ChunkComponent<EcsTestData3>());
+            m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), ComponentType.ChunkComponent<EcsTestData3>());
+
+            job1 = _syncChangeFilterTypesSystem.SetEcsTestData1(default);
+            job2 = _syncChangeFilterTypesSystem.SetEcsTestData2(default);
 
             // These jobs wont actually set the change version so the query will not match any entities so no structural change is executed.
             // Otherwise BeforeStructuralChange will throw an InvalidOperationException when it calls CompleteAllJobs.
             // We want to only check for the InvalidOperationException from SyncFilterTypes.
-            job1 = new SetComponentDataJob_EcsTestData {value = new EcsTestData(1)}.Schedule(m_Manager.CreateEntityQuery(typeof(EcsTestData)));
-            job2 = new SetComponentDataJob_EcsTestData2 {value = new EcsTestData2(2)}.Schedule(m_Manager.CreateEntityQuery(typeof(EcsTestData2)));
-
             if (completeJob1)
                 job1.Complete();
 
             if (completeJob2)
                 job2.Complete();
 
-            entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
-            entityQuery.SetChangedVersionFilter(new ComponentType[] {ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()});
-            entityQuery.SetChangedFilterRequiredVersion(10);
+            _syncChangeFilterTypesSystem.EntityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
+            _syncChangeFilterTypesSystem.EntityQuery.SetChangedVersionFilter(new ComponentType[] {ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()});
+            _syncChangeFilterTypesSystem.EntityQuery.SetChangedFilterRequiredVersion(10);
         }
 
         public override void TearDown()
         {
             job1.Complete();
             job2.Complete();
-
-            entityQuery.Dispose();
 
             base.TearDown();
         }
@@ -76,88 +98,70 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(code);
         }
 
-#pragma warning disable 618
-        public struct SetComponentDataJob_EcsTestData : IJobForEach<EcsTestData>
-        {
-            public EcsTestData value;
-            public void Execute(ref EcsTestData component) => component = value;
-        }
-
-        public struct SetComponentDataJob_EcsTestData2 : IJobForEach<EcsTestData2>
-        {
-            public EcsTestData2 value;
-            public void Execute(ref EcsTestData2 component) => component = value;
-        }
-#pragma warning restore 618
-
         [Test]
         public void CommandBuffer_AddComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            using (EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                cmds.AddComponent(entityQuery, typeof(EcsTestData3));
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.Playback(m_Manager));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddComponentForEntityQuery(_syncChangeFilterTypesSystem.EntityQuery, typeof(EcsTestData3)));
             }
         }
 
         [Test]
         public void CommandBuffer_RemoveComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            using (EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                cmds.RemoveComponent(entityQuery, typeof(EcsTestData));
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.Playback(m_Manager));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.RemoveComponentForEntityQuery(_syncChangeFilterTypesSystem.EntityQuery, typeof(EcsTestData)));
             }
         }
 
         [Test]
         public void CommandBuffer_DestroyEntityWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            using (EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                cmds.DestroyEntity(entityQuery);
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.Playback(m_Manager));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.DestroyEntitiesForEntityQuery(_syncChangeFilterTypesSystem.EntityQuery));
             }
         }
 
         [Test]
         public void CommandBuffer_AddSharedComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            using (EntityCommandBuffer cmds = new EntityCommandBuffer(Allocator.TempJob))
+            using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
-                cmds.AddSharedComponent(entityQuery, new EcsTestSharedComp(7));
-                AssertThrowsIfAnyJobNotCompleted(() => cmds.Playback(m_Manager));
+                AssertThrowsIfAnyJobNotCompleted(() => cmds.AddSharedComponentForEntityQuery(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7)));
             }
         }
 
         [Test]
         public void EntityManager_RemoveComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.RemoveComponent(entityQuery, ComponentType.ReadWrite<EcsTestData>()));
+            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.RemoveComponent(_syncChangeFilterTypesSystem.EntityQuery, ComponentType.ReadWrite<EcsTestData>()));
         }
 
         [Test]
         public void EntityManager_AddComponentWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddComponent(entityQuery, ComponentType.ReadWrite<EcsTestData3>()));
+            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddComponent(_syncChangeFilterTypesSystem.EntityQuery, ComponentType.ReadWrite<EcsTestData3>()));
         }
 
         [Test]
         public void EntityManager_AddChunkComponentDataWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddChunkComponentData(entityQuery, new EcsTestData3(7)));
+            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddChunkComponentData(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestData3(7)));
         }
 
         [Test]
         public void EntityManager_RemoveChunkComponentDataWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.RemoveChunkComponentData<EcsTestData3>(entityQuery));
+            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.RemoveChunkComponentData<EcsTestData3>(_syncChangeFilterTypesSystem.EntityQuery));
         }
 
         [Test]
         public void EntityManager_AddSharedComponentDataWithEntityQuery_Syncs_ChangeFilterTypes()
         {
-            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddSharedComponentData(entityQuery, new EcsTestSharedComp(7)));
+            AssertThrowsIfAnyJobNotCompleted(() => m_Manager.AddSharedComponentData(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7)));
         }
     }
 }

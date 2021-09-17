@@ -9,16 +9,16 @@ namespace Unity.Entities
     {
         ComponentSystem m_System;
         uint m_AnyWritableBitField, m_AllWritableBitField;
-        FixedListInt64 m_Any, m_None, m_All;
+        FixedList64Bytes<int> m_Any, m_None, m_All;
         EntityQueryOptions m_Options;
         EntityQuery m_Query;
 
         internal EntityQueryBuilder(ComponentSystem system)
         {
             m_System = system;
-            m_Any    = new FixedListInt64();
-            m_None   = new FixedListInt64();
-            m_All    = new FixedListInt64();
+            m_Any    = new FixedList64Bytes<int>();
+            m_None   = new FixedList64Bytes<int>();
+            m_All    = new FixedList64Bytes<int>();
             m_AnyWritableBitField = m_AllWritableBitField = 0;
             m_Options = EntityQueryOptions.Default;
             m_Query  = default;
@@ -29,7 +29,7 @@ namespace Unity.Entities
         // fully be constructed yet due to ForEach not getting called yet.
         internal bool ShallowEquals(ref EntityQueryBuilder other)
         {
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (!ReferenceEquals(m_System, other.m_System))
                 throw new InvalidOperationException($"Suspicious comparison of {nameof(EntityQueryBuilder)}s with different {nameof(ComponentSystem)}s");
             #endif
@@ -49,16 +49,16 @@ namespace Unity.Entities
         public override bool Equals(object obj) =>
             throw new InvalidOperationException("Calling this function is a sign of inadvertent boxing");
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ValidateHasNoQuery() => ThrowIfInvalidMixing(m_Query != default);
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ValidateHasNoSpec() => ThrowIfInvalidMixing(
             m_Any.Length    != 0 ||
             m_None.Length    != 0 ||
             m_All.Length    != 0);
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ThrowIfInvalidMixing(bool throwIfTrue)
         {
             if (throwIfTrue)
@@ -67,7 +67,7 @@ namespace Unity.Entities
 
         public EntityQueryBuilder With(EntityQuery entityQuery)
         {
-            #if ENABLE_UNITY_COLLECTIONS_CHECKS
+            #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (entityQuery == default)
                 throw new ArgumentNullException(nameof(entityQuery));
             if (m_Query != default)
@@ -96,7 +96,7 @@ namespace Unity.Entities
 
         EntityQueryDesc ToEntityQueryDesc(int delegateTypeCount)
         {
-            ComponentType[] ToComponentTypes(ref FixedListInt64 typeIndices, uint writableBitField, int extraCapacity)
+            ComponentType[] ToComponentTypes(ref FixedList64Bytes<int> typeIndices, uint writableBitField, int extraCapacity)
             {
                 var length = typeIndices.Length + extraCapacity;
                 if (length == 0)

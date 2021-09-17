@@ -14,7 +14,7 @@ using Unity.Burst;
 namespace Unity.Entities.Tests
 {
     [TestFixture]
-    class EntityQueryTests : ECSTestsFixture
+    partial class EntityQueryTests : ECSTestsFixture
     {
         public enum EntityQueryJobMode
         {
@@ -27,15 +27,7 @@ namespace Unity.Entities.Tests
         {
             var entities = new NativeArray<Entity>(entityCount, Allocator.Temp);
             m_Manager.CreateEntity(archetype, entities);
-#if UNITY_DOTSRUNTIME
-            var managedEntities = new Entity[entities.Length];
-            for (int i = 0; i < entities.Length; i++)
-            {
-                managedEntities[i] = entities[i];
-            }
-#else
             var managedEntities = entities.ToArray();
-#endif
             entities.Dispose();
 
             if (action != null)
@@ -92,17 +84,13 @@ namespace Unity.Entities.Tests
             var query1 = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             var query12 = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var queriedChunks1 = query1.CreateArchetypeChunkArray(Allocator.TempJob);
-            var queriedChunks12 = query12.CreateArchetypeChunkArray(Allocator.TempJob);
-            var queriedChunksAll = m_Manager.GetAllChunks(Allocator.TempJob);
+            var queriedChunks1 = query1.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var queriedChunks12 = query12.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            var queriedChunksAll = m_Manager.GetAllChunks(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks12), queriedChunks1);
             CollectionAssert.AreEquivalent(createdChunks12, queriedChunks12);
             CollectionAssert.AreEquivalent(allCreatedChunks, queriedChunksAll);
-
-            queriedChunks1.Dispose();
-            queriedChunks12.Dispose();
-            queriedChunksAll.Dispose();
         }
 
         void SetShared(Entity e, int i)
@@ -125,18 +113,16 @@ namespace Unity.Entities.Tests
 
             query.SetSharedComponentFilter(new EcsTestSharedComp(1));
 
-            var queriedChunks1 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetSharedComponentFilter(new EcsTestSharedComp(2));
 
-            var queriedChunks2 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1);
             CollectionAssert.AreEquivalent(createdChunks3.Concat(createdChunks4), queriedChunks2);
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
         }
 
         void SetShared(Entity e, int i, int j)
@@ -163,16 +149,16 @@ namespace Unity.Entities.Tests
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2));
 
             query.SetSharedComponentFilter(new EcsTestSharedComp(1), new EcsTestSharedComp2(7));
-            var queriedChunks1 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetSharedComponentFilter(new EcsTestSharedComp(2), new EcsTestSharedComp2(7));
-            var queriedChunks2 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetSharedComponentFilter(new EcsTestSharedComp(1), new EcsTestSharedComp2(8));
-            var queriedChunks3 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetSharedComponentFilter(new EcsTestSharedComp(2), new EcsTestSharedComp2(8));
-            var queriedChunks4 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1);
@@ -181,10 +167,6 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEquivalent(createdChunks7.Concat(createdChunks8), queriedChunks4);
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
-            queriedChunks4.Dispose();
         }
 
         void SetData(Entity e, int i)
@@ -211,16 +193,16 @@ namespace Unity.Entities.Tests
             query.SetChangedVersionFilter(typeof(EcsTestData));
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks1 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(20);
-            var queriedChunks2 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(30);
-            var queriedChunks3 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(40);
-            var queriedChunks4 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2).Concat(createdChunks3), queriedChunks1);
             CollectionAssert.AreEquivalent(createdChunks2.Concat(createdChunks3), queriedChunks2);
@@ -229,10 +211,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, queriedChunks4.Length);
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
-            queriedChunks4.Dispose();
         }
 
         void SetData(Entity e, int i, int j)
@@ -264,7 +242,7 @@ namespace Unity.Entities.Tests
             var testType1 = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
             var testType2 = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
 
-            var queriedChunks1 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             foreach (var chunk in createdChunks1)
             {
@@ -272,7 +250,7 @@ namespace Unity.Entities.Tests
                 array[0] = new EcsTestData(7);
             }
 
-            var queriedChunks2 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             foreach (var chunk in createdChunks2)
             {
@@ -280,16 +258,13 @@ namespace Unity.Entities.Tests
                 array[0] = new EcsTestData2(7);
             }
 
-            var queriedChunks3 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
 
             CollectionAssert.AreEquivalent(createdChunks3, queriedChunks1);
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks3), queriedChunks2);
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
         }
 
         [Test]
@@ -311,16 +286,16 @@ namespace Unity.Entities.Tests
             query.SetOrderVersionFilter();
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks1 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(20);
-            var queriedChunks2 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(30);
-            var queriedChunks3 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(40);
-            var queriedChunks4 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2).Concat(createdChunks3), queriedChunks1);
             CollectionAssert.AreEquivalent(createdChunks2.Concat(createdChunks3), queriedChunks2);
@@ -329,10 +304,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, queriedChunks4.Length);
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
-            queriedChunks4.Dispose();
         }
 
         [Test]
@@ -355,16 +326,16 @@ namespace Unity.Entities.Tests
             query.SetChangedVersionFilter(typeof(EcsTestData));
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks1 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(20);
-            var queriedChunks2 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(30);
-            var queriedChunks3 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(40);
-            var queriedChunks4 =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2).Concat(createdChunks3), queriedChunks1);
             CollectionAssert.AreEquivalent(createdChunks2.Concat(createdChunks3), queriedChunks2);
@@ -373,10 +344,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, queriedChunks4.Length);
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
-            queriedChunks4.Dispose();
         }
 
         void SetDataAndShared(Entity e, int data, int shared)
@@ -406,10 +373,10 @@ namespace Unity.Entities.Tests
             query.AddChangedVersionFilter(typeof(EcsTestData));
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
 
-            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the version number for TestData1 for createdChunks1
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -418,7 +385,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                 array[0] = new EcsTestData {value = 10};
             }
-            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the version number for TestData2
             query.SetChangedFilterRequiredVersion(20);
@@ -428,7 +395,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
-            var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1); // query 1 = created 1,2
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
@@ -436,10 +403,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, queriedChunks4.Length); // query 4 is empty (version # of type we're not change tracking was bumped)
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
-            queriedChunks4.Dispose();
         }
 
         [Test]
@@ -463,10 +426,10 @@ namespace Unity.Entities.Tests
             query.AddOrderVersionFilter();
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
 
-            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the order version number for createdChunks1
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -475,16 +438,13 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetEntityTypeHandle());
                 m_Manager.AddComponent(array, typeof(EcsTestTag));
             }
-            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1); // query 1 = created 1,2
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
             Assert.AreEqual(createdChunks1.Length, queriedChunks3.Length); // query 3 = created 1 (version # was bumped) (not collection equivalent because it is a new archetype so the chunk *has* changed)
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
         }
 
         [Test]
@@ -509,10 +469,10 @@ namespace Unity.Entities.Tests
             query.AddChangedVersionFilter(typeof(EcsTestData2));
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
 
-            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the version number for TestData1 for createdChunks1
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -521,7 +481,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData>());
                 array[0] = new EcsTestData {value = 10};
             }
-            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the version number for TestData2
             query.SetChangedFilterRequiredVersion(20);
@@ -531,7 +491,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
-            var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1.Concat(createdChunks2), queriedChunks1); // query 1 = created 1,2
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
@@ -539,10 +499,6 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEquivalent(createdChunks1, queriedChunks4); // query 4 = created 1 (version # of type2 was bumped)
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
-            queriedChunks4.Dispose();
         }
 
         void SetDataAndShared(Entity e, int data, int shared1, int shared2)
@@ -573,10 +529,10 @@ namespace Unity.Entities.Tests
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
             query.AddSharedComponentFilter(new EcsTestSharedComp2 {value0 = 3, value1 = 3});
 
-            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the version number for TestData1 for createdChunks1 and createdChunks2
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -591,7 +547,7 @@ namespace Unity.Entities.Tests
                     array[0] = new EcsTestData {value = 10};
                 }
             }
-            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the version number for TestData2 for createdChunks1
             query.SetChangedFilterRequiredVersion(20);
@@ -601,7 +557,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
-            var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1, queriedChunks1); // query 1 = created 1
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
@@ -609,10 +565,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, queriedChunks4.Length); // query 4 is empty (version # of type we're not change tracking was bumped)
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
-            queriedChunks4.Dispose();
         }
 
         [Test]
@@ -638,10 +590,10 @@ namespace Unity.Entities.Tests
             query.AddSharedComponentFilter(new EcsTestSharedComp {value = 1});
             query.AddSharedComponentFilter(new EcsTestSharedComp2 {value0 = 3, value1 = 3});
 
-            var queriedChunks1 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks1 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             query.SetChangedFilterRequiredVersion(10);
-            var queriedChunks2 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks2 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the version number for TestData1 for createdChunks1 and createdChunks2
             m_ManagerDebug.SetGlobalSystemVersion(20);
@@ -656,7 +608,7 @@ namespace Unity.Entities.Tests
                     array[0] = new EcsTestData {value = 10};
                 }
             }
-            var queriedChunks3 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks3 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             // bumps the version number for TestData2 for createdChunks1
             query.SetChangedFilterRequiredVersion(20);
@@ -666,7 +618,7 @@ namespace Unity.Entities.Tests
                 var array = createdChunks1[i].GetNativeArray(EmptySystem.GetComponentTypeHandle<EcsTestData2>());
                 array[0] = new EcsTestData2 {value1 = 10, value0 = 10};
             }
-            var queriedChunks4 = query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var queriedChunks4 = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEquivalent(createdChunks1, queriedChunks1); // query 1 = created 1
             Assert.AreEqual(0, queriedChunks2.Length); // query 2 is empty
@@ -674,10 +626,6 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEquivalent(createdChunks1, queriedChunks4); // query 4 = created 1 (version # of type2 was bumped)
 
             query.Dispose();
-            queriedChunks1.Dispose();
-            queriedChunks2.Dispose();
-            queriedChunks3.Dispose();
-            queriedChunks4.Dispose();
         }
 
         [Test]
@@ -757,31 +705,23 @@ namespace Unity.Entities.Tests
                     )
             )
                 // NB: EcsTestData != EcsTestData2
-                Assert.Throws<InvalidOperationException>(() => query.ToComponentDataArray<EcsTestData2>(Allocator.TempJob));
+                Assert.Throws<InvalidOperationException>(() => query.ToComponentDataArray<EcsTestData2>(World.UpdateAllocator.ToAllocator));
         }
 
-#if !UNITY_DOTSRUNTIME // IJobForEach is deprecated
-
         [AlwaysUpdateSystem]
-        public class WriteEcsTestDataSystem : JobComponentSystem
+        public partial class WriteEcsTestDataSystem : SystemBase
         {
-#pragma warning disable 618
-            private struct WriteJob : IJobForEach<EcsTestData>
+            protected override void OnUpdate()
             {
-                public void Execute(ref EcsTestData c0) {}
-            }
-#pragma warning restore 618
-
-            protected override JobHandle OnUpdate(JobHandle input)
-            {
-                var job = new WriteJob() {};
-                return job.Schedule(this, input);
+                Entities.ForEach((ref EcsTestData data ) => {  }).Schedule();
             }
         }
 
         [Test]
         public unsafe void CreateArchetypeChunkArray_SyncsChangeFilterTypes()
         {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             query.SetChangedVersionFilter(typeof(EcsTestData));
             var ws1 = World.GetOrCreateSystem<WriteEcsTestDataSystem>();
@@ -789,16 +729,17 @@ namespace Unity.Entities.Tests
             var safetyHandle = m_Manager.GetCheckedEntityDataAccess()->DependencyManager->Safety.GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
 
             Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
-            var chunks =  query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks =  query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle);
 
-            chunks.Dispose();
             query.Dispose();
         }
 
         [Test]
         public unsafe void CalculateEntityCount_SyncsChangeFilterTypes()
         {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             query.SetChangedVersionFilter(typeof(EcsTestData));
             var ws1 = World.GetOrCreateSystem<WriteEcsTestDataSystem>();
@@ -812,7 +753,23 @@ namespace Unity.Entities.Tests
             query.Dispose();
         }
 
-#endif
+        [Test]
+        public unsafe void IsEmpty_SyncsChangeFilterTypes()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            query.SetChangedVersionFilter(typeof(EcsTestData));
+            var ws1 = World.GetOrCreateSystem<WriteEcsTestDataSystem>();
+            ws1.Update();
+            var safetyHandle = m_Manager.GetCheckedEntityDataAccess()->DependencyManager->Safety.GetSafetyHandle(TypeManager.GetTypeIndex<EcsTestData>(), false);
+
+            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle));
+            var dummy = query.IsEmpty;
+            AtomicSafetyHandle.CheckWriteAndThrow(safetyHandle);
+
+            query.Dispose();
+        }
 
         [Test]
         public void ToEntityArrayFiltered([Values] EntityQueryJobMode jobMode)
@@ -835,47 +792,45 @@ namespace Unity.Entities.Tests
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                        entities = query.ToEntityArrayAsync(Allocator.TempJob, out JobHandle jobHandle);
+                        entities = query.ToEntityArrayAsync(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                         jobHandle.Complete();
                         break;
                     case EntityQueryJobMode.AsyncComplete:
                         entities = ChunkIterationUtility.CreateEntityArrayAsyncComplete(GetMatchingArchetypes(query),
-                            Allocator.TempJob,
+                            World.UpdateAllocator.ToAllocator,
                             GetEntityTypeHandle(query), query, query.CalculateEntityCount(),query.GetDependency());
                         break;
                     default: //EntityQueryMethodType.Immediate
                         entities = ChunkIterationUtility.CreateEntityArray(GetMatchingArchetypes(query),
-                            Allocator.TempJob,
+                            World.UpdateAllocator.ToAllocator,
                             GetEntityTypeHandle(query), query, query.CalculateEntityCount());
                         break;
                 }
 
 
                 CollectionAssert.AreEqual(new[] {a, c}, entities);
-                entities.Dispose();
 
                 query.SetSharedComponentFilter(new EcsTestSharedComp {value = 456});
 
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                    entities = query.ToEntityArrayAsync(Allocator.TempJob, out JobHandle jobHandle);
+                    entities = query.ToEntityArrayAsync(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                     jobHandle.Complete();
                     break;
                     case EntityQueryJobMode.AsyncComplete:
                     entities = ChunkIterationUtility.CreateEntityArrayAsyncComplete(GetMatchingArchetypes(query),
-                        Allocator.TempJob,
+                        World.UpdateAllocator.ToAllocator,
                         GetEntityTypeHandle(query), query, query.CalculateEntityCount(),query.GetDependency());
                     break;
                     default: //EntityQueryMethodType.Immediate
                     entities = ChunkIterationUtility.CreateEntityArray(GetMatchingArchetypes(query),
-                        Allocator.TempJob,
+                        World.UpdateAllocator.ToAllocator,
                         GetEntityTypeHandle(query), query, query.CalculateEntityCount());
                     break;
                 }
 
                 CollectionAssert.AreEqual(new[] {b}, entities);
-                entities.Dispose();
             }
         }
 
@@ -902,17 +857,17 @@ namespace Unity.Entities.Tests
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                    entities = query.ToEntityArrayAsync(Allocator.TempJob, out JobHandle jobHandle);
+                    entities = query.ToEntityArrayAsync(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                     jobHandle.Complete();
                     break;
                     case EntityQueryJobMode.AsyncComplete:
                     entities = ChunkIterationUtility.CreateEntityArrayAsyncComplete(GetMatchingArchetypes(query),
-                        Allocator.TempJob,
+                        World.UpdateAllocator.ToAllocator,
                         GetEntityTypeHandle(query), query, query.CalculateEntityCount(),query.GetDependency());
                     break;
                     default: //EntityQueryMethodType.Immediate
                     entities = ChunkIterationUtility.CreateEntityArray(GetMatchingArchetypes(query),
-                        Allocator.TempJob,
+                        World.UpdateAllocator.ToAllocator,
                         GetEntityTypeHandle(query), query, query.CalculateEntityCount());
                     break;
                 }
@@ -923,7 +878,6 @@ namespace Unity.Entities.Tests
                     var value = m_Manager.GetComponentData<EcsTestData>(entities[i]).value;
                     Assert.AreEqual(i * 2,value);
                 }
-                entities.Dispose();
             }
         }
 
@@ -962,66 +916,63 @@ namespace Unity.Entities.Tests
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                        components = query.ToComponentDataArrayAsync<EcsTestData>(Allocator.TempJob, out JobHandle jobHandle);
+                        components = query.ToComponentDataArrayAsync<EcsTestData>(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                         jobHandle.Complete();
                         break;
                     case EntityQueryJobMode.AsyncComplete:
-                        components = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(Allocator.TempJob,
+                        components = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData>(query),query.CalculateEntityCount(),
                             query,query.GetDependency());
                         break;
                     default: //EntityQueryMethodType.Immediate
-                        components = ChunkIterationUtility.CreateComponentDataArray(Allocator.TempJob,
+                        components = ChunkIterationUtility.CreateComponentDataArray(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData>(query),query.CalculateEntityCount(), query);
                         break;
                 }
 
                 CollectionAssert.AreEquivalent(new[] {ecsTestData1,ecsTestData2,ecsTestData3}, components);
-                components.Dispose();
 
                 query.SetSharedComponentFilter(new EcsTestSharedComp {value = 123});
 
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                        components = query.ToComponentDataArrayAsync<EcsTestData>(Allocator.TempJob, out JobHandle jobHandle);
+                        components = query.ToComponentDataArrayAsync<EcsTestData>(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                         jobHandle.Complete();
                         break;
                     case EntityQueryJobMode.AsyncComplete:
-                        components = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(Allocator.TempJob,
+                        components = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData>(query),query.CalculateEntityCount(),
                             query,query.GetDependency());
                         break;
                     default: //EntityQueryMethodType.Immediate
-                        components = ChunkIterationUtility.CreateComponentDataArray(Allocator.TempJob,
+                        components = ChunkIterationUtility.CreateComponentDataArray(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData>(query),query.CalculateEntityCount(), query);
                         break;
                 }
 
                 CollectionAssert.AreEqual(new[] {ecsTestData1,ecsTestData3}, components);
-                components.Dispose();
 
                 query.SetSharedComponentFilter(new EcsTestSharedComp {value = 456});
 
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                        components = query.ToComponentDataArrayAsync<EcsTestData>(Allocator.TempJob, out JobHandle jobHandle);
+                        components = query.ToComponentDataArrayAsync<EcsTestData>(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                         jobHandle.Complete();
                         break;
                     case EntityQueryJobMode.AsyncComplete:
-                        components = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(Allocator.TempJob,
+                        components = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData>(query),query.CalculateEntityCount(),
                             query,query.GetDependency());
                         break;
                     default: //EntityQueryMethodType.Immediate
-                        components = ChunkIterationUtility.CreateComponentDataArray(Allocator.TempJob,
+                        components = ChunkIterationUtility.CreateComponentDataArray(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData>(query),query.CalculateEntityCount(), query);
                         break;
                 }
 
                 CollectionAssert.AreEqual(new[] {ecsTestData2}, components);
-                components.Dispose();
             }
         }
 
@@ -1087,21 +1038,20 @@ namespace Unity.Entities.Tests
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                        components = query.ToComponentDataArrayAsync<EcsTestData>(Allocator.TempJob, out JobHandle jobHandle);
+                        components = query.ToComponentDataArrayAsync<EcsTestData>(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                         jobHandle.Complete();
                         break;
                     case EntityQueryJobMode.AsyncComplete:
-                        components = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(Allocator.TempJob,
+                        components = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData>(query),query.CalculateEntityCount(),
                             query,query.GetDependency());
                         break;
                     default: //EntityQueryJobMode.Immediate
-                        components = ChunkIterationUtility.CreateComponentDataArray(Allocator.TempJob,
+                        components = ChunkIterationUtility.CreateComponentDataArray(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData>(query),query.CalculateEntityCount(), query);
                         break;
                 }
                 CollectionAssert.AreEqual(new[] {ecsData20,ecsData40,ecsData60}, components);
-                components.Dispose();
             }
 
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData2)))
@@ -1110,21 +1060,20 @@ namespace Unity.Entities.Tests
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                        components2 = query.ToComponentDataArrayAsync<EcsTestData2>(Allocator.TempJob, out JobHandle jobHandle);
+                        components2 = query.ToComponentDataArrayAsync<EcsTestData2>(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                         jobHandle.Complete();
                         break;
                     case EntityQueryJobMode.AsyncComplete:
-                        components2 = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(Allocator.TempJob,
+                        components2 = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData2>(query),query.CalculateEntityCount(),
                             query,query.GetDependency());
                         break;
                     default: //EntityQueryJobMode.Immediate
-                        components2 = ChunkIterationUtility.CreateComponentDataArray(Allocator.TempJob,
+                        components2 = ChunkIterationUtility.CreateComponentDataArray(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData2>(query),query.CalculateEntityCount(), query);
                         break;
                 }
                 CollectionAssert.AreEqual(new[] {ecsData2_20_40, ecsData2_60_80}, components2);
-                components2.Dispose();
             }
 
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData3)))
@@ -1133,23 +1082,20 @@ namespace Unity.Entities.Tests
                 switch (jobMode)
                 {
                     case EntityQueryJobMode.Async:
-                        components3 = query.ToComponentDataArrayAsync<EcsTestData3>(Allocator.TempJob, out JobHandle jobHandle);
+                        components3 = query.ToComponentDataArrayAsync<EcsTestData3>(World.UpdateAllocator.ToAllocator, out JobHandle jobHandle);
                         jobHandle.Complete();
                         break;
                     case EntityQueryJobMode.AsyncComplete:
-                        components3 = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(Allocator.TempJob,
+                        components3 = ChunkIterationUtility.CreateComponentDataArrayAsyncComplete(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData3>(query),query.CalculateEntityCount(),
                             query,query.GetDependency());
                         break;
                     default: //EntityQueryJobMode.Immediate
-                        components3 = ChunkIterationUtility.CreateComponentDataArray(Allocator.TempJob,
+                        components3 = ChunkIterationUtility.CreateComponentDataArray(World.UpdateAllocator.ToAllocator,
                             GetComponentTypeHandle<EcsTestData3>(query),query.CalculateEntityCount(), query);
                         break;
                 }
                 CollectionAssert.AreEqual(new[] {ecsData3_20_40_60, ecsData3_80_100_120}, components3);
-
-                components3.Dispose();
-
             }
         }
 
@@ -1400,81 +1346,164 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void ChunkListCaching_CheckCacheConsistency_FailsForInvalidCache()
+        public void ChunkListCaching_CheckCacheConsistency_PassesForNewEmptyQuery()
         {
-            // new archetype, no query
-            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-
-            // new query, exisiting archetype, no entities
-            var queryA = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-
-            // new chunk of matching archetype
-            m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity);
-
-            Assert.IsFalse(queryA.IsCacheValid);
-            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
-        }
-
-        [Test]
-        public void ChunkListCaching_CreateEntity()
-        {
-            // new archetype, no query
-            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-
-            // new query, exisiting archetype, no entities
-            var queryA = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-
-            // new chunk of matching archetype
-            var entitiesA = m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity, Allocator.Temp);
-
-            Assert.IsFalse(queryA.IsCacheValid);
-        }
-
-        [Test]
-        public void ChunkListCaching_CreateEntity_NoNewChunk()
-        {
-            // new archetype, no query
-            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-
-            // new query, exisiting archetype, no entities
-            var queryA = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-
-            // new chunk of matching archetype
-            var entityA = m_Manager.CreateEntity(archetypeA);
-
-            // Update the cache
-            queryA.UpdateCache();
-            Assert.IsTrue(queryA.IsCacheValid);
-            Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
-
-            // no new chunk of matching archetype
-            var entityB = m_Manager.CreateEntity(archetypeA);
-
-            // cache should still be valid
-            Assert.IsTrue(queryA.IsCacheValid);
-            Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
-        }
-
-        [Test]
-        public void ChunkListCaching_DestroyEntity()
-        {
-            // new archetype, no query
-            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-
-            // new query, exisiting archetype, no entities
-            var queryA = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-
-            // new chunk of matching archetype
-            using(var entitiesA = m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity, Allocator.TempJob))
-            using(var entitiesB = m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity, Allocator.TempJob))
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            Assert.AreEqual(0, archetype1.ChunkCount);
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
-                queryA.UpdateCache();
-                Assert.IsTrue(queryA.IsCacheValid);
-                Assert.IsTrue(queryA.CheckChunkListCacheConsistency());
+                // Freshly-created empty queries which don't match any chunks yet are invalid, but not inconsistent
+                Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid on freshly-created empty query");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent on freshly-created empty query");
+                // After updating the cache (called automatically when the cache is accessed with GetMatchingChunkCache),
+                // it should be consistent.
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+            }
+        }
 
-                // destroy entities
-                m_Manager.DestroyEntity(entitiesA);
-                Assert.IsFalse(queryA.IsCacheValid);
+        [Test]
+        public void ChunkListCaching_CheckCacheConsistency_FailsForNewNonEmptyQuery()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var ent1 = m_Manager.CreateEntity(archetype1);
+            Assert.AreEqual(1, archetype1.ChunkCount);
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                // Freshly-created queries are both invalid and inconsistent if they match any chunks
+                Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid on freshly-created query");
+                Assert.IsFalse(query.CheckChunkListCacheConsistency(), "cached chunk list is consistent on freshly-created query");
+                // After updating the cache (called automatically when the cache is accessed with GetMatchingChunkCache),
+                // it should be consistent.
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+            }
+        }
+
+        [Test]
+        public void ChunkListCaching_CheckCacheConsistency_FailsAfterAddingAndRemovingChunks()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var ent1 = m_Manager.CreateEntity(archetype1);
+            Assert.AreEqual(1, archetype1.ChunkCount);
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                // Start with a valid, consistent cache
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(),
+                    "cached chunk list is inconsistent after UpdateCache() call");
+                // Adding a new chunk AND removing an existing chunk to/from one of the matching archetypes should
+                // invalidate the cache AND render it inconsistent.
+                var ent2 = m_Manager.CreateEntity(archetype1);
+                m_Manager.SetSharedComponentData(ent2, new EcsTestSharedComp {value = 17});
+                Assert.AreEqual(2, archetype1.ChunkCount);
+                m_Manager.DestroyEntity(ent1);
+                Assert.AreEqual(1, archetype1.ChunkCount);
+                Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid after adding and removing chunk");
+                Assert.IsFalse(query.CheckChunkListCacheConsistency(), "cached chunk list is consistent after adding and removing chunk");
+                // Updating the cache should leave it valid and consistent.
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+            }
+        }
+
+        [Test]
+        public void ChunkListCaching_CheckCacheConsistency_FailsAfterAddingChunks()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var ent1 = m_Manager.CreateEntity(archetype1);
+            Assert.AreEqual(1, archetype1.ChunkCount);
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                // Start with a valid, consistent cache
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(),
+                    "cached chunk list is inconsistent after UpdateCache() call");
+                // Adding a new chunk to one of the matching archetypes should invalidate the cache AND render it inconsistent.
+                var ent2 = m_Manager.CreateEntity(archetype1);
+                m_Manager.SetSharedComponentData(ent2, new EcsTestSharedComp {value = 17});
+                Assert.AreEqual(2, archetype1.ChunkCount);
+                Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid after adding chunk");
+                Assert.IsFalse(query.CheckChunkListCacheConsistency(), "cached chunk list is consistent after adding chunk");
+                // Updating the cache should leave it valid and consistent.
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+            }
+        }
+
+        [Test]
+        public void ChunkListCaching_CheckCacheConsistency_FailsAfterRemovingChunks()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var ent1 = m_Manager.CreateEntity(archetype1);
+            Assert.AreEqual(1, archetype1.ChunkCount);
+            var ent2 = m_Manager.CreateEntity(archetype1);
+            m_Manager.SetSharedComponentData(ent2, new EcsTestSharedComp {value = 17});
+            Assert.AreEqual(2, archetype1.ChunkCount);
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                // Start with a valid, consistent cache
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(),
+                    "cached chunk list is inconsistent after UpdateCache() call");
+                // Removing a chunk from one of the matching archetypes should invalidate the cache AND render it inconsistent.
+                m_Manager.DestroyEntity(ent2);
+                Assert.AreEqual(1, archetype1.ChunkCount);
+                Assert.IsFalse(query.IsCacheValid, "cached chunk list is valid after removing chunk");
+                Assert.IsFalse(query.CheckChunkListCacheConsistency(), "cached chunk list is consistent after removing chunk");
+                // Updating the cache should leave it valid and consistent.
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+            }
+        }
+
+        [Test]
+        public void ChunkListCaching_CheckCacheConsistency_PassesAfterAddingNewArchetype()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var ent1 = m_Manager.CreateEntity(archetype1);
+            Assert.AreEqual(1, archetype1.ChunkCount);
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                // Start with a valid, consistent cache
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                // Adding a new archetype that matches the query should NOT immediately invalidate the cache or render it inconsistent,
+                // as the new archetype has no chunks to match.
+                var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestData),
+                    typeof(EcsTestData2), typeof(EcsTestSharedComp));
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after creating new empty archetype");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after creating new empty archetype");
+            }
+        }
+
+        [Test]
+        public void ChunkListCaching_CheckCacheConsistency_PassesAfterAddingEntityToExistingChunk()
+        {
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var ent1 = m_Manager.CreateEntity(archetype1);
+            Assert.AreEqual(1, archetype1.ChunkCount);
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                // Start with a valid, consistent cache
+                query.UpdateCache();
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after UpdateCache() call");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after UpdateCache() call");
+                // Structural changes which don't add/remove new chunks should neither invalidate the cache nor render it inconsistent;
+                // no chunks were added/removed/changed.
+                var ent2 = m_Manager.CreateEntity(archetype1);
+                Assert.AreEqual(1, archetype1.ChunkCount);
+                Assert.IsTrue(query.IsCacheValid, "cached chunk list is invalid after adding new entity to existing chunk");
+                Assert.IsTrue(query.CheckChunkListCacheConsistency(), "cached chunk list is inconsistent after adding new entity to existing chunk");
             }
         }
 
@@ -1500,6 +1529,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryA.IsCacheValid);
+            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
         }
 
         [Test]
@@ -1526,6 +1556,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryA.IsCacheValid);
+            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
         }
 
         [Test]
@@ -1554,6 +1585,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryC.IsCacheValid);
+            Assert.IsFalse(queryC.CheckChunkListCacheConsistency());
         }
 
         [Test]
@@ -1581,6 +1613,8 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryC.IsCacheValid);
+            Assert.IsFalse(queryC.CheckChunkListCacheConsistency());
+
         }
 
         [Test]
@@ -1602,6 +1636,7 @@ namespace Unity.Entities.Tests
             m_Manager.Instantiate(entityA, archetypeA.ChunkCapacity, Allocator.Temp);
 
             Assert.IsFalse(queryA.IsCacheValid);
+            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
         }
 
         [Test]
@@ -1626,6 +1661,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryA.IsCacheValid);
+            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
         }
 
         [Test]
@@ -1650,6 +1686,7 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsFalse(queryA.IsCacheValid);
+            Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
         }
 
         [Test]
@@ -1662,8 +1699,8 @@ namespace Unity.Entities.Tests
             var queryA = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
             // new chunk of matching archetype
-            using(var entitiesA = m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity, Allocator.TempJob))
-            using(var entitiesB = m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity, Allocator.TempJob))
+            using(var entitiesA = m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity, World.UpdateAllocator.ToAllocator))
+            using(var entitiesB = m_Manager.CreateEntity(archetypeA, archetypeA.ChunkCapacity, World.UpdateAllocator.ToAllocator))
             {
                 queryA.UpdateCache();
                 Assert.IsTrue(queryA.IsCacheValid);
@@ -1672,6 +1709,7 @@ namespace Unity.Entities.Tests
                 // destroy entities
                 m_Manager.DestroyEntity(queryA);
                 Assert.IsFalse(queryA.IsCacheValid);
+                Assert.IsFalse(queryA.CheckChunkListCacheConsistency());
             }
         }
 
@@ -1682,10 +1720,10 @@ namespace Unity.Entities.Tests
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2));
 
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 10, Allocator.TempJob))
-            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 10, Allocator.TempJob))
+            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 10, World.UpdateAllocator.ToAllocator))
+            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 10, World.UpdateAllocator.ToAllocator))
             {
-                var entities = new NativeArray<Entity>(10, Allocator.TempJob);
+                var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator);
                 for (int i = 0; i < 10; ++i)
                 {
                     if (i % 2 == 0)
@@ -1695,8 +1733,6 @@ namespace Unity.Entities.Tests
                 }
 
                 Assert.AreEqual(5, query.CalculateEntityCount(entities));
-
-                entities.Dispose();
             }
         }
 
@@ -1707,10 +1743,10 @@ namespace Unity.Entities.Tests
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2));
 
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 10, Allocator.TempJob))
-            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 10, Allocator.TempJob))
+            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 10, World.UpdateAllocator.ToAllocator))
+            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 10, World.UpdateAllocator.ToAllocator))
             {
-                var entities = new NativeArray<Entity>(10, Allocator.TempJob);
+                var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator);
                 for (int i = 0; i < 10; ++i)
                 {
                     if (i % 2 == 0)
@@ -1719,15 +1755,12 @@ namespace Unity.Entities.Tests
                         entities[i] = allEntitiesB[i];
                 }
 
-                var res = query.ToEntityArray(entities, Allocator.TempJob);
+                var res = query.ToEntityArray(entities, World.UpdateAllocator.ToAllocator);
                 Assert.AreEqual(5, res.Length);
                 for (int i = 0; i < res.Length; ++i)
                 {
                     Assert.AreEqual(allEntitiesA[i * 2], res[i]);
                 }
-
-                entities.Dispose();
-                res.Dispose();
             }
         }
 
@@ -1738,10 +1771,10 @@ namespace Unity.Entities.Tests
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2));
 
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 10, Allocator.TempJob))
-            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 10, Allocator.TempJob))
+            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 10, World.UpdateAllocator.ToAllocator))
+            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 10, World.UpdateAllocator.ToAllocator))
             {
-                var entities = new NativeArray<Entity>(10, Allocator.TempJob);
+                var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator);
                 for (int i = 0; i < 10; ++i)
                 {
                     if (i % 2 == 0)
@@ -1753,15 +1786,12 @@ namespace Unity.Entities.Tests
                         entities[i] = allEntitiesB[i];
                 }
 
-                var res = query.ToComponentDataArray<EcsTestData>(entities, Allocator.TempJob);
+                var res = query.ToComponentDataArray<EcsTestData>(entities, World.UpdateAllocator.ToAllocator);
                 Assert.AreEqual(5, res.Length);
                 for (int i = 0; i < res.Length; ++i)
                 {
                     Assert.AreEqual(m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i * 2]).value, res[i].value);
                 }
-
-                entities.Dispose();
-                res.Dispose();
             }
         }
 
@@ -1772,10 +1802,10 @@ namespace Unity.Entities.Tests
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2));
 
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 10, Allocator.TempJob))
-            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 10, Allocator.TempJob))
+            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 10, World.UpdateAllocator.ToAllocator))
+            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 10, World.UpdateAllocator.ToAllocator))
             {
-                var entities = new NativeArray<Entity>(10, Allocator.TempJob);
+                var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator);
                 for (int i = 0; i < 10; ++i)
                 {
                     entities[i] = allEntitiesA[i];
@@ -1789,8 +1819,6 @@ namespace Unity.Entities.Tests
                 }
 
                 Assert.IsFalse(query.MatchesAny(entities));
-
-                entities.Dispose();
             }
         }
 
@@ -1811,7 +1839,7 @@ namespace Unity.Entities.Tests
 #endif
 
             [NativeDisableUnsafePtrRestriction]
-            private UnsafeList* m_Data;
+            private UnsafeList<Entity>* m_Data;
 
             private readonly Allocator m_Allocator;
 
@@ -1826,7 +1854,7 @@ namespace Unity.Entities.Tests
                 AtomicSafetyHandle.SetStaticSafetyId(ref m_Safety, s_staticSafetyId.Data);
 #endif
 
-                m_Data = UnsafeList.Create(UnsafeUtility.SizeOf<Entity>(), UnsafeUtility.AlignOf<Entity>(), initialCapacity, allocator);
+                m_Data = UnsafeList<Entity>.Create(initialCapacity, allocator);
                 m_Allocator = allocator;
             }
 
@@ -1835,7 +1863,7 @@ namespace Unity.Entities.Tests
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_Safety);
 #endif
-                m_Data->AddRange<Entity>(entities.GetUnsafeReadOnlyPtr(), entities.Length);
+                m_Data->AddRange(entities.GetUnsafeReadOnlyPtr(), entities.Length);
             }
 
             public NativeArray<Entity> GetValueArray()
@@ -1859,7 +1887,7 @@ namespace Unity.Entities.Tests
             {
                 if (m_Data != null)
                 {
-                    UnsafeList.Destroy(m_Data);
+                    UnsafeList<Entity>.Destroy(m_Data);
                     m_Data = null;
                 }
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -1871,8 +1899,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityQuery_ToEntityArray_With_ReadOnlyFilter_DoesNotThrow()
         {
-            using (var customContainer = new ReadOnlyArrayContainer(10, Allocator.TempJob))
-            using (var array = new NativeArray<Entity>(10, Allocator.TempJob))
+            using (var customContainer = new ReadOnlyArrayContainer(10, World.UpdateAllocator.ToAllocator))
+            using (var array = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator))
             {
                 var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>(),
                     ComponentType.ReadWrite<EcsTestData2>());
@@ -1893,8 +1921,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityQuery_ToComponentDataArray_With_ReadOnlyFilter_DoesNotThrow()
         {
-            using (var customContainer = new ReadOnlyArrayContainer(10, Allocator.TempJob))
-            using (var array = new NativeArray<Entity>(10, Allocator.TempJob))
+            using (var customContainer = new ReadOnlyArrayContainer(10, World.UpdateAllocator.ToAllocator))
+            using (var array = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator))
             {
                 var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>(),
                     ComponentType.ReadWrite<EcsTestData2>());
@@ -1915,8 +1943,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityQuery_CalculateEntityCount_With_ReadOnlyFilter_DoesNotThrow()
         {
-            using (var customContainer = new ReadOnlyArrayContainer(10, Allocator.TempJob))
-            using (var array = new NativeArray<Entity>(10, Allocator.TempJob))
+            using (var customContainer = new ReadOnlyArrayContainer(10, World.UpdateAllocator.ToAllocator))
+            using (var array = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator))
             {
                 var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>(),
                     ComponentType.ReadWrite<EcsTestData2>());
@@ -1936,8 +1964,8 @@ namespace Unity.Entities.Tests
         [Test]
         public void EntityQuery_MatchesInList_With_ReadOnlyFilter_DoesNotThrow()
         {
-            using (var customContainer = new ReadOnlyArrayContainer(10, Allocator.TempJob))
-            using (var array = new NativeArray<Entity>(10, Allocator.TempJob))
+            using (var customContainer = new ReadOnlyArrayContainer(10, World.UpdateAllocator.ToAllocator))
+            using (var array = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator))
             {
                 var archetype = m_Manager.CreateArchetype(ComponentType.ReadWrite<EcsTestData>(),
                     ComponentType.ReadWrite<EcsTestData2>());
@@ -1954,21 +1982,10 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSRUNTIME // IJobForEach is deprecated
+#if !UNITY_DOTSRUNTIME
         [AlwaysUpdateSystem]
-        public class CachedSystemQueryTestSystem : JobComponentSystem
+        public partial class CachedSystemQueryTestSystem : SystemBase
         {
-#pragma warning disable 618
-            // Creates implicit query (All = {EcsTestData}, None = {}, Any = {}
-            private struct ImplicitQueryCreator : IJobForEach<EcsTestData>
-            {
-                public void Execute(ref EcsTestData c0)
-                {
-                    c0.value = 10;
-                }
-            }
-#pragma warning restore 618
-
             protected override void OnCreate()
             {
                 // Caches a query in the system.
@@ -1980,10 +1997,9 @@ namespace Unity.Entities.Tests
                 });
             }
 
-            protected override JobHandle OnUpdate(JobHandle input)
+            protected override void OnUpdate()
             {
-                var job = new ImplicitQueryCreator() {};
-                return job.Schedule(this, input);
+                 Entities.ForEach((ref EcsTestData data) => { data.value = 10; }).Schedule();
             }
         }
         [Test]
@@ -2072,20 +2088,44 @@ namespace Unity.Entities.Tests
         public void QueryFromWrongWorldThrows()
         {
             using (var world = new World("temp"))
+            using (var array = new NativeArray<EcsTestData2>(1, Allocator.Persistent))
             {
-                Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent(world.EntityManager.UniversalQuery, typeof(EcsTestData)));
-                Assert.Throws<InvalidOperationException>(() => m_Manager.AddSharedComponentData(world.EntityManager.UniversalQuery, new EcsTestSharedComp()));
-                Assert.Throws<InvalidOperationException>(() => m_Manager.DestroyEntity(world.EntityManager.UniversalQuery));
-                Assert.Throws<InvalidOperationException>(() => m_Manager.RemoveComponent<EcsTestData>(world.EntityManager.UniversalQuery));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(world.EntityManager.UniversalQuery, typeof(EcsTestData)));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(world.EntityManager.UniversalQuery, new ComponentTypes(typeof(EcsTestData))));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddComponentData(world.EntityManager.UniversalQuery, array));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddSharedComponentData(world.EntityManager.UniversalQuery, new EcsTestSharedComp()));
+                Assert.Throws<ArgumentException>(() => m_Manager.SetSharedComponentData(world.EntityManager.UniversalQuery, new EcsTestSharedComp(1)));
+                Assert.Throws<ArgumentException>(() => m_Manager.DestroyEntity(world.EntityManager.UniversalQuery));
+                Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent<EcsTestData>(world.EntityManager.UniversalQuery));
+                Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent(world.EntityManager.UniversalQuery, new ComponentTypes(typeof(EcsTestData))));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(world.EntityManager.UniversalQuery, new EcsTestData(1)));
+                Assert.Throws<ArgumentException>(() => m_Manager.GetEntityQueryMask(world.EntityManager.UniversalQuery));
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+                Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(world.EntityManager.UniversalQuery, new EcsTestManagedComponent() { value = "SomeString" }));
+#endif
+            }
+        }
 
-                // TODO: Leaks string allocs in Burst; Can be re-enabled when DOTS-1963 is closed
-                /*
-                using (var cmd = new EntityCommandBuffer(Allocator.TempJob))
-                {
-                    cmd.AddComponent(world.EntityManager.UniversalQuery, typeof(EcsTestData));
-                    Assert.Throws<InvalidOperationException>(() => cmd.Playback(m_Manager));
-                }
-                */
+        [Test]
+        public void QueryAlreadyDisposedThrowsThrows()
+        {
+            EntityQuery query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            query.Dispose();
+            using (var array = new NativeArray<EcsTestData2>(1, Allocator.Persistent))
+            {
+                Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(query, typeof(EcsTestData)));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(query, new ComponentTypes(typeof(EcsTestData))));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddComponentData(query, array));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddSharedComponentData(query, new EcsTestSharedComp()));
+                Assert.Throws<ArgumentException>(() => m_Manager.SetSharedComponentData(query, new EcsTestSharedComp(1)));
+                Assert.Throws<ArgumentException>(() => m_Manager.DestroyEntity(query));
+                Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent<EcsTestData>(query));
+                Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent(query, new ComponentTypes(typeof(EcsTestData))));
+                Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(query, new EcsTestData(1)));
+                Assert.Throws<ArgumentException>(() => m_Manager.GetEntityQueryMask(query));
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+                Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(query, new EcsTestManagedComponent() { value = "SomeString" }));
+#endif
             }
         }
 
@@ -2241,7 +2281,7 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var values = new NativeArray<EcsTestData>(archetype.ChunkCapacity * 2, Allocator.TempJob);
+            var values = CollectionHelper.CreateNativeArray<EcsTestData, RewindableAllocator>(archetype.ChunkCapacity * 2, ref World.UpdateAllocator);
             for (int i = 0; i < archetype.ChunkCapacity * 2; ++i)
             {
                 values[i] = new EcsTestData{value = i};
@@ -2266,7 +2306,7 @@ namespace Unity.Entities.Tests
                     break;
             }
 
-            var dataArray = query.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var dataArray = query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             CollectionAssert.AreEquivalent(values, dataArray);
 
             dataArray.Dispose();
@@ -2300,11 +2340,7 @@ namespace Unity.Entities.Tests
         {
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             query.Dispose();
-#if UNITY_2020_2_OR_NEWER
-            Assert.Throws<ObjectDisposedException>(
-#else
-            Assert.Throws<InvalidOperationException>(
-#endif
+            Assert.Throws<ArgumentException>(
                 () => m_Manager.AddComponent(query, typeof(EcsTestData2)));
         }
 
@@ -2364,6 +2400,166 @@ namespace Unity.Entities.Tests
             q2.Dispose();
 
             Assert.AreEqual(EntityDataAccess.kBuiltinEntityQueryCount, m_Manager.GetCheckedEntityDataAccess()->AliveEntityQueries.Count());
+        }
+
+        [Test]
+        public void EntityQueryDescBuilder_CreateBuilder()
+        {
+            ComponentType allType = typeof(EcsTestData);
+            ComponentType noneType = typeof(EcsTestData2);
+
+            var builder = new EntityQueryDescBuilder(Allocator.Temp);
+            builder.AddAll(allType);
+            builder.AddNone(noneType);
+            builder.FinalizeQuery();
+
+            Assert.AreEqual(1, builder.m_IndexData.Length);
+            Assert.AreEqual(2, builder.m_TypeData.Length);
+
+            var entityQueryData = builder.m_IndexData[0];
+            var typeData = builder.m_TypeData;
+
+            Assert.AreEqual(1, entityQueryData.All.Count);
+            Assert.AreEqual(1, entityQueryData.None.Count);
+            Assert.AreEqual(0, entityQueryData.Any.Count);
+
+            Assert.AreEqual(allType, typeData[entityQueryData.All.Index]);
+            Assert.AreEqual(noneType, typeData[entityQueryData.None.Index]);
+
+            builder.Dispose();
+        }
+
+        [Test]
+        public void EntityQueryDescBuilder_CreateMoreThanOne()
+        {
+            ComponentType type1 = typeof(EcsTestData);
+            ComponentType type2 = typeof(EcsTestData2);
+
+            var builder = new EntityQueryDescBuilder(Allocator.Temp);
+            builder.AddAll(type1);
+            builder.AddNone(type2);
+            builder.FinalizeQuery();
+
+            builder.AddAll(type2);
+            builder.AddAny(type1);
+            builder.AddAny(type2);
+            builder.FinalizeQuery();
+
+            Assert.AreEqual(2, builder.m_IndexData.Length);
+            Assert.AreEqual(5, builder.m_TypeData.Length);
+
+            var entityQueryData = builder.m_IndexData[0];
+            var typeData = builder.m_TypeData;
+
+            Assert.AreEqual(1, entityQueryData.All.Count);
+            Assert.AreEqual(1, entityQueryData.None.Count);
+            Assert.AreEqual(0, entityQueryData.Any.Count);
+
+            Assert.AreEqual(type1, typeData[entityQueryData.All.Index]);
+            Assert.AreEqual(type2, typeData[entityQueryData.None.Index]);
+
+            var entityQueryData2 = builder.m_IndexData[1];
+
+            Assert.AreEqual(1, entityQueryData2.All.Count);
+            Assert.AreEqual(2, entityQueryData2.Any.Count);
+            Assert.AreEqual(0, entityQueryData2.None.Count);
+
+            Assert.AreEqual(type2, typeData[entityQueryData2.All.Index]);
+
+            Assert.AreEqual(type1, typeData[entityQueryData2.Any.Index]);
+            Assert.AreEqual(type2, typeData[entityQueryData2.Any.Index + 1]);
+
+            builder.Dispose();
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        public partial struct BurstCompiledUnmanagedSystemEntityQueryDescBuilder : ISystem
+        {
+            private EntityQuery _Query;
+
+            ComponentTypeHandle<EcsTestFloatData3> _RotationTypeHandle;
+            ComponentTypeHandle<EcsTestFloatData> _RotationSpeedTypeHandle;
+
+            [BurstCompile(CompileSynchronously = true)]
+            unsafe struct MyJob : IJobEntityBatch
+            {
+                public ComponentTypeHandle<EcsTestFloatData3> RotationTypeHandle;
+                [ReadOnly] public ComponentTypeHandle<EcsTestFloatData> RotationSpeedTypeHandle;
+
+                public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+                {
+                }
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnCreate(ref SystemState state)
+            {
+                var builder = new EntityQueryDescBuilder(Allocator.Temp);
+                builder.AddAll(ComponentType.ReadWrite<EcsTestFloatData3>());
+                builder.AddAll(ComponentType.ReadOnly<EcsTestFloatData>());
+                builder.FinalizeQuery();
+                _Query = state.GetEntityQuery(builder);
+                builder.Dispose();
+                _RotationTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData3>();
+                _RotationSpeedTypeHandle = state.GetComponentTypeHandle<EcsTestFloatData>();
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            [BurstDiscard]
+            static void CheckRunningBurst()
+            {
+                throw new ArgumentException("Not running burst");
+            }
+
+            [BurstCompile(CompileSynchronously = true)]
+            public void OnUpdate(ref SystemState state)
+            {
+                CheckRunningBurst();
+
+                _RotationTypeHandle.Update(ref state);
+                _RotationSpeedTypeHandle.Update(ref state);
+
+                var job = new MyJob
+                {
+                    RotationTypeHandle = _RotationTypeHandle,
+                    RotationSpeedTypeHandle = _RotationSpeedTypeHandle,
+                };
+                JobEntityBatchExtensions.RunWithoutJobs(ref job, _Query);
+            }
+        }
+
+        class TestGroup : ComponentSystemGroup
+        {
+        }
+
+        [Test]
+        public void BurstCompiledUnmanagedSystemEntityQueryDescBuilderWorks()
+        {
+            var group = World.CreateSystem<TestGroup>();
+            var sys = World.AddSystem<BurstCompiledUnmanagedSystemEntityQueryDescBuilder>();
+            group.AddSystemToUpdateList(sys.Handle);
+            Assert.DoesNotThrow(() => group.Update());
+            group.CompleteDependencyInternal();
+        }
+
+        [Test]
+        public void GetEntityQueryDesc()
+        {
+            var queryDesc = new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() },
+                Any = new[] { ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadWrite<EcsTestData4>() },
+                None = new[] { ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadWrite<EcsTestFloatData2>() },
+                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabled
+            };
+            using (var query = m_Manager.CreateEntityQuery(queryDesc))
+            {
+                Assert.That(query.GetEntityQueryDesc(), Is.EqualTo(queryDesc));
+            }
         }
     }
 }

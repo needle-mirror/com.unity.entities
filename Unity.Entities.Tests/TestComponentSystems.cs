@@ -3,7 +3,7 @@ using Unity.Jobs;
 namespace Unity.Entities.Tests
 {
     [AlwaysUpdateSystem]
-    public class TestEcsChangeSystem : JobComponentSystem
+    public partial class TestEcsChangeSystem : SystemBase
     {
         public int NumChanged;
         EntityQuery ChangeGroup;
@@ -13,10 +13,9 @@ namespace Unity.Entities.Tests
             ChangeGroup.SetChangedVersionFilter(typeof(EcsTestData));
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             NumChanged = ChangeGroup.CalculateEntityCount();
-            return inputDeps;
         }
     }
 }

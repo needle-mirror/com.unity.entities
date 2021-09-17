@@ -85,10 +85,20 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetSetSingletonZeroThrows()
+        public void GetSetSingleton_DoesntExist_Throws()
         {
+            Assert.IsFalse(EmptySystem.HasSingleton<EcsTestTag>());
             Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton(new EcsTestData()));
             Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingleton<EcsTestData>());
+        }
+
+        [Test]
+        public void GetSetSingleton_ZeroSizeComponent_Throws()
+        {
+            var ent = m_Manager.CreateEntity(typeof(EcsTestTag));
+            Assert.IsTrue(EmptySystem.HasSingleton<EcsTestTag>());
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.SetSingleton(new EcsTestTag()));
+            Assert.Throws<InvalidOperationException>(() => EmptySystem.GetSingleton<EcsTestTag>());
         }
 
         [Test]
@@ -195,6 +205,14 @@ namespace Unity.Entities.Tests
             var hasSingleTon = EmptySystem.TryGetSingleton<EcsTestData>(out var ecsTestData);
             Assert.IsFalse(hasSingleTon);
             Assert.AreEqual(default(EcsTestData).value, ecsTestData.value);
+        }
+
+        [Test]
+        public void SetSingleton_ReadOnlyType_Throws()
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly<EcsTestData>());
+            Assert.Throws<InvalidOperationException>(() => query.SetSingleton(new EcsTestData {value = 17}));
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

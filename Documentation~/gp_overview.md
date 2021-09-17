@@ -4,7 +4,7 @@ uid: gameplay-overview
 
 # Creating gameplay
 
-This section contains information on how to create DOTS-based games and other applications in the Unity Editor. It also covers the systems and components that ECS provides to help you implement game features.
+This section contains information on how to create ECS-based games and other applications in the Unity Editor. It also covers the systems and components that ECS provides to help you implement game features.
 
 The systems include:
 
@@ -13,29 +13,15 @@ The systems include:
 
 ## Gameplay supporting packages
 
-Some gameplay features in DOTS require additional packages to support them. For the list of features that require additional packages, see the table below.
+Some gameplay features require additional packages to support them. For the list of features that require additional packages, see the table below.
 
-| **Feature**                       | **Packages**                                                 |
-| --------------------------------- | ------------------------------------------------------------ |
-| **DOTS ECS**                      | [com.unity.entities](https://docs.unity3d.com/Packages/com.unity.entities@latest) |
-| **Rendering**                     | [com.unity.rendering.hybrid](https://docs.unity3d.com/Packages/com.unity.rendering.hybrid@latest) |
-| **- Hybrid Renderer V2**          | [com.unity.render-pipelines.high-definition](https://docs.unity3d.com/Packages/com.unity.render-pipelines.high-definition@latest) or [com.unity.render-pipelines.universal](https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest) |
-| **- Animation**                   | [com.unity.animation](https://docs.unity3d.com/Packages/com.unity.animation@latest) |
-| **Audio**                         | [com.unity.audio.dspgraph](https://docs.unity3d.com/Packages/com.unity.audio.dspgraph@latest) |
-| **Physics**                       | [com.unity.physics](https://docs.unity3d.com/Packages/com.unity.physics@latest) or [com.havok.physics](https://docs.unity3d.com/Packages/com.havok.physics@latest) |
-| **- Smooth Penetration Recovery** | [com.havok.physics](https://docs.unity3d.com/Packages/com.havok.physics@latest) |
-| **- Stable Object Stacking**      | [com.havok.physics](https://docs.unity3d.com/Packages/com.havok.physics@latest) |
-| **- Remove Speculative Contacts** | [com.havok.physics](https://docs.unity3d.com/Packages/com.havok.physics@latest) |
-| **- Rigidbody Sleeping**          | [com.havok.physics](https://docs.unity3d.com/Packages/com.havok.physics@latest) |
-| **- Visual Debugger**             | [com.havok.physics](https://docs.unity3d.com/Packages/com.havok.physics@latest) |
-| **Multiplayer**                   | [com.unity.netcode](https://docs.unity3d.com/Packages/com.unity.netcode@latest) |
-| **- Lag Compensation**            | [com.unity.physics](https://docs.unity3d.com/Packages/com.unity.physics@latest) |
-| **Project Building**              | [com.unity.platforms](https://docs.unity3d.com/Packages/com.unity.platforms@latest) |
-| **- Android**                     | [com.unity.platforms.android](https://docs.unity3d.com/Packages/com.unity.platforms.android@latest) |
-| **- Linux**                       | [com.unity.platforms.linux](https://docs.unity3d.com/Packages/com.unity.platforms.linux@latest) |
-| **- macOS**                       | [com.unity.platforms.macos](https://docs.unity3d.com/Packages/com.unity.platforms.macos@latest) |
-| **- Web**                         | [com.unity.platforms.web](https://docs.unity3d.com/Packages/com.unity.platforms.web@latest) |
-| **- Windows**                     | [com.unity.platforms.windows](https://docs.unity3d.com/Packages/com.unity.platforms.windows@latest) |
+| **Feature** | **Packages** |
+| --- | --- |
+| Rendering | [Hybrid Renderer](https://docs.unity3d.com/Packages/com.unity.rendering.hybrid@latest) |
+| Physics | [Unity Physics](https://docs.unity3d.com/Packages/com.unity.physics@latest) or [Havok Physics.](https://docs.unity3d.com/Packages/com.havok.physics@latest) |
+| Multiplayer| [Netcode](https://docs.unity3d.com/Packages/com.unity.netcode@latest) |
+| Project Building | [Platforms](https://docs.unity3d.com/Packages/com.unity.platforms@latest). For more information on building your application, see [Building your project](ecs_building_projects.md) |
+
 
 ## Authoring overview
 
@@ -91,7 +77,7 @@ Note the following restrictions:
 ### For IBufferElementData
 
 You can also generate authoring components for types that implement `IBufferElementData` by adding the `[GenerateAuthoringComponent]` attribute: 
-```
+```c#
 [GenerateAuthoringComponent]
 public struct IntBufferElement: IBufferElementData
 {

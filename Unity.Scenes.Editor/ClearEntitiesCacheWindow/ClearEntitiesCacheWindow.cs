@@ -45,8 +45,6 @@ namespace Unity.Scenes.Editor
             Button m_ClearButton;
 
             Toggle m_EntitySceneCacheToggle;
-            Toggle m_LiveLinkAssetCacheToggle;
-            Toggle m_LiveLinkPlayerCacheToggle;
 
             public void Initialize(EditorWindow editorWindow, VisualElement rootVisualElement)
             {
@@ -70,23 +68,10 @@ namespace Unity.Scenes.Editor
                         EntitiesCacheUtility.UpdateEntitySceneGlobalDependency();
                     }
 
-                    if (m_LiveLinkAssetCacheToggle.value)
-                    {
-                        EntitiesCacheUtility.UpdateLiveLinkAssetGlobalDependency();
-                    }
-
-                    if (m_LiveLinkPlayerCacheToggle.value)
-                    {
-                        LiveLinkUtility.GenerateNewEditorLiveLinkCacheGUID();
-                    }
-
                     editorWindow.Close();
                 };
 
                 m_EntitySceneCacheToggle = m_Root.Query<Toggle>("clear-entityscene-toggle");
-                m_LiveLinkAssetCacheToggle = m_Root.Query<Toggle>("clear-livelinkassets-toggle");
-                m_LiveLinkPlayerCacheToggle = m_Root.Query<Toggle>("clear-livelinkplayer-toggle");
-
 
                 rootVisualElement.Add(m_Root);
             }

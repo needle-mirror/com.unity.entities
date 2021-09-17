@@ -20,15 +20,12 @@ namespace Unity.Scenes
         private AssetBundle _assetBundle;
         private readonly string _bundlePath;
 
+        [Obsolete("UseAssetBundles will no longer be public. (RemovedAfter 2021-05-15)")]
         public static bool UseAssetBundles
         {
             get
             {
 #if UNITY_EDITOR
-#if USE_ASSETBUNDLES_IN_EDITOR_PLAY_MODE
-                if (Application.isPlaying)
-                    return true;
-#endif
                 return false;
 #else
                 return true;

@@ -1,4 +1,5 @@
 using System;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,8 +13,6 @@ namespace Unity.Entities.SourceGen.Common
 {
     public static class SyntaxExtensions
     {
-        private static readonly Dictionary<string, int> FileNameToDuplicateCount = new Dictionary<string, int>();
-
         public static bool HasAttribute(this TypeDeclarationSyntax typeDeclarationSyntax, string attributeName)
         {
             return typeDeclarationSyntax.AttributeLists
@@ -22,7 +21,7 @@ namespace Unity.Entities.SourceGen.Common
         }
 
         public static SyntaxList<UsingDirectiveSyntax> AddUsingStatements(
-            this SyntaxList<UsingDirectiveSyntax> currentUsings, params string[] newUsings)
+            this SyntaxList<UsingDirectiveSyntax> currentUsings, IEnumerable<string> newUsings)
         {
             return currentUsings.AddRange(newUsings.Where(n => currentUsings.All(c => c.Name.ToFullString() != n))
                                 .Select(u => SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(u))));
@@ -58,34 +57,70 @@ namespace Unity.Entities.SourceGen.Common
             return (memberInvocation != null, memberInvocation);
         }
 
+        public static IEnumerable<MemberDeclarationSyntax> GetContainingTypesAndNamespacesFromMostToLeastNested(
+            this SyntaxNode syntaxNode)
+        {
+            SyntaxNode current = syntaxNode;
+            while (current.Parent != null && (current.Parent is NamespaceDeclarationSyntax || current.Parent is ClassDeclarationSyntax || current.Parent is StructDeclarationSyntax))
+            {
+                yield return current.Parent as MemberDeclarationSyntax;
+                current = current.Parent;
+            }
+        }
+
         public static bool IsReadOnly(this ParameterSyntax parameter) => parameter.Modifiers.Any(mod => mod.IsKind(SyntaxKind.InKeyword));
+        public static bool IsReadOnly(this IParameterSymbol parameter) => parameter.RefKind == RefKind.In;
 
         public static IEnumerable<NamespaceDeclarationSyntax> GetNamespacesFromMostToLeastNested(this SyntaxNode syntaxNode)
         {
-            var namespaces = new List<NamespaceDeclarationSyntax>();
-
             SyntaxNode current = syntaxNode;
             while (current.Parent != null && current.Parent is NamespaceDeclarationSyntax nds)
             {
-                namespaces.Add(nds);
+                yield return nds;
                 current = current.Parent;
             }
-            return namespaces;
         }
 
-        public static string GetGeneratedSourceFileName(this SyntaxTree syntaxTree, IAssemblySymbol assembly)
+        public static IEnumerable<INamespaceOrTypeSymbol> GetParentsFromMostToLeastNested(this INamedTypeSymbol symbol)
         {
-            var (isSuccess, fileName) = TryGetFileNameWithExtension(syntaxTree);
+            INamespaceOrTypeSymbol current = symbol;
+            while (current.ContainingSymbol != null && current.ContainingSymbol is INamespaceOrTypeSymbol)
+            {
+                var containing = (INamespaceOrTypeSymbol)current.ContainingSymbol;
 
-            return
-                isSuccess
-                    ? Path.ChangeExtension(fileName, ".g.cs")
-                    : Path.Combine(Path.GetRandomFileName(), ".g.cs");
+                if (containing.IsNamespace)
+                {
+                    var ns = (INamespaceSymbol)containing;
+                    if (ns.IsGlobalNamespace)
+                        break;
+                }
+
+                yield return containing;
+                current = containing;
+
+                if (current.IsNamespace)
+                    break;
+            }
         }
 
-        public static string GetGeneratedSourceFilePath(this SyntaxTree syntaxTree, IAssemblySymbol assembly)
+        public static string GetGeneratedSourceFileName(this SyntaxTree syntaxTree, string generatorName)
         {
-            var fileName = GetGeneratedSourceFileName(syntaxTree, assembly);
+            var (isSuccess, fileName) = TryGetFileNameWithoutExtension(syntaxTree);
+            var stableHashCode = SourceGenHelpers.GetStableHashCode(syntaxTree.FilePath) & 0x7fffffff;
+
+            var postfix = generatorName.Length > 0 ? $"__{generatorName}" : String.Empty;
+
+            if (isSuccess)
+                fileName = $"{fileName}{postfix}_{stableHashCode}.g.cs";
+            else
+                fileName = Path.Combine($"{Path.GetRandomFileName()}{postfix}", ".g.cs");
+
+            return fileName;
+        }
+
+        public static string GetGeneratedSourceFilePath(this SyntaxTree syntaxTree, IAssemblySymbol assembly, string generatorName)
+        {
+            var fileName = GetGeneratedSourceFileName(syntaxTree, generatorName);
 
             var saveToDirectory = Path.Combine(SourceGenHelpers.GetProjectPath(), "Temp", "GeneratedCode", assembly.Name);
             Directory.CreateDirectory(saveToDirectory);
@@ -93,34 +128,10 @@ namespace Unity.Entities.SourceGen.Common
             return Path.Combine(saveToDirectory, fileName);
         }
 
-        static (bool IsSuccess, string FileName) TryGetFileNameWithExtension(SyntaxTree syntaxTree)
+        static (bool IsSuccess, string FileName) TryGetFileNameWithoutExtension(SyntaxTree syntaxTree)
         {
             var fileName = Path.GetFileNameWithoutExtension(syntaxTree.FilePath);
-            return (IsSuccess: true, $"{fileName}{Path.GetExtension(syntaxTree.FilePath)}");
-
-            // This is a good idea but doesn't quite work yet as we don't flush Temp/GeneratedCode between Unity runs
-            /*
-            string fileName = Path.GetFileNameWithoutExtension(syntaxTree.FilePath);
-
-            if (string.IsNullOrEmpty(fileName))
-            {
-                return (IsSuccess: false, fileName);
-            }
-
-            if (FileNameToDuplicateCount.TryGetValue(fileName, out int count))
-            {
-                int nextCount = count + 1;
-                fileName = $"{fileName}_{nextCount}";
-
-                FileNameToDuplicateCount[fileName] = nextCount;
-            }
-            else
-            {
-                FileNameToDuplicateCount.Add(fileName, 0);
-            }
-
-            return (IsSuccess: true, $"{fileName}{Path.GetExtension(syntaxTree.FilePath)}");
-            */
+            return (IsSuccess: true, fileName);
         }
 
         public class PreprocessorTriviaRemover : CSharpSyntaxRewriter
@@ -192,6 +203,12 @@ namespace Unity.Entities.SourceGen.Common
         public static InvocationExpressionSyntax WithArgs(this InvocationExpressionSyntax invoke, IEnumerable<ExpressionSyntax> args)
             => invoke.WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args.Select(SyntaxFactory.Argument))));
 
+        public static bool ContainsDynamicCode(this InvocationExpressionSyntax invoke)
+        {
+            var argumentList = invoke.DescendantNodes().OfType<ArgumentListSyntax>().LastOrDefault();
+            return argumentList?.DescendantNodes().OfType<ConditionalExpressionSyntax>().FirstOrDefault() != null;
+        }
+
         public static bool HasModifier(this ClassDeclarationSyntax cls, SyntaxKind modifier)
             => cls.Modifiers.Any(m => m.IsKind(modifier));
 
@@ -252,28 +269,61 @@ namespace Unity.Entities.SourceGen.Common
             return node.WithLeadingTrivia(new []{ lineTrivia, SyntaxFactory.CarriageReturnLineFeed });
         }
 
+        // Walk direct ancestors that are MemberAccessExpressionSyntax and InvocationExpressionSyntax and collect invocations
+        // This collects things like Entities.WithAll().WithNone().Run() without getting additional ancestor invocations.
         public static Dictionary<string, List<InvocationExpressionSyntax>> GetMethodInvocations(this SyntaxNode node)
         {
             var result = new Dictionary<string, List<InvocationExpressionSyntax>>();
-            var invocationExpressions = node.Ancestors().OfType<InvocationExpressionSyntax>();
-            foreach (var invocation in invocationExpressions)
+            var parent = node.Parent;
+
+            while (parent is MemberAccessExpressionSyntax memberAccessExpression)
             {
-                if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+                parent = parent.Parent;
+                if (parent is InvocationExpressionSyntax invocationExpression)
                 {
-                    var memberName = memberAccess.Name.Identifier.ValueText;
+                    var memberName = memberAccessExpression.Name.Identifier.ValueText;
                     if (result.ContainsKey(memberName))
-                        result[memberName].Add(invocation);
+                        result[memberName].Add(invocationExpression);
                     else
-                        result[memberName] = new List<InvocationExpressionSyntax>() { invocation };
+                        result[memberName] = new List<InvocationExpressionSyntax> { invocationExpression };
+                    parent = parent.Parent;
                 }
+                else if (!(parent is MemberAccessExpressionSyntax))
+                    break;
             }
+
             return result;
         }
 
-        public static int GetSymbolHashCode(this SemanticModel model, SyntaxNode node)
+        public static string GetModifierString(this ParameterSyntax parameter)
         {
-            var nodeSymbol = model.GetDeclaredSymbol(node);
-            return SymbolEqualityComparer.Default.GetHashCode(nodeSymbol);
+            if (parameter.Modifiers.Any(mod => mod.IsKind(SyntaxKind.InKeyword)))
+                return "in";
+            if (parameter.Modifiers.Any(mod => mod.IsKind(SyntaxKind.RefKeyword)))
+                return "ref";
+            return "";
+        }
+
+        public static bool DoesPerformStructuralChange(this InvocationExpressionSyntax syntax, SemanticModel model)
+        {
+            return model.GetSymbolInfo(syntax.Expression).Symbol is IMethodSymbol methodSymbol &&
+                   methodSymbol.ContainingType.Is("Unity.Entities.EntityManager") &&
+                   methodSymbol.HasAttribute("Unity.Entities.EntityManager.StructuralChangeMethodAttribute");
+        }
+
+        public static bool CheckIsForEach(this InvocationExpressionSyntax syntax, SemanticModel model)
+        {
+            var methodSymbol = model.GetSymbolInfo(syntax.Expression).Symbol as IMethodSymbol;
+            if (methodSymbol == null || methodSymbol.Name != "ForEach")
+            {
+                return false;
+            }
+
+            if (methodSymbol.ContainingType.Is("LambdaForEachDescriptionConstructionMethods"))
+            {
+                return true;
+            }
+            return false;
         }
     }
 }

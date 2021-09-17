@@ -9,7 +9,7 @@ namespace Unity.Entities
     /// An immutable list of ComponentType values.
     /// </summary>
     /// <remarks>
-    /// Max numbers of types is 15 (the capacity of FixedListInt64).
+    /// Max numbers of types is 15 (the capacity of FixedList64Bytes<int>).
     ///
     /// Values in the list are sorted by their internal type index.
     ///
@@ -17,9 +17,10 @@ namespace Unity.Entities
     ///
     /// Cannot contain multiple ComponentType values with the same type index (safety checks in the constructors will throw an exception).
     /// </remarks>
+    [BurstCompatible]
     public unsafe struct ComponentTypes
     {
-        FixedListInt64 m_sorted;
+        FixedList64Bytes<int> m_sorted;
 
         public struct Masks
         {
@@ -73,6 +74,8 @@ namespace Unity.Entities
             return m_sorted[index];
         }
 
+        internal int* Types => (int*)m_sorted.Buffer;
+
         internal int ChunkComponentCount
         {
             get
@@ -103,7 +106,7 @@ namespace Unity.Entities
 
         public ComponentTypes(ComponentType a)
         {
-            m_sorted = new FixedListInt64();
+            m_sorted = new FixedList64Bytes<int>();
             m_masks = new Masks();
             m_sorted.Add(a.TypeIndex);
             ComputeMasks();
@@ -111,7 +114,7 @@ namespace Unity.Entities
 
         public ComponentTypes(ComponentType a, ComponentType b)
         {
-            m_sorted = new FixedListInt64();
+            m_sorted = new FixedList64Bytes<int>();
             m_masks = new Masks();
             m_sorted.Add(a.TypeIndex);
             m_sorted.Add(b.TypeIndex);
@@ -122,7 +125,7 @@ namespace Unity.Entities
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c)
         {
-            m_sorted = new FixedListInt64();
+            m_sorted = new FixedList64Bytes<int>();
             m_masks = new Masks();
             m_sorted.Add(a.TypeIndex);
             m_sorted.Add(b.TypeIndex);
@@ -134,7 +137,7 @@ namespace Unity.Entities
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c, ComponentType d)
         {
-            m_sorted = new FixedListInt64();
+            m_sorted = new FixedList64Bytes<int>();
             m_masks = new Masks();
             m_sorted.Add(a.TypeIndex);
             m_sorted.Add(b.TypeIndex);
@@ -147,7 +150,7 @@ namespace Unity.Entities
 
         public ComponentTypes(ComponentType a, ComponentType b, ComponentType c, ComponentType d, ComponentType e)
         {
-            m_sorted = new FixedListInt64();
+            m_sorted = new FixedList64Bytes<int>();
             m_masks = new Masks();
             m_sorted.Add(a.TypeIndex);
             m_sorted.Add(b.TypeIndex);
@@ -159,12 +162,13 @@ namespace Unity.Entities
             ComputeMasks();
         }
 
+        [NotBurstCompatible]
         public ComponentTypes(ComponentType[] componentType)
         {
-            m_sorted = new FixedListInt64();
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_sorted = new FixedList64Bytes<int>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (componentType.Length > m_sorted.Capacity)
-                throw new ArgumentException($"A ComponentType value cannot have more than {m_sorted.Capacity} types.");
+                throw new ArgumentException($"A ComponentTypes value cannot have more than {m_sorted.Capacity} types.");
 #endif
             m_masks = new Masks();
             for (var i = 0; i < componentType.Length; ++i)
@@ -174,8 +178,23 @@ namespace Unity.Entities
             ComputeMasks();
         }
 
+        public ComponentTypes(in FixedList128Bytes<ComponentType> types)
+        {
+            m_sorted = new FixedList64Bytes<int>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (types.Length > m_sorted.Capacity)
+                throw new ArgumentException($"A ComponentTypes value cannot have more than {m_sorted.Capacity} types.");
+#endif
+            m_masks = new Masks();
+            for (var i = 0; i < types.Length; ++i)
+                m_sorted.Add(types[i].TypeIndex);
+            m_sorted.Sort();
+            CheckForDuplicates();
+            ComputeMasks();
+        }
+
         // Assumes m_sorted has already been sorted.
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckForDuplicates()
         {
             var prev = m_sorted[0];
@@ -185,7 +204,7 @@ namespace Unity.Entities
                 if (prev == current)
                 {
                     throw new ArgumentException(
-                        $"ComponentTypes cannot contain duplicate types. Remove all but one occurence of \"{GetComponentType(i).ToString()}\"");
+                        $"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"{GetComponentType(i).ToString()}\"");
                 }
                 prev = current;
             }

@@ -280,6 +280,21 @@ namespace Unity.Entities.Editor.Tests
             }
         }
 
+        class TestDynamicBufferContainerVisitor : PropertyVisitor,
+            IVisit<DynamicBufferContainer<BufferElement>>
+        {
+            public TestDynamicBufferContainerVisitor()
+                => AddAdapter(this);
+
+            internal DynamicBufferContainer<BufferElement> Container;
+
+            public VisitStatus Visit<TContainer>(Property<TContainer, DynamicBufferContainer<BufferElement>> property, ref TContainer container, ref DynamicBufferContainer<BufferElement> value)
+            {
+                Container = value;
+                return VisitStatus.Handled;
+            }
+        }
+
         class InvalidEntityVisitor : PropertyVisitor
         {
             protected override void VisitProperty<TContainer, TValue>(Property<TContainer, TValue> property, ref TContainer container, ref TValue value)
@@ -409,6 +424,25 @@ namespace Unity.Entities.Editor.Tests
             // We cannot find the correct path anymore and this will not throw.
             Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(StructComponentData)}")), Is.False);
             Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(BufferElement)}")), Is.False);
+        }
+
+        [Test]
+        public void DynamicBufferContainer_WhenAccessCountOnStaleContainer_DoesNotThrow()
+        {
+            var entity = m_Manager.CreateEntity(typeof(StructComponentData), typeof(BufferElement));
+            var buffer = m_Manager.AddBuffer<BufferElement>(entity);
+            for (var i = 0; i < 50; ++i)
+                buffer.Add(new BufferElement { Category = Category.BufferData, FloatValue = i });
+
+            var visitor = new TestDynamicBufferContainerVisitor();
+            PropertyContainer.Visit(new EntityContainer(m_Manager, entity, true), visitor);
+
+            Assert.That(visitor.Container.Count, Is.EqualTo(50));
+
+            m_Manager.RemoveComponent<BufferElement>(entity);
+
+            Assert.DoesNotThrow(() => { var c = visitor.Container.Count; });
+            Assert.That(visitor.Container.Count, Is.Zero);
         }
     }
 }

@@ -5,9 +5,7 @@ using Object = UnityEngine.Object;
 
 namespace Unity.Entities.Tests
 {
-    //@TODO: Test for prevent adding proxy component to type system...
-
-    class GameObjectEntityTests : HybridRuntimeTestFixture
+    class GameObjectEntityTests : CompanionComponentsRuntimeTestFixture
     {
         [Test]
         public void GameObjectEntityNotAdded()

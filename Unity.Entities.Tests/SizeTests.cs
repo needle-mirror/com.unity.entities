@@ -99,7 +99,7 @@ namespace Unity.Entities.Tests
         {
             m_Manager.CreateEntity(typeof(EcsTestTag));
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestTag>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             var tagType = m_Manager.GetComponentTypeHandle<EcsTestTag>(false);
@@ -115,8 +115,6 @@ namespace Unity.Entities.Tests
                     chunk.GetNativeArray(tagType);
                 });
             }
-
-            chunks.Dispose();
         }
 
 #pragma warning restore 0219

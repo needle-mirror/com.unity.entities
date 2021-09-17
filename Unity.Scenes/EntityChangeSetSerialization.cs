@@ -65,14 +65,16 @@ namespace Unity.Scenes
                 if (typeIndex == -1)
                 {
                     typeHashes.Dispose();
-                    throw new ArgumentException("The LiveLink Patch Type Layout doesn't match the Data Layout of the Components. Please Rebuild the Player.");
+                    throw new ArgumentException("The LiveConversion Patch Type Layout doesn't match the Data Layout of the Components. Please Rebuild the Player.");
                 }
             }
 
             var createdEntityCount = bufferReader->ReadNext<int>();
             var destroyedEntityCount = bufferReader->ReadNext<int>();
+            var nameChangedCount = bufferReader->ReadNext<int>();
             bufferReader->ReadNext<EntityGuid>(out var entities, Allocator.Persistent);
-            bufferReader->ReadNext<FixedString64>(out var names, Allocator.Persistent);
+            bufferReader->ReadNext<FixedString64Bytes>(out var names, Allocator.Persistent);
+            bufferReader->ReadNext<EntityGuid>(out var nameChangedEntityGuids, Allocator.Persistent);
             bufferReader->ReadNext<PackedComponent>(out var addComponents, Allocator.Persistent);
             bufferReader->ReadNext<PackedComponent>(out var removeComponents, Allocator.Persistent);
             bufferReader->ReadNext<PackedComponentDataChange>(out var setComponents, Allocator.Persistent);
@@ -98,9 +100,11 @@ namespace Unity.Scenes
             return new EntityChangeSet(
                 createdEntityCount,
                 destroyedEntityCount,
+                nameChangedCount,
                 entities,
                 typeHashes,
                 names,
+                nameChangedEntityGuids,
                 addComponents,
                 removeComponents,
                 setComponents,
@@ -156,7 +160,7 @@ namespace Unity.Scenes
 
         public static void Serialize(EntityChangeSet entityChangeSet, UnsafeAppendBuffer* buffer, out NativeArray<RuntimeGlobalObjectId> outAssets)
         {
-            // @FIXME Workaround to solve an issue with hybrid components, LiveLink player builds do NOT support hybrid components.
+            // @FIXME Workaround to solve an issue with hybrid components, LiveConversion player builds do NOT support hybrid components.
             //
             // An implementation detail of hybrid components is the `CompanionLink` component.
             // This component is used to link an entity to a GameObject which hosts all of the hybrid components.
@@ -173,8 +177,10 @@ namespace Unity.Scenes
             buffer->Add(entityChangeSet.TypeHashes);
             buffer->Add(entityChangeSet.CreatedEntityCount);
             buffer->Add(entityChangeSet.DestroyedEntityCount);
+            buffer->Add(entityChangeSet.NameChangedCount);
             buffer->Add(entityChangeSet.Entities);
             buffer->Add(entityChangeSet.Names);
+            buffer->Add(entityChangeSet.NameChangedEntityGuids);
             buffer->Add(addComponentsWithoutCompanionLinks.AsArray());
             buffer->Add(removeComponentWithoutCompanionLinks.AsArray());
             buffer->Add(entityChangeSet.SetComponents);
@@ -204,14 +210,14 @@ namespace Unity.Scenes
                 //@TODO: HACK (Object is a scene object)
                 if (globalObjectId.identifierType == 2)
                 {
-                    Debug.LogWarning($"{objectTable[i]} is part of a scene, LiveLink can't transfer scene objects. (Note: LiveConvertSceneView currently triggers this)");
+                    Debug.LogWarning($"{objectTable[i]} is part of a scene, LiveConversion can't transfer scene objects. (Note: LiveConvertSceneView currently triggers this)");
                     globalObjectId = new GlobalObjectId();
                 }
 
                 if (globalObjectId.assetGUID == new GUID())
                 {
                     //@TODO: How do we handle this
-                    Debug.LogWarning($"{objectTable[i]} has no valid GUID. LiveLink currently does not support built-in assets.");
+                    Debug.LogWarning($"{objectTable[i]} has no valid GUID. LiveConversion currently does not support built-in assets.");
                     globalObjectId = new GlobalObjectId();
                 }
 

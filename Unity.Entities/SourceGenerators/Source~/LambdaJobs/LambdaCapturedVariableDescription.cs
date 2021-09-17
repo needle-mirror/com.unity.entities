@@ -1,11 +1,12 @@
-using Microsoft.CodeAnalysis;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
+using Unity.Entities.SourceGen.SystemGeneratorCommon;
 
-namespace Unity.Entities.SourceGen
+namespace Unity.Entities.SourceGen.LambdaJobs
 {
     public class LambdaCapturedVariableDescription
     {
@@ -18,17 +19,22 @@ namespace Unity.Entities.SourceGen
         public bool IsWritable { get; }
 
         public ITypeSymbol Type
-        { get
+        {
+            get
             {
-                if (Symbol is ILocalSymbol localSymbol)
-                    return localSymbol.Type;
-                else if (Symbol is IParameterSymbol parameterSymbol)
-                    return parameterSymbol.Type;
-                else if (Symbol is ITypeSymbol typeSymbol)
-                    return typeSymbol;
-                else
-                    throw new InvalidOperationException($"Cannot discover type for symbol {Symbol}");
+                return Symbol switch
+                {
+                    ILocalSymbol localSymbol => localSymbol.Type,
+                    IParameterSymbol parameterSymbol => parameterSymbol.Type,
+                    ITypeSymbol typeSymbol => typeSymbol,
+                    _ => throw new InvalidOperationException($"Cannot discover type for symbol {Symbol}")
+                };
             }
+        }
+
+        public bool IsNativeContainer
+        {
+            get => Type.GetAttributes().Any(attribute => attribute.AttributeClass.ToFullName() == "Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute");
         }
 
         public LambdaCapturedVariableDescription(ISymbol symbol, bool explicitThis = false)
@@ -47,9 +53,10 @@ namespace Unity.Entities.SourceGen
                 IsWritable = false;
         }
 
-        public delegate bool CheckAttributeApplicable();
+        public delegate bool CheckAttributeApplicable(SystemGeneratorContext systemGeneratorContext, SemanticModel model,
+            LambdaCapturedVariableDescription capturedVariableDescription);
 
-        public struct AttributeDescription
+        public readonly struct AttributeDescription
         {
             public AttributeDescription(string methodName, string attributeName, CheckAttributeApplicable check = null)
             {
@@ -58,9 +65,9 @@ namespace Unity.Entities.SourceGen
                 CheckAttributeApplicable = check;
             }
 
-            public string MethodName;
-            public string AttributeName;
-            public CheckAttributeApplicable CheckAttributeApplicable;
+            public readonly string MethodName;
+            public readonly string AttributeName;
+            public readonly CheckAttributeApplicable CheckAttributeApplicable;
         }
 
         public static readonly List<AttributeDescription> AttributesDescriptions = new List<AttributeDescription>
@@ -71,17 +78,33 @@ namespace Unity.Entities.SourceGen
             new AttributeDescription("WithNativeDisableParallelForRestriction", "Unity.Collections.NativeDisableParallelForRestriction", CheckNativeDisableParallelForRestriction),
         };
 
-        // TODO: Add symbol checking here to make sure type is correct for these attributes
-        static bool CheckReadOnly() => true;
-        static bool CheckNativeDisableContainerSafetyRestriction() => true;
-        static bool CheckNativeDisableUnsafePtrRestriction() => true;
-        static bool CheckNativeDisableParallelForRestriction() => true;
+        static bool CheckHasNativeContainerAttribute(SystemGeneratorContext systemGeneratorContext, LambdaCapturedVariableDescription capturedVariableDescription,
+            Action<SystemGeneratorContext, Location, string, string> action)
+        {
+            const string nativeContainerAttributeName = "Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute";
+            if (!(capturedVariableDescription.Symbol is ILocalSymbol localSymbol && localSymbol.Type.HasAttributeOrFieldWithAttribute(nativeContainerAttributeName) ||
+                  capturedVariableDescription.Symbol is IParameterSymbol parameterSymbol && parameterSymbol.Type.HasAttributeOrFieldWithAttribute(nativeContainerAttributeName)))
+            {
+                action(systemGeneratorContext, capturedVariableDescription.Symbol.Locations.First(), capturedVariableDescription.Symbol.Name, capturedVariableDescription.Type.Name);
+                return false;
+            }
+            return true;
+        }
+
+        static bool CheckReadOnly(SystemGeneratorContext context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
+            CheckHasNativeContainerAttribute(context, capturedVariableDescription, LambdaJobsErrors.DC0034);
+        static bool CheckNativeDisableContainerSafetyRestriction(SystemGeneratorContext context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
+            CheckHasNativeContainerAttribute(context, capturedVariableDescription, LambdaJobsErrors.DC0036);
+        static bool CheckNativeDisableUnsafePtrRestriction(SystemGeneratorContext context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) => true;
+        static bool CheckNativeDisableParallelForRestriction(SystemGeneratorContext context, SemanticModel model, LambdaCapturedVariableDescription capturedVariableDescription) =>
+            CheckHasNativeContainerAttribute(context, capturedVariableDescription, LambdaJobsErrors.DC0037);
 
         public bool SupportsDeallocateOnJobCompletion()
         {
             if (Type.GetAttributes().Any(attribute =>
                 attribute.AttributeClass.ToFullName() == "Unity.Collections.LowLevel.Unsafe.NativeContainerSupportsDeallocateOnJobCompletionAttribute"))
                 return true;
+
             foreach (var field in Type.GetMembers().OfType<IFieldSymbol>())
             {
                 if (field.Type.GetAttributes().Any(attribute =>
@@ -118,7 +141,6 @@ namespace Unity.Entities.SourceGen
 
                 LocalRecurse(VariableFieldName, Type);
             }
-            
             return allNames;
         }
     }

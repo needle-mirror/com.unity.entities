@@ -30,7 +30,9 @@ You can also create multiple entities at a time:
 
 * Fill a NativeArray with new entities with the same archetype using [CreateEntity](xref:Unity.Entities.EntityManager.CreateEntity).
 * Fill a NativeArray with copies of an existing entity, including its current data, using [Instantiate](xref:Unity.Entities.EntityManager.Instantiate%28Unity.Entities.Entity%29).
-    
+
+<a name="adding-components"></a>
+
 ## Adding and removing components
 
 After an entity has been created, you can add or remove components. When you do this, the archetype of the affected entities change and the EntityManager must move altered data to a new chunk of memory, as well as condense the component arrays in the original chunks. 
@@ -42,3 +44,7 @@ The EntityManager provides functions to remove a component from a single entity 
 ## Iterating entities
 
 Iterating over all entities that have a matching set of components, is at the center of the ECS architecture. See [Accessing entity data](chunk_iteration.md).
+
+## Entities in the Editor
+
+In the Editor, the following icon represents an Entity: ![](images/editor-entity-icon.png) . You’ll see this when you use the specific [Entities windows and Inspectors](editor-workflows.md).

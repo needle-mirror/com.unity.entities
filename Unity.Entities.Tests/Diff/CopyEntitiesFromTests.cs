@@ -33,7 +33,7 @@ namespace Unity.Entities.Tests
             SrcEntityManager.AddComponentData(entity1, new Prefab());
 
             SrcEntityManager.AddChunkComponentData(SrcEntityManager.UniversalQuery, new EcsTestData2(7));
-
+            
             using (var srcEntities = new NativeArray<Entity>(new[] { entity0, entity1 }, Allocator.Temp))
             using (var dstEntities = new NativeArray<Entity>(2, Allocator.Temp))
             {

@@ -5,11 +5,7 @@ using Unity.Entities;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
 using UnityEditor;
-#if UNITY_2020_2_OR_NEWER
 using UnityEditor.AssetImporters;
-#else
-using UnityEditor.Experimental.AssetImporters;
-#endif
 using UnityEditor.SceneManagement;
 
 namespace Unity.Scenes.Editor
@@ -42,7 +38,7 @@ namespace Unity.Scenes.Editor
 
             try
             {
-                metaDataPath = paths.First(o => o.EndsWith(k_Extension));
+                metaDataPath = paths.First(o => o.EndsWith(k_Extension, StringComparison.Ordinal));
             }
             catch (Exception e)
             {

@@ -18,9 +18,7 @@ namespace Unity.Scenes.Editor
             SceneHierarchyHooks.provideSubSceneName = ProvideSubSceneName;
             SceneHierarchyHooks.addItemsToGameObjectContextMenu += SubSceneContextMenu.AddExtraGameObjectContextMenuItems;
             SceneHierarchyHooks.addItemsToSceneHeaderContextMenu += SubSceneContextMenu.AddExtraSceneHeaderContextMenuItems;
-#if UNITY_2020_2_OR_NEWER
             SceneHierarchyHooks.addItemsToCreateMenu += SubSceneContextMenu.AddExtraItemsToCreateDropdown;
-#endif
             EditorApplication.hierarchyWindowItemOnGUI += HierarchyOverlay.HierarchyWindowItemOnGUI;
         }
 

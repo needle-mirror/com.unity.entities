@@ -23,7 +23,8 @@ namespace Unity.Transforms
     // ParentScaleInverse = Parent.CompositeScale^-1
     // (or) ParentScaleInverse = Parent.Scale^-1
     // (or) ParentScaleInverse = Parent.NonUniformScale^-1
-    public abstract class ParentScaleInverseSystem : JobComponentSystem
+    [BurstCompile]
+    public partial struct ParentScaleInverseSystem : ISystem
     {
         private EntityQuery m_Query;
 
@@ -115,9 +116,11 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreate()
+        //burst disabled pending burstable entityquerydesc
+        //[BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc
+            m_Query = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -133,19 +136,27 @@ namespace Unity.Transforms
             });
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
+        {
+        }
+
+        //disabling burst in dotsrt until burstable scheduling works
+#if !UNITY_DOTSRUNTIME
+        [BurstCompile]
+#endif
+        public void OnUpdate(ref SystemState state)
         {
             var toParentScaleInverseJob = new ToChildParentScaleInverse
             {
-                ScaleTypeHandle = GetComponentTypeHandle<Scale>(true),
-                NonUniformScaleTypeHandle = GetComponentTypeHandle<NonUniformScale>(true),
-                CompositeScaleTypeHandle = GetComponentTypeHandle<CompositeScale>(true),
-                ChildTypeHandle = GetBufferTypeHandle<Child>(true),
-                ParentScaleInverseFromEntity = GetComponentDataFromEntity<ParentScaleInverse>(),
-                LastSystemVersion = LastSystemVersion
+                ScaleTypeHandle = state.GetComponentTypeHandle<Scale>(true),
+                NonUniformScaleTypeHandle = state.GetComponentTypeHandle<NonUniformScale>(true),
+                CompositeScaleTypeHandle = state.GetComponentTypeHandle<CompositeScale>(true),
+                ChildTypeHandle = state.GetBufferTypeHandle<Child>(true),
+                ParentScaleInverseFromEntity = state.GetComponentDataFromEntity<ParentScaleInverse>(),
+                LastSystemVersion = state.LastSystemVersion
             };
-            var toParentScaleInverseJobHandle = toParentScaleInverseJob.ScheduleParallel(m_Query, 1, inputDeps);
-            return toParentScaleInverseJobHandle;
+            state.Dependency = toParentScaleInverseJob.ScheduleParallel(m_Query, state.Dependency);
         }
     }
 }

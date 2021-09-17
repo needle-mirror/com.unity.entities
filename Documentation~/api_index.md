@@ -30,11 +30,12 @@ uid: api-index
 | [GameObjectConversionSystem] | The base class to extend when writing GameObject conversion systems |
 | [ComponentSystemGroup] | A group of systems that update as a unit |
 
-| ECS job types | |
-| :--- | :--- |
-| [Entities.ForEach] | An implicitly created job that iterates over a set of entities |
-| [Job.WithCode] | An implicitly created single job |
-| [IJobEntityBatch] | An interface to implement to explicitly create a job that iterates over the entities returned by an entity query in batches |
+| ECS job types      |                                                                                                                             |
+|:-------------------|:----------------------------------------------------------------------------------------------------------------------------|
+| [Entities.ForEach] | An implicitly created job that iterates over a set of entities. Write quick, schedule once.                                 |
+| [Job.WithCode]     | An implicitly created single job                                                                                            |
+| [IJobEntity]       | An interface to implicitly create a job that iterates over the entities. Write once, schedule multiple.                     |
+| [IJobEntityBatch]  | An interface to implement to explicitly create a job that iterates over the entities returned by an entity query in batches |
 
 | Other important types | |
 | :--- | :--- |
@@ -72,6 +73,7 @@ uid: api-index
 [ComponentSystemGroup]: xref:Unity.Entities.ComponentSystemGroup
 [Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
 [Job.WithCode]: xref:Unity.Entities.SystemBase.Job
+[IJobEntity]: ecs_ijobentity.md
 [IJobEntityBatch]: xref:Unity.Entities.IJobEntityBatch
 [ArchetypeChunk]: xref:Unity.Entities.ArchetypeChunk
 [EntityCommandBuffer]: xref:Unity.Entities.EntityCommandBuffer

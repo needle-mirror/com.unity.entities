@@ -11,6 +11,7 @@ using Unity.Entities.Tests;
 using Unity.PerformanceTesting;
 using System.Collections.Generic;
 using Unity.Mathematics;
+using static Unity.Entities.PerformanceTests.PerformanceTestHelpers.TestTags;
 
 namespace Unity.Entities.PerformanceTests
 {
@@ -29,100 +30,6 @@ namespace Unity.Entities.PerformanceTests
         EntityQuery group;
 
         const int count = 1024 * 128;
-
-        struct TestTag0 : IComponentData
-        {
-        }
-
-        struct TestTag1 : IComponentData
-        {
-        }
-
-        struct TestTag2 : IComponentData
-        {
-        }
-
-        struct TestTag3 : IComponentData
-        {
-        }
-
-        struct TestTag4 : IComponentData
-        {
-        }
-
-        struct TestTag5 : IComponentData
-        {
-        }
-
-        struct TestTag6 : IComponentData
-        {
-        }
-
-        struct TestTag7 : IComponentData
-        {
-        }
-
-        struct TestTag8 : IComponentData
-        {
-        }
-
-        struct TestTag9 : IComponentData
-        {
-        }
-
-        struct TestTag10 : IComponentData
-        {
-        }
-
-        struct TestTag11 : IComponentData
-        {
-        }
-
-        struct TestTag12 : IComponentData
-        {
-        }
-
-        struct TestTag13 : IComponentData
-        {
-        }
-
-        struct TestTag14 : IComponentData
-        {
-        }
-
-        struct TestTag15 : IComponentData
-        {
-        }
-
-        struct TestTag16 : IComponentData
-        {
-        }
-
-        struct TestTag17 : IComponentData
-        {
-        }
-
-        Type[] TagTypes =
-        {
-            typeof(TestTag0),
-            typeof(TestTag1),
-            typeof(TestTag2),
-            typeof(TestTag3),
-            typeof(TestTag4),
-            typeof(TestTag5),
-            typeof(TestTag6),
-            typeof(TestTag7),
-            typeof(TestTag8),
-            typeof(TestTag9),
-            typeof(TestTag10),
-            typeof(TestTag11),
-            typeof(TestTag12),
-            typeof(TestTag13),
-            typeof(TestTag14),
-            typeof(TestTag15),
-            typeof(TestTag16),
-            typeof(TestTag17),
-        };
 
         public override void Setup()
         {
@@ -220,17 +127,6 @@ namespace Unity.Entities.PerformanceTests
             return entities;
         }
 
-        public void CreateEntitiesWithMultipleArchetypes(int entitiesPerArchetype, int numArchetypes, EntityArchetype baseArchetype)
-        {
-            var archetypes = CreateUniqueArchetypes(numArchetypes, baseArchetype);
-            for (int i = 0; i < numArchetypes; i++)
-            {
-                var entities = m_Manager.CreateEntity(archetypes[i], entitiesPerArchetype, Allocator.Persistent);
-                entities.Dispose();
-            }
-            archetypes.Dispose();
-        }
-
         NativeArray<Entity> CreateUniqueEntitiesWithSharedComponent(int size)
         {
             var entities = new NativeArray<Entity>(size, Allocator.Persistent);
@@ -301,29 +197,6 @@ namespace Unity.Entities.PerformanceTests
             return types;
         }
 
-        NativeArray<EntityArchetype> CreateUniqueArchetypes(int size)
-        {
-            var archetypes = new NativeArray<EntityArchetype>(size, Allocator.Persistent);
-
-            for (int i = 0; i < size; i++)
-            {
-                var typeCount = CollectionHelper.Log2Ceil(i);
-                var typeList = new List<ComponentType>();
-                for (int typeIndex = 0; typeIndex < typeCount; typeIndex++)
-                {
-                    if ((i & (1 << typeIndex)) != 0)
-                        typeList.Add(TagTypes[typeIndex]);
-                }
-
-                typeList.Add(typeof(EcsTestData));
-
-                var types = typeList.ToArray();
-                archetypes[i] = m_Manager.CreateArchetype(types);
-            }
-
-            return archetypes;
-        }
-
         NativeArray<EntityArchetype> CreateUniqueArchetypes(int size, EntityArchetype baseArchetype)
         {
             var baseTypes = baseArchetype.GetComponentTypes(Allocator.TempJob);
@@ -371,11 +244,14 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(() => { m_Manager.AddComponent(group, typeof(EcsTestData4)); })
                 .SetUp(CreateEntities)
                 .CleanUp(DestroyEntities)
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
+        //todo: removed 100,000 entities count from test due to excessive runtime. investigate further to determine if this is worth keeping
         [Test, Performance]
-        public void AddComponentsWithGroup([Values(1, 10, 1000, 10000, 100000)] int entityCount,
+        public void AddComponentsWithGroup([Values(1, 10, 1000, 10000)] int entityCount,
             [Values(1, 5, 10, 100, 1000, 10000)] int archetypeCount)
         {
             if (entityCount < archetypeCount)
@@ -383,6 +259,9 @@ namespace Unity.Entities.PerformanceTests
 
             var baseArchetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            var archetypes = CreateUniqueArchetypes(archetypeCount, baseArchetype);
+            var entitiesPerArchetype = entityCount / archetypeCount;
 
             Measure.Method(() => { m_Manager.AddComponent(query, new ComponentTypes(
                     typeof(EcsTestData4),
@@ -393,15 +272,20 @@ namespace Unity.Entities.PerformanceTests
                 )); })
                 .SetUp(() =>
                 {
-                    CreateEntitiesWithMultipleArchetypes(entityCount / archetypeCount, archetypeCount, baseArchetype);
+                    for (int i = 0; i < archetypeCount; i++)
+                    {
+                        m_Manager.CreateEntity(archetypes[i], entitiesPerArchetype);
+                    }
                 })
-                .MeasurementCount(100)
                 .CleanUp(() =>
                 {
                     m_Manager.DestroyEntity(query);
                 })
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
             query.Dispose();
+            archetypes.Dispose();
         }
 
         [Test, Performance]
@@ -410,6 +294,8 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(() => { m_Manager.AddComponent(group, typeof(EcsTestTag)); })
                 .SetUp(CreateEntities)
                 .CleanUp(DestroyEntities)
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -419,6 +305,8 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(() => { m_Manager.AddSharedComponentData(group, new EcsTestSharedComp(7)); })
                 .SetUp(CreateEntities)
                 .CleanUp(DestroyEntities)
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -428,6 +316,8 @@ namespace Unity.Entities.PerformanceTests
             Measure.Method(() => { m_Manager.AddChunkComponentData(group, new EcsTestData4(7)); })
                 .SetUp(CreateEntities)
                 .CleanUp(DestroyEntities)
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -441,11 +331,14 @@ namespace Unity.Entities.PerformanceTests
                     m_Manager.AddComponent(group, typeof(EcsTestData4));
                 })
                 .CleanUp(DestroyEntities)
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
+        //todo: removed 100,000 entities count from test due to excessive runtime. investigate further to determine if this is worth keeping
         [Test, Performance]
-        public void RemoveComponentsWithGroup([Values(1, 10, 1000, 10000, 100000)] int entityCount,
+        public void RemoveComponentsWithGroup([Values(1, 10, 1000, 10000)] int entityCount,
             [Values(1, 5, 10, 100, 1000, 10000)] int archetypeCount)
         {
             if (entityCount < archetypeCount)
@@ -454,6 +347,8 @@ namespace Unity.Entities.PerformanceTests
             var baseArchetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData4), typeof(EcsTestFloatData));
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestData4), typeof(EcsTestFloatData));
             var destroyQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            var archetypes = CreateUniqueArchetypes(archetypeCount, baseArchetype);
+            var entitiesPerArchetype = entityCount / archetypeCount;
 
             Measure.Method(() => { m_Manager.RemoveComponent(query, new ComponentTypes(
                     typeof(EcsTestData4),
@@ -464,15 +359,20 @@ namespace Unity.Entities.PerformanceTests
                 )); })
                 .SetUp(() =>
                 {
-                    CreateEntitiesWithMultipleArchetypes(entityCount / archetypeCount, archetypeCount, baseArchetype);
+                    for (int i = 0; i < archetypeCount; i++)
+                    {
+                        m_Manager.CreateEntity(archetypes[i], entitiesPerArchetype);
+                    }
                 })
-                .MeasurementCount(100)
                 .CleanUp(() =>
                 {
                     m_Manager.DestroyEntity(destroyQuery);
                 })
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
             query.Dispose();
+            archetypes.Dispose();
         }
 
         [Test, Performance]
@@ -485,6 +385,8 @@ namespace Unity.Entities.PerformanceTests
                     m_Manager.AddComponent(group, typeof(EcsTestTag));
                 })
                 .CleanUp(DestroyEntities)
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -498,6 +400,8 @@ namespace Unity.Entities.PerformanceTests
                     m_Manager.AddSharedComponentData(group, new EcsTestSharedComp(7));
                 })
                 .CleanUp(DestroyEntities)
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -511,6 +415,8 @@ namespace Unity.Entities.PerformanceTests
                     m_Manager.AddChunkComponentData(group, new EcsTestData4(7));
                 })
                 .CleanUp(DestroyEntities)
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -535,6 +441,8 @@ namespace Unity.Entities.PerformanceTests
 
                     CreateEntities();
                 })
+                .WarmupCount(1)
+                .MeasurementCount(10)
                 .CleanUp(DestroyEntities)
                 .Run();
         }
@@ -604,6 +512,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -624,6 +533,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -640,6 +550,7 @@ namespace Unity.Entities.PerformanceTests
                     entities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -653,7 +564,7 @@ namespace Unity.Entities.PerformanceTests
                 for (int i = 0; i < size; i++)
                     m_Manager.CreateEntity(archetypes[i]);
             })
-                .SetUp(() => { archetypes = CreateUniqueArchetypes(size); })
+                .SetUp(() => { archetypes = PerformanceTestHelpers.CreateUniqueArchetypes(m_Manager, size, Allocator.Persistent) ; })
                 .CleanUp(() =>
                 {
                     using (var entities = m_Manager.UniversalQuery.ToEntityArray(Allocator.TempJob))
@@ -664,6 +575,7 @@ namespace Unity.Entities.PerformanceTests
                     archetypes.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -686,6 +598,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -708,6 +621,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -731,6 +645,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -755,6 +670,7 @@ namespace Unity.Entities.PerformanceTests
                     sourceEntities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -779,6 +695,7 @@ namespace Unity.Entities.PerformanceTests
                     sourceEntities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -800,6 +717,7 @@ namespace Unity.Entities.PerformanceTests
                     entities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -822,6 +740,7 @@ namespace Unity.Entities.PerformanceTests
                     entities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -838,6 +757,7 @@ namespace Unity.Entities.PerformanceTests
                 .SetUp(() => { entities = CreateSameEntities(size); })
                 .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -854,6 +774,7 @@ namespace Unity.Entities.PerformanceTests
                 .SetUp(() => { entities = CreateUniqueEntities(size); })
                 .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -866,6 +787,7 @@ namespace Unity.Entities.PerformanceTests
                 .SetUp(() => { entities = CreateSameEntities(size); })
                 .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -878,6 +800,7 @@ namespace Unity.Entities.PerformanceTests
                 .SetUp(() => { entities = CreateUniqueEntities(size); })
                 .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -890,6 +813,7 @@ namespace Unity.Entities.PerformanceTests
                 .SetUp(() => { entities = CreateSameEntities(size); })
                 .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -902,6 +826,7 @@ namespace Unity.Entities.PerformanceTests
                 .SetUp(() => { entities = CreateUniqueEntities(size); })
                 .CleanUp(() => { entities.Dispose(); })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -924,6 +849,7 @@ namespace Unity.Entities.PerformanceTests
                     }
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -944,6 +870,7 @@ namespace Unity.Entities.PerformanceTests
                     entities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -964,6 +891,7 @@ namespace Unity.Entities.PerformanceTests
                     entities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -981,6 +909,7 @@ namespace Unity.Entities.PerformanceTests
                     entities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
 
@@ -998,8 +927,253 @@ namespace Unity.Entities.PerformanceTests
                     entities.Dispose();
                 })
                 .WarmupCount(1)
+                .MeasurementCount(10)
                 .Run();
         }
+
+        [Test, Performance]
+        public void GetName_DefaultEntityName_ManagedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using(var entities = m_Manager.CreateEntity(archetype,size,Allocator.TempJob))
+            {
+                Measure.Method(() =>
+                {
+                    for (int i = 0; i < entities.Length; i++)
+                    {
+                        var name = m_Manager.GetName(entities[i]);
+                    }
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .Run();
+            }
+
+        }
+
+
+        [Test, Performance]
+        public void GetName_NonDefaultEntityName_ManagedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using(var entities = m_Manager.CreateEntity(archetype,size,Allocator.TempJob))
+            {
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    m_Manager.SetName(entities[i],"Test");
+                }
+
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entities.Length; i++)
+                        {
+                            var name = m_Manager.GetName(entities[i]);
+                        }
+                    })
+                    .WarmupCount(1)
+                    .MeasurementCount(10)
+                    .Run();
+
+            }
+
+        }
+
+        [Test, Performance]
+        public void GetName_NumberedEntityName_ManagedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using(var entities = m_Manager.CreateEntity(archetype, size, Allocator.TempJob))
+            {
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    m_Manager.SetName(entities[i], "Test " + i);
+                }
+
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entities.Length; i++)
+                        {
+                            var name = m_Manager.GetName(entities[i]);
+                        }
+                    })
+                    .WarmupCount(1)
+                    .MeasurementCount(10)
+                    .Run();
+            }
+        }
+
+
+        [Test, Performance]
+        public void SetName_NonDefaultEntityName_ManagedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using (var entities = m_Manager.CreateEntity(archetype, size, Allocator.TempJob))
+            {
+
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entities.Length; i++)
+                        {
+                            m_Manager.SetName(entities[i], "Test");
+                        }
+                    })
+                    .WarmupCount(1)
+                    .MeasurementCount(10)
+                    .Run();
+
+            }
+
+        }
+
+        [Test, Performance]
+        public void SetName_NumberedEntityName_ManagedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using(var entities = m_Manager.CreateEntity(archetype,size,Allocator.TempJob))
+            {
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entities.Length; i++)
+                        {
+                            m_Manager.SetName(entities[i],"Test " + i);
+                        }
+                    })
+                    .WarmupCount(1)
+                    .MeasurementCount(10)
+                    .Run();
+
+            }
+        }
+
+        [Test, Performance]
+        public void GetName_DefaultEntityName_FixedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using(var entities = m_Manager.CreateEntity(archetype,size,Allocator.TempJob))
+            {
+                Measure.Method(() =>
+                {
+                    for (int i = 0; i < entities.Length; i++)
+                    {
+                        m_Manager.GetName(entities[i], out var name);
+                    }
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .Run();
+            }
+
+        }
+
+
+        [Test, Performance]
+        public void GetName_NonDefaultEntityName_FixedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using(var entities = m_Manager.CreateEntity(archetype,size,Allocator.TempJob))
+            {
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    m_Manager.SetName(entities[i],"Test");
+                }
+
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entities.Length; i++)
+                        {
+                            m_Manager.GetName(entities[i], out var name);
+                        }
+                    })
+                    .WarmupCount(1)
+                    .MeasurementCount(10)
+                    .Run();
+
+            }
+
+        }
+
+        [Test, Performance]
+        public void GetName_NumberedEntityName_FixedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using(var entities = m_Manager.CreateEntity(archetype, size, Allocator.TempJob))
+            {
+
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    m_Manager.SetName(entities[i], "Test " + i);
+                }
+
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entities.Length; i++)
+                        {
+                            m_Manager.GetName(entities[i], out var name);
+                        }
+                    })
+                    .WarmupCount(1)
+                    .MeasurementCount(10)
+                    .Run();
+            }
+        }
+
+
+        [Test, Performance]
+        public void SetName_NonDefaultEntityName_FixedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using (var entities = m_Manager.CreateEntity(archetype, size, Allocator.TempJob))
+            {
+
+                Measure.Method(() =>
+                    {
+                        var testFixedString = new FixedString64Bytes("Test");
+                        for (int i = 0; i < entities.Length; i++)
+                        {
+                            m_Manager.SetName(entities[i], testFixedString);
+                        }
+                    })
+                    .WarmupCount(1)
+                    .MeasurementCount(10)
+                    .Run();
+
+            }
+
+        }
+
+        [Test, Performance]
+        public void SetName_NumberedEntityName_FixedString([Values(10000)] int size)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            using(var entities = m_Manager.CreateEntity(archetype,size,Allocator.TempJob))
+            {
+                Measure.Method(() =>
+                    {
+                        for (int i = 0; i < entities.Length; i++)
+                        {
+                            m_Manager.SetName(entities[i],new FixedString64Bytes("Test " + i));
+                        }
+                    })
+                    .WarmupCount(1)
+                    .MeasurementCount(10)
+                    .Run();
+
+            }
+        }
+
 
         public enum TestComponentVariation
         {
@@ -1150,6 +1324,7 @@ namespace Unity.Entities.PerformanceTests
                         entities.Dispose();
                     })
                     .WarmupCount(1)
+                    .MeasurementCount(10)
                     .Run();
             }
             else if (testTypeVariation == TestTypeVariation.EntityArray)
@@ -1214,6 +1389,7 @@ namespace Unity.Entities.PerformanceTests
                         entities.Dispose();
                     })
                     .WarmupCount(1)
+                    .MeasurementCount(10)
                     .Run();
             }
             else if (testTypeVariation == TestTypeVariation.Entity)
@@ -1279,6 +1455,7 @@ namespace Unity.Entities.PerformanceTests
                         entities.Dispose();
                     })
                     .WarmupCount(1)
+                    .MeasurementCount(10)
                     .Run();
             }
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine.Scripting;
 
 namespace Unity.Entities
@@ -17,6 +18,14 @@ namespace Unity.Entities
         [Preserve]
         public InitializationSystemGroup()
         {
+        }
+
+        protected override void OnUpdate()
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS && !UNITY_DOTSRUNTIME
+            JobsUtility.ClearSystemIds();
+#endif
+            base.OnUpdate();
         }
     }
 
@@ -50,29 +59,59 @@ namespace Unity.Entities
         /// </summary>
         public float Timestep
         {
-            get => FixedRateManager != null ? FixedRateManager.Timestep : 0;
+            get => RateManager != null ? RateManager.Timestep : 0;
             set
             {
-                if (FixedRateManager != null)
-                    FixedRateManager.Timestep = value;
+                if (RateManager != null)
+                    RateManager.Timestep = value;
             }
-        }
-
-        [Obsolete("MaximumDeltaTime is now specified at the World level as World.MaximumDeltaTime (RemovedAfter 2020-12-26)")]
-        public float MaximumDeltaTime
-        {
-            get => World.MaximumDeltaTime;
-            set => World.MaximumDeltaTime = value;
         }
 
         [Preserve]
         public FixedStepSimulationSystemGroup()
         {
             float defaultFixedTimestep = 1.0f / 60.0f;
-            FixedRateManager = new FixedRateUtils.FixedRateCatchUpManager(defaultFixedTimestep);
+            RateManager = new RateUtils.FixedRateCatchUpManager(defaultFixedTimestep);
         }
     }
 
+    
+    [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(VariableRateSimulationSystemGroup), OrderFirst = true)]
+    public class BeginVariableRateSimulationEntityCommandBufferSystem : EntityCommandBufferSystem {}
+
+    [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(VariableRateSimulationSystemGroup), OrderLast = true)]
+    public class EndVariableRateSimulationEntityCommandBufferSystem : EntityCommandBufferSystem {}
+
+    /// <summary>
+    /// This system group is configured by default to use a variable update rate of ~15fps (66ms).
+    /// </summary>
+    /// <remarks>
+    /// The value of `Time.ElapsedTime` and `Time.DeltaTime` will be temporarily overriden
+    /// while this group is updating to the value total elapsed time since the previous update.
+    /// You can configure the update rate manually by replacing the <see cref="IRateManager"/>.
+    /// </remarks>
+    [UnityEngine.ExecuteAlways]
+    [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
+    [UpdateAfter(typeof(BeginSimulationEntityCommandBufferSystem))]
+    public class VariableRateSimulationSystemGroup : ComponentSystemGroup
+    {
+        /// <summary>
+        /// The timestep use by this group, in seconds. This value will reflect the total elapsed time since the last update.
+        /// </summary>
+        public float Timestep
+        {
+            get => RateManager != null ? RateManager.Timestep : 0;
+        }
+
+        [Preserve]
+        public VariableRateSimulationSystemGroup()
+        {
+            RateManager = new RateUtils.VariableRateManager();            
+        }
+    }
+    
     [UnityEngine.ExecuteAlways]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
     public class BeginSimulationEntityCommandBufferSystem : EntityCommandBufferSystem {}

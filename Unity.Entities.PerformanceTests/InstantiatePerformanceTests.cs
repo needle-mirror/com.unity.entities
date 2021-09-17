@@ -100,7 +100,7 @@ namespace Unity.Entities.PerformanceTests
             if (entityType == EntityType.Hierarchy_10)
                 totalCount /= 10;
 
-            var entities = new NativeArray<Entity>(totalCount, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(totalCount, World.UpdateAllocator.ToAllocator);
 
             srcEntity = CreateEntity(entityType);
 
@@ -120,8 +120,6 @@ namespace Unity.Entities.PerformanceTests
                 })
                 .IterationsPerMeasurement(1) //@TODO: Ask gyntautas what the idea behind IterationsPerMeasurement is.
                 .Run();
-
-            entities.Dispose();
         }
     }
 }

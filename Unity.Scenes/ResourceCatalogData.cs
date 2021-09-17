@@ -122,7 +122,7 @@ namespace Unity.Scenes
             return default;
         }
 
-        string GetFileNameWithoutExtension(string path)
+        internal static string GetFileNameWithoutExtension(string path)
         {
             int i = path.Length - 1;
             for(; i > 0; --i)
@@ -134,7 +134,7 @@ namespace Unity.Scenes
             if (i <= 0)
                 return path;
 
-            return path.Substring(0, i-1);
+            return path.Substring(0, i);
         }
     }
 }

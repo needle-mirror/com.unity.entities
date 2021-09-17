@@ -2,6 +2,8 @@ using System;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
+
 namespace Unity.Entities
 {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -9,56 +11,72 @@ namespace Unity.Entities
     {
         public struct SafetyErrorDetails
         {
+            internal int m_ProblematicSystemId;
             internal int m_ProblematicTypeIndex;
             internal int m_ReaderIndex;
             internal AtomicSafetyHandle m_ProblematicHandle;
             internal bool IsWrite => m_ReaderIndex == -1;
 
-            internal string FormatToString(Type systemType)
+            internal static string GetSystemTypeNameFromSystemId(int systemId)
             {
-                int type = m_ProblematicTypeIndex;
-                AtomicSafetyHandle h = m_ProblematicHandle;
+                SystemState* ptr = World.FindSystemStateForId(systemId);
 
-                if (!IsWrite)
+                if (ptr == null)
                 {
-                    int i = m_ReaderIndex;
-                    if (typeof(JobComponentSystem).IsAssignableFrom(systemType))
-                        return
-                            $"The system {systemType} reads {TypeManager.GetType(type)} via {AtomicSafetyHandle.GetReaderName(h, i)} but that type was not returned as a job dependency. To ensure correct behavior of other systems, the job or a dependency of it must be returned from the OnUpdate method.";
-                    else
-                        return
-                            $"The system {systemType} reads {TypeManager.GetType(type)} via {AtomicSafetyHandle.GetReaderName(h, i)} but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.";
+                    return "unknown";
                 }
-                else
+
+                var managed = ptr->ManagedSystem;
+                if (managed != null)
                 {
-                    if (typeof(JobComponentSystem).IsAssignableFrom(systemType))
-                        return $"The system {systemType} writes {TypeManager.GetType(type)} via {AtomicSafetyHandle.GetWriterName(h)} but that was not returned as a job dependency. To ensure correct behavior of other systems, the job or a dependency of it must be returned from the OnUpdate method.";
-                    else
-                        return $"The system {systemType} writes {TypeManager.GetType(type)} via {AtomicSafetyHandle.GetWriterName(h)} but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.";
+                    return TypeManager.GetSystemName(managed.GetType());
                 }
+
+                return ptr->DebugName.ToString();
             }
 
-            internal string FormatToString(FixedString64 systemTypeName)
+            internal string FormatToString()
             {
+                string systemName = GetSystemTypeNameFromSystemId(m_ProblematicSystemId);
                 int type = m_ProblematicTypeIndex;
                 AtomicSafetyHandle h = m_ProblematicHandle;
+                string errorTail = 
+                    "but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, " +
+                    "the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.";
 
-                if (!IsWrite)
-                {
-                    int i = m_ReaderIndex;
-                    return $"The system {systemTypeName} reads {TypeManager.GetType(type)} via {AtomicSafetyHandle.GetReaderName(h, i)} but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.";
-                }
-                else
-                {
-                    return $"The system {systemTypeName} writes {TypeManager.GetType(type)} via {AtomicSafetyHandle.GetWriterName(h)} but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.";
-                }
+                string verb = IsWrite ? "writes" : "reads";
+                var jobName = IsWrite ? AtomicSafetyHandle.GetWriterName(h) : AtomicSafetyHandle.GetReaderName(h, m_ReaderIndex);
+
+                return $"The system {systemName} {verb} {TypeManager.GetType(type)} via {jobName} {errorTail}";
             }
         }
 
-        internal static bool CheckSafetyAfterUpdate(ref UnsafeIntList readingSystems, ref UnsafeIntList writingSystems,
+        internal static bool FindSystemSchedulingErrors(
+            int currentSystemId, ref UnsafeList<int> readingSystems, ref UnsafeList<int> writingSystems,
             ComponentDependencyManager* dependencyManager, out SafetyErrorDetails details)
         {
             details = default;
+
+            const int kMaxHandles = 256;
+            JobHandle* handles = stackalloc JobHandle[kMaxHandles];
+            int* systemIds = stackalloc int[kMaxHandles];
+#if !UNITY_DOTSRUNTIME
+            int mappingCount = Math.Min(JobsUtility.GetSystemIdMappings(handles, systemIds, kMaxHandles), kMaxHandles);
+#else
+            // FIXME
+            int mappingCount = 0;
+#endif
+
+            // Filter out jobs created by current system.
+            for (int i = 0; i < mappingCount; ++i)
+            {
+                if (systemIds[i] == currentSystemId)
+                {
+                    systemIds[i] = systemIds[mappingCount - 1];
+                    handles[i] = handles[mappingCount - 1];
+                    --mappingCount;
+                }
+            }
 
             // Check that all reading and writing jobs are a dependency of the output job, to
             // catch systems that forget to add one of their jobs to the dependency graph.
@@ -74,23 +92,21 @@ namespace Unity.Entities
             for (var index = 0; index < readingSystems.Length; index++)
             {
                 var type = readingSystems.Ptr[index];
-                if (CheckJobDependencies(ref details, type, dependencyManager))
+                if (CheckJobDependencies(handles, systemIds, mappingCount, ref details, type, dependencyManager))
                     return true;
             }
 
             for (var index = 0; index < writingSystems.Length; index++)
             {
                 var type = writingSystems.Ptr[index];
-                if (CheckJobDependencies(ref details, type, dependencyManager))
+                if (CheckJobDependencies(handles, systemIds, mappingCount, ref details, type, dependencyManager))
                     return true;
             }
-
-// EmergencySyncAllJobs(ref readingSystems, ref writingSystems, dependencyManager);
 
             return false;
         }
 
-        static bool CheckJobDependencies(ref SafetyErrorDetails details, int type, ComponentDependencyManager* dependencyManager)
+        static bool CheckJobDependencies(JobHandle* handles, int* systemIds, int mappingCount, ref SafetyErrorDetails details, int type, ComponentDependencyManager* dependencyManager)
         {
             var h = dependencyManager->Safety.GetSafetyHandle(type, true);
 
@@ -103,37 +119,46 @@ namespace Unity.Entities
             {
                 if (!dependencyManager->HasReaderOrWriterDependency(type, readers[i]))
                 {
+                    details.m_ProblematicSystemId = FindSystemId(readers[i], systemIds, handles, mappingCount);
                     details.m_ProblematicTypeIndex = type;
                     details.m_ProblematicHandle = h;
                     details.m_ReaderIndex = i;
-                    return true;
+                    if (details.m_ProblematicSystemId != -1)
+                        return true;
                 }
             }
 
             if (!dependencyManager->HasReaderOrWriterDependency(type, AtomicSafetyHandle.GetWriter(h)))
             {
+                details.m_ProblematicSystemId = FindSystemId(AtomicSafetyHandle.GetWriter(h), systemIds, handles, mappingCount);
                 details.m_ProblematicTypeIndex = type;
                 details.m_ProblematicHandle = h;
                 details.m_ReaderIndex = -1;
-                return true;
+                if (details.m_ProblematicSystemId != -1)
+                    return true;
             }
 
             return false;
         }
 
-        internal static void EmergencySyncAllJobs(ref UnsafeIntList readingSystems, ref UnsafeIntList writingSystems, ComponentDependencyManager* dependencyManager)
+        private static int FindSystemId(JobHandle jobHandle, int* systemIds, JobHandle* handles, int mappingCount)
         {
-            for (int i = 0; i != readingSystems.Length; i++)
+            #if !UNITY_DOTSRUNTIME
+            for (int i = 0; i < mappingCount; ++i)
             {
-                int type = readingSystems.Ptr[i];
-                AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(dependencyManager->Safety.GetSafetyHandle(type, true));
+                JobHandle candidate = handles[i];
+                if (candidate.jobGroup == jobHandle.jobGroup && candidate.version == jobHandle.version)
+                    return systemIds[i];
             }
-
-            for (int i = 0; i != writingSystems.Length; i++)
+            #else
+            for (int i = 0; i < mappingCount; ++i)
             {
-                int type = writingSystems.Ptr[i];
-                AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(dependencyManager->Safety.GetSafetyHandle(type, true));
+                JobHandle candidate = handles[i];
+                if (candidate.JobGroup == jobHandle.JobGroup && candidate.Version == jobHandle.Version)
+                    return systemIds[i];
             }
+            #endif
+            return -1;
         }
     }
 #else

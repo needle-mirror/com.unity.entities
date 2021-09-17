@@ -1,10 +1,6 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
-using Unity.Assertions;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
@@ -46,13 +42,14 @@ namespace Unity.Entities
             internal set { _UseOrderFiltering = value ? 1u : 0u; }
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void AssertValid()
         {
-            Assert.IsTrue((Shared.Count <= SharedComponentData.Capacity && Shared.Count > 0) || (Changed.Count <= ChangedFilter.Capacity && Changed.Count > 0) || UseOrderFiltering);
+            if (Shared.Count < 0 || Shared.Count > SharedComponentData.Capacity)
+                throw new ArgumentOutOfRangeException($"Shared.Count {Shared.Count} is out of range [0..{SharedComponentData.Capacity}]");
+            if (Changed.Count < 0 || Changed.Count > ChangedFilter.Capacity)
+                throw new ArgumentOutOfRangeException($"Changed.Count {Changed.Count} is out of range [0..{ChangedFilter.Capacity}]");
         }
-
-#endif
     }
 
     /// <summary>
@@ -69,6 +66,11 @@ namespace Unity.Entities
         internal EntityQueryFilter m_Filter;
         internal readonly uint m_GlobalSystemVersion;
 
+        ArchetypeChunk* m_BatchScratchMemory;
+
+        int m_CurrentBatchIndexInChunk;
+        int m_CurrentChunkBatchTotal;
+
         internal MatchingArchetype* CurrentMatchingArchetype
         {
             get
@@ -78,7 +80,7 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckOutOfBoundsCurrentMatchingArchetype()
         {
             if (m_CurrentArchetypeIndex < 0 || m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
@@ -94,7 +96,7 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckOutOfBoundsCurrentChunk()
         {
             if (m_CurrentChunkInArchetypeIndex >= CurrentArchetype->Chunks.Count)
@@ -114,6 +116,11 @@ namespace Unity.Entities
         {
             get
             {
+                if (m_CurrentBatchIndexInChunk >= 0)
+                {
+                    return m_BatchScratchMemory[m_CurrentBatchIndexInChunk];
+                }
+
                 return new ArchetypeChunk
                 {
                     m_Chunk = CurrentChunk,
@@ -122,8 +129,12 @@ namespace Unity.Entities
             }
         }
 
-        internal ArchetypeChunkIterator(UnsafeMatchingArchetypePtrList match, ComponentDependencyManager* safetyManager, uint globalSystemVersion,
-                                        ref EntityQueryFilter filter)
+        internal ArchetypeChunkIterator(
+            UnsafeMatchingArchetypePtrList match,
+            ComponentDependencyManager* safetyManager,
+            uint globalSystemVersion,
+            ref EntityQueryFilter filter,
+            Allocator batchScratchMemoryAllocator)
         {
             m_MatchingArchetypeList = match;
             m_CurrentArchetypeIndex = 0;
@@ -133,6 +144,10 @@ namespace Unity.Entities
             m_Filter = filter;
             m_GlobalSystemVersion = globalSystemVersion;
             m_SafetyManager = safetyManager;
+
+            m_BatchScratchMemory = (ArchetypeChunk*)Memory.Unmanaged.Allocate(sizeof(ArchetypeChunk) * 1024, 8, batchScratchMemoryAllocator);;
+            m_CurrentBatchIndexInChunk = -1;
+            m_CurrentChunkBatchTotal = 0;
         }
 
         /// <summary>
@@ -147,8 +162,14 @@ namespace Unity.Entities
                 if (m_CurrentArchetypeIndex >= m_MatchingArchetypeList.Length)
                     return false;
 
+                // if we are dealing with a batched chunk, simply move to the next batch
+                if (m_CurrentBatchIndexInChunk >= 0 && ++m_CurrentBatchIndexInChunk < m_CurrentChunkBatchTotal)
+                    return true;
+
                 // increment chunk index
                 m_CurrentChunkInArchetypeIndex++;
+                m_CurrentBatchIndexInChunk = -1;
+                m_CurrentChunkBatchTotal = 0;
 
                 // if we've reached the end of the chunk list for this archetype...
                 if (m_CurrentChunkInArchetypeIndex >= CurrentArchetype->Chunks.Count)
@@ -159,11 +180,31 @@ namespace Unity.Entities
                     continue;
                 }
 
-                // if the current chunk does not match the filter...
+                // if the current chunk does not match the filter, move on to the next chunk
                 if (!CurrentMatchingArchetype->ChunkMatchesFilter(m_CurrentChunkInArchetypeIndex, ref m_Filter))
-                {
-                    // recurse
                     continue;
+
+                var chunkRequiresBatching = ChunkIterationUtility.DoesChunkRequireBatching(
+                        CurrentChunk,
+                        CurrentMatchingArchetype,
+                        out var skipChunk);
+
+                // if enabled bits tell us to skip this chunk, recurse
+                if (skipChunk)
+                    continue;
+
+                // if we need to batch the current chunk, perform the batching now and cache the result
+                if (chunkRequiresBatching)
+                {
+                    ChunkIterationUtility.FindBatchesForChunk(
+                        CurrentChunk,
+                        CurrentMatchingArchetype,
+                        m_MatchingArchetypeList.entityComponentStore,
+                        m_BatchScratchMemory,
+                        out m_CurrentChunkBatchTotal);
+                    if (m_CurrentChunkBatchTotal == 0)
+                        continue; // no batches in the current chunk; move on to the next one
+                    m_CurrentBatchIndexInChunk = 0;
                 }
 
                 // Aggregate the entity index
@@ -196,7 +237,7 @@ namespace Unity.Entities
         {
             get
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 var dummy = CurrentChunk; // this line throws an exception if we're outside the valid range of chunks in the iterator
 #endif
                 return m_CurrentChunkFirstEntityIndexInQuery;

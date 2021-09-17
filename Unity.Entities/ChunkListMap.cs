@@ -35,8 +35,8 @@ namespace Unity.Entities
             return result;
         }
 
-        private UnsafeUintList hashes;
-        private UnsafeChunkPtrList chunks;
+        private UnsafeList<uint> hashes;
+        private UnsafePtrList<Chunk> chunks;
 
         private int emptyNodes;
         private int skipNodes;
@@ -85,10 +85,10 @@ namespace Unity.Entities
                 count = MinimumSize;
             Assert.IsTrue(0 == (count & (count - 1)));
 
-            hashes = new UnsafeUintList(count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            hashes = new UnsafeList<uint>(count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             hashes.Resize(count);
 
-            chunks = new UnsafeChunkPtrList(count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            chunks = new UnsafePtrList<Chunk>(count, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             chunks.Resize(count);
 
             emptyNodes = count;
@@ -231,8 +231,8 @@ namespace Unity.Entities
             return result;
         }
 
-        public UnsafeUintList hashes;
-        public UnsafeArchetypePtrList archetypes;
+        public UnsafeList<uint> hashes;
+        public UnsafePtrList<Archetype> archetypes;
         public int emptyNodes;
         public int skipNodes;
 
@@ -280,10 +280,10 @@ namespace Unity.Entities
                 count = MinimumSize;
             Assert.IsTrue(0 == (count & (count - 1)));
 
-            hashes = new UnsafeUintList(count, Allocator.Persistent);
+            hashes = new UnsafeList<uint>(count, Allocator.Persistent);
             hashes.Resize(count, NativeArrayOptions.ClearMemory);
 
-            archetypes = new UnsafeArchetypePtrList(count, Allocator.Persistent);
+            archetypes = new UnsafePtrList<Archetype>(count, Allocator.Persistent);
             archetypes.Resize(count);
 
             emptyNodes = count;

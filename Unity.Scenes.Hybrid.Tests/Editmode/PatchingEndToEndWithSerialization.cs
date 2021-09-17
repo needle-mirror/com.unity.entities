@@ -24,7 +24,7 @@ public class PatchingEndToEndWithSerialization : EntityDifferTestFixture
         }
     }
 
-    static LiveLinkChangeSet SerializeAndDeserialize(LiveLinkChangeSet srcChange)
+    static LiveConversionChangeSet SerializeAndDeserialize(LiveConversionChangeSet srcChange)
     {
         var resolver = new GlobalAssetObjectResolver();
 
@@ -41,10 +41,10 @@ public class PatchingEndToEndWithSerialization : EntityDifferTestFixture
         }
 
         // Deserialize
-        LiveLinkChangeSet changeSet;
+        LiveConversionChangeSet changeSet;
         try
         {
-            changeSet = LiveLinkChangeSet.Deserialize(resourcePacket, resolver);
+            changeSet = LiveConversionChangeSet.Deserialize(resourcePacket, resolver);
         }
         finally
         {
@@ -55,7 +55,7 @@ public class PatchingEndToEndWithSerialization : EntityDifferTestFixture
         return changeSet;
     }
 
-    static void AssertChangeSetsAreEqual(LiveLinkChangeSet srcChange, LiveLinkChangeSet dstChange)
+    static void AssertChangeSetsAreEqual(LiveConversionChangeSet srcChange, LiveConversionChangeSet dstChange)
     {
         Assert.AreEqual(srcChange.SceneName, dstChange.SceneName);
         Assert.AreEqual(srcChange.UnloadAllPreviousEntities, dstChange.UnloadAllPreviousEntities);
@@ -87,7 +87,7 @@ public class PatchingEndToEndWithSerialization : EntityDifferTestFixture
 
             using (var changes = differ.GetChanges(options, Allocator.TempJob))
             {
-                var srcChange = new LiveLinkChangeSet
+                var srcChange = new LiveConversionChangeSet
                 {
                     Changes = changes.ForwardChangeSet,
                     SceneName = "Boing",
@@ -128,7 +128,7 @@ public class PatchingEndToEndWithSerialization : EntityDifferTestFixture
                 modifiedTypeHash.StableTypeHash += 1;
                 typeHashes[0] = modifiedTypeHash;
 
-                var srcChange = new LiveLinkChangeSet
+                var srcChange = new LiveConversionChangeSet
                 {
                     Changes = changes.ForwardChangeSet
                 };
@@ -168,7 +168,7 @@ public class PatchingEndToEndWithSerialization : EntityDifferTestFixture
 
             using (var changes = differ.GetChanges(options, Allocator.TempJob))
             {
-                var srcChange = new LiveLinkChangeSet
+                var srcChange = new LiveConversionChangeSet
                 {
                     Changes = changes.ForwardChangeSet,
                     SceneName = "Boing",

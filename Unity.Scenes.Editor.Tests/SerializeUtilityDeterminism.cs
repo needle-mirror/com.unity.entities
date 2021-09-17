@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 using Unity.Entities.Tests;
+using Unity.Collections.NotBurstCompatible;
 
 namespace Unity.Scenes.Tests
 {
@@ -18,10 +19,10 @@ namespace Unity.Scenes.Tests
         {
             if (mode == Mode.Binary)
             {
-                using (var writer = new TestBinaryWriter())
+                using (var writer = new TestBinaryWriter(manager.World.UpdateAllocator.ToAllocator))
                 {
                     SerializeUtility.SerializeWorld(manager, writer);
-                    return writer.content.ToArray();
+                    return writer.content.ToArrayNBC();
                 }
             }
             else

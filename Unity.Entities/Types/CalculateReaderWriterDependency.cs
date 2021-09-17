@@ -6,7 +6,7 @@ namespace Unity.Entities
 {
     internal static class CalculateReaderWriterDependency
     {
-        public static bool Add(ComponentType type, ref UnsafeIntList reading, ref UnsafeIntList writing)
+        public static bool Add(ComponentType type, ref UnsafeList<int> reading, ref UnsafeList<int> writing)
         {
             Assert.IsFalse(type == ComponentType.ReadWrite<Entity>());
 
@@ -19,7 +19,7 @@ namespace Unity.Entities
                 return AddWriterTypeIndex(type.TypeIndex, ref reading, ref writing);
         }
 
-        public static bool AddReaderTypeIndex(int typeIndex, ref UnsafeIntList reading, ref UnsafeIntList writing)
+        public static bool AddReaderTypeIndex(int typeIndex, ref UnsafeList<int> reading, ref UnsafeList<int> writing)
         {
             if (reading.Contains(typeIndex))
                 return false;
@@ -30,7 +30,7 @@ namespace Unity.Entities
             return true;
         }
 
-        public static bool AddWriterTypeIndex(int typeIndex, ref UnsafeIntList reading, ref UnsafeIntList writing)
+        public static bool AddWriterTypeIndex(int typeIndex, ref UnsafeList<int> reading, ref UnsafeList<int> writing)
         {
             if (writing.Contains(typeIndex))
                 return false;

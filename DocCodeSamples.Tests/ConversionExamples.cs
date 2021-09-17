@@ -211,7 +211,7 @@ public class MeshReference : MonoBehaviour, IConvertGameObjectToEntity
 
 #region DependencyOnName
 public struct NameComponent : IComponentData {
-    public Unity.Collections.FixedString32 Name;
+    public Unity.Collections.FixedString32Bytes Name;
 }
 
 [ConverterVersion("unity", 1)]
@@ -328,11 +328,11 @@ public class GetEntityReference : MonoBehaviour, IConvertGameObjectToEntity
 #endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-namespace docnamespace_HybridComponent
+namespace docnamespace_CompanionComponent
 {
     using Doohickey = UnityEngine.Camera;
 
-    #region HybridComponent_ConversionSystem
+    #region CompanionComponent_ConversionSystem
     [ConverterVersion("unity", 1)]
     public class DoohickeyConversionSystem : GameObjectConversionSystem
     {
@@ -340,7 +340,8 @@ namespace docnamespace_HybridComponent
         {
             Entities.ForEach((Doohickey doohickey) =>
             {
-                AddHybridComponent(doohickey);
+                var entity = GetPrimaryEntity(doohickey);
+                DstEntityManager.AddComponentObject(entity, doohickey);
             });
         }
     }

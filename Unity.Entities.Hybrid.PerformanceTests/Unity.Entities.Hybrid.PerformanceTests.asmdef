@@ -18,7 +18,9 @@
         "Unity.Entities.Hybrid.EndToEnd.Tests",
         "Unity.Scenes",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "Unity.Scenes.Editor",
+        "Unity.Scenes.Editor.Tests"
     ],
     "includePlatforms": [
         "Editor"

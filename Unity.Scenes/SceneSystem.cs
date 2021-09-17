@@ -3,6 +3,7 @@ using System.IO;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Entities.Serialization;
 using UnityEngine;
 #if !UNITY_DOTSRUNTIME
 using UnityEngine.SceneManagement;
@@ -18,12 +19,6 @@ namespace Unity.Scenes
     [UpdateInGroup(typeof(SceneSystemGroup))]
     public class SceneSystem : ComponentSystem
     {
-        public const string k_SceneInfoFileName = "catalog.bin";
-        static internal string GetSceneInfoPath()
-        {
-            return $"{EntityScenesPaths.StreamingAssetsPath}/{k_SceneInfoFileName}";
-        }
-
         /// <summary>
         /// Parameters for loading scenes.
         /// </summary>
@@ -40,6 +35,13 @@ namespace Unity.Scenes
 #endif
         }
 
+        internal RequestSceneLoaded CreateRequestSceneLoaded(LoadParameters loadParameters)
+        {
+            var requestSceneLoaded = new RequestSceneLoaded { LoadFlags = loadParameters.Flags};
+
+            return requestSceneLoaded;
+        }
+
         private EntityQuery _unloadSceneQuery;
         BlobAssetReference<ResourceCatalogData> catalogData;
 
@@ -50,17 +52,26 @@ namespace Unity.Scenes
         }
 #endif
 
+        private string _sceneLoadDir;
+        internal string SceneLoadDir => _sceneLoadDir;
+
         protected override void OnCreate()
         {
+#if UNITY_DOTSRUNTIME
+            _sceneLoadDir = "Data";
+#else
+            _sceneLoadDir = Application.streamingAssetsPath;
+#endif
+
             _unloadSceneQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] {ComponentType.ReadWrite<SceneSectionStreamingSystem.StreamingState>()},
                 None = new[] { ComponentType.ReadOnly<SceneEntityReference>() }
             });
-            var sceneInfoPath = GetSceneInfoPath();
 
-#if !UNITY_DOTSRUNTIME
-            if (File.Exists(sceneInfoPath))
+#if !UNITY_DOTSRUNTIME && !UNITY_EDITOR
+            var sceneInfoPath = EntityScenesPaths.GetSceneInfoPath(_sceneLoadDir);
+            if (FileUtilityHybrid.FileExists(sceneInfoPath))
             {
                 if (!BlobAssetReference<ResourceCatalogData>.TryRead(sceneInfoPath, ResourceCatalogData.CurrentFileFormatVersion, out catalogData))
                 {
@@ -68,15 +79,11 @@ namespace Unity.Scenes
                     return;
                 }
 
-                //if running in LiveLink mode, the initial scenes list is sent from the editor.  otherwise use the flags in the scene data.
-                if (!LiveLinkUtility.LiveLinkEnabled)
+                for (int i = 1; i < catalogData.Value.resources.Length; i++)
                 {
-                    for (int i = 1; i < catalogData.Value.resources.Length; i++)
-                    {
-                        if (catalogData.Value.resources[i].ResourceType == ResourceMetaData.Type.Scene &&
-                            (catalogData.Value.resources[i].ResourceFlags & ResourceMetaData.Flags.AutoLoad) == ResourceMetaData.Flags.AutoLoad)
-                            LoadSceneAsync(catalogData.Value.resources[i].ResourceId, new LoadParameters() { Flags = SceneLoadFlags.LoadAsGOScene});
-                    }
+                    if (catalogData.Value.resources[i].ResourceType == ResourceMetaData.Type.Scene &&
+                        (catalogData.Value.resources[i].ResourceFlags & ResourceMetaData.Flags.AutoLoad) == ResourceMetaData.Flags.AutoLoad)
+                        LoadSceneAsync(catalogData.Value.resources[i].ResourceId, new LoadParameters() { Flags = SceneLoadFlags.LoadAsGOScene});
                 }
             }
 #endif
@@ -162,11 +169,35 @@ namespace Unity.Scenes
         public Hash128 BuildConfigurationGUID { get; set; }
 
         /// <summary>
-        /// Load a scene by its asset GUID.
+        /// Load a scene by its weak reference id.
         /// </summary>
-        /// <param name="sceneGUID">The guid of the scene.</param>
+        /// <param name="sceneReferenceId">The weak asset reference to the scene.</param>
         /// <param name="parameters">The load parameters for the scene.</param>
         /// <returns>An entity representing the loading state of the scene.</returns>
+        public Entity LoadSceneAsync(EntitySceneReference sceneReferenceId, LoadParameters parameters = default)
+        {
+            return LoadSceneAsync(sceneReferenceId.SceneId.AssetId, parameters);
+        }
+
+        /// <summary>
+        /// Load a prefab by its weak reference id.
+        /// A PrefabRoot component is added to the returned entity when the load completes.
+        /// </summary>
+        /// <param name="sceneReferenceId">The weak asset reference to the prefab.</param>
+        /// <param name="parameters">The load parameters for the prefab.</param>
+        /// <returns>An entity representing the loading state of the prefab.</returns>
+        public Entity LoadPrefabAsync(EntityPrefabReference prefabReferenceId, LoadParameters parameters = default)
+        {
+            return LoadSceneAsync(prefabReferenceId.PrefabId.AssetId, parameters);
+        }
+
+        /// <summary>
+        /// Load a scene or prefab by its asset GUID.
+        /// When loading a prefab a PrefabRoot component is added to the scene entity when the load completes.
+        /// </summary>
+        /// <param name="sceneGUID">The guid of the scene or prefab.</param>
+        /// <param name="parameters">The load parameters for the scene or prefab.</param>
+        /// <returns>An entity representing the loading state of the scene or prefab.</returns>
         public Entity LoadSceneAsync(Hash128 sceneGUID, LoadParameters parameters = default)
         {
             if (!sceneGUID.IsValid)
@@ -203,7 +234,8 @@ namespace Unity.Scenes
 
         void LoadEntitySceneAsync(Entity sceneEntity, LoadParameters parameters)
         {
-            var requestSceneLoaded = new RequestSceneLoaded { LoadFlags = parameters.Flags};
+            var requestSceneLoaded = CreateRequestSceneLoaded(parameters);
+
             EntityManager.AddComponentData(sceneEntity, requestSceneLoaded);
 
             if (parameters.AutoLoad && EntityManager.HasComponent<ResolvedSectionEntity>(sceneEntity))
@@ -227,7 +259,7 @@ namespace Unity.Scenes
 
         Entity CreateSceneEntity(Hash128 sceneGUID, LoadParameters parameters = default)
         {
-            var requestSceneLoaded = new RequestSceneLoaded { LoadFlags = parameters.Flags};
+            var requestSceneLoaded = CreateRequestSceneLoaded(parameters);
             var sceneEntity = EntityManager.CreateEntity();
             EntityManager.AddComponentData(sceneEntity, new SceneReference {SceneGUID = sceneGUID});
             EntityManager.AddComponentData(sceneEntity, requestSceneLoaded);
@@ -337,14 +369,14 @@ namespace Unity.Scenes
 
 #if !UNITY_DOTSRUNTIME
         /// <summary>
-        /// Find the scene given a guid and no DisableLiveLink component.  This will only return the first matching scene.
+        /// Find the scene given a guid and no DisableLiveConversion component.  This will only return the first matching scene.
         /// </summary>
         /// <param name="sceneGUID">The guid of the scene.</param>
         /// <returns>The entity for the scene.</returns>su
-        internal Entity GetLiveLinkedSceneEntity(Hash128 sceneGUID)
+        internal Entity GetLiveConvertedSceneEntity(Hash128 sceneGUID)
         {
             Entity sceneEntity = Entity.Null;
-            Entities.WithNone<DisableLiveLink>().ForEach((Entity entity, ref SceneReference scene) =>
+            Entities.WithNone<DisableLiveConversion>().ForEach((Entity entity, ref SceneReference scene) =>
             {
                 if (scene.SceneGUID == sceneGUID)
                     sceneEntity = entity;
@@ -366,9 +398,5 @@ namespace Unity.Scenes
                 });
             }
         }
-
-        // Used by LiveLink -- enable once supported
-#if !UNITY_DOTSRUNTIME
-#endif
     }
 }

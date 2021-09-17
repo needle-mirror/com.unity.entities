@@ -20,11 +20,10 @@ namespace Unity.Entities.Tests
             public NativeArray<int> StoredData;
             protected override void OnUpdate()
             {
-                var componentData = m_TestGroup.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+                var componentData = m_TestGroup.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
                 var cd0 = componentData[0].value;
                 var index = StoredData[0] + cd0 + 1;
                 StoredData.Dispose();
-                componentData.Dispose();
 
                 StoredData = new NativeArray<int>(1, Allocator.Temp);
                 StoredData[0] = index;

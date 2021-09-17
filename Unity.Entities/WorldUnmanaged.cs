@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unity.Assertions;
@@ -14,7 +15,7 @@ namespace Unity.Entities
     /// An identifier representing an unmanaged system struct instance in a particular world.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal struct SystemHandleUntyped : IEquatable<SystemHandleUntyped>, IComparable<SystemHandleUntyped>
+    public struct SystemHandleUntyped : IEquatable<SystemHandleUntyped>, IComparable<SystemHandleUntyped>
     {
         internal ushort m_Handle;
         internal ushort m_Version;
@@ -78,7 +79,7 @@ namespace Unity.Entities
     /// <summary>
     /// An identifier representing an unmanaged system struct instance in a particular world.
     /// </summary>
-    internal struct SystemHandle<T> where T : struct, ISystemBase
+    public struct SystemHandle<T> where T : unmanaged, ISystem
     {
         internal SystemHandleUntyped MHandle;
 
@@ -87,6 +88,8 @@ namespace Unity.Entities
             MHandle = new SystemHandleUntyped(slot, version, worldSeqNo);
         }
 
+        public SystemHandleUntyped UntypedHandle => MHandle;
+
         public static implicit operator SystemHandleUntyped(SystemHandle<T> self) => self.MHandle;
     }
 
@@ -94,7 +97,7 @@ namespace Unity.Entities
     /// Allows access by reference to the struct instance backing a system
     /// </summary>
     /// <typeparam name="T">The system struct type</typeparam>
-    internal unsafe ref struct SystemRef<T> where T : struct, ISystemBase
+    public unsafe ref struct SystemRef<T> where T : unmanaged, ISystem
     {
         private void* m_Pointer;
         private SystemHandle<T> m_Handle;
@@ -103,6 +106,12 @@ namespace Unity.Entities
         {
             m_Pointer = p;
             m_Handle = handle;
+        }
+        
+        public void Update(WorldUnmanaged w)
+        {
+            ComponentSystemGroup.UpdateSystem(ref w, m_Handle.UntypedHandle);
+            
         }
 
         /// <summary>
@@ -114,10 +123,14 @@ namespace Unity.Entities
         /// Return a handle that can be stored and resolved against the World in the future to get back to the same struct
         /// </summary>
         public SystemHandle<T> Handle => m_Handle;
+
+        public static implicit operator SystemHandle<T>(SystemRef<T> self) => self.m_Handle;
+        public static implicit operator SystemHandleUntyped(SystemRef<T> self) => self.m_Handle.MHandle;
     }
 
     internal unsafe partial struct WorldUnmanagedImpl
     {
+        internal AllocatorManager.AllocatorHandle m_AllocatorHandle;
         private StateAllocator _stateMemory;
         private UnsafeList<ushort> _pendingDestroys;
         private UnsafeMultiHashMap<long, ushort> _unmanagedSlotByTypeHash;
@@ -125,6 +138,10 @@ namespace Unity.Entities
         public WorldFlags Flags;
         public TimeData CurrentTime;
         public SystemHandleUntyped ExecutingSystem;
+        public RewindableAllocator* UpdateAllocator;
+        internal AllocatorHelper<RewindableAllocator> UpdateAllocatorHelper0;
+        internal AllocatorHelper<RewindableAllocator> UpdateAllocatorHelper1;
+
         /// <summary>
         /// The maximum DeltaTime that will be applied to a World in a single call to Update().
         /// If the actual elapsed time since the previous frame exceeds this value, it will be clamped.
@@ -142,8 +159,9 @@ namespace Unity.Entities
         internal void DisallowGetSystem() => AllowGetSystem = false;
 #endif
 
-        internal WorldUnmanagedImpl(ulong sequenceNumber, WorldFlags flags)
+        internal WorldUnmanagedImpl(ulong sequenceNumber, WorldFlags flags, AllocatorManager.AllocatorHandle allocatorHandle)
         {
+            m_AllocatorHandle = allocatorHandle;
             CurrentTime = default;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AllowGetSystem = true;
@@ -151,16 +169,29 @@ namespace Unity.Entities
             SequenceNumber = sequenceNumber;
             MaximumDeltaTime = 1.0f / 3.0f;
             Flags = flags;
-            _unmanagedSlotByTypeHash = new UnsafeMultiHashMap<long, ushort>(32, Allocator.Persistent);
-            _pendingDestroys = new UnsafeList<ushort>(32, Allocator.Persistent);
+            _unmanagedSlotByTypeHash = new UnsafeMultiHashMap<long, ushort>(32, m_AllocatorHandle);
+            _pendingDestroys = new UnsafeList<ushort>(32, m_AllocatorHandle);
             _stateMemory = default;
             _stateMemory.Init();
             Version = 0;
             ExecutingSystem = default;
+
+            UpdateAllocatorHelper0 = new AllocatorHelper<RewindableAllocator>(m_AllocatorHandle);
+            UpdateAllocatorHelper0.Allocator.Initialize(128 * 1024);
+            UpdateAllocatorHelper1 = new AllocatorHelper<RewindableAllocator>(m_AllocatorHandle);
+            UpdateAllocatorHelper1.Allocator.Initialize(128 * 1024);
+
+            UpdateAllocator = (RewindableAllocator*)UnsafeUtility.AddressOf<RewindableAllocator>(ref UpdateAllocatorHelper0.Allocator);
         }
 
         internal void Dispose()
         {
+            UpdateAllocatorHelper0.Allocator.Dispose();
+            UpdateAllocatorHelper1.Allocator.Dispose();
+
+            UpdateAllocatorHelper0.Dispose();
+            UpdateAllocatorHelper1.Dispose();
+
             _unmanagedSlotByTypeHash.Dispose();
             _pendingDestroys.Dispose();
             _stateMemory.Dispose();
@@ -181,7 +212,10 @@ namespace Unity.Entities
             {
                 try
                 {
-                    SystemBaseRegistry.CallOnStopRunning(statePtr);
+                    if (statePtr->PreviouslyEnabled)
+                    {
+                        SystemBaseRegistry.CallOnStopRunning(statePtr);
+                    }
                     SystemBaseRegistry.CallOnDestroy(statePtr);
                 }
                 catch (Exception ex)
@@ -221,7 +255,7 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void FailBecauseSystemDoesNotExist()
         {
             throw new InvalidOperationException("System does not exist");
@@ -238,7 +272,7 @@ namespace Unity.Entities
             return default;
         }
 
-        internal SystemRef<T> GetExistingUnmanagedSystem<T>() where T : struct, ISystemBase
+        internal SystemRef<T> GetExistingUnmanagedSystem<T>() where T : unmanaged, ISystem
         {
             if (_unmanagedSlotByTypeHash.TryGetFirstValue(BurstRuntime.GetHashCode64<T>(), out ushort handle, out _))
             {
@@ -246,6 +280,17 @@ namespace Unity.Entities
                 var sysHandle = new SystemHandle<T>(handle, block->Version[subIndex], (uint) SequenceNumber);
                 void* ptr = (void*)(IntPtr)block->SystemPointer[subIndex];
                 return new SystemRef<T>(ptr, sysHandle);
+            }
+            FailBecauseSystemDoesNotExist();
+            return default;
+        }
+
+        internal SystemHandleUntyped GetExistingUnmanagedSystem(Type t)
+        {
+            var hash = BurstRuntime.GetHashCode64(t);
+            if (_unmanagedSlotByTypeHash.ContainsKey(hash))
+            {
+                return GetExistingUnmanagedSystem(hash);
             }
             FailBecauseSystemDoesNotExist();
             return default;
@@ -263,7 +308,7 @@ namespace Unity.Entities
             _pendingDestroys.Clear();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckSysHandleVersion(SystemHandleUntyped sysHandle)
         {
             if (sysHandle.m_Version == 0)
@@ -325,9 +370,9 @@ namespace Unity.Entities
             return statePtr;
         }
 
-        internal SystemRef<T> CreateUnmanagedSystem<T>(World self) where T : struct, ISystemBase
+        internal SystemRef<T> CreateUnmanagedSystem<T>(World self, bool callOnCreate) where T : unmanaged, ISystem
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (!UnsafeUtility.IsUnmanaged<T>())
             {
                 throw new ArgumentException($"type {typeof(T)} cannot contain managed systems");
@@ -338,15 +383,10 @@ namespace Unity.Entities
             void* systemPtr = null;
             ushort handle = AllocSlot(self, UnsafeUtility.SizeOf<T>(), typeHash, out var statePtr, out systemPtr, out var version);
 
-            try
+            if (callOnCreate)
             {
-                SystemBaseRegistry.CallOnCreate(statePtr);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogException(ex);
-                FreeSlot(handle);
-                throw;
+                CallSystemOnCreate(handle, statePtr);
+                CallSystemOnCreateForCompiler(handle, statePtr);
             }
 
             _unmanagedSlotByTypeHash.Add(typeHash, handle);
@@ -354,18 +394,24 @@ namespace Unity.Entities
             return new SystemRef<T>(systemPtr, new SystemHandle<T>(handle, version, (uint)SequenceNumber));
         }
 
-#if !NET_DOTS && !UNITY_DOTSRUNTIME
-        private SystemHandleUntyped CreateUnmanagedSystem(World self, Type t, long typeHash)
+        private SystemHandleUntyped CreateUnmanagedSystem(World self, Type t, long typeHash, bool callOnCreate)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!UnsafeUtility.IsUnmanaged(t))
-            {
-                throw new ArgumentException($"type {t} cannot contain managed systems");
-            }
-#endif
             void* systemPtr = null;
-            ushort handle = AllocSlot(self, UnsafeUtility.SizeOf(t), typeHash, out var statePtr, out systemPtr, out var version);
+            ushort handle = AllocSlot(self, TypeManager.GetSystemTypeSize(t), typeHash, out var statePtr, out systemPtr, out var version);
 
+            if (callOnCreate)
+            {
+                CallSystemOnCreate(handle, statePtr);
+                CallSystemOnCreateForCompiler(handle, statePtr);
+            }
+
+            _unmanagedSlotByTypeHash.Add(typeHash, handle);
+
+            return new SystemHandleUntyped(handle, version, (uint)SequenceNumber);
+        }
+
+        private void CallSystemOnCreate(ushort handle, SystemState* statePtr)
+        {
             try
             {
                 SystemBaseRegistry.CallOnCreate(statePtr);
@@ -376,14 +422,23 @@ namespace Unity.Entities
                 FreeSlot(handle);
                 throw;
             }
-
-            _unmanagedSlotByTypeHash.Add(typeHash, handle);
-
-            return new SystemHandleUntyped(handle, version, (uint)SequenceNumber);
         }
-#endif
 
-        internal SystemRef<T> GetOrCreateUnmanagedSystem<T>(World self) where T : struct, ISystemBase
+        void CallSystemOnCreateForCompiler(ushort handle, SystemState* statePtr)
+        {
+            try
+            {
+                SystemBaseRegistry.CallOnCreateForCompiler(statePtr);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+                FreeSlot(handle);
+                throw;
+            }
+        }
+
+        internal SystemRef<T> GetOrCreateUnmanagedSystem<T>(World self, bool callOnCreate = true) where T : unmanaged, ISystem
         {
             if (_unmanagedSlotByTypeHash.ContainsKey(BurstRuntime.GetHashCode64<T>()))
             {
@@ -391,30 +446,28 @@ namespace Unity.Entities
             }
             else
             {
-                return CreateUnmanagedSystem<T>(self);
+                return CreateUnmanagedSystem<T>(self, callOnCreate);
             }
         }
 
-#if !NET_DOTS && !UNITY_DOTSRUNTIME
-        internal SystemHandleUntyped GetOrCreateUnmanagedSystem(World self, Type t)
+        internal SystemHandleUntyped GetOrCreateUnmanagedSystem(World self, Type t, bool callOnCreate = true)
         {
-            long hash = BurstRuntime.GetHashCode64(t);
+            long hash = TypeManager.GetSystemTypeHash(t);
             if (_unmanagedSlotByTypeHash.ContainsKey(hash))
             {
                 return GetExistingUnmanagedSystem(hash);
             }
             else
             {
-                return CreateUnmanagedSystem(self, t, hash);
+                return CreateUnmanagedSystem(self, t, hash, callOnCreate);
             }
         }
 
-        internal SystemHandleUntyped CreateUnmanagedSystem(World self, Type t)
+        internal SystemHandleUntyped CreateUnmanagedSystem(World self, Type t, bool callOnCreate)
         {
-            long hash = BurstRuntime.GetHashCode64(t);
-            return CreateUnmanagedSystem(self, t, hash);
+            long hash = TypeManager.GetSystemTypeHash(t);
+            return CreateUnmanagedSystem(self, t, hash, callOnCreate);
         }
-#endif
 
         internal SystemState* ResolveSystemState(SystemHandleUntyped id)
         {
@@ -438,6 +491,45 @@ namespace Unity.Entities
         }
 
         internal bool IsSystemValid(SystemHandleUntyped id) => ResolveSystemState(id) != null;
+
+        internal void ResetUpdateAllocator()
+        {
+            var UpdateAllocator0 = (RewindableAllocator*)UnsafeUtility.AddressOf<RewindableAllocator>(ref UpdateAllocatorHelper0.Allocator);
+            var UpdateAllocator1 = (RewindableAllocator*)UnsafeUtility.AddressOf<RewindableAllocator>(ref UpdateAllocatorHelper1.Allocator);
+            UpdateAllocator = (UpdateAllocator == UpdateAllocator0) ? UpdateAllocator1 : UpdateAllocator0;
+            UpdateAllocator->Rewind();
+        }
+
+        internal NativeArray<IntPtr> GetAllUnmanagedSystemStates(Allocator a)
+        {
+            int totalCount = 0;
+            for (int i = 0; i < 64; ++i)
+            {
+                var blockPtr = _stateMemory.m_Level1 + i;
+                totalCount += math.countbits(~blockPtr->FreeBits);
+            }
+
+            var outputIndex = 0;
+            var result = new NativeArray<IntPtr>(totalCount, a);
+
+            for (int i = 0; i < 64; ++i)
+            {
+                var blockPtr = _stateMemory.m_Level1 + i;
+
+                var allocBits = ~blockPtr->FreeBits;
+
+                while (allocBits != 0)
+                {
+                    int bit = math.tzcnt(allocBits);
+
+                    result[outputIndex++] = (IntPtr) _stateMemory.GetState((ushort)(i * 64 + bit));
+
+                    allocBits &= ~(1ul << bit);
+                }
+            }
+
+            return result;
+        }
     }
 
     [BurstCompatible]
@@ -446,6 +538,8 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private AtomicSafetyHandle m_Safety;
 #endif
+        internal AllocatorManager.AllocatorHandle m_AllocatorHandle;
+
 #if UNITY_2020_2_OR_NEWER
         private WorldUnmanagedImpl* m_Impl;
 #else
@@ -478,22 +572,31 @@ namespace Unity.Entities
         internal void BumpVersion() => GetImpl().BumpVersion();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         internal bool AllowGetSystem => GetImpl().AllowGetSystem;
+
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         internal void DisallowGetSystem() => GetImpl().DisallowGetSystem();
 #endif
 
         internal static readonly SharedStatic<ulong> ms_NextSequenceNumber = SharedStatic<ulong>.GetOrCreate<World>();
 
+        AllocatorHelper<WorldAllocator> m_WorldAllocatorHelper;
+
         [NotBurstCompatible]
-        internal void Create(World world, WorldFlags flags)
+        internal void Create(World world, WorldFlags flags, AllocatorManager.AllocatorHandle backingAllocatorHandle)
         {
-            var ptr = Memory.Unmanaged.Allocate(UnsafeUtility.SizeOf<WorldUnmanagedImpl>(), 16, Allocator.Persistent);
+            m_WorldAllocatorHelper = new AllocatorHelper<WorldAllocator>(backingAllocatorHandle);
+            m_WorldAllocatorHelper.Allocator.Initialize(backingAllocatorHandle);
+            m_AllocatorHandle = m_WorldAllocatorHelper.Allocator.Handle;
+
+            var ptr = m_AllocatorHandle.Allocate(sizeof(WorldUnmanagedImpl), 16, 1);
 #if UNITY_2020_2_OR_NEWER
             m_Impl = (WorldUnmanagedImpl*)ptr;
 #else
             m_Impl = ptr;
 #endif
-            UnsafeUtility.AsRef<WorldUnmanagedImpl>(m_Impl) = new WorldUnmanagedImpl(ms_NextSequenceNumber.Data++, flags);
+            UnsafeUtility.AsRef<WorldUnmanagedImpl>(m_Impl) = new WorldUnmanagedImpl(++ms_NextSequenceNumber.Data, flags, m_AllocatorHandle);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_Safety = AtomicSafetyHandle.Create();
@@ -514,8 +617,12 @@ namespace Unity.Entities
             m_EntityManager.DestroyInstance();
             m_EntityManager = default;
             UnsafeUtility.AsRef<WorldUnmanagedImpl>(m_Impl).Dispose();
-            Memory.Unmanaged.Free(m_Impl, Allocator.Persistent);
+            m_AllocatorHandle.Free(m_Impl, sizeof(WorldUnmanagedImpl), 16, 1);
             m_Impl = null;
+
+            m_WorldAllocatorHelper.Allocator.Dispose();
+            m_WorldAllocatorHelper.Dispose();
+
         }
 
         private ref WorldUnmanagedImpl GetImpl()
@@ -524,6 +631,13 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
 #endif
             return ref UnsafeUtility.AsRef<WorldUnmanagedImpl>(m_Impl);
+        }
+
+        public ref RewindableAllocator UpdateAllocator => ref UnsafeUtility.AsRef<RewindableAllocator>(GetImpl().UpdateAllocator);
+
+        internal void ResetUpdateAllocator()
+        {
+            GetImpl().ResetUpdateAllocator();
         }
 
         [NotBurstCompatible]
@@ -539,22 +653,20 @@ namespace Unity.Entities
             GetImpl().DestroyPendingSystems();
 
         [NotBurstCompatible]
-        internal SystemRef<T> CreateUnmanagedSystem<T>(World self) where T : struct, ISystemBase =>
-            GetImpl().CreateUnmanagedSystem<T>(self);
+        internal SystemRef<T> CreateUnmanagedSystem<T>(World self, bool callOnCreate) where T : unmanaged, ISystem =>
+            GetImpl().CreateUnmanagedSystem<T>(self, callOnCreate);
 
         [NotBurstCompatible]
-        internal SystemRef<T> GetOrCreateUnmanagedSystem<T>(World self) where T : struct, ISystemBase =>
+        internal SystemRef<T> GetOrCreateUnmanagedSystem<T>(World self) where T : unmanaged, ISystem =>
             GetImpl().GetOrCreateUnmanagedSystem<T>(self);
 
-#if !NET_DOTS && !UNITY_DOTSRUNTIME
         [NotBurstCompatible]
         internal SystemHandleUntyped GetOrCreateUnmanagedSystem(World self, Type unmanagedType) =>
             GetImpl().GetOrCreateUnmanagedSystem(self, unmanagedType);
 
         [NotBurstCompatible]
-        internal SystemHandleUntyped CreateUnmanagedSystem(World self, Type unmanagedType) =>
-            GetImpl().CreateUnmanagedSystem(self, unmanagedType);
-#endif
+        internal SystemHandleUntyped CreateUnmanagedSystem(World self, Type unmanagedType, bool callOnCreate) =>
+            GetImpl().CreateUnmanagedSystem(self, unmanagedType, callOnCreate);
 
         [NotBurstCompatible]
         internal void DestroyUnmanagedSystem(SystemHandleUntyped sysHandle) =>
@@ -564,7 +676,7 @@ namespace Unity.Entities
         internal void DestroyManagedSystem(SystemState* state) =>
             GetImpl().DestroyManagedSystem(state);
 
-        internal SystemState* ResolveSystemState(SystemHandleUntyped id) => GetImpl().ResolveSystemState(id);
+        public SystemState* ResolveSystemState(SystemHandleUntyped id) => GetImpl().ResolveSystemState(id);
 
         [NotBurstCompatible]
         internal Type GetTypeOfSystem(SystemHandleUntyped systemHandleUntyped)
@@ -582,28 +694,57 @@ namespace Unity.Entities
             return null;
         }
 
-        // TODO: Make public when ISystemBase is exposed
         [BurstCompatible(GenericTypeArguments = new[]{typeof(BurstCompatibleSystem)})]
-        internal SystemRef<T> GetExistingUnmanagedSystem<T>() where T : struct, ISystemBase =>
+        public SystemRef<T> GetExistingUnmanagedSystem<T>() where T : unmanaged, ISystem =>
             GetImpl().GetExistingUnmanagedSystem<T>();
 
-        // TODO: Make public when ISystemBase is exposed
-        internal bool IsSystemValid(SystemHandleUntyped id) => GetImpl().IsSystemValid(id);
+        [NotBurstCompatible]
+        public SystemHandleUntyped GetExistingUnmanagedSystem(Type unmanagedType) =>
+            GetImpl().GetExistingUnmanagedSystem(unmanagedType);
 
-        // TODO: Make public when ISystemBase is exposed
+        public bool IsSystemValid(SystemHandleUntyped id) => GetImpl().IsSystemValid(id);
+
         [BurstCompatible(GenericTypeArguments = new[]{typeof(BurstCompatibleSystem)})]
-        internal ref T ResolveSystem<T>(SystemHandle<T> systemHandle) where T : struct, ISystemBase
+        public ref T ResolveSystem<T>(SystemHandle<T> systemHandle) where T : unmanaged, ISystem
         {
             var ptr = ResolveSystemState(systemHandle);
             CheckSystemReference(ptr);
             return ref UnsafeUtility.AsRef<T>(ptr->m_SystemPtr);
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void CheckSystemReference(SystemState* ptr)
         {
             if (ptr == null)
                 throw new InvalidOperationException("System reference is not valid");
+        }
+
+        internal NativeArray<IntPtr> GetAllUnmanagedSystemStates(Allocator a)
+        {
+            return GetImpl().GetAllUnmanagedSystemStates(a);
+        }
+
+        [NotBurstCompatible]
+        internal NativeArray<SystemHandleUntyped> GetOrCreateUnmanagedSystems(World world, IList<Type> unmanagedTypes)
+        {
+            int count = unmanagedTypes.Count;
+            var result = new NativeArray<SystemHandleUntyped>(count, Allocator.Temp);
+
+            ref var impl = ref GetImpl();
+
+            for (int i = 0; i < count; ++i)
+            {
+                result[i] = impl.GetOrCreateUnmanagedSystem(world, unmanagedTypes[i], false);
+            }
+
+            for (int i = 0; i < count; ++i)
+            {
+                var systemState = ResolveSystemState(result[i]);
+                SystemBaseRegistry.CallOnCreate(systemState);
+                SystemBaseRegistry.CallOnCreateForCompiler(systemState);
+            }
+
+            return result;
         }
     }
 }

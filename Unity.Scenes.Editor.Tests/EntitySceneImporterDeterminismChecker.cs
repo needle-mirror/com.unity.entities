@@ -34,7 +34,7 @@ namespace Unity.Scenes.Tests
                 Assert.AreEqual(firstPaths.Length, paths.Length);
                 for (int j = 0; j != firstPaths.Length; j++)
                 {
-                    Assert.AreEqual(File.ReadAllBytes(firstPaths[j]), File.ReadAllBytes(paths[j]));
+                    Assert.AreEqual(File.ReadAllBytes(firstPaths[j]), File.ReadAllBytes(paths[j]), $"Comparing '{Path.GetFileName(firstPaths[j])}' and '{Path.GetFileName(paths[j])}'");
                 }
             }
         }

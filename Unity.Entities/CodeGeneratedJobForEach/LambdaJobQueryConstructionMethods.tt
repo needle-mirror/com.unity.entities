@@ -7,6 +7,7 @@
 <#@ import namespace="System.Text" #>
 <#@ output extension=".gen.cs" #>
 using System;
+using Unity.Collections;
 using Unity.Entities.CodeGeneratedJobForEach;
 using static Unity.Entities.LambdaJobDescriptionConstructionMethods;
 
@@ -46,9 +47,10 @@ foreach(var type in types)
         //TODO: Deprecate and rename to WithFilter for consistency
         public static <#=type#> WithSharedComponentFilter<T>(this <#=type#> description, [AllowDynamicValue] T sharedComponent) where T : struct, ISharedComponentData => description;
         public static <#=type#> WithStoreEntityQueryInField(this <#=type#> description, [AllowDynamicValue] ref EntityQuery query) => description;
-#if ROSLYN_SOURCEGEN_ENABLED
+#if !SYSTEM_SOURCEGEN_DISABLED
+        public static <#=type#> WithSharedComponentFilter<T1, T2>(this <#=type#> description, [AllowDynamicValue] T1 sharedComponent1, [AllowDynamicValue] T2 sharedComponent2) where T1 : struct, ISharedComponentData where T2 : struct, ISharedComponentData => description;
         public static <#=type#> WithFilter(this <#=type#> description, [AllowDynamicValue] NativeArray<Entity> entities) => description;
-#dndif
+#endif
 
 <#
    }

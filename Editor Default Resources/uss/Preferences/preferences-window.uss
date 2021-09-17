@@ -1,0 +1,16 @@
+.preferences-window
+{
+    padding: 10px;
+}
+
+.preferences-window__title
+{
+    padding: 0px;
+    font-size: 20px;
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+}
+
+.preferences-window__settings
+{
+}

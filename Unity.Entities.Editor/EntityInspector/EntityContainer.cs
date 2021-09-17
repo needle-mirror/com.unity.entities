@@ -13,10 +13,12 @@ namespace Unity.Entities
         Component = 1 << 1,
         SharedComponent = 1 << 2,
         ChunkComponent = 1 << 3,
-        HybridComponent = 1 << 4,
+        CompanionComponent = 1 << 4,
+        [Obsolete("Use ComponentPropertyType.CompanionComponent instead.", error: false)]
+        HybridComponent = CompanionComponent,
         Tag = 1 << 5,
         Buffer = 1 << 6,
-        All = Component | SharedComponent | ChunkComponent | HybridComponent | Tag | Buffer
+        All = Component | SharedComponent | ChunkComponent | CompanionComponent | Tag | Buffer
     }
 
     interface IComponentProperty : IProperty<EntityContainer>
@@ -207,7 +209,7 @@ namespace Unity.Entities
             where TComponent : UnityEngine.Object
         {
             protected override bool IsZeroSize { get; } = TypeManager.IsZeroSized(TypeManager.GetTypeIndex<TComponent>());
-            public override ComponentPropertyType Type => IsZeroSize ? ComponentPropertyType.Tag : ComponentPropertyType.HybridComponent;
+            public override ComponentPropertyType Type => IsZeroSize ? ComponentPropertyType.Tag : ComponentPropertyType.CompanionComponent;
 
             public ManagedComponentProperty(int typeIndex, bool isReadOnly) : base(typeIndex, isReadOnly)
             {

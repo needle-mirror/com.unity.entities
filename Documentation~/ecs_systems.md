@@ -25,15 +25,9 @@ Unity ECS provides several types of systems. In general, the systems you write t
 * [ComponentSystemGroup] -- provides nested organization and update order for other systems. Unity ECS creates several Component System Groups by default.
 * [GameObjectConversionSystem] -- converts GameObject-based, in-Editor representations of your game to efficient, entity-based, runtime representations. Game conversion systems run in the Unity Editor.
 
-**Important:** The [ComponentSystem] and [JobComponentSystem] classes, along with [IJobForEach], are being phased out of the DOTS API, but have not been officially deprecated yet. Use [SystemBase] and [Entities.ForEach] instead.
-
-
 [ComponentSystemGroup]: xref:ecs-system-update-order
-[Entities.ForEach]: xref:Unity.Entities.SystemBase.Entities
-[Job.WithCode]: xref:Unity.Entities.SystemBase.Job
 [EntityCommandBufferSystem]: xref:ecs-entity-command-buffer
 [EntityCommandBuffer]: xref:Unity.Entities.EntityCommandBuffer
-[IJobChunk]: xref:Unity.Entities.IJobChunk)
 [OnCreate()]: xref:Unity.Entities.ComponentSystemBase.OnCreate*
 [OnDestroy()]: xref:Unity.Entities.ComponentSystemBase.OnDestroy*
 [OnStartRunning()]: xref:Unity.Entities.ComponentSystemBase.OnStartRunning*
@@ -53,6 +47,14 @@ Unity ECS provides several types of systems. In general, the systems you write t
 [system groups]: system_update_order.md#groups
 [system attributes]: system_update_order.md#attributes
 [ComponentSystem]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entity_iteration_foreach.html
-[IJobForEach]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entity_iteration_job.html
-[JobComponentSystem]: https://docs.unity3d.com/Packages/com.unity.entities@0.5/manual/entities_job_foreach.html
 
+## Systems in the Editor
+
+In the Editor, the following icons represent the different types of Systems. You’ll see this when you use the specific [Entities windows and Inspectors](editor-workflows.md).
+
+|**Icon**|**Represents**|
+|---|---|
+|![](images/editor-system-group.png)| A System group|
+|![](images/editor-system.png)| A System|
+|![](images/editor-system-start-step.png)| An Entity Command Buffer System that is set to execute at the beginning of a System Group using the [OrderFirst](xref:Unity.Entities.UpdateInGroupAttribute.OrderFirst) argument.|
+|![](images/editor-system-end-step.png)| An Entity Command Buffer System that is set to execute at the end of a System Group using the [OrderLast]((xref:Unity.Entities.UpdateInGroupAttribute.OrderLast)) argument.|

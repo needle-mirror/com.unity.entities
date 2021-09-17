@@ -33,7 +33,8 @@ namespace Unity.Transforms
 
     // CompositeScale = ScalePivotTranslation * ScalePivot * Scale * ScalePivot^-1
     // (or) CompositeScale = ScalePivotTranslation * ScalePivot * NonUniformScale * ScalePivot^-1
-    public abstract class CompositeScaleSystem : JobComponentSystem
+    [BurstCompile]
+    public partial struct CompositeScaleSystem : ISystem
     {
         private EntityQuery m_Query;
 
@@ -271,9 +272,11 @@ namespace Unity.Transforms
             }
         }
 
-        protected override void OnCreate()
+        //burst disabled pending burstable entityquerydesc
+        //[BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc
+            m_Query = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -290,13 +293,20 @@ namespace Unity.Transforms
             });
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
         {
-            var compositeScaleType = GetComponentTypeHandle<CompositeScale>(false);
-            var scaleType = GetComponentTypeHandle<Scale>(true);
-            var scaleAxisType = GetComponentTypeHandle<NonUniformScale>(true);
-            var scalePivotTranslationType = GetComponentTypeHandle<ScalePivotTranslation>(true);
-            var scalePivotType = GetComponentTypeHandle<ScalePivot>(true);
+        }
+#if !UNITY_DOTSRUNTIME
+        [BurstCompile]
+#endif
+        public void OnUpdate(ref SystemState state)
+        {
+            var compositeScaleType = state.GetComponentTypeHandle<CompositeScale>(false);
+            var scaleType = state.GetComponentTypeHandle<Scale>(true);
+            var scaleAxisType = state.GetComponentTypeHandle<NonUniformScale>(true);
+            var scalePivotTranslationType = state.GetComponentTypeHandle<ScalePivotTranslation>(true);
+            var scalePivotType = state.GetComponentTypeHandle<ScalePivot>(true);
 
             var toCompositeScaleJob = new ToCompositeScale
             {
@@ -305,10 +315,9 @@ namespace Unity.Transforms
                 ScaleTypeHandle = scaleType,
                 ScalePivotTypeHandle = scalePivotType,
                 ScalePivotTranslationTypeHandle = scalePivotTranslationType,
-                LastSystemVersion = LastSystemVersion
+                LastSystemVersion = state.LastSystemVersion
             };
-            var toCompositeScaleJobHandle = toCompositeScaleJob.ScheduleParallel(m_Query, 1, inputDeps);
-            return toCompositeScaleJobHandle;
+            state.Dependency = toCompositeScaleJob.ScheduleParallel(m_Query, state.Dependency);
         }
     }
 }

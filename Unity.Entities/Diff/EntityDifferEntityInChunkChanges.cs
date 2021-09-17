@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
 namespace Unity.Entities
@@ -28,6 +29,12 @@ namespace Unity.Entities
             public EntityInChunk AfterEntityInChunk;
             public bool CanCompareChunkVersions;
         }
+
+        struct NameModifiedEntity
+        {
+            public EntityGuid EntityGuid;
+            public Entity Entity;
+        }
 #pragma warning restore 649
 
         readonly struct EntityInChunkChanges : IDisposable
@@ -37,6 +44,7 @@ namespace Unity.Entities
             public readonly NativeList<CreatedEntity> CreatedEntities;
             public readonly NativeList<ModifiedEntity> ModifiedEntities;
             public readonly NativeList<DestroyedEntity> DestroyedEntities;
+            public readonly NativeList<NameModifiedEntity> NameModifiedEntities;
 
             public readonly bool IsCreated;
 
@@ -50,6 +58,7 @@ namespace Unity.Entities
                 CreatedEntities = new NativeList<CreatedEntity>(16, allocator);
                 ModifiedEntities = new NativeList<ModifiedEntity>(16, allocator);
                 DestroyedEntities = new NativeList<DestroyedEntity>(16, allocator);
+                NameModifiedEntities = new NativeList<NameModifiedEntity>(16, allocator);
                 IsCreated = true;
             }
 
@@ -58,6 +67,7 @@ namespace Unity.Entities
                 CreatedEntities.Dispose();
                 ModifiedEntities.Dispose();
                 DestroyedEntities.Dispose();
+                NameModifiedEntities.Dispose();
             }
         }
 
@@ -65,6 +75,8 @@ namespace Unity.Entities
         {
             public EntityInChunk EntityInChunk;
             public EntityGuid EntityGuid;
+            public Entity Entity;
+            public int NameIndex;
             public ArchetypeChunkChangeFlags Flags;
         }
 
@@ -77,9 +89,13 @@ namespace Unity.Entities
         struct GatherEntityInChunkWithGuid : IJobParallelFor
         {
             public int EntityGuidTypeIndex;
+            public int EntityTypeIndex;
             [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
             [ReadOnly] public NativeList<ArchetypeChunkChangeFlags> Flags;
             [ReadOnly] public NativeList<int> EntityCounts;
+#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+            [NativeDisableUnsafePtrRestriction, ReadOnly] public EntityName* NameByEntity;
+#endif
             [NativeDisableParallelForRestriction, WriteOnly] public NativeArray<EntityInChunkWithGuid> Entities;
 
             public void Execute(int index)
@@ -91,14 +107,24 @@ namespace Unity.Entities
                 var archetype = chunk->Archetype;
                 var entityGuidIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, EntityGuidTypeIndex);
                 var entityGuidBuffer = (EntityGuid*)(ChunkDataUtility.GetChunkBuffer(chunk) + archetype->Offsets[entityGuidIndexInArchetype]);
+                var entityIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, EntityTypeIndex);
+                var entityBuffer = (Entity*)(ChunkDataUtility.GetChunkBuffer(chunk) + archetype->Offsets[entityIndexInArchetype]);
 
                 var entitiesIndex = startIndex;
                 for (var i = 0; i < chunk->Count; ++i)
                 {
+                    var entityIndex = entityBuffer[i].Index;
+                    int nameIndex = 0;
+
+#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+                    nameIndex = NameByEntity[entityIndex].Index;
+#endif
                     Entities[entitiesIndex++] = new EntityInChunkWithGuid
                     {
-                        EntityInChunk = new EntityInChunk {Chunk = chunk, IndexInChunk = i},
+                        EntityInChunk = new EntityInChunk { Chunk = chunk, IndexInChunk = i },
                         EntityGuid = entityGuidBuffer[i],
+                        Entity = entityBuffer[i],
+                        NameIndex = nameIndex,
                         Flags = flags
                     };
                 }
@@ -120,6 +146,7 @@ namespace Unity.Entities
             [WriteOnly] public NativeList<CreatedEntity> CreatedEntities;
             [WriteOnly] public NativeList<ModifiedEntity> ModifiedEntities;
             [WriteOnly] public NativeList<DestroyedEntity> DestroyedEntities;
+            [WriteOnly] public NativeList<NameModifiedEntity> NameModifiedEntities;
 
             public void Execute()
             {
@@ -150,6 +177,15 @@ namespace Unity.Entities
                             BeforeEntityInChunk = beforeEntity.EntityInChunk,
                             CanCompareChunkVersions = (beforeEntity.Flags & afterEntity.Flags & ArchetypeChunkChangeFlags.Cloned) == ArchetypeChunkChangeFlags.Cloned
                         });
+
+                        if(afterEntity.NameIndex != beforeEntity.NameIndex)
+                        {
+                            NameModifiedEntities.Add(new NameModifiedEntity
+                            {
+                                EntityGuid = afterEntity.EntityGuid,
+                                Entity = afterEntity.Entity
+                            });
+                        }
 
                         afterEntityIndex++;
                         beforeEntityIndex++;
@@ -191,6 +227,7 @@ namespace Unity.Entities
 
         static NativeArray<EntityInChunkWithGuid> GetSortedEntitiesInChunk
         (
+            EntityManager entityManager,
             ArchetypeChunkChangeSet archetypeChunkChangeSet,
             Allocator allocator,
             out JobHandle jobHandle,
@@ -201,9 +238,13 @@ namespace Unity.Entities
             var gatherEntitiesByChunk = new GatherEntityInChunkWithGuid
             {
                 EntityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>(),
+                EntityTypeIndex = TypeManager.GetTypeIndex<Entity>(),
                 Chunks = archetypeChunkChangeSet.Chunks,
                 Flags = archetypeChunkChangeSet.Flags,
                 EntityCounts = archetypeChunkChangeSet.EntityCounts,
+#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+                NameByEntity = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameByEntity,
+#endif
                 Entities = entities
             }.Schedule(archetypeChunkChangeSet.Chunks.Length, 64, dependsOn);
 
@@ -240,7 +281,8 @@ namespace Unity.Entities
                 BeforeEntities = beforeEntities,
                 CreatedEntities = entityChanges.CreatedEntities,
                 ModifiedEntities = entityChanges.ModifiedEntities,
-                DestroyedEntities = entityChanges.DestroyedEntities
+                DestroyedEntities = entityChanges.DestroyedEntities,
+                NameModifiedEntities = entityChanges.NameModifiedEntities
             }.Schedule(dependsOn);
 
             return entityChanges;

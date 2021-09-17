@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 namespace Unity.Scenes.Editor.Tests
 {
     [Serializable]
-    struct TestWithSubScenes
+    public struct TestWithSubScenes
     {
         public void Setup()
         {

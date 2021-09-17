@@ -11,7 +11,8 @@
         "UnityEditor.TestRunner",
         "Unity.Transforms",
         "Unity.Mathematics.Extensions",
-        "Unity.Mathematics.Extensions.Hybrid"
+        "Unity.Mathematics.Extensions.Hybrid",
+        "Unity.Scenes"
     ],
     "includePlatforms": [
         "Editor"

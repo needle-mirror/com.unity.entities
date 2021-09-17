@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using UnityEngine;
 
@@ -14,6 +16,8 @@ namespace Unity.Entities
 #pragma warning restore 414
         static List<Type> s_SystemTypes = new List<Type>();
         static List<string> s_SystemTypeNames = new List<string>();
+        static List<int> s_SystemTypeSizes = new List<int>();
+        static List<long> s_SystemTypeHashes = new List<long>();
         static NativeList<bool> s_SystemIsGroupList;
         static NativeList<WorldSystemFilterFlags> s_SystemFilterFlagsList;
 #if UNITY_DOTSRUNTIME
@@ -99,7 +103,7 @@ namespace Unity.Entities
                     filteredSystemTypes.Add(systemType);
             }
 
-            foreach (var unmanagedSystemType in GetTypesDerivedFrom(typeof(ISystemBase)))
+            foreach (var unmanagedSystemType in GetTypesDerivedFrom(typeof(ISystem)))
             {
                 if (!unmanagedSystemType.IsValueType)
                     continue;
@@ -169,6 +173,30 @@ namespace Unity.Entities
 #endif
         }
 
+        internal static long GetSystemTypeHash(Type t)
+        {
+#if !NET_DOTS 
+            return BurstRuntime.GetHashCode64(t);
+#else
+            Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
+
+            int index = GetSystemTypeIndex(t);
+            return s_SystemTypeHashes[index];
+#endif
+        }
+         
+        internal static int GetSystemTypeSize(Type t)
+        {
+#if !UNITY_DOTSRUNTIME
+            return UnsafeUtility.SizeOf(t);
+#else
+            Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
+
+            int index = GetSystemTypeIndex(t);
+            return s_SystemTypeSizes[index];
+#endif
+        }
+
         internal static int GetSystemTypeIndexNoThrow(Type t)
         {
             Assertions.Assert.IsTrue(s_Initialized, "The TypeManager must be initialized before the TypeManager can be used.");
@@ -184,7 +212,7 @@ namespace Unity.Entities
         {
             int index = GetSystemTypeIndexNoThrow(t);
             if (index == -1)
-                throw new ArgumentException($"The passed-in Type is not a type that derives from SystemBase or ISystemBase");
+                throw new ArgumentException($"The passed-in Type is not a type that derives from SystemBase or ISystem");
             return index;
         }
 
@@ -323,9 +351,9 @@ namespace Unity.Entities
                 return false;
             }
 
-            // only derivatives of ComponentSystemBase and structs implementing ISystemBase are systems
-            if (!type.IsSubclassOf(typeof(ComponentSystemBase)) && !typeof(ISystemBase).IsAssignableFrom(type))
-                throw new System.ArgumentException($"{type} must already be filtered by ComponentSystemBase");
+            // only derivatives of ComponentSystemBase and structs implementing ISystem are systems
+            if (!type.IsSubclassOf(typeof(ComponentSystemBase)) && !typeof(ISystem).IsAssignableFrom(type))
+                throw new System.ArgumentException($"{type} must already be filtered by ComponentSystemBase or ISystem");
 
             // the auto-creation system instantiates using the default ctor, so if we can't find one, exclude from list
             if (type.IsClass && type.GetConstructor(Type.EmptyTypes) == null)
@@ -424,6 +452,16 @@ namespace Unity.Entities
             foreach (var typeName in typeRegistry.SystemTypeNames)
             {
                 s_SystemTypeNames.Add(typeName);
+            }
+
+            foreach (var typeSize in typeRegistry.SystemTypeSizes)
+            {
+                s_SystemTypeSizes.Add(typeSize);
+            }
+            
+            foreach (var typeHash in typeRegistry.SystemTypeHashes)
+            {
+                s_SystemTypeHashes.Add(typeHash);
             }
 
             foreach (var isSystemGroup in typeRegistry.IsSystemGroup)

@@ -1,8 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using NUnit.Framework;
 using Unity.Build.Classic;
 using Unity.Build.Common;
-using Unity.Collections;
 using Unity.Entities;
 using UnityEditor;
 using UnityEditor.Experimental;
@@ -17,46 +18,34 @@ namespace Unity.Scenes.Editor
             typeof(ClassicBuildProfile)
         };
 
-        static void AddEntityBinaryFiles(Hash128 buildConfigurationGuid, string[] scenePathsForBuild, EntitySectionBundlesInBuild sectionBundlesInBuild)
-        {
-            var subSceneGuids = scenePathsForBuild.SelectMany(scenePath => EditorEntityScenes.GetSubScenes(AssetDatabaseCompatibility.PathToGUID(scenePath))).Distinct().ToList();
-
-            var requiresRefresh = false;
-            var sceneBuildConfigGuids = new NativeArray<GUID>(subSceneGuids.Count, Allocator.TempJob);
-            for (int i = 0; i != sceneBuildConfigGuids.Length; i++)
-            {
-                sceneBuildConfigGuids[i] = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(subSceneGuids[i], buildConfigurationGuid, false, out var thisRequiresRefresh);
-                requiresRefresh |= thisRequiresRefresh;
-
-                sectionBundlesInBuild.Add(subSceneGuids[i], sceneBuildConfigGuids[i], typeof(SubSceneImporter));
-            }
-            if (requiresRefresh)
-                AssetDatabase.Refresh();
-
-            AssetDatabaseCompatibility.ProduceArtifactsAsync(sceneBuildConfigGuids, typeof(SubSceneImporter));
-            sceneBuildConfigGuids.Dispose();
-        }
-
         public override void OnBeforeRegisterAdditionalFilesToDeploy()
         {
             if (BuildTarget == BuildTarget.NoTarget)
                 throw new InvalidOperationException($"Invalid build target '{BuildTarget.ToString()}'.");
 
             if (BuildTarget != EditorUserBuildSettings.activeBuildTarget)
-                throw new InvalidOperationException($"ActiveBuildTarget must be switched before the {nameof(SubSceneBuildCode)} runs.");
+                throw new InvalidOperationException($"ActiveBuildTarget must be switched before the {nameof(EntitySceneBuildUtility)} runs.");
 
             var sceneList = Context.GetComponentOrDefault<SceneList>();
             var binaryFiles = Context.GetOrCreateValue<EntitySectionBundlesInBuild>();
             var buildTargetGUID = new Hash128(Context.BuildConfigurationAssetGUID);
-            AddEntityBinaryFiles(buildTargetGUID, sceneList.GetScenePathsForBuild(), binaryFiles);
+            var scenePaths = sceneList.GetScenePathsForBuild();
+            var subSceneGuids = new HashSet<Hash128>(scenePaths.SelectMany(scenePath => EditorEntityScenes.GetSubScenes(AssetDatabaseCompatibility.PathToGUID(scenePath))));
+            var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
+
+            EntitySceneBuildUtility.PrepareEntityBinaryArtifacts(buildTargetGUID, subSceneGuids, artifactKeys);
+
+            // Put in component to pass data further along in build
+            binaryFiles.SceneGUIDs = artifactKeys.Keys.ToArray();
+            binaryFiles.ArtifactKeys = artifactKeys.Values.ToArray();
         }
 
         public override void RegisterAdditionalFilesToDeploy(Action<string, string> registerAdditionalFileToDeploy)
         {
             var sceneList = Context.GetComponentOrDefault<SceneList>();
-            var tempFile = System.IO.Path.Combine(WorkingDirectory, SceneSystem.k_SceneInfoFileName);
+            var tempFile = System.IO.Path.Combine(WorkingDirectory, EntityScenesPaths.k_SceneInfoFileName);
             ResourceCatalogBuildCode.WriteCatalogFile(sceneList, tempFile);
-            registerAdditionalFileToDeploy(tempFile, System.IO.Path.Combine(StreamingAssetsDirectory, SceneSystem.k_SceneInfoFileName));
+            registerAdditionalFileToDeploy(tempFile, System.IO.Path.Combine(StreamingAssetsDirectory, EntityScenesPaths.k_SceneInfoFileName));
         }
     }
 }

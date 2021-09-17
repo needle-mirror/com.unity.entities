@@ -1,6 +1,10 @@
 ---
 uid: ecs-overview
 ---
+# Entities overview
+The Entities package adds functionality to your Unity project that lets you use Unity's Entity Component System (ECS). The ECS system organizes your project in a data-oriented way, as opposed to the traditional object-oriented way.
+
+## Entity Component System
 
 <div id="slides">
     <style type="text/css" scoped="">
@@ -25,17 +29,10 @@ uid: ecs-overview
 </div>
 
 
-# Entity Component System
+ECS is the core of the Unity Data-Oriented Tech Stack. As the name indicates, ECS has three principal parts:
 
-The Entity Component System (ECS) is the core of the Unity Data-Oriented Tech Stack. As the 
-name indicates, ECS has three principal parts:
-
-* [Entities](ecs_entities.md) — the entities, or things, that populate your game or program.
-* [Components](ecs_components.md) — the data associated with your entities, but organized by 
-    the data itself rather than by entity. (This difference in organization is one of the key differences 
-    between an object-oriented and a data-oriented design.)
-* [Systems](ecs_systems.md) — the logic that transforms the component data from its current state 
-    to its next state— for example, a system might update the positions of all moving entities by their 
-    velocity times the time interval since the previous frame.
+* [Entities](ecs_entities.md): The entities, or things, that populate your game or program.
+* [Components](ecs_components.md): The data associated with your entities, but organized by the data itself rather than by entity. This difference in organization is one of the key differences  between an object-oriented and a data-oriented design.
+* [Systems](ecs_systems.md): The logic that transforms the component data from its current state to its next state. For example, a system might update the positions of all moving entities by their velocity times the time interval since the previous frame.
 
 

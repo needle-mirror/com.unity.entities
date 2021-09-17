@@ -29,14 +29,14 @@ namespace Unity.Entities.Tests
                     buffer.Add(new EcsIntElement { Value = val });
             }
 
-            var writer = new TestBinaryWriter();
+            var world = new World("temp");
+
+            var writer = new TestBinaryWriter(world.UpdateAllocator.ToAllocator);
 
             ReferencedUnityObjects objRefs = null;
             SerializeUtilityHybrid.Serialize(m_Manager, writer, out objRefs);
 
             var reader = new TestBinaryReader(writer);
-
-            var world = new World("temp");
             SerializeUtilityHybrid.Deserialize(world.EntityManager, reader, objRefs);
 
             var newWorldEntities = world.EntityManager;
@@ -65,7 +65,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(newWorldEntities.Debug.IsSharedComponentManagerEmpty());
 
             world.Dispose();
-            reader.Dispose();
         }
 
         public struct SharedComponentWithUnityObject : ISharedComponentData, IEquatable<SharedComponentWithUnityObject>
@@ -97,7 +96,10 @@ namespace Unity.Entities.Tests
             var shared = new SharedComponentWithUnityObject { obj = go1 };
             var entity = m_Manager.CreateEntity();
             m_Manager.AddSharedComponentData(entity, shared);
-            var writer = new TestBinaryWriter();
+
+            var world = new World("temp");
+
+            var writer = new TestBinaryWriter(world.UpdateAllocator.ToAllocator);
 
             ReferencedUnityObjects objRefs = null;
             SerializeUtilityHybrid.Serialize(m_Manager, writer, out objRefs);
@@ -109,7 +111,6 @@ namespace Unity.Entities.Tests
             // the instance IDs would match between a serialize and deserialize.
             objRefs.Array[0] = go2;
 
-            var world = new World("temp");
             SerializeUtilityHybrid.Deserialize(world.EntityManager, reader, objRefs);
 
             var newWorldEntities = world.EntityManager;
@@ -122,7 +123,6 @@ namespace Unity.Entities.Tests
 
             query.Dispose();
             world.Dispose();
-            reader.Dispose();
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -144,11 +144,12 @@ namespace Unity.Entities.Tests
                 m_Manager.AddComponentData(e1, expectedManagedComponent);
             }
 
-            var writer = new TestBinaryWriter();
+            var world = new World("temp");
+
+            var writer = new TestBinaryWriter(world.UpdateAllocator.ToAllocator);
             ReferencedUnityObjects objRefs = null;
             SerializeUtilityHybrid.Serialize(m_Manager, writer, out objRefs);
 
-            var world = new World("temp");
             var reader = new TestBinaryReader(writer);
             SerializeUtilityHybrid.Deserialize(world.EntityManager, reader, objRefs);
 
@@ -188,7 +189,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(newWorldEntities.Debug.IsSharedComponentManagerEmpty());
 
             world.Dispose();
-            reader.Dispose();
         }
 
 #endif

@@ -1,0 +1,21 @@
+<UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement class="telemetry-window__section">
+        <ui:Label text="EntityHierarchyItemView" class="telemetry-window__section-title"/>
+        <uie:IntegerField label="Active Instance Count" binding-path="EntityHierarchyItemViewActiveInstanceCount" />
+        <uie:IntegerField label="Pool size" binding-path="EntityHierarchyItemViewPoolSize" />
+        <uie:IntegerField label="Scheduled For Periodic Check" binding-path="EntityHierarchyItemViewItemsScheduledForPeriodicCheck" />
+    </ui:VisualElement>
+
+    <ui:VisualElement class="telemetry-window__section">
+        <ui:Label text="EntityHierarchyItemPool" class="telemetry-window__section-title"/>
+        <uie:IntegerField label="Page Size" binding-path="EntityHierarchyItemPoolPageSize" />
+        <uie:IntegerField label="Page Count" binding-path="EntityHierarchyItemPoolPageCount" />
+        <uie:IntegerField label="Capacity" binding-path="EntityHierarchyItemPoolCapacity" />
+    </ui:VisualElement>
+
+    <ui:VisualElement class="telemetry-window__section">
+        <ui:Label text="EntityHierarchyItem" class="telemetry-window__section-title"/>
+        <uie:IntegerField label="Total Instances" binding-path="EntityHierarchyItemTotalInstanceCount" />
+        <uie:IntegerField label="Active Instances" binding-path="EntityHierarchyItemUsedInstanceCount" />
+    </ui:VisualElement>
+</UXML>

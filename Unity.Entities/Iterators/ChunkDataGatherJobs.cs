@@ -47,9 +47,11 @@ namespace Unity.Entities
             var chunkCounter = 0;
             var entityOffsetPrefixSum = 0;
 
-            for (var m = 0; m < Archetypes.Length; ++m)
+            int archetypeCount = Archetypes.Length;
+            var ptrs = Archetypes.Ptr;
+            for (var m = 0; m < archetypeCount; ++m)
             {
-                var match = Archetypes.Ptr[m];
+                var match = ptrs[m];
                 if (match->Archetype->EntityCount <= 0)
                     continue;
 
@@ -120,9 +122,11 @@ namespace Unity.Entities
             var filteredChunkCount = 0;
             var filteredEntityOffset = 0;
 
-            for (var m = 0; m < Archetypes.Length; ++m)
+            int archetypeCount = Archetypes.Length;
+            var ptrs = Archetypes.Ptr;
+            for (var m = 0; m < archetypeCount; ++m)
             {
-                var match = Archetypes.Ptr[m];
+                var match = ptrs[m];
                 if (match->Archetype->EntityCount <= 0)
                     continue;
 

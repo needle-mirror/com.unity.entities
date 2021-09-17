@@ -9,7 +9,7 @@ namespace Unity.Entities.Tests.Conversion
 {
     class GeneratedAuthoringComponentConversionTests : ConversionTestFixtureBase
     {
-        static Type GetAuthoringComponentType<T>()
+        public static Type GetAuthoringComponentType<T>()
         {
             var typeName = $"Unity.Entities.Tests.{typeof(T).Name}Authoring, Unity.Entities.TestComponents";
             var authoringType = Type.GetType(typeName);

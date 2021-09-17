@@ -62,7 +62,7 @@ namespace Unity.Entities.Tests
 
         void TestSourceEvenValues(int version, EntityQuery group)
         {
-            var testData = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var testData = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             Assert.AreEqual(50, testData.Length);
 
@@ -70,13 +70,11 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(i * 2, testData[i].value);
             }
-
-            testData.Dispose();
         }
 
         void TestSourceOddValues(int version, EntityQuery group)
         {
-            var testData = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var testData = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             Assert.AreEqual(50, testData.Length);
 
@@ -84,8 +82,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(1 + (i * 2), testData[i].value);
             }
-
-            testData.Dispose();
         }
 
         [Test]
@@ -97,7 +93,7 @@ namespace Unity.Entities.Tests
 
         void ChangeGroupOrder(int version, EntityQuery group)
         {
-            var entities = group.ToEntityArray(Allocator.TempJob);
+            var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
 
             for (int i = 0; i < 50; i++)
             {
@@ -108,8 +104,6 @@ namespace Unity.Entities.Tests
                     m_Manager.AddComponentData(e, testData2);
                 }
             }
-
-            entities.Dispose();
         }
 
         [Test]
@@ -133,15 +127,13 @@ namespace Unity.Entities.Tests
 
         void DestroyAllButOneEntityInGroup(int version, EntityQuery group)
         {
-            var entities = group.ToEntityArray(Allocator.TempJob);
+            var entities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
 
             for (int i = 0; i < 49; i++)
             {
                 var e = entities[i];
                 m_Manager.DestroyEntity(e);
             }
-
-            entities.Dispose();
         }
 
         [Test]
@@ -161,26 +153,23 @@ namespace Unity.Entities.Tests
             ActionEvenOdd((version, group) =>
             {
                 var entityType = m_Manager.GetEntityTypeHandle();
-                var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+                var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                 var firstEntity = chunks[0].GetNativeArray(entityType);
                 m_Manager.DestroyEntity(firstEntity);
-                chunks.Dispose();
             }, (version, group) => {});
 
             ActionEvenOdd(
                 (version, group) =>
                 {
-                    var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+                    var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                     for (int i = 0; i < chunks.Length; i++)
                         Assert.Greater(1, chunks[i].GetOrderVersion());
-                    chunks.Dispose();
                 },
                 (version, group) =>
                 {
-                    var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+                    var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
                     for (int i = 0; i < chunks.Length; i++)
                         Assert.AreEqual(1, chunks[i].GetOrderVersion());
-                    chunks.Dispose();
                 });
         }
 
@@ -296,6 +285,26 @@ namespace Unity.Entities.Tests
             Assert.Greater(v6, v5);
 
             Assert.AreEqual(unaffectedVersion, m_Manager.GetSharedComponentOrderVersion(new SharedData1(unaffectedSharedValue)));
+        }
+
+        [Test]
+        public void ChangeArchetypeInPlace_ChangesOrderVersion()
+        {
+            m_Manager.Debug.SetGlobalSystemVersion(10);
+
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            using (var chunks = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator))
+            {
+                Assert.AreEqual(1, chunks.Length);
+                Assert.AreEqual(10, chunks[0].GetOrderVersion());
+
+                m_Manager.Debug.SetGlobalSystemVersion(20);
+                m_Manager.AddComponent<EcsTestTag>(query);
+
+                Assert.AreEqual(20, chunks[0].GetOrderVersion());
+            }
         }
     }
 }

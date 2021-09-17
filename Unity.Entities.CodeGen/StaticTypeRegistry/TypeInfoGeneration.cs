@@ -24,6 +24,8 @@ namespace Unity.Entities.CodeGen
             public int EntityOffsetIndex;
             public List<int> BlobAssetRefOffsets;
             public int BlobAssetRefOffsetIndex;
+            public List<int> WeakAssetRefOffsets;
+            public int WeakAssetRefOffsetIndex;
             public HashSet<TypeReference> WriteGroupTypes;
             public int WriteGroupsIndex;
             public int FieldInfoCount;
@@ -45,12 +47,13 @@ namespace Unity.Entities.CodeGen
         int m_TotalTypeCount;
         int m_TotalEntityOffsetCount;
         int m_TotalBlobAssetRefOffsetCount;
+        int m_TotalWeakAssetRefOffsetCount;
         int m_TotalWriteGroupCount;
 
         internal FieldReference GenerateConstantData(TypeDefinition constantStorageTypeDef, byte[] data)
         {
             const string kConstantDataFieldNamePrefix = "ConstantData";
-            int constantDataCount = constantStorageTypeDef.NestedTypes.Count(t => t.Name.StartsWith(kConstantDataFieldNamePrefix));
+            int constantDataCount = constantStorageTypeDef.NestedTypes.Count(t => t.Name.StartsWith(kConstantDataFieldNamePrefix, StringComparison.Ordinal));
 
             var constantDataTypeDef = new TypeDefinition(constantStorageTypeDef.Namespace, $"{kConstantDataFieldNamePrefix}{constantDataCount}", TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.AnsiClass, AssemblyDefinition.MainModule.ImportReference(typeof(ValueType)));
             constantStorageTypeDef.NestedTypes.Add(constantDataTypeDef);
@@ -131,6 +134,46 @@ namespace Unity.Entities.CodeGen
         }
 
         /// <summary>
+        ///  Populates the registry's SystemTypeSizes array for all System types in typeIndex order.
+        ///  Currently sets 0 for size of managed systems.
+        /// </summary>
+        internal void GenerateSystemTypeSizeArray(ILProcessor il, List<TypeReference> typeReferences, FieldReference fieldRef, bool isStaticField, int archbits)
+        {
+            PushNewArray(il, m_SystemIntRef, typeReferences.Count);
+
+            for (int typeIndex = 0; typeIndex < typeReferences.Count; ++typeIndex)
+            {
+                TypeReference typeRef = AssemblyDefinition.MainModule.ImportReference(typeReferences[typeIndex]);
+                var size = TypeUtils.AlignAndSizeOfType(typeRef, archbits).size;
+                
+                PushNewArrayElement(il, typeIndex);
+                il.Emit(OpCodes.Ldc_I4, size); // Push our size onto the stack
+                il.Emit(OpCodes.Stelem_I4);
+            }
+
+            StoreTopOfStackToField(il, fieldRef, isStaticField);
+        }
+        
+        /// <summary>
+        ///  Populates the registry's SystemTypeHashes array for all System types in typeIndex order.
+        /// </summary>
+        internal void GenerateSystemTypeHashArray(ILProcessor il, List<TypeReference> typeReferences, FieldReference fieldRef, bool isStaticField)
+        {
+            PushNewArray(il, m_SystemLongRef, typeReferences.Count);
+
+            for (int typeIndex = 0; typeIndex < typeReferences.Count; ++typeIndex)
+            {
+                TypeReference typeRef = AssemblyDefinition.MainModule.ImportReference(typeReferences[typeIndex]);
+
+                PushNewArrayElement(il, typeIndex);
+                il.Emit(OpCodes.Call, m_BurstRuntimeGetHashCode64Ref.MakeGenericInstanceMethod(typeRef)); // Call BurstRuntime.GetHashCode64 with the above stack arg. Return value pushed on the stack
+                il.Emit(OpCodes.Stelem_I8);
+            }
+
+            StoreTopOfStackToField(il, fieldRef, isStaticField);
+        }
+        
+        /// <summary>
         /// Populates the registry's writeGroup int array.
         /// WriteGroup TypeIndices are laid out contiguously in memory such that the memory layout for Types A (2 writegroup elements),
         /// B (3 writegroup elements), C (0 writegroup elements) D (2 writegroup elements) is as such: aabbbdd
@@ -186,6 +229,8 @@ namespace Unity.Entities.CodeGen
                         typeGenInfo.BlobAssetRefOffsets.Count > 0 || typeGenInfo.MightHaveBlobAssetReferences,
                         typeGenInfo.BlobAssetRefOffsets.Count,
                         typeGenInfo.BlobAssetRefOffsetIndex,
+                        0,
+                        0,
                         0, // FastEqualityIndex - should be 0 until we can remove field altogether
                         typeGenInfo.AlignAndSize.size
                     );
@@ -228,6 +273,8 @@ namespace Unity.Entities.CodeGen
                 EmitLoadConstant(il, typeGenInfo.WriteGroupsIndex);
                 EmitLoadConstant(il, typeGenInfo.BlobAssetRefOffsets.Count);
                 EmitLoadConstant(il, typeGenInfo.BlobAssetRefOffsetIndex);
+                EmitLoadConstant(il, typeGenInfo.WeakAssetRefOffsets.Count);
+                EmitLoadConstant(il, typeGenInfo.WeakAssetRefOffsetIndex);
                 EmitLoadConstant(il, 0); // FastEqualityIndex - should be 0 until we can remove field altogether
                 EmitLoadConstant(il, typeGenInfo.AlignAndSize.size);
 
@@ -828,8 +875,6 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        [Obsolete("Ensure you pass a TypeReference to this function. A TypeDefinition is not acceptable. (RemovedAfter 2020-05-17)", true)]
-        void CalculateMemoryOrderingAndStableHash(TypeDefinition typeDef, out ulong memoryOrder, out ulong stableHash) { throw new Exception(); }
         void CalculateMemoryOrderingAndStableHash(TypeReference typeRef, out ulong memoryOrder, out ulong stableHash)
         {
             if (typeRef == null)
@@ -864,6 +909,7 @@ namespace Unity.Entities.CodeGen
             TypeUtils.AlignAndSize alignAndSize = new TypeUtils.AlignAndSize();
             List<int> entityOffsets = new List<int>();
             List<int> blobAssetRefOffsets = new List<int>();
+            List<int> weakAssetRefOffsets = new List<int>();
             bool mightHaveEntityRefs = false;
             bool mightHaveBlobRefs = false;
             bool isManaged = typeDef != null && typeRef.IsManagedType(ref mightHaveEntityRefs, ref mightHaveBlobRefs);
@@ -872,13 +918,14 @@ namespace Unity.Entities.CodeGen
             {
                 entityOffsets = TypeUtils.GetEntityFieldOffsets(typeRef, ArchBits);
                 blobAssetRefOffsets = TypeUtils.GetFieldOffsetsOf("Unity.Entities.BlobAssetReferenceData", typeRef, ArchBits);
+                weakAssetRefOffsets = TypeUtils.GetFieldOffsetsOf("Unity.Entities.Serialization.UntypedWeakReferenceId", typeRef, ArchBits);
                 alignAndSize = TypeUtils.AlignAndSizeOfType(typeRef, ArchBits);
             }
             else if (isManaged && IsNetDots
                 // Todo: ISharedComponents are currently commonly managed as this was the only mechanism for storing managed
                 // data in ECS. Until unmanaged sharedcomponents are available we allow managed shared components in NET_DOTS
                 // https://unity3d.atlassian.net/browse/DOTSR-1865
-                && typeCategory != TypeCategory.ISharedComponentData) 
+                && typeCategory != TypeCategory.ISharedComponentData)
             {
                 throw new ArgumentException($"Found a managed component '{typeRef.FullName}'. Managed components are not supported when building for the Tiny configuration. Change the type to be a struct or build with the NetStandard 2.0 configuration.");
             }
@@ -887,6 +934,8 @@ namespace Unity.Entities.CodeGen
             bool isSystemStateBufferElement = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ISystemStateBufferElementData));
             bool isSystemStateSharedComponent = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ISystemStateSharedComponentData));
             bool isSystemStateComponent = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ISystemStateComponentData)) || isSystemStateSharedComponent || isSystemStateBufferElement;
+
+            bool isEnableable = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(IEnableableComponent));
 
             if (alignAndSize.empty || typeCategory == TypeCategory.ISharedComponentData)
                 typeIndex |= ZeroSizeInChunkTypeFlag;
@@ -908,6 +957,9 @@ namespace Unity.Entities.CodeGen
 
             if (isManaged)
                 typeIndex |= ManagedComponentTypeFlag;
+
+            if (isEnableable)
+                typeIndex |= EnableableComponentFlag;
 
             CalculateMemoryOrderingAndStableHash(typeRef, out ulong memoryOrdering, out ulong stableHash);
 
@@ -984,6 +1036,8 @@ namespace Unity.Entities.CodeGen
                 EntityOffsetIndex = m_TotalEntityOffsetCount,
                 BlobAssetRefOffsets = blobAssetRefOffsets,
                 BlobAssetRefOffsetIndex = m_TotalBlobAssetRefOffsetCount,
+                WeakAssetRefOffsets = weakAssetRefOffsets,
+                WeakAssetRefOffsetIndex = m_TotalWeakAssetRefOffsetCount,
                 WriteGroupTypes = new HashSet<TypeReference>(),
                 WriteGroupsIndex = 0,
                 IsManaged = isManaged,
@@ -1003,6 +1057,7 @@ namespace Unity.Entities.CodeGen
 
             m_TotalEntityOffsetCount += entityOffsets.Count;
             m_TotalBlobAssetRefOffsetCount += blobAssetRefOffsets.Count;
+            m_TotalWeakAssetRefOffsetCount += weakAssetRefOffsets.Count;
 
             return typeGenInfo;
         }

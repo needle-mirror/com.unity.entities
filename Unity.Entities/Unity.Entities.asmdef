@@ -8,7 +8,8 @@
         "Unity.Properties",
         "Unity.Properties.Reflection",
         "Unity.Serialization",
-        "Unity.Jobs"
+        "Unity.Jobs",
+        "Unity.Profiling.Core"
     ],
     "optionalUnityReferences": [],
     "includePlatforms": [],
@@ -23,11 +24,6 @@
             "name": "com.unity.package-validation-suite",
             "expression": "0.4.0-preview.6",
             "define": "UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE"
-        },
-        {
-            "name": "com.unity.roslyn",
-            "expression": "0.0.0-preview.2",
-            "define": "ROSLYN_SOURCEGEN_ENABLED"
         }
     ]
 }

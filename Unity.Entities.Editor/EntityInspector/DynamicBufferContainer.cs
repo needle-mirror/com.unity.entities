@@ -22,7 +22,7 @@ namespace Unity.Entities
         EntityManager EntityManager { get; }
         Entity Entity { get; }
 
-        bool Exists() => EntityContainer.Exists();
+        bool Exists() => EntityContainer.Exists() && EntityContainer.EntityManager.HasComponentRaw(Entity, TypeIndex);
 
         BufferHeader* Header
         {

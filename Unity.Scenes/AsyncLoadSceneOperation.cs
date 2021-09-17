@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 #if UNITY_DOTSRUNTIME
-using Unity.Tiny.IO;
+using Unity.Runtime.IO;
 #endif
 using System.Runtime.InteropServices;
 using Unity.Assertions;
@@ -32,6 +32,8 @@ namespace Unity.Scenes
         public Codec Codec;
         public bool BlockUntilFullyLoaded;
         public NativeArray<Entities.Hash128> Dependencies;
+        public BlobAssetReference<DotsSerialization.BlobHeader> BlobHeader;
+        public BlobAssetOwner BlobHeaderOwner;
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         public PostLoadCommandBuffer PostLoadCommandBuffer;
@@ -59,32 +61,41 @@ namespace Unity.Scenes
         unsafe struct FreeJob : IJob
         {
             [NativeDisableUnsafePtrRestriction]
-            public void* ptr;
-            public Allocator allocator;
-            public ReadHandle readHandle;
+            public void* Ptr;
+            public SerializeUtility.WorldDeserializationStatus DeserializationStatus;
+            public ReadHandle ReadHandle;
+            public UnsafeList<ReadCommand> ReadCommands;
+            public bool FreeChunks;
 
             public void Execute()
             {
-                Memory.Unmanaged.Free(ptr, allocator);
-                if(readHandle.IsValid())
-                    readHandle.Dispose();
+                Memory.Unmanaged.Free(Ptr, Allocator.Persistent);
+
+                if (FreeChunks)
+                {
+                    int length = DeserializationStatus.MegaChunkInfoList.Length;
+                    for (int i = 0; i < length; ++i)
+                    {
+                        var chunks = DeserializationStatus.MegaChunkInfoList[i];
+                        EntityComponentStore.FreeContiguousChunks((Chunk*)chunks.MegaChunkAddress, chunks.MegaChunkSize);
+                    }
+                }
+
+                DeserializationStatus.Dispose();
+                if (ReadHandle.IsValid())
+                    ReadHandle.Dispose();
+                if (ReadCommands.IsCreated)
+                    ReadCommands.Dispose();
             }
         }
 
         public void Dispose()
         {
-            if (_LoadingStatus == LoadingStatus.Completed)
+            if (_LoadingStatus == LoadingStatus.WaitingForResourcesLoad || _LoadingStatus == LoadingStatus.WaitingForEntitiesLoad)
             {
-                new FreeJob { ptr = _FileContent, allocator = Allocator.Persistent }.Schedule();
-            }
-            else if (_LoadingStatus == LoadingStatus.WaitingForResourcesLoad || _LoadingStatus == LoadingStatus.WaitingForEntitiesLoad)
-            {
-                new FreeJob { ptr = _FileContent, allocator = Allocator.Persistent }.Schedule(_ReadHandle.JobHandle);
-            }
-            else if (_LoadingStatus == LoadingStatus.WaitingForSceneDeserialization)
-            {
-                _EntityManager.ExclusiveEntityTransactionDependency.Complete();
-                new FreeJob { ptr = _FileContent, allocator = Allocator.Persistent }.Schedule();
+                var freeJob = new FreeJob { Ptr = _FileContent, DeserializationStatus = _DeserializationStatus, ReadCommands = _ReadCommands, ReadHandle = _ReadHandle };
+                freeJob.FreeChunks = true;
+                freeJob.Schedule(_ReadHandle.JobHandle);
             }
 
 #if !UNITY_DOTSRUNTIME
@@ -100,19 +111,28 @@ namespace Unity.Scenes
 #endif
             if (_Data.Dependencies.IsCreated)
                 _Data.Dependencies.Dispose();
+
+            _Data.BlobHeaderOwner.Release();
+            _DeserializationResultArray.Dispose(_EntityManager.ExclusiveEntityTransactionDependency);
         }
 
         struct AsyncLoadSceneJob : IJob
         {
+            [NativeDisableUnsafePtrRestriction]
+            public byte*                        FileContent;            // Only to use when deserializing from memory
+            public long                         FileLength;
+
             public GCHandle                     LoadingOperationHandle;
 #if !UNITY_DOTSRUNTIME
             public GCHandle                     ObjectReferencesHandle;
 #endif
             public ExclusiveEntityTransaction   Transaction;
-            [NativeDisableUnsafePtrRestriction]
-            public byte*                        FileContent;
+            public NativeArray<SerializeUtility.WorldDeserializationResult> DeserializationResult;
 
             static readonly ProfilerMarker k_ProfileDeserializeWorld = new ProfilerMarker("AsyncLoadSceneJob.DeserializeWorld");
+            [NativeDisableUnsafePtrRestriction]
+            public SerializeUtility.WorldDeserializationStatus DeserializationStatus;
+            public BlobAssetReference<DotsSerialization.BlobHeader> BlobHeader;
 
             public void Execute()
             {
@@ -127,12 +147,25 @@ namespace Unity.Scenes
 
                 try
                 {
-                    using (var reader = new MemoryBinaryReader(FileContent))
+                    SerializeUtility.WorldDeserializationResult deserializationResult;
+                    // Deserializing from memory loaded file
+                    if (FileContent != null)
+                    {
+                        using (var reader = new MemoryBinaryReader(FileContent, FileLength))
+                        {
+                            k_ProfileDeserializeWorld.Begin();
+                            SerializeUtility.DeserializeWorld(Transaction, reader, out deserializationResult, objectReferences);
+                            k_ProfileDeserializeWorld.End();
+                        }
+                    }
+                    else
                     {
                         k_ProfileDeserializeWorld.Begin();
-                        SerializeUtility.DeserializeWorld(Transaction, reader, objectReferences);
+                        var dotsReader = DotsSerialization.CreateReader(ref BlobHeader.Value);
+                        SerializeUtility.EndDeserializeWorld(Transaction, dotsReader, ref DeserializationStatus, out deserializationResult, objectReferences);
                         k_ProfileDeserializeWorld.End();
                     }
+                    DeserializationResult[0] = deserializationResult;
                 }
                 catch (Exception exc)
                 {
@@ -160,15 +193,21 @@ namespace Unity.Scenes
         string                  _LoadingFailure;
         Exception               _LoadingException;
 
-        byte*                    _FileContent;
+        private byte*            _FileContent;
         ReadHandle               _ReadHandle;
+        UnsafeList<ReadCommand>  _ReadCommands;
 
         private double _StartTime;
+        private SerializeUtility.WorldDeserializationStatus _DeserializationStatus;
+        private NativeArray<SerializeUtility.WorldDeserializationResult> _DeserializationResultArray;
+        public SerializeUtility.WorldDeserializationResult DeserializationResult => _DeserializationResultArray[0];
+
 
         public AsyncLoadSceneOperation(AsyncLoadSceneData asyncLoadSceneData)
         {
             _Data = asyncLoadSceneData;
             _LoadingStatus = LoadingStatus.NotStarted;
+            _DeserializationResultArray = new NativeArray<SerializeUtility.WorldDeserializationResult>(1, Allocator.Persistent);
         }
 
         public bool IsCompleted
@@ -212,37 +251,28 @@ namespace Unity.Scenes
             {
                 Assert.IsFalse(string.IsNullOrEmpty(_ScenePath));
                 _StartTime = Time.realtimeSinceStartup;
-                ReadCommand cmd;
 
-                _FileContent = (byte*)Memory.Unmanaged.Allocate(_SceneSize, 16, Allocator.Persistent);
-                cmd.Buffer = _FileContent;
-                cmd.Offset = 0;
-                cmd.Size = _SceneSize;
-
-#if ENABLE_PROFILER && UNITY_2020_2_OR_NEWER
-                // When AsyncReadManagerMetrics are available, mark up the file read for more informative IO metrics.
-                // Metrics can be retrieved by AsyncReadManagerMetrics.GetMetrics
-                _ReadHandle = AsyncReadManager.Read(_ScenePath, &cmd, 1, subsystem: AssetLoadingSubsystem.EntitiesScene);
-#else
-                _ReadHandle = AsyncReadManager.Read(_ScenePath, &cmd, 1);
-#endif
+                if (_Data.BlobHeader.IsCreated)
+                {
+                    var dotsReader = DotsSerialization.CreateReader(ref _Data.BlobHeader.Value);
+                    _ReadHandle = SerializeUtility.BeginDeserializeWorld(_ScenePath, dotsReader, out _DeserializationStatus, out _ReadCommands);
+                }
+                else
+                {
+                    throw new InvalidOperationException("BlobHeader must be valid");
+                }
 
 #if !UNITY_DOTSRUNTIME
                 if (_ExpectedObjectReferenceCount != 0)
                 {
-                    if (SceneBundleHandle.UseAssetBundles)
-                    {
-                        _SceneBundleHandles = SceneBundleHandle.LoadSceneBundles(_ResourcesPathObjRefs, _Data.Dependencies, true);
-                        if(_SceneBundleHandles.Length > 0)
-                            _ResourceObjRefs = _SceneBundleHandles[0].AssetBundle?.LoadAsset<ReferencedUnityObjects>(Path.GetFileName(_ResourcesPathObjRefs));
-                    }
-                    else
-                    {
 #if UNITY_EDITOR
-                        var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(_ResourcesPathObjRefs);
-                        _ResourceObjRefs = (ReferencedUnityObjects)resourceRequests[0];
+                    var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(_ResourcesPathObjRefs);
+                    _ResourceObjRefs = (ReferencedUnityObjects)resourceRequests[0];
+#else
+                    _SceneBundleHandles = SceneBundleHandle.LoadSceneBundles(_ResourcesPathObjRefs, _Data.Dependencies, true);
+                    if(_SceneBundleHandles.Length > 0)
+                        _ResourceObjRefs = _SceneBundleHandles[0].AssetBundle?.LoadAsset<ReferencedUnityObjects>(Path.GetFileName(_ResourcesPathObjRefs));
 #endif
-                    }
                 }
 #endif
                 ScheduleSceneRead();
@@ -271,37 +301,52 @@ namespace Unity.Scenes
                 {
                     Assert.IsFalse(string.IsNullOrEmpty(_ScenePath));
                     _StartTime = Time.realtimeSinceStartup;
-                    ReadCommand cmd;
 
-                    _FileContent = (byte*) Memory.Unmanaged.Allocate(_SceneSize, 16, Allocator.Persistent);
-                    cmd.Buffer = _FileContent;
-                    cmd.Offset = 0;
-                    cmd.Size = _SceneSize;
-
-#if ENABLE_PROFILER && UNITY_2020_2_OR_NEWER
-                    // When AsyncReadManagerMetrics are available, mark up the file read for more informative IO metrics.
-                    // Metrics can be retrieved by AsyncReadManagerMetrics.GetMetrics
-                    _ReadHandle = AsyncReadManager.Read(_ScenePath, &cmd, 1, subsystem: AssetLoadingSubsystem.EntitiesScene);
+                    // Load the file into memory if it's a compressed one, then decompress via a job and deserialize from memory
+                    if (_Data.Codec != Codec.None)
+                    {
+                        _FileContent = (byte*) Memory.Unmanaged.Allocate(_SceneSize, 16, Allocator.Persistent);
+                        _ReadCommands = new UnsafeList<ReadCommand>(1, Allocator.Persistent);
+                        _ReadCommands.Add(new ReadCommand
+                        {
+                            Buffer = _FileContent,
+                            Offset = 0,
+                            Size = _SceneSize
+                        });
+#if ENABLE_PROFILER
+                        // When AsyncReadManagerMetrics are available, mark up the file read for more informative IO metrics.
+                        // Metrics can be retrieved by AsyncReadManagerMetrics.GetMetrics
+                        _ReadHandle = AsyncReadManager.Read(_ScenePath, _ReadCommands.Ptr, 1, subsystem: AssetLoadingSubsystem.EntitiesScene);
 #else
-                    _ReadHandle = AsyncReadManager.Read(_ScenePath, &cmd, 1);
+                        _ReadHandle = AsyncReadManager.Read(_ScenePath, _ReadCommands.Ptr, 1);
 #endif
+                    }
+
+                    // Asynchronous deserialization from file, the BeginDeserializeWorld call will schedule the reads, the End call will perform the deserialization itself
+                    else
+                    {
+                        if (_Data.BlobHeader.IsCreated)
+                        {
+                            var dotsReader = DotsSerialization.CreateReader(ref _Data.BlobHeader.Value);
+                            _ReadHandle = SerializeUtility.BeginDeserializeWorld(_ScenePath, dotsReader, out _DeserializationStatus, out _ReadCommands);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("BlobHeader must be valid");
+                        }
+                    }
 
 #if !UNITY_DOTSRUNTIME
                     if (_ExpectedObjectReferenceCount != 0)
                     {
-                        if (SceneBundleHandle.UseAssetBundles)
-                        {
-                            _SceneBundleHandles = SceneBundleHandle.LoadSceneBundles(_ResourcesPathObjRefs, _Data.Dependencies, false);
-                            _LoadingStatus = LoadingStatus.WaitingForAssetBundleLoad;
-                        }
-                        else
-                        {
 #if UNITY_EDITOR
-                            var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(_ResourcesPathObjRefs);
-                            _ResourceObjRefs = (ReferencedUnityObjects)resourceRequests[0];
-                            _LoadingStatus = LoadingStatus.WaitingForResourcesLoad;
+                        var resourceRequests = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(_ResourcesPathObjRefs);
+                        _ResourceObjRefs = (ReferencedUnityObjects)resourceRequests[0];
+                        _LoadingStatus = LoadingStatus.WaitingForResourcesLoad;
+#else
+                        _SceneBundleHandles = SceneBundleHandle.LoadSceneBundles(_ResourcesPathObjRefs, _Data.Dependencies, false);
+                        _LoadingStatus = LoadingStatus.WaitingForAssetBundleLoad;
 #endif
-                        }
                     }
                     else
                     {
@@ -396,7 +441,6 @@ namespace Unity.Scenes
                 {
                     _LoadingStatus = LoadingStatus.WaitingForSceneDeserialization;
                     ScheduleSceneRead();
-
                     if (_BlockUntilFullyLoaded)
                     {
                         _EntityManager.ExclusiveEntityTransactionDependency.Complete();
@@ -448,19 +492,27 @@ namespace Unity.Scenes
                 Transaction = transaction,
                 LoadingOperationHandle = GCHandle.Alloc(this),
                 ObjectReferencesHandle = GCHandle.Alloc(objectReferences),
-                FileContent = _FileContent
+                DeserializationStatus = _DeserializationStatus,
+                BlobHeader = _Data.BlobHeader,
+                FileContent = _FileContent,
+                FileLength = _SceneSize,
+                DeserializationResult = _DeserializationResultArray
             };
 #else
             var loadJob = new AsyncLoadSceneJob
             {
                 Transaction = transaction,
                 LoadingOperationHandle = GCHandle.Alloc(this),
-                FileContent = _FileContent
+                DeserializationStatus = _DeserializationStatus,
+                BlobHeader = _Data.BlobHeader,
+                FileContent = _FileContent,
+                FileLength = _SceneSize,
+                DeserializationResult = _DeserializationResultArray
             };
 #endif
 
 #if !UNITY_DOTSRUNTIME
-            _EntityManager.ExclusiveEntityTransactionDependency = loadJob.Schedule(JobHandle.CombineDependencies(_EntityManager.ExclusiveEntityTransactionDependency, _ReadHandle.JobHandle));
+            var loadJobHandle = loadJob.Schedule(JobHandle.CombineDependencies(_EntityManager.ExclusiveEntityTransactionDependency, _ReadHandle.JobHandle));
 #else
 
             JobHandle decompressJob = default;
@@ -475,8 +527,16 @@ namespace Unity.Scenes
                 }.Schedule(_ReadHandle.mJobHandle);
             }
 
-            _EntityManager.ExclusiveEntityTransactionDependency = loadJob.Schedule(JobHandle.CombineDependencies(_EntityManager.ExclusiveEntityTransactionDependency, _ReadHandle.JobHandle, decompressJob));
+            var loadJobHandle = loadJob.Schedule(JobHandle.CombineDependencies(_EntityManager.ExclusiveEntityTransactionDependency, _ReadHandle.JobHandle, decompressJob));
 #endif
+            _EntityManager.ExclusiveEntityTransactionDependency = loadJobHandle;
+            _DeserializationStatus = default; // _DeserializationStatus is disposed by AsyncLoadSceneJob
+            var freeJob = new FreeJob { Ptr = _FileContent, ReadCommands = _ReadCommands, ReadHandle = _ReadHandle };
+            freeJob.Schedule(loadJobHandle);
+
+            _FileContent = null;
+            _ReadCommands = default;
+            _ReadHandle = default;
         }
 
         void PostProcessScene()

@@ -36,12 +36,6 @@ namespace Unity.Scenes
         }
     }
 
-    // This component tracks the ResourceGUID Entity for requesting the GO Scene over LiveLink in a LiveLink Player
-    struct GameObjectSceneDependency : IComponentData
-    {
-        public Entity Value;
-    }
-
     // Replaces SceneReference for GameObjectScene
     struct GameObjectReference : IComponentData
     {

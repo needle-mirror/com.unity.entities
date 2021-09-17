@@ -25,6 +25,10 @@ In this diagram, entities A and B share archetype M, while entity C has archetyp
 
 To smoothly change the archetype of an entity, you can add or remove components at runtime. For example, if you remove the `Renderer` component from entity B, it then moves to archetype N.
 
+### Archetypes in the Editor
+
+In the Editor, the following icon represents an Archetype: ![](images/editor-archetype-icon.png) . You’ll see this when you use the specific [Archetypes window](editor-archetypes-window.md).
+
 <a name="chunk"></a>
 ## Memory Chunks
 

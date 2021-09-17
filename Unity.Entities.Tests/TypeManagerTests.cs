@@ -144,6 +144,17 @@ namespace Unity.Entities.Tests
             });
         }
 
+        [Test]
+        public unsafe void TestConstructComponentFromBuffer()
+        {
+            EcsTestData td;
+            td.value = 42;
+
+            object o = TypeManager.ConstructComponentFromBuffer(TypeManager.GetTypeIndex<EcsTestData>(), &td);
+            EcsTestData tr = (EcsTestData) o;
+            Assert.AreEqual(td.value, tr.value);
+        }
+
         [InternalBufferCapacity(99)]
         public struct IntElement : IBufferElementData
         {
@@ -353,7 +364,7 @@ namespace Unity.Entities.Tests
 
         [UpdateBefore(typeof(PresentationSystemGroup))]
         [UpdateAfter(typeof(InitializationSystemGroup))]
-        class TestComponentSystem : SystemBase
+        partial class TestComponentSystem : SystemBase
         {
             protected override void OnUpdate()
             {
@@ -394,14 +405,14 @@ namespace Unity.Entities.Tests
 
         // Warnings will be thrown about redundant attributes since all systems are disabled in this assembly
         // [DisableAutoCreation]
-        class DisabledSystem : SystemBase
+        partial class DisabledSystem : SystemBase
         {
             protected override void OnUpdate()
             {
             }
         }
 
-        class ChildOfDisabledSystem : SystemBase
+        partial class ChildOfDisabledSystem : SystemBase
         {
             protected override void OnUpdate()
             {
@@ -436,11 +447,11 @@ namespace Unity.Entities.Tests
         }
 
         [WorldSystemFilter(WorldSystemFilterFlags.Default)]
-        class DefaultFilteredSystem : SystemBase{ protected override void OnUpdate() { } }
+        partial class DefaultFilteredSystem : SystemBase{ protected override void OnUpdate() { } }
         [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
-        class ProcessAfterLoadFilteredSystem : SystemBase { protected override void OnUpdate() { } }
+        partial class ProcessAfterLoadFilteredSystem : SystemBase { protected override void OnUpdate() { } }
         [ExecuteAlways]
-        class ExecuteAlwaysFilteredSystem : SystemBase { protected override void OnUpdate() { } }
+        partial class ExecuteAlwaysFilteredSystem : SystemBase { protected override void OnUpdate() { } }
 
         int ValidateFilterFlags(WorldSystemFilterFlags expectedFilterFlags, WorldSystemFilterFlags requiredFlags = WorldSystemFilterFlags.Default)
         {
@@ -509,6 +520,18 @@ namespace Unity.Entities.Tests
         {
         }
 
+        [DisableAutoTypeRegistration]
+        struct SystemState : ISystemStateComponentData, IEnableableComponent
+        {
+
+        }
+
+        [DisableAutoTypeRegistration]
+        struct Shared : ISharedComponentData, IEnableableComponent
+        {
+
+        }
+
         [TestCase(typeof(InterfaceComponentData), @"\binterface\b", TestName = "Interface implementing IComponentData")]
         [TestCase(typeof(NonBlittableComponentData), @"\bblittable\b", TestName = "Non-blittable component data (string)")]
         [TestCase(typeof(NonBlittableComponentData2), @"\bblittable\b", TestName = "Non-blittable component data (interface)")]
@@ -519,6 +542,9 @@ namespace Unity.Entities.Tests
 
         [TestCase(typeof(InterfaceShared), @"\binterface\b", TestName = "Interface implementing ISharedComponentData")]
         [TestCase(typeof(ClassShared), @"\b(struct|class)\b", TestName = "Class implementing ISharedComponentData")]
+
+        [TestCase(typeof(SystemState), @"\bdisabled\b", TestName = "Implements both ISystemStateComponentData and IEnableableComponent")]
+        [TestCase(typeof(Shared), @"\bdisabled\b", TestName = "Implements both ISharedComponentData and IEnableableComponent")]
 
         [TestCase(typeof(GameObjectEntity), nameof(GameObjectEntity), TestName = "GameObjectEntity type")]
 
@@ -567,6 +593,17 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(TypeManager.IsManagedType(TypeManager.GetTypeIndex<UnmanagedSharedComponent>()));
             Assert.IsTrue(TypeManager.IsSharedComponentType(TypeManager.GetTypeIndex<UnmanagedSharedComponent>()));
             Assert.IsFalse(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<UnmanagedSharedComponent>()));
+        }
+
+        struct OptionalEnableableComponent : IComponentData, IEnableableComponent
+        {
+
+        }
+
+        [Test]
+        public void OptionalComponent_IsEnableableFlagCorrectlySet()
+        {
+            Assert.IsTrue(TypeManager.IsEnableable(TypeManager.GetTypeIndex<OptionalEnableableComponent>()));
         }
 
         [Test]

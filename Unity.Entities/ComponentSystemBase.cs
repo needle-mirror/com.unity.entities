@@ -26,7 +26,7 @@ namespace Unity.Entities
             var state = m_StatePtr;
             if (state == null)
             {
-                throw new InvalidOperationException("object is not initialized or has already been destroyed");
+                throw new InvalidOperationException("system state is not initialized or has already been destroyed");
             }
             return state;
         }
@@ -102,6 +102,14 @@ namespace Unity.Entities
         /// </summary>
         /// <value>The World of this system.</value>
         public World World => m_StatePtr != null ? (World)m_StatePtr->m_World.Target : null;
+
+        /// <summary>
+        /// The SystemHandleUntyped of this system.
+        /// </summary>
+        /// <returns>
+        /// If the system state is valid, the untyped system's handle, otherwise default.
+        /// </returns>
+        public SystemHandleUntyped SystemHandleUntyped => m_StatePtr != null ? m_StatePtr->SystemHandleUntyped : default;
 
         /// <summary>
         /// The current Time data for this system's world.
@@ -234,10 +242,10 @@ namespace Unity.Entities
         }
 #endif
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void CheckExists()
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (m_StatePtr != null && World != null && World.IsCreated) return;
 
             throw new InvalidOperationException(
@@ -419,6 +427,19 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Gets a StorageInfoFromEntity object that can access a <seealso cref="EntityStorageInfo"/>.
+        /// </summary>
+        /// <remarks>Assign the returned object to a field of your Job struct so that you can access the
+        /// contents in a Job.</remarks>
+        /// <returns>An dictionary-like object that provides access to information about how Entities are stored,
+        /// indexed by <see cref="Entity"/>.</returns>
+        /// <seealso cref="StorageInfoFromEntity"/>
+        public StorageInfoFromEntity GetStorageInfoFromEntity()
+        {
+            return CheckedState()->GetStorageInfoFromEntity();
+        }
+
+        /// <summary>
         /// Adds a query that must return entities for the system to run. You can add multiple required queries to a
         /// system; all of them must match at least one entity for the system to run.
         /// </summary>
@@ -457,6 +478,9 @@ namespace Unity.Entities
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
         /// <returns>The component.</returns>
         /// <seealso cref="EntityQuery.GetSingleton{T}"/>
+        /// <remarks>
+        /// For managed components, put 'this.' in front to use <see cref="ComponentSystemBaseManagedComponentExtensions.GetSingleton{T}"/>
+        /// </remarks>
         public T GetSingleton<T>()
             where T : struct, IComponentData
         {
@@ -481,6 +505,9 @@ namespace Unity.Entities
         /// <param name="value">A component containing the value to assign to the singleton.</param>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
         /// <seealso cref="EntityQuery.SetSingleton{T}"/>
+        /// <remarks>
+        /// For managed components, put 'this.' in front to use <see cref="ComponentSystemBaseManagedComponentExtensions.SetSingleton{T}"/>
+        /// </remarks>
         public void SetSingleton<T>(T value)
             where T : struct, IComponentData
         {
@@ -610,18 +637,6 @@ namespace Unity.Entities
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
     public static unsafe class ComponentSystemBaseManagedComponentExtensions
     {
-        /// <summary>
-        /// Checks whether a singleton component of the specified type exists.
-        /// </summary>
-        /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
-        /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
-        public static bool HasSingleton<T>(this ComponentSystemBase sys) where T : class, IComponentData
-        {
-            var type = ComponentType.ReadOnly<T>();
-            var query = sys.GetSingletonEntityQueryInternal(type);
-            return query.CalculateEntityCount() == 1;
-        }
-
         /// <summary>
         /// Gets the value of a singleton component.
         /// </summary>

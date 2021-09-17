@@ -29,7 +29,7 @@ namespace Unity.Entities
             m_length = length;
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void CheckIndexOutOfRange(int index)
         {
             if (0 > index || index >= m_length)
@@ -83,7 +83,7 @@ namespace Unity.Entities
     /// To use a BlobBuilder object to create a blob asset:
     /// 1. Declare the structure of the blob asset as a struct.
     /// 2. Create a BlobBuilder object.
-    /// 3. Call the <see cref="ConstructRoot{T}"/> method, where `T` is the struct definng the asset structure.
+    /// 3. Call the <see cref="ConstructRoot{T}"/> method, where `T` is the struct defining the asset structure.
     /// 4. Initialize primitive values defined at the root level of the asset.
     /// 5. Allocate memory for arrays, structs, and <see cref="BlobString"/> instances at the root.
     /// 6. Initialize the values of those arrays, structs, and strings.
@@ -144,7 +144,7 @@ namespace Unity.Entities
             m_allocator = allocator;
             m_allocations = new NativeList<BlobAllocation>(16, m_allocator);
             m_patches = new NativeList<OffsetPtrPatch>(16, m_allocator);
-            m_chunkSize = chunkSize;
+            m_chunkSize = CollectionHelper.Align(chunkSize, 16);
             m_currentChunkIndex = -1;
         }
 
@@ -187,14 +187,33 @@ namespace Unity.Entities
         /// <returns>A reference to the newly allocated array as a mutable BlobBuilderArray instance.</returns>
         public BlobBuilderArray<T> Allocate<T>(ref BlobArray<T> ptr, int length) where T : struct
         {
+            return Allocate(ref ptr, length, UnsafeUtility.AlignOf<T>());
+        }
+
+        /// <summary>
+        /// Allocates enough memory to store <paramref name="length"/> elements of struct <typeparamref name="T"/>.
+        /// </summary>
+        /// <param name="ptr">A reference to a BlobArray field in a blob asset.</param>
+        /// <param name="length">The number of elements to allocate.</param>
+        /// <param name="alignment">The alignment of the allocated memory.</param>
+        /// <typeparam name="T">The struct data type.</typeparam>
+        /// <returns>A reference to the newly allocated array as a mutable BlobBuilderArray instance.</returns>
+        public BlobBuilderArray<T> Allocate<T>(ref BlobArray<T> ptr, int length, int alignment) where T : struct
+        {
             if (length <= 0)
                 return new BlobBuilderArray<T>(null, 0);
+
+            if (!math.ispow2(alignment))
+                throw new ArgumentException("Alignment must be a power of two");
+
+            if (alignment > 16)
+                throw new ArgumentException("Alignment larger than 16 is not supported");
 
             var offsetPtr = (int*)UnsafeUtility.AddressOf(ref ptr.m_OffsetPtr);
 
             ValidateAllocation(offsetPtr);
 
-            var allocation = Allocate(UnsafeUtility.SizeOf<T>() * length, UnsafeUtility.AlignOf<T>());
+            var allocation = Allocate(UnsafeUtility.SizeOf<T>() * length, alignment);
 
             var patch = new OffsetPtrPatch
             {
@@ -288,6 +307,9 @@ namespace Unity.Entities
         /// <returns></returns>
         public BlobAssetReference<T> CreateBlobAssetReference<T>(Allocator allocator) where T : struct
         {
+            //Align last chunk upwards so all chunks are 16 byte aligned
+            AlignChunk(m_currentChunkIndex);
+
             var offsets = new NativeArray<int>(m_allocations.Length + 1, Allocator.Temp);
             var sortedAllocs = new NativeArray<SortedIndex>(m_allocations.Length, Allocator.Temp);
 
@@ -405,9 +427,7 @@ namespace Unity.Entities
             // align size of last chunk to 16 bytes so chunks can be concatenated without breaking alignment
             if (m_currentChunkIndex != -1)
             {
-                var currentAlloc = m_allocations[m_currentChunkIndex];
-                currentAlloc.size = CollectionHelper.Align(currentAlloc.size, 16);
-                m_allocations[m_currentChunkIndex] = currentAlloc;
+                AlignChunk(m_currentChunkIndex);
             }
 
             m_currentChunkIndex = m_allocations.Length;
@@ -416,7 +436,7 @@ namespace Unity.Entities
             return alloc;
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void ValidateAllocation(void* address)
         {
             // ValidateAllocation is most often called with data in recently allocated allocations
@@ -463,6 +483,15 @@ namespace Unity.Entities
                 Memory.Unmanaged.Free(m_allocations[i].p, m_allocator);
             m_allocations.Dispose();
             m_patches.Dispose();
+        }
+
+        void AlignChunk(int chunkIndex)
+        {
+            var chunk = m_allocations[chunkIndex];
+            var oldSize = chunk.size;
+            chunk.size = CollectionHelper.Align(chunk.size, 16);
+            m_allocations[chunkIndex] = chunk;
+            UnsafeUtility.MemSet(chunk.p + oldSize, 0, chunk.size-oldSize);
         }
     }
 }

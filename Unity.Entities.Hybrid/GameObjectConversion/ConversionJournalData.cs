@@ -7,9 +7,7 @@ using GameObject = UnityEngine.GameObject;
 
 namespace Unity.Entities.Conversion
 {
-    interface IConversionEventData {}
-
-    struct LogEventData : IConversionEventData
+    struct LogEventData
     {
         public UnityLogType Type;
         public string Message;
@@ -54,38 +52,26 @@ namespace Unity.Entities.Conversion
         NativeList<int> m_FreeHeadIds;
         private int m_HeadIdCount;
 
-
-        // Only for UnityEngine component types to be stored in a companion GameObject
-        // maps GameObject to MultiList m_HybridTypes
-        // for 2020.2, this could be based on instance IDs instead
-        Dictionary<GameObject, int> m_NewHybridHeadIdIndices;
-        internal Dictionary<GameObject, int> NewHybridHeadIdIndices => m_NewHybridHeadIdIndices;
-
-
         public void Dispose()
         {
             m_HeadIdIndices.Dispose();
             m_FreeHeadIds.Dispose();
             m_Entities.Dispose();
             m_LogEvents.Dispose();
-            m_HybridTypes.Dispose();
         }
 
         // ** keep this block in sync ** (begin)
 
         MultiList<Entity, MultiListNativeArrayData<Entity>> m_Entities;
         MultiList<LogEventData, MultiListArrayData<LogEventData>> m_LogEvents;
-        MultiList<Type, MultiListArrayData<Type>> m_HybridTypes;
 
         public void Init()
         {
             m_HeadIdIndices = new NativeHashMap<int, int>(1000, Allocator.Persistent);
             m_FreeHeadIds = new NativeList<int>(Allocator.Persistent);
-            m_NewHybridHeadIdIndices = new Dictionary<GameObject, int>();
 
             m_Entities.Init();
             m_LogEvents.Init();
-            m_HybridTypes.Init();
         }
 
         internal ConvertedEntitiesAccessor GetConvertedEntitiesAccessor()
@@ -99,11 +85,6 @@ namespace Unity.Entities.Conversion
             {
                 m_Entities.ReleaseListKeepHead(headIdIndex);
                 m_LogEvents.ReleaseList(headIdIndex);
-            }
-
-            if (go != null && m_NewHybridHeadIdIndices.TryGetValue(go, out headIdIndex))
-            {
-                m_HybridTypes.ReleaseList(headIdIndex);
             }
         }
 
@@ -135,23 +116,6 @@ namespace Unity.Entities.Conversion
                 {
                     m_Entities.SetHeadIdsCapacity(headIdsCapacity);
                     m_LogEvents.SetHeadIdsCapacity(headIdsCapacity);
-                }
-            }
-
-            return headIdIndex;
-        }
-
-        int GetOrAddHybridHeadIdIndex(GameObject gameObject)
-        {
-            if (!m_NewHybridHeadIdIndices.TryGetValue(gameObject, out var headIdIndex))
-            {
-                headIdIndex = m_NewHybridHeadIdIndices.Count;
-                m_NewHybridHeadIdIndices.Add(gameObject, headIdIndex);
-
-                var headIdsCapacity = headIdIndex + 1;
-                if (MultiList.CalcExpandCapacity(m_HybridTypes.HeadIds.Length, ref headIdsCapacity))
-                {
-                    m_HybridTypes.SetHeadIdsCapacity(headIdsCapacity);
                 }
             }
 
@@ -199,8 +163,10 @@ namespace Unity.Entities.Conversion
             return true;
         }
 
-        public void RecordPrimaryEntity(int objectInstanceId, Entity entity) =>
+        public void RecordPrimaryEntity(int objectInstanceId, Entity entity)
+        {
             AddHead(objectInstanceId, ref m_Entities, entity);
+        }
 
         public bool HasPrimaryEntity(int objectInstanceId) =>
             HasHead(objectInstanceId, ref m_Entities);
@@ -229,8 +195,10 @@ namespace Unity.Entities.Conversion
         public unsafe int ReserveAdditionalEntities(int objectInstanceId, int* outIds, int count) =>
             AddTail(objectInstanceId, ref m_Entities, outIds, count);
 
-        public void RecordAdditionalEntityAt(int atId, Entity entity) =>
+        public void RecordAdditionalEntityAt(int atId, Entity entity)
+        {
             m_Entities.Data.Data[atId] = entity;
+        }
 
         // returns false if the object is unknown to the conversion system
         public bool GetEntities(int objectInstanceId, out MultiListEnumerator<Entity> iter)
@@ -272,8 +240,6 @@ namespace Unity.Entities.Conversion
 
         IEnumerable<(int objectInstanceId, T eventData)> SelectJournalData<T>(MultiList<T, MultiListArrayData<T>> store)
         {
-            //@TODO: make custom enumerator for this
-
             using (var headIdIndices = m_HeadIdIndices.GetKeyValueArrays(Allocator.Temp))
             {
                 for (var i = 0; i < headIdIndices.Keys.Length; ++i)
@@ -316,20 +282,6 @@ namespace Unity.Entities.Conversion
 
                 return events;
             }
-        }
-
-        public void AddHybridComponent(GameObject gameObject, Type type)
-        {
-            int index = GetOrAddHybridHeadIdIndex(gameObject);
-            m_HybridTypes.Add(index, type);
-        }
-
-        public MultiListEnumerator<Type, MultiListArrayData<Type>> HybridTypes(int headIdIndex) =>
-            m_HybridTypes.SelectList(headIdIndex);
-
-        internal void ClearNewHybridComponents()
-        {
-            m_NewHybridHeadIdIndices.Clear();
         }
 
         public IEnumerable<(int objectInstanceId, LogEventData eventData)> SelectLogEventsFast() =>

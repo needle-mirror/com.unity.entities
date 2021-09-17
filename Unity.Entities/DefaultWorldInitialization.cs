@@ -10,6 +10,7 @@ using UnityEngine;
 using Unity.Collections;
 #if !UNITY_DOTSRUNTIME
 using UnityEngine.LowLevel;
+using UnityEngine.PlayerLoop;
 #endif
 #if !NET_DOTS
 using System.Linq;
@@ -74,6 +75,8 @@ namespace Unity.Entities
 
             go.AddComponent<DefaultWorldInitializationProxy>().IsActive = true;
 
+            RuntimeApplication.RegisterFrameUpdateToCurrentPlayerLoop();
+
             s_UnloadOrPlayModeChangeShutdownRegistered = true;
 #endif
         }
@@ -86,13 +89,21 @@ namespace Unity.Entities
 
             var playerLoop = PlayerLoop.GetCurrentPlayerLoop();
             foreach (var w in World.s_AllWorlds)
-            {
                 ScriptBehaviourUpdateOrder.RemoveWorldFromPlayerLoop(w, ref playerLoop);
-            }
             PlayerLoop.SetPlayerLoop(playerLoop);
 
+            RuntimeApplication.UnregisterFrameUpdateToCurrentPlayerLoop();
+
             World.DisposeAllWorlds();
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            EntitiesJournaling.Shutdown();
+#endif
             
+#if ENABLE_PROFILER
+            EntitiesProfiler.Shutdown();
+#endif
+
             s_UnloadOrPlayModeChangeShutdownRegistered = false;
 
             DefaultWorldDestroyed?.Invoke();
@@ -107,6 +118,14 @@ namespace Unity.Entities
         public static World Initialize(string defaultWorldName, bool editorWorld = false)
         {
             RegisterUnloadOrPlayModeChangeShutdown();
+
+#if ENABLE_PROFILER
+            EntitiesProfiler.Initialize();
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            EntitiesJournaling.Initialize();
+#endif
 
             if (!editorWorld)
             {
@@ -125,10 +144,10 @@ namespace Unity.Entities
             World.DefaultGameObjectInjectionWorld = world;
 
             var systemList = GetAllSystems(WorldSystemFilterFlags.Default, editorWorld);
-            AddSystemToRootLevelSystemGroupsInternal(world, systemList, systemList.Count);
+            AddSystemToRootLevelSystemGroupsInternal(world, systemList);
 
 #if !UNITY_DOTSRUNTIME
-            ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(world);
+            ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(world);
 #endif
 
             DefaultWorldInitialized?.Invoke(world);
@@ -153,7 +172,7 @@ namespace Unity.Entities
         /// </summary>
         public static void AddSystemsToRootLevelSystemGroups(World world, params Type[] systemTypes)
         {
-            AddSystemToRootLevelSystemGroupsInternal(world, systemTypes, systemTypes.Length);
+            AddSystemToRootLevelSystemGroupsInternal(world, systemTypes);
         }
 
         /// <summary>
@@ -162,15 +181,30 @@ namespace Unity.Entities
         /// </summary>
         public static void AddSystemsToRootLevelSystemGroups(World world, IReadOnlyList<Type> systemTypes)
         {
-            AddSystemToRootLevelSystemGroupsInternal(world, systemTypes, systemTypes.Count);
+            AddSystemToRootLevelSystemGroupsInternal(world, systemTypes);
         }
 
-        private static void AddSystemToRootLevelSystemGroupsInternal(World world, IEnumerable<Type> systemTypesOrig, int managedTypesCountOrig)
+        /// <summary>
+        /// This internal interface is used when adding systems to the default world to identify the root groups in your
+        /// setup. They will then be skipped when we try to find the parent of each system (because they don't need a
+        /// parent).
+        /// </summary>
+        internal interface IIdentifyRootGroups
         {
-            var initializationSystemGroup = world.GetOrCreateSystem<InitializationSystemGroup>();
-            var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
-            var presentationSystemGroup = world.GetOrCreateSystem<PresentationSystemGroup>();
+            bool IsRootGroup(Type type);
+        }
 
+        struct DefaultRootGroups : IIdentifyRootGroups
+        {
+            public bool IsRootGroup(Type type) =>
+                type == typeof(InitializationSystemGroup) ||
+                type == typeof(SimulationSystemGroup) ||
+                type == typeof(PresentationSystemGroup);
+        }
+
+        internal static void AddSystemToRootLevelSystemGroupsInternal<T>(World world, IEnumerable<Type> systemTypesOrig, ComponentSystemGroup defaultGroup, T rootGroups)
+            where T : struct, IIdentifyRootGroups
+        {
             var managedTypes = new List<Type>();
             var unmanagedTypes = new List<Type>();
 
@@ -178,7 +212,7 @@ namespace Unity.Entities
             {
                 if (typeof(ComponentSystemBase).IsAssignableFrom(stype))
                     managedTypes.Add(stype);
-                else if (typeof(ISystemBase).IsAssignableFrom(stype))
+                else if (typeof(ISystem).IsAssignableFrom(stype))
                     unmanagedTypes.Add(stype);
                 else
                     throw new InvalidOperationException("Bad type");
@@ -194,9 +228,7 @@ namespace Unity.Entities
 
                 // Skip the built-in root-level system groups
                 var type = system.GetType();
-                if (type == typeof(InitializationSystemGroup) ||
-                    type == typeof(SimulationSystemGroup) ||
-                    type == typeof(PresentationSystemGroup))
+                if (rootGroups.IsRootGroup(type))
                 {
                     continue;
                 }
@@ -204,7 +236,7 @@ namespace Unity.Entities
                 var updateInGroupAttributes = TypeManager.GetSystemAttributes(system.GetType(), typeof(UpdateInGroupAttribute));
                 if (updateInGroupAttributes.Length == 0)
                 {
-                    simulationSystemGroup.AddSystemToUpdateList(system);
+                    defaultGroup.AddSystemToUpdateList(system);
                 }
 
                 foreach (var attr in updateInGroupAttributes)
@@ -217,18 +249,19 @@ namespace Unity.Entities
                 }
             }
 
-#if !UNITY_DOTSRUNTIME
-            // Add unmanaged systems
-            foreach (var type in unmanagedTypes)
-            {
-                SystemHandleUntyped sysHandle = world.Unmanaged.CreateUnmanagedSystem(world, type);
+            // Create unmanaged systems in batch
+            NativeArray<SystemHandleUntyped> handles = world.Unmanaged.GetOrCreateUnmanagedSystems(world, unmanagedTypes);
 
-                // Add systems to their groups, based on the [UpdateInGroup] attribute.
+            // Add systems to their groups, based on the [UpdateInGroup] attribute.
+            for (int i = 0; i < unmanagedTypes.Count; ++i)
+            {
+                var type = unmanagedTypes[i];
+                SystemHandleUntyped sysHandle = handles[i];
 
                 var updateInGroupAttributes = TypeManager.GetSystemAttributes(type, typeof(UpdateInGroupAttribute));
                 if (updateInGroupAttributes.Length == 0)
                 {
-                    simulationSystemGroup.AddUnmanagedSystemToUpdateList(sysHandle);
+                    defaultGroup.AddUnmanagedSystemToUpdateList(sysHandle);
                 }
 
                 foreach (var attr in updateInGroupAttributes)
@@ -241,8 +274,16 @@ namespace Unity.Entities
                     }
                 }
             }
-#endif
+            handles.Dispose();
+        }
 
+        private static void AddSystemToRootLevelSystemGroupsInternal(World world, IEnumerable<Type> systemTypesOrig)
+        {
+            var initializationSystemGroup = world.GetOrCreateSystem<InitializationSystemGroup>();
+            var simulationSystemGroup = world.GetOrCreateSystem<SimulationSystemGroup>();
+            var presentationSystemGroup = world.GetOrCreateSystem<PresentationSystemGroup>();
+
+            AddSystemToRootLevelSystemGroupsInternal(world, systemTypesOrig, simulationSystemGroup, new DefaultRootGroups());
 
             // Update player loop
             initializationSystemGroup.SortSystems();

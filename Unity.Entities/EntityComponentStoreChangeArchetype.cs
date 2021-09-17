@@ -206,42 +206,43 @@ namespace Unity.Entities
             }
         }
 
-        public void AddComponent(UnsafeList* sortedEntityBatchList, ComponentType type, int existingSharedComponentIndex)
+        public void AddComponent(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ComponentType type, int existingSharedComponentIndex)
         {
             Assert.IsFalse(type.IsChunkComponent);
 
             // Reverse order so that batch indices do not change while iterating.
             for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
-                AddComponent(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], type, existingSharedComponentIndex);
+                AddComponent(sortedEntityBatchList->Ptr[i], type, existingSharedComponentIndex);
         }
 
-        public void AddComponents(UnsafeList* sortedEntityBatchList, ref ComponentTypes types)
+        public void AddComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ref ComponentTypes types)
         {
             Assert.IsFalse(types.ChunkComponentCount > 0);
 
             // Reverse order so that batch indices do not change while iterating.
             for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
-                AddComponents(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], types);
+                AddComponents(sortedEntityBatchList->Ptr[i], types);
         }
 
-        public void RemoveComponents(UnsafeList* sortedEntityBatchList, ref ComponentTypes types)
+        public void RemoveComponents(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ref ComponentTypes types)
         {
             Assert.IsFalse(types.ChunkComponentCount > 0);
 
             // Reverse order so that batch indices do not change while iterating.
             for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
-                RemoveComponents(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], types);
+                RemoveComponents(sortedEntityBatchList->Ptr[i], types);
         }
 
-        public void RemoveComponent(UnsafeList* sortedEntityBatchList, ComponentType type)
+        public void RemoveComponent(UnsafeList<EntityBatchInChunk>* sortedEntityBatchList, ComponentType type)
         {
             Assert.IsFalse(type.IsChunkComponent);
 
             // Reverse order so that batch indices do not change while iterating.
             for (int i = sortedEntityBatchList->Length - 1; i >= 0; i--)
-                RemoveComponent(((EntityBatchInChunk*)sortedEntityBatchList->Ptr)[i], type);
+                RemoveComponent(sortedEntityBatchList->Ptr[i], type);
         }
 
+        [Obsolete("Please use AddComponent. (RemovedAfter 2021-07-10)")]
         public bool AddComponentWithValidation(Entity entity, ComponentType componentType)
         {
             if (HasComponent(entity, componentType))
@@ -260,12 +261,13 @@ namespace Unity.Entities
         }
 
 
-        public void AddComponentWithValidation(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
+        [Obsolete("Please use AddComponent. (RemovedAfter 2021-07-10)")]
+        public void AddComponentWithValidation(UnsafeCachedChunkList cache, UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
             ComponentType componentType, ComponentDependencyManager* dependencyManager)
         {
             AssertCanAddComponent(archetypeList, componentType);
 
-            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
             if (chunks.Length > 0)
             {
                 //@TODO the fast path for a chunk that contains a single entity is only possible if the chunk doesn't have a Locked Entity Order
@@ -289,6 +291,7 @@ namespace Unity.Entities
             chunks.Dispose();
         }
 
+        [Obsolete("Please use RemoveComponent. (RemovedAfter 2021-07-10)")]
         public bool RemoveComponentWithValidation(Entity entity, ComponentType componentType)
         {
             ValidateEntity(entity);
@@ -305,14 +308,16 @@ namespace Unity.Entities
             RemoveComponents(entity, componentTypes);
         }
 
-        public void RemoveComponentWithValidation(UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
+        [Obsolete("Please use RemoveComponent. (RemovedAfter 2021-07-10)")]
+        public void RemoveComponentWithValidation(UnsafeCachedChunkList cache, UnsafeMatchingArchetypePtrList archetypeList, EntityQueryFilter filter,
             ComponentType componentType, ComponentDependencyManager* dependencyManager)
         {
-            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
-            RemoveComponentWithValidation(chunks, componentType);
+            var chunks = ChunkIterationUtility.CreateArchetypeChunkArray(cache, archetypeList, Collections.Allocator.TempJob, ref filter, dependencyManager);
+            RemoveComponent((ArchetypeChunk*) NativeArrayUnsafeUtility.GetUnsafePtr(chunks), chunks.Length, componentType);
             chunks.Dispose();
         }
 
+        [Obsolete("Please use RemoveComponent. (RemovedAfter 2021-07-10)")]
         public void RemoveComponentWithValidation(Collections.NativeArray<ArchetypeChunk> chunks, ComponentType componentType)
         {
             if (chunks.Length == 0)

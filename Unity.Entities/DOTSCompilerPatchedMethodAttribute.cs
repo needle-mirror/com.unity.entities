@@ -1,4 +1,3 @@
-#if ROSLYN_SOURCEGEN_ENABLED
 using System;
 
 namespace Unity.Entities
@@ -11,4 +10,3 @@ namespace Unity.Entities
         public DOTSCompilerPatchedMethodAttribute(string targetMethodName) { }
     }
 }
-#endif

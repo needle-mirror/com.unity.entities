@@ -64,13 +64,16 @@ namespace Unity.Transforms
     // (or) Rotation = RotationEulerYZX
     // (or) Rotation = RotationEulerZXY
     // (or) Rotation = RotationEulerZYX
-    public abstract class RotationEulerSystem : JobComponentSystem
+    [BurstCompile]
+    public partial struct RotationEulerSystem : ISystem
     {
         private EntityQuery m_Query;
 
-        protected override void OnCreate()
+        //burst disabled pending burstable entityquerydesc
+        //[BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_Query = GetEntityQuery(new EntityQueryDesc
+            m_Query = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -87,6 +90,12 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
+        }
+
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
+        {
+            
         }
 
         [BurstCompile]
@@ -196,20 +205,24 @@ namespace Unity.Transforms
             }
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDependencies)
+        //disabling burst in dotsrt until burstable scheduling works
+#if !UNITY_DOTSRUNTIME
+        [BurstCompile]
+#endif
+        public void OnUpdate(ref SystemState state)
         {
             var job = new RotationEulerToRotation()
             {
-                RotationTypeHandle = GetComponentTypeHandle<Rotation>(false),
-                RotationEulerXyzTypeHandle = GetComponentTypeHandle<RotationEulerXYZ>(true),
-                RotationEulerXzyTypeHandle = GetComponentTypeHandle<RotationEulerXZY>(true),
-                RotationEulerYxzTypeHandle = GetComponentTypeHandle<RotationEulerYXZ>(true),
-                RotationEulerYzxTypeHandle = GetComponentTypeHandle<RotationEulerYZX>(true),
-                RotationEulerZxyTypeHandle = GetComponentTypeHandle<RotationEulerZXY>(true),
-                RotationEulerZyxTypeHandle = GetComponentTypeHandle<RotationEulerZYX>(true),
-                LastSystemVersion = LastSystemVersion
+                RotationTypeHandle = state.GetComponentTypeHandle<Rotation>(false),
+                RotationEulerXyzTypeHandle = state.GetComponentTypeHandle<RotationEulerXYZ>(true),
+                RotationEulerXzyTypeHandle = state.GetComponentTypeHandle<RotationEulerXZY>(true),
+                RotationEulerYxzTypeHandle = state.GetComponentTypeHandle<RotationEulerYXZ>(true),
+                RotationEulerYzxTypeHandle = state.GetComponentTypeHandle<RotationEulerYZX>(true),
+                RotationEulerZxyTypeHandle = state.GetComponentTypeHandle<RotationEulerZXY>(true),
+                RotationEulerZyxTypeHandle = state.GetComponentTypeHandle<RotationEulerZYX>(true),
+                LastSystemVersion = state.LastSystemVersion
             };
-            return job.ScheduleParallel(m_Query, 1, inputDependencies);
+            state.Dependency = job.ScheduleParallel(m_Query, state.Dependency);
         }
     }
 }

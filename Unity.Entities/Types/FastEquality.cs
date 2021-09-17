@@ -22,19 +22,6 @@ namespace Unity.Entities
 // While UNITY_DOTSRUNTIME not using Tiny BCL can compile most of this code, UnsafeUtility doesn't currently provide a
 // FieldOffset method so we disable for UNITY_DOTSRUNTIME rather than NET_DOTS
 #if !UNITY_DOTSRUNTIME
-        [Obsolete("FastEquality.Layout is deprecated and will be removed as component comparisons no longer require it. (RemovedAfter 2021-01-12).", true)]
-        public struct Layout
-        {
-            public int offset;
-            public int count;
-            public bool Aligned4;
-
-            public override string ToString()
-            {
-                return $"offset: {offset} count: {count} Aligned4: {Aligned4}";
-            }
-        }
-
         internal static TypeInfo CreateTypeInfo<T>() where T : struct
         {
             if (TypeUsesDelegates(typeof(T)))

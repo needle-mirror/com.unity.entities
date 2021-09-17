@@ -45,7 +45,7 @@ namespace Unity.Entities.Tests.Conversion
             Assert.IsTrue(m_MappingSystem.AddEntityGUID);
             Assert.IsFalse(m_MappingSystem.ForceStaticOptimization);
             Assert.IsTrue(m_MappingSystem.AssignName);
-            Assert.IsFalse(m_MappingSystem.IsLiveLink);
+            Assert.IsFalse(m_MappingSystem.IsLiveConversion);
             Assert.AreEqual(ConversionState.NotConverting, m_MappingSystem.ConversionState);
         }
 
@@ -188,6 +188,7 @@ namespace Unity.Entities.Tests.Conversion
 
             var goEntity = m_MappingSystem.GetPrimaryEntity(go);
             var prefabEntity = m_MappingSystem.GetPrimaryEntity(prefab);
+            m_ManagerDebug.CheckInternalConsistency();
 
             Assert.AreNotEqual(goEntity, prefabEntity);
 

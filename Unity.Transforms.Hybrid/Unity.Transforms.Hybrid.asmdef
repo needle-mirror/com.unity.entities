@@ -1,5 +1,6 @@
 {
     "name": "Unity.Transforms.Hybrid",
+    "rootNamespace": "",
     "references": [
         "Unity.Entities",
         "Unity.Entities.Hybrid",
@@ -9,8 +10,15 @@
         "Unity.Jobs",
         "Unity.Mathematics"
     ],
-    "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": true
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "!UNITY_DOTSRUNTIME"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
 }

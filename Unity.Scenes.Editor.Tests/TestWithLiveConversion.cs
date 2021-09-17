@@ -5,31 +5,27 @@ using UnityEngine;
 namespace Unity.Scenes.Editor.Tests
 {
     [Serializable]
-    struct TestWithLiveConversion
+    public struct TestWithLiveConversion
     {
-        [SerializeField] bool _wasLiveLinkEnabled;
+        [SerializeField] bool _wasLiveConversionEnabled;
         [SerializeField] LiveConversionSettings.ConversionMode _previousConversionMode;
 
         public void Setup()
         {
-            _wasLiveLinkEnabled = SubSceneInspectorUtility.LiveLinkEnabledInEditMode;
-            SubSceneInspectorUtility.LiveLinkEnabledInEditMode = true;
-#if UNITY_2020_2_OR_NEWER
+            _wasLiveConversionEnabled = SubSceneInspectorUtility.LiveConversionEnabled;
+            SubSceneInspectorUtility.LiveConversionEnabled = true;
             _previousConversionMode = LiveConversionSettings.Mode;
             LiveConversionSettings.TreatIncrementalConversionFailureAsError = true;
             LiveConversionSettings.EnableInternalDebugValidation = true;
             LiveConversionSettings.Mode = LiveConversionSettings.ConversionMode.IncrementalConversionWithDebug;
-#endif
         }
 
         public void TearDown()
         {
-            SubSceneInspectorUtility.LiveLinkEnabledInEditMode = _wasLiveLinkEnabled;
-#if UNITY_2020_2_OR_NEWER
+            SubSceneInspectorUtility.LiveConversionEnabled = _wasLiveConversionEnabled;
             LiveConversionSettings.TreatIncrementalConversionFailureAsError = false;
             LiveConversionSettings.EnableInternalDebugValidation = false;
             LiveConversionSettings.Mode = _previousConversionMode;
-#endif
         }
 
 

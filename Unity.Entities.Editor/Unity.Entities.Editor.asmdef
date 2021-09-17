@@ -1,20 +1,30 @@
 {
     "name": "Unity.Entities.Editor",
     "references": [
+        "Unity.Build",
+        "Unity.Build.Classic",
+        "Unity.Build.Editor",
+        "Unity.Build.Internals",
+        "Unity.Burst",
         "Unity.Collections",
         "Unity.Entities",
+        "Unity.Entities.Editor.Properties",
         "Unity.Entities.Hybrid",
+        "Unity.Jobs",
+        "Unity.InternalAPIEditorBridge.002",
+        "Unity.InternalAPIEngineBridge.002",
         "Unity.Mathematics",
+        "Unity.Profiling.Core",
         "Unity.Properties",
         "Unity.Properties.Editor",
-        "Unity.Scenes.Editor",
+        "Unity.Properties.UI",
+        "Unity.Properties.UI.Editor",
         "Unity.Scenes",
+        "Unity.Scenes.Editor",
         "Unity.Serialization",
-        "Unity.Build",
-        "Unity.Build.Internals",
-        "Unity.Build.Classic",
-        "UnityEditor.UI",
-        "Unity.Build.Classic.Private"
+        "Unity.Serialization.Editor",
+        "Unity.Transforms",
+        "UnityEditor.UI"
     ],
     "includePlatforms": [
         "Editor"
@@ -28,6 +38,12 @@
     ],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.quicksearch",
+            "expression": "2.1.0-preview.4",
+            "define": "QUICKSEARCH_AVAILABLE"
+        }
+    ],
     "noEngineReferences": false
 }

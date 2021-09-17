@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,6 +18,7 @@ namespace Unity.Entities.Tests.Fuzzer
         private EntityManagerDifferOptions _differOptions = EntityManagerDifferOptions.IncludeForwardChangeSet | EntityManagerDifferOptions.ValidateUniqueEntityGuid;
         private BlobAssetCache _srcBlobAssets = new BlobAssetCache(Allocator.Persistent);
         private BlobAssetCache _dstBlobAssets = new BlobAssetCache(Allocator.Persistent);
+        private EntityDiffer.CachedComponentChanges _cachedComponentChanges = new EntityDiffer.CachedComponentChanges(1024);
         internal int NextId;
 
         // For every entity, we record its "parent" LinkedEntityGroup. That means that with this current setup, every
@@ -41,14 +42,15 @@ namespace Unity.Entities.Tests.Fuzzer
         {
             var srcEm = SourceWorld.EntityManager;
             var dstEm = DestinationWorld.EntityManager;
-            using (var changes = EntityDiffer.GetChanges(srcEm, dstEm, _differOptions, Query, _srcBlobAssets, Allocator.TempJob))
+
+            using (var changes = EntityDiffer.GetChanges(ref _cachedComponentChanges, srcEm, dstEm, _differOptions, Query, _srcBlobAssets, Allocator.TempJob))
             {
                 EntityPatcher.ApplyChangeSet(dstEm, changes.ForwardChangeSet);
             }
 
-            using (var changes = EntityDiffer.GetChanges(dstEm, srcEm, _differOptions, Query, _dstBlobAssets, Allocator.TempJob))
+            using (var changes = EntityDiffer.GetChanges(ref _cachedComponentChanges, dstEm, srcEm, _differOptions, Query, _dstBlobAssets, Allocator.TempJob))
             {
-                if (!changes.ForwardChangeSet.HasChanges)
+                if (!changes.ForwardChangeSet.HasChangesIncludeNames(true))
                     return;
                 // TODO: Format the entity changeset nicely and print it out
                 throw new Exception("Diff is not zero!");
@@ -74,6 +76,7 @@ namespace Unity.Entities.Tests.Fuzzer
             _dstBlobAssets.Dispose();
             SourceWorld?.Dispose();
             DestinationWorld?.Dispose();
+            _cachedComponentChanges.Dispose();
         }
 
         internal class DictionaryForKeySampling<K, V>

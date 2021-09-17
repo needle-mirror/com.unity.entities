@@ -319,15 +319,7 @@ namespace Unity.Entities.Conversion
             if (hierarchy.InstanceId.Length == 0)
                 return;
             var objects = new List<UnityEngine.Object>();
-#if UNITY_2020_2_OR_NEWER
             Resources.InstanceIDToObjectList(hierarchy.InstanceId, objects);
-#else
-            {
-                var instances = hierarchy.InstanceId;
-                for (int i = 0; i < instances.Length; i++)
-                    objects.Add(UnityEditor.EditorUtility.InstanceIDToObject(instances[i]));
-            }
-#endif
             for (int i = 0; i < objects.Count; i++)
             {
                 var go = objects[i] as GameObject;

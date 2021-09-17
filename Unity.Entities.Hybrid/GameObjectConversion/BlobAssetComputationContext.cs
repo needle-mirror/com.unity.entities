@@ -1,5 +1,6 @@
 using System;
 using Unity.Collections;
+using Unity.Collections.NotBurstCompatible;
 using UnityEngine;
 using UnityObject = UnityEngine.Object;
 
@@ -134,7 +135,7 @@ namespace Unity.Entities
         /// </remarks>
         public void UpdateBlobStore()
         {
-            var keys = m_BlobPerUnityObject.GetUniqueKeyArray(Allocator.Temp);
+            var keys = m_BlobPerUnityObject.GetUniqueKeyArrayNBC(Allocator.Temp);
             using (keys.Item1)
             {
                 for (var k = 0; k < keys.Item2; ++k)

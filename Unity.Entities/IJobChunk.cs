@@ -5,6 +5,7 @@ using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Profiling;
+using System.Diagnostics;
 
 namespace Unity.Entities
 {
@@ -76,7 +77,6 @@ namespace Unity.Entities
             internal int IsParallel;
         }
 
-#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
         /// <summary>
         /// This method is only to be called by automatically generated setup code.
         /// </summary>
@@ -84,10 +84,15 @@ namespace Unity.Entities
         public static void EarlyJobInit<T>()
             where T : struct, IJobChunk
         {
-            JobChunkProducer<T>.CreateReflectionData();
+            JobChunkProducer<T>.Initialize();
         }
-#endif
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void CheckReflectionDataCorrect(IntPtr reflectionData)
+        {
+            if (reflectionData == IntPtr.Zero)
+                throw new InvalidOperationException("Reflection data was not set up by an Initialize() call");
+        }
 
         /// <summary>
         /// Adds an IJobChunk instance to the Job scheduler queue for parallel execution.
@@ -104,11 +109,26 @@ namespace Unity.Entities
         public static unsafe JobHandle Schedule<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IJobChunk
         {
-#if UNITY_2020_2_OR_NEWER
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
-#else
-            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched, true);
-#endif
+        }
+
+        /// <summary>
+        /// Adds an IJobChunk instance to the Job scheduler queue for parallel execution.
+        /// Note: This method is being replaced with use of ScheduleParallel to make non-sequential execution explicit.
+        /// </summary>
+        /// <param name="jobData">An IJobChunk instance. In this variant, the jobData is passed by reference,
+        /// which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled Jobs that could constrain this Job.
+        /// A Job that writes to a component must run before other Jobs that read or write that component. Jobs that
+        /// only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        public static unsafe JobHandle ScheduleByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
+            where T : struct, IJobChunk
+        {
+            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
         }
 
         /// <summary>
@@ -125,11 +145,25 @@ namespace Unity.Entities
         public static unsafe JobHandle ScheduleSingle<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IJobChunk
         {
-#if UNITY_2020_2_OR_NEWER
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, false);
-#else
-            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched, false);
-#endif
+        }
+
+        /// <summary>
+        /// Adds an IJobChunk instance to the Job scheduler queue for sequential (non-parallel) execution.
+        /// </summary>
+        /// <param name="jobData">An IJobChunk instance. In this variant, the jobData is passed by reference,
+        /// which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled Jobs that could constrain this Job.
+        /// A Job that writes to a component must run before other Jobs that read or write that component. Jobs that
+        /// only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        public static unsafe JobHandle ScheduleSingleByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
+            where T : struct, IJobChunk
+        {
+            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, false);
         }
 
         /// <summary>
@@ -146,11 +180,25 @@ namespace Unity.Entities
         public static unsafe JobHandle ScheduleParallel<T>(this T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
             where T : struct, IJobChunk
         {
-#if UNITY_2020_2_OR_NEWER
             return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
-#else
-            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Batched, true);
-#endif
+        }
+
+        /// <summary>
+        /// Adds an IJobChunk instance to the Job scheduler queue for parallel execution.
+        /// </summary>
+        /// <param name="jobData">An IJobChunk instance. In this variant, the jobData is passed by reference,
+        /// which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <param name="dependsOn">The handle identifying already scheduled Jobs that could constrain this Job.
+        /// A Job that writes to a component must run before other Jobs that read or write that component. Jobs that
+        /// only read the same components can run in parallel.</param>
+        /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
+        /// <returns>A handle that combines the current Job with previous dependencies identified by the `dependsOn`
+        /// parameter.</returns>
+        public static unsafe JobHandle ScheduleParallelByRef<T>(this ref T jobData, EntityQuery query, JobHandle dependsOn = default(JobHandle))
+            where T : struct, IJobChunk
+        {
+            return ScheduleInternal(ref jobData, query, dependsOn, ScheduleMode.Parallel, true);
         }
 
         /// <summary>
@@ -160,6 +208,19 @@ namespace Unity.Entities
         /// <param name="query">The query selecting chunks with the necessary components.</param>
         /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
         public static unsafe void Run<T>(this T jobData, EntityQuery query)
+            where T : struct, IJobChunk
+        {
+            ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run, false);
+        }
+
+        /// <summary>
+        /// Runs the Job immediately on the current thread.
+        /// </summary>
+        /// <param name="jobData">An IJobChunk instance. In this variant, the jobData is passed by reference,
+        /// which may be necessary for unusually large job structs.</param>
+        /// <param name="query">The query selecting chunks with the necessary components.</param>
+        /// <typeparam name="T">The specific IJobChunk implementation type.</typeparam>
+        public static unsafe void RunByRef<T>(this ref T jobData, EntityQuery query)
             where T : struct, IJobChunk
         {
             ScheduleInternal(ref jobData, query, default(JobHandle), ScheduleMode.Run, false);
@@ -211,9 +272,12 @@ namespace Unity.Entities
                 IsParallel = isParallel ? 1 : 0
             };
 
+            var reflectionData = JobChunkProducer<T>.reflectionData.Data;
+            CheckReflectionDataCorrect(reflectionData);
+
             var scheduleParams = new JobsUtility.JobScheduleParameters(
                 UnsafeUtility.AddressOf(ref jobChunkWrapper),
-                isParallel ? JobChunkProducer<T>.InitializeParallel() : JobChunkProducer<T>.InitializeSingle(),
+                reflectionData,
                 prefilterHandle,
                 mode);
 
@@ -290,61 +354,12 @@ namespace Unity.Entities
         internal struct JobChunkProducer<T>
             where T : struct, IJobChunk
         {
+            internal static readonly SharedStatic<IntPtr> reflectionData = SharedStatic<IntPtr>.GetOrCreate<JobChunkProducer<T>>();
 
-#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
-            internal static readonly SharedStatic<IntPtr> s_ReflectionData = SharedStatic<IntPtr>.GetOrCreate<T>();
-
-            internal static void CreateReflectionData()
+            internal static void Initialize()
             {
-                s_ReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>), typeof(T), (ExecuteJobFunction)Execute);
+                reflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>), typeof(T), (ExecuteJobFunction)Execute);
             }
-#else
-            static IntPtr s_JobReflectionDataParallel;
-            static IntPtr s_JobReflectionDataSingle;
-#endif
-
-            internal static IntPtr InitializeSingle()
-            {
-#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
-                return InitializeParallel();
-#else
-                if (s_JobReflectionDataSingle == IntPtr.Zero)
-                    s_JobReflectionDataSingle = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>), typeof(T), JobType.Single, (ExecuteJobFunction)Execute);
-                return s_JobReflectionDataSingle;
-#endif
-            }
-
-            internal static IntPtr InitializeParallel()
-            {
-#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
-                IntPtr result = s_ReflectionData.Data;
-
-                CheckReflectionDataBurst(result == IntPtr.Zero);
-
-                return result;
-#else
-                if (s_JobReflectionDataParallel == IntPtr.Zero)
-                    s_JobReflectionDataParallel = JobsUtility.CreateJobReflectionData(typeof(JobChunkWrapper<T>), typeof(T), JobType.ParallelFor, (ExecuteJobFunction)Execute);
-                return s_JobReflectionDataParallel;
-#endif
-            }
-
-#if UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
-            [BurstDiscard]
-            private static void CheckReflectionData(bool isNull)
-            {
-                if (isNull)
-                    throw new InvalidOperationException($"Job reflection data has not been initialized for job `{typeof(T).FullName}`. Generic jobs must either be fully qualified in normal code or be registered with `[assembly:RegisterGenericJobType(typeof(...))]`. See https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/ecs_generic_jobs.html");
-            }
-
-            private static void CheckReflectionDataBurst(bool isNull)
-            {
-                CheckReflectionData(isNull);
-
-                if (isNull)
-                    throw new InvalidOperationException($"Job reflection data has not been initialized for this job. Generic jobs must either be fully qualified in normal code or be registered with `[assembly:RegisterGenericJobType(typeof(...))]`. See https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/ecs_generic_jobs.html");
-            }
-#endif
 
             internal delegate void ExecuteJobFunction(ref JobChunkWrapper<T> jobWrapper, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
 

@@ -14,10 +14,6 @@ namespace Unity.Entities
     {
         void DeclareReferencedPrefabs(List<GameObject> referencedPrefabs);
     }
-
-    [AttributeUsage(AttributeTargets.Class)]
-    [Obsolete("Not used anymore. You can safely remove this. (RemovedAfter 2020-11-22)")]
-    public class RequiresEntityConversionAttribute : Attribute {}
 }
 
 namespace Unity.Entities.Conversion
@@ -57,7 +53,6 @@ namespace Unity.Entities.Conversion
             Entities.ForEach((Transform transform) => Convert(transform, convertibles));
             convertibles.Clear();
 
-            //@TODO: Remove this again once we add support for inheritance in queries
             Entities.ForEach((RectTransform transform) => Convert(transform, convertibles));
         }
     }

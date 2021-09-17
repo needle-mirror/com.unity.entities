@@ -263,7 +263,7 @@ namespace Unity.Entities.CodeGen
 
                 var sysDef = sysRef.Resolve();
                 var constructor = AssemblyDefinition.MainModule.ImportReference(sysDef.GetConstructors()
-                    .FirstOrDefault(param => param.HasParameters == false));
+                    .Single(param => !param.HasParameters && !param.IsStatic));
 
                 bc.Add(Instruction.Create(OpCodes.Ldarg_0));
                 bc.Add(Instruction.Create(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference(sysRef)));

@@ -10,7 +10,10 @@ namespace Unity.Entities.Hybrid.Tests
         public World PreviousGameObjectInjectionWorld;
         private bool _wasInPlayerLoop;
 
-        public void Setup()
+        public World World => World.DefaultGameObjectInjectionWorld;
+        public EntityManager EntityManager => World.DefaultGameObjectInjectionWorld.EntityManager;
+
+        public void Setup(bool createWorld = false, bool isEditorWorld = false)
         {
             PreviousGameObjectInjectionWorld = World.DefaultGameObjectInjectionWorld;
             if (PreviousGameObjectInjectionWorld != null)
@@ -23,6 +26,9 @@ namespace Unity.Entities.Hybrid.Tests
                 _wasInPlayerLoop = false;
 
             World.DefaultGameObjectInjectionWorld = null;
+
+            if (createWorld)
+                DefaultWorldInitialization.Initialize("TestCustomDefaultWorld", isEditorWorld);
         }
 
         public void TearDown()
@@ -34,7 +40,7 @@ namespace Unity.Entities.Hybrid.Tests
             World.DefaultGameObjectInjectionWorld = PreviousGameObjectInjectionWorld;
             if (_wasInPlayerLoop)
             {
-                ScriptBehaviourUpdateOrder.AddWorldToCurrentPlayerLoop(PreviousGameObjectInjectionWorld);
+                ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(PreviousGameObjectInjectionWorld);
                 _wasInPlayerLoop = false;
             }
         }

@@ -75,8 +75,9 @@ namespace Unity.Entities.Tests.Conversion
         {
             var go = CreateGameObject();
             var component = go.AddComponent<TestUnityComponent>();
-
+#pragma warning disable 0618
             Assert.That(go.ComputeInstanceHash(), Is.EqualTo(component.ComputeInstanceHash()));
+#pragma warning restore 0618
             Assert.That(go.ComputeEntityGuid(0, 0), Is.EqualTo(component.ComputeEntityGuid(0, 0)));
         }
     }

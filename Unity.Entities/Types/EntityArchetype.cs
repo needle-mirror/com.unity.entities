@@ -32,7 +32,7 @@ namespace Unity.Entities
     public unsafe struct EntityArchetype : IEquatable<EntityArchetype>
     {
         [NativeDisableUnsafePtrRestriction] internal Archetype* Archetype;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         [NativeDisableUnsafePtrRestriction] internal EntityComponentStore* _DebugComponentStore;
 #endif
 
@@ -106,10 +106,12 @@ namespace Unity.Entities
         public NativeArray<ComponentType> GetComponentTypes(Allocator allocator = Allocator.Temp)
         {
             var archetypeCount = Archetype->TypesCount;
+            var types = CollectionHelper.CreateNativeArray<ComponentType>(archetypeCount - 1, allocator);
+
             // NOTE: Entity is excluded (Entity is always the first type in the archetype)
-            var types = new NativeArray<ComponentType>(archetypeCount - 1, allocator);
             for (var i = 1; i < archetypeCount; ++i)
                 types[i  - 1] = Archetype->Types[i].ToComponentType();
+
             return types;
         }
 
@@ -209,8 +211,18 @@ namespace Unity.Entities
         /// </summary>
         /// <value>True, if the archetype is a disabled archetype.</value>
         public bool Disabled => Archetype->Disabled;
+        
+        /// <summary>
+        /// Retrieve the stable hash for this EntityArchetype.
+        /// </summary>
+        public ulong StableHash => Archetype->StableHash;
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        /// <summary>
+        /// The component types this archetype contains.
+        /// </summary>
+        internal ComponentTypeInArchetype* Types => Archetype->Types;
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal void CheckValidEntityArchetype()
         {
             if (!Valid)

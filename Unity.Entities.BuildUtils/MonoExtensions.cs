@@ -196,7 +196,7 @@ namespace Unity.Entities.BuildUtils
 
         public static bool IsDynamicArray(this TypeReference type)
         {
-            return type.Name.StartsWith("DynamicArray`");
+            return type.Name.StartsWith("DynamicArray`", StringComparison.Ordinal);
         }
 
         public static bool IsComponentType(this TypeReference typeRef)

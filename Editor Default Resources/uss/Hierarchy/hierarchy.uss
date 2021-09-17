@@ -1,0 +1,32 @@
+﻿.hierarchy
+{
+    flex-grow: 1;
+}
+
+HierarchyListViewItem > Toggle {
+    margin: 0;
+    padding: 3px;
+    padding-top: 1px;
+}
+
+HierarchyListViewItem.hierarchy-item__subscene-node > .unity-foldout__toggle,
+HierarchyListViewItem.hierarchy-item__subscene-node > .unity-tree-view__item-content {
+    border-bottom-width: .5px;
+    background-color: var(--subscene-background);
+    border-bottom-color: var(--subscene-border);
+}
+
+HierarchyListViewItem.hierarchy-item__subscene-node.unity-list-view__item:hover > .unity-foldout__toggle,
+HierarchyListViewItem.hierarchy-item__subscene-node.unity-list-view__item:hover > .unity-tree-view__item-content {
+    border-bottom-width: .5px;
+    background-color: var(--subscene-background-hover);
+    border-bottom-color: var(--subscene-border);
+}
+
+HierarchyListViewItem.hierarchy-item__subscene-node.unity-list-view__item--selected > .unity-foldout__toggle,
+HierarchyListViewItem.hierarchy-item__subscene-node.unity-list-view__item--selected > .unity-tree-view__item-content,
+HierarchyListViewItem.hierarchy-item__subscene-node.unity-list-view__item--selected:hover > .unity-foldout__toggle,
+HierarchyListViewItem.hierarchy-item__subscene-node.unity-list-view__item--selected:hover > .unity-tree-view__item-content {
+    background-color: transparent;
+    border-bottom-color: transparent;
+}

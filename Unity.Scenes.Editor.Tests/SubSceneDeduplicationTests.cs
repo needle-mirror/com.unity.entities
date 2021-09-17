@@ -123,7 +123,7 @@ public class SubSceneDeduplicationTests
     public void SubSceneBundleDedupeTest(string descr, (string, int[])[] objects, (int, (int, int[]))[] sections, (int, int[]) expected)
     {
         var allObjects = objects.Select(o => (GetObjectIdentifier(tempAssetDir, o.Item1), o.Item2)).ToArray();
-        var sectionToIncludedObjects = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
+        var sectionToIncludedObjects = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
         var subScenes = new List<Hash128>();
         var sectionsList = new List<SceneSection>();
         foreach (var s in sections)
@@ -138,7 +138,7 @@ public class SubSceneDeduplicationTests
         var dependencyMapping = new Dictionary<Hash128, Dictionary<SceneSection, List<Hash128>>>();
         var layout = new Dictionary<Hash128, List<ObjectIdentifier>>();
 
-        SubSceneBuildCode.CreateAssetLayoutData(sectionToIncludedObjects, dependencyMapping, layout);
+        EntitySceneBuildUtility.CreateAssetLayoutData(sectionToIncludedObjects, dependencyMapping, layout);
 
         Assert.AreEqual(expected.Item1, layout.Count, $"{descr} - Did not create the expected bundle layout");
         Assert.AreEqual(subScenes.Count, dependencyMapping.Count, $"{descr} - Did not create the expected number of mappings - this should be equal to the number of sub scenes");
@@ -150,12 +150,12 @@ public class SubSceneDeduplicationTests
         }
     }
 
-    private SubSceneBuildCode.SectionDependencyInfo CreateTestDependencyInfo(IEnumerable<ObjectIdentifier> ids, (ObjectIdentifier, int[])[] allObjects)
+    private EntitySceneBuildUtility.SectionDependencyInfo CreateTestDependencyInfo(IEnumerable<ObjectIdentifier> ids, (ObjectIdentifier, int[])[] allObjects)
     {
         var deps = GetObjectTestDependencies(ids, allObjects);
         var paths = deps.Select(d => AssetDatabase.GUIDToAssetPath(d.guid.ToString())).ToArray();
         var types = paths.Select(p => AssetDatabase.GetMainAssetTypeAtPath(p)).ToArray();
-        return new SubSceneBuildCode.SectionDependencyInfo()
+        return new EntitySceneBuildUtility.SectionDependencyInfo()
         {
             Dependencies = deps,
             Types = types,
@@ -215,88 +215,88 @@ public class SubSceneDeduplicationTests
     [Test]
     public void SubSceneDeduplicationValidation_WithNullInput_ReturnsFalse()
     {
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(null, out var error));
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(null, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithInvalidSceneInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = default }, new SubSceneBuildCode.SectionDependencyInfo());
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = default }, new EntitySceneBuildUtility.SectionDependencyInfo());
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithInvalidSectionInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = -1 }, new SubSceneBuildCode.SectionDependencyInfo());
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = -1 }, new EntitySceneBuildUtility.SectionDependencyInfo());
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithNullDependenciesInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new SubSceneBuildCode.SectionDependencyInfo());
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new EntitySceneBuildUtility.SectionDependencyInfo());
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithNullTypesInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new SubSceneBuildCode.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[1] });
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new EntitySceneBuildUtility.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[1] });
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithNullPathsInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new SubSceneBuildCode.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[1], Types = new Type[2] });
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new EntitySceneBuildUtility.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[1], Types = new Type[2] });
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithMismatchedDataInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new SubSceneBuildCode.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[1], Types = new Type[2], Paths = new string[3] });
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new EntitySceneBuildUtility.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[1], Types = new Type[2], Paths = new string[3] });
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithInvalidGUIDInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new SubSceneBuildCode.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[] { new ObjectIdentifier() }, Types = new Type[] { typeof(object) }, Paths = new string[] { "notEmpty" } });
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new EntitySceneBuildUtility.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[] { new ObjectIdentifier() }, Types = new Type[] { typeof(object) }, Paths = new string[] { "notEmpty" } });
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithNullTypeInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new SubSceneBuildCode.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[] { GetObjectIdentifier(tempAssetDir, "blah.png") }, Types = new Type[] { null }, Paths = new string[] { "notEmpty" } });
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new EntitySceneBuildUtility.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[] { GetObjectIdentifier(tempAssetDir, "blah.png") }, Types = new Type[] { null }, Paths = new string[] { "notEmpty" } });
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 
     [Test]
     public void SubSceneDeduplicationValidation_WithEmptyPathInput_ReturnsFalse()
     {
-        var input = new Dictionary<SceneSection, SubSceneBuildCode.SectionDependencyInfo>();
-        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new SubSceneBuildCode.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[] { GetObjectIdentifier(tempAssetDir, "blah.png") }, Types = new Type[] { typeof(object) }, Paths = new string[] { "" } });
-        Assert.IsFalse(SubSceneBuildCode.ValidateInput(input, out var error));
+        var input = new Dictionary<SceneSection, EntitySceneBuildUtility.SectionDependencyInfo>();
+        input.Add(new SceneSection() { SceneGUID = new Hash128(1, 2, 3, 4), Section = 0 }, new EntitySceneBuildUtility.SectionDependencyInfo() { Dependencies = new ObjectIdentifier[] { GetObjectIdentifier(tempAssetDir, "blah.png") }, Types = new Type[] { typeof(object) }, Paths = new string[] { "" } });
+        Assert.IsFalse(EntitySceneBuildUtility.ValidateInput(input, out var error));
         Assert.IsNotNull(error);
     }
 }

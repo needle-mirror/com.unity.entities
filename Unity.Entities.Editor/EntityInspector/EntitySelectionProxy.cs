@@ -1,5 +1,4 @@
 using System;
-using System.ComponentModel;
 using UnityEditor;
 using UnityEngine;
 
@@ -149,35 +148,5 @@ namespace Unity.Entities.Editor
 
             return null;
         }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("The delegate: EntityControlSelectButtonHandler is no longer used and can be safely removed from your code. (RemovedAfter 2021-01-13).", false)]
-        public delegate void EntityControlSelectButtonHandler(World world, Entity entity);
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("The event: EntityControlSelectButton is no longer invoked. Please react to the global selection change instead. (RemovedAfter 2021-01-13).", false)]
-#pragma warning disable 67, 618
-        public event EntityControlSelectButtonHandler EntityControlSelectButton;
-#pragma warning restore 67, 618
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("EntityManager is Obsolete. Please use World.EntityManager instead. (RemovedAfter 2021-01-13).", false)]
-        public EntityManager EntityManager => World?.EntityManager ?? default;
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("OnEntityControlSelectButton is no longer required. Simply create a new EntitySelectionProxy and select it instead. (RemovedAfter 2021-01-13).", false)]
-        // ReSharper disable once UnusedMember.Global
-        // ReSharper disable UnusedParameter.Global
-        // ReSharper disable once MemberCanBeMadeStatic.Global
-        public void OnEntityControlSelectButton(World world, Entity entity) { /* NOOP */}
-        // ReSharper restore UnusedParameter.Global
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("SetEntity has been deprecated with no replacement. If you need to select a different Entity, create a new EntitySelectionProxy. (RemovedAfter 2021-01-13).", false)]
-        // ReSharper disable once UnusedMember.Global
-        // ReSharper disable UnusedParameter.Global
-        // ReSharper disable once MemberCanBeMadeStatic.Global
-        public void SetEntity(World world, Entity entity) { /* NOOP */}
-        // ReSharper restore UnusedParameter.Global
     }
 }

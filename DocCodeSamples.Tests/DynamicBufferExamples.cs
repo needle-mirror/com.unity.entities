@@ -317,7 +317,7 @@ namespace Doc.CodeSamples.Tests
             BuffersInChunks bufferJob = new BuffersInChunks();
             bufferJob.BufferTypeHandle = GetBufferTypeHandle<MyBufferElement>();
             bufferJob.sums = intermediateSums;
-            this.Dependency = bufferJob.ScheduleParallel(query, 1, this.Dependency);
+            this.Dependency = bufferJob.ScheduleParallel(query, this.Dependency);
 
             //Schedule the second job, which depends on the first
             SumResult finalSumJob = new SumResult();

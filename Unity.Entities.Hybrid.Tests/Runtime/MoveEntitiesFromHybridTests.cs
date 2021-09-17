@@ -85,7 +85,7 @@ namespace Unity.Entities.Tests
 
         private int[] GetValueArray<T>(World world) where T : ICastToInt
         {
-            using (var entities = QueryBuilder(world).WithAll<T>().ToEntityQuery().ToEntityArray(Allocator.TempJob))
+            using (var entities = QueryBuilder(world).WithAll<T>().ToEntityQuery().ToEntityArray(World.UpdateAllocator.ToAllocator))
             {
                 var result = new int[entities.Length];
 
@@ -127,7 +127,7 @@ namespace Unity.Entities.Tests
 
             using (var dstWorld = new World("destination"))
             {
-                using (var remap = m_Manager.CreateEntityRemapArray(Allocator.TempJob))
+                using (var remap = m_Manager.CreateEntityRemapArray(dstWorld.UpdateAllocator.ToAllocator))
                 {
                     dstWorld.EntityManager.MoveEntitiesFrom(m_Manager, query, remap);
 

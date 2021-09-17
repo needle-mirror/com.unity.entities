@@ -66,9 +66,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(1, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }
@@ -94,9 +93,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(1, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }
@@ -122,9 +120,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(1, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }
@@ -149,9 +146,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(1, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }
@@ -177,9 +173,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(2, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }
@@ -208,9 +203,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(1, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }
@@ -235,9 +229,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(2, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }
@@ -262,9 +255,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(0, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }
@@ -289,9 +281,8 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetype0);
             m_Manager.CreateEntity(archetype1);
 
-            var results0 = group0.ToEntityArray(Allocator.TempJob);
+            var results0 = group0.ToEntityArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(2, results0.Length);
-            results0.Dispose();
 
             group0.Dispose();
         }

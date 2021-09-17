@@ -105,7 +105,7 @@ namespace Unity.Entities.Tests
                 None = Array.Empty<ComponentType>(),
                 All = m_OurTypes,
             });
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
             EntityTypeHandle entityTypeHandle = m_Manager.GetEntityTypeHandle();
@@ -127,8 +127,6 @@ namespace Unity.Entities.Tests
                     Assert.IsTrue(ourVersion == version);
                 }
             }
-
-            chunks.Dispose();
         }
     }
 
@@ -185,9 +183,8 @@ namespace Unity.Entities.Tests
         {
             ComponentType[] types = {typeof(Issue476Data)};
             var group = m_Manager.CreateEntityQuery(types);
-            var temp = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var temp = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
-            temp.Dispose();
         }
     }
 
@@ -258,6 +255,13 @@ namespace Unity.Entities.Tests
             }
 
             w.Dispose();
+        }
+
+        [Test]
+        public void Entity_EqualsNullObject_ReturnsFalse()
+        {
+            Entity e = m_Manager.CreateEntity();
+            Assert.IsFalse(e.Equals(null));
         }
     }
 }

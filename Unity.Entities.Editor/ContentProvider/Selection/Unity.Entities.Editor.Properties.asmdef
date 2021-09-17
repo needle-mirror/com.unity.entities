@@ -1,0 +1,21 @@
+{
+    "name": "Unity.Entities.Editor.Properties",
+    "rootNamespace": "",
+    "references": [
+        "GUID:807be9350277eff4182cd3600de41d3a",
+        "GUID:ce7eee763f6e12b47a5ca268e565edb8",
+        "GUID:416d137b1126dbf408443d029c73482a",
+        "GUID:2765e68924a08a94ea0ea66b31c0168f"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -31,7 +31,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
                 using (var group = m_mgr.CreateEntityQuery(typeof(T)))
                 {
-                    Values = group.ToComponentDataArray<T>(Allocator.TempJob);
+                    Values = group.ToComponentDataArray<T>(mgr.World.UpdateAllocator.ToAllocator);
                 }
             }
 
@@ -58,8 +58,8 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                 int count = 0;
                 using (var group = m_mgr.CreateEntityQuery(typeof(T)))
                 {
-                    Values = new NativeArray<T>(group.CalculateEntityCount(), Allocator.TempJob);
-                    using (var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob))
+                    Values = CollectionHelper.CreateNativeArray<T, RewindableAllocator>(group.CalculateEntityCount(), ref mgr.World.UpdateAllocator);
+                    using (var chunks = group.CreateArchetypeChunkArray(mgr.World.UpdateAllocator.ToAllocator))
                         for (int i = 0; i < chunks.Length; ++i)
                         {
                             var chunk = chunks[i];
@@ -263,7 +263,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                    using (var arr = group.ToComponentDataArray<EcsTestData>(EntityManager.World.UpdateAllocator.ToAllocator))
                     {
                         Assert.AreEqual(kRepeat - kRepeat / 3, arr.Length);
                     }
@@ -295,7 +295,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                    using (var arr = group.ToComponentDataArray<EcsTestData>(EntityManager.World.UpdateAllocator.ToAllocator))
                     {
                         Assert.AreEqual(10, arr.Length);
                     }
@@ -326,7 +326,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(Entity), typeof(EcsTestData)))
-                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                    using (var arr = group.ToComponentDataArray<EcsTestData>(EntityManager.World.UpdateAllocator.ToAllocator))
                     {
                         Assert.AreEqual(10 + 1, arr.Length);
                     }
@@ -553,7 +553,7 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
                     }).Run();
 
                 using (var group = EntityManager.CreateEntityQuery(typeof(EcsTestData)))
-                    using (var arr = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob))
+                    using (var arr = group.ToComponentDataArray<EcsTestData>(EntityManager.World.UpdateAllocator.ToAllocator))
                     {
                         Assert.AreEqual(1, arr.Length); // (e)
                         Assert.AreEqual(123, arr[0].value);
@@ -662,19 +662,19 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 
             public void AddToDynamicBuffer()
             {
-                var archA = EntityManager.CreateArchetype(typeof(EcsTestData), typeof(ForEachCodegenTests.TestBufferElement));
+                var archA = EntityManager.CreateArchetype(typeof(EcsTestData), typeof(EcsIntElement));
                 var newEntity = EntityManager.CreateEntity(archA);
                 EntityManager.SetComponentData(newEntity, new EcsTestData(10));
 
                 Entities
                     .WithStructuralChanges()
-                    .ForEach((Entity entity, ref EcsTestData e1, ref DynamicBuffer<ForEachCodegenTests.TestBufferElement> buf) =>
+                    .ForEach((Entity entity, ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
                     {
                         buf.Add(e1.value);
                         EntityManager.RemoveComponent(entity, typeof(EcsTestData));
                     }).Run();
 
-                var buffer = EntityManager.GetBuffer<ForEachCodegenTests.TestBufferElement>(newEntity);
+                var buffer = EntityManager.GetBuffer<EcsIntElement>(newEntity);
                 Assert.AreEqual(1, buffer.Length);
                 Assert.AreEqual(10, buffer[buffer.Length - 1].Value);
             }

@@ -19,6 +19,7 @@ namespace Unity.Entities
 
         World m_ShadowWorld;
 
+        EntityDiffer.CachedComponentChanges m_CachedComponentChanges;
         EntityManager m_SourceEntityManager;
         EntityManager m_ShadowEntityManager;
         EntityQueryDesc m_EntityQueryDesc;
@@ -28,6 +29,7 @@ namespace Unity.Entities
 
         public EntityManagerDiffer(EntityManager sourceEntityManager, Allocator allocator, EntityQueryDesc entityQueryDesc = null)
         {
+            m_CachedComponentChanges = new EntityDiffer.CachedComponentChanges(1024);
             m_SourceEntityManager = sourceEntityManager;
 
             m_EntityQueryDesc = entityQueryDesc ?? EntityGuidQueryDesc;
@@ -38,6 +40,7 @@ namespace Unity.Entities
 
         public void Dispose()
         {
+            m_CachedComponentChanges.Dispose();
             m_SourceEntityManager = default;
 
             if (m_ShadowWorld != null && m_ShadowWorld.IsCreated)
@@ -62,6 +65,7 @@ namespace Unity.Entities
         public EntityChanges GetChanges(EntityManagerDifferOptions options, Allocator allocator)
         {
             var changes = EntityDiffer.GetChanges(
+                ref m_CachedComponentChanges,
                 srcEntityManager: m_SourceEntityManager,
                 dstEntityManager: m_ShadowEntityManager,
                 options,

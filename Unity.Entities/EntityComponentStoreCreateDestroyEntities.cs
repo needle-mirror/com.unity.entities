@@ -48,7 +48,7 @@ namespace Unity.Entities
         {
             var entityIndex = 0;
 
-            var additionalDestroyList = new UnsafeList(Allocator.Persistent);
+            var additionalDestroyList = new UnsafeList<Entity>(0, Allocator.Persistent);
             int minDestroyStride = int.MaxValue;
             int maxDestroyStride = 0;
 
@@ -107,6 +107,7 @@ namespace Unity.Entities
             }
         }
 
+        [Obsolete("Please use CreateEntities. (RemovedAfter 2021-07-10)")]
         public Entity CreateEntityWithValidation(EntityArchetype archetype)
         {
             Entity entity;
@@ -115,12 +116,14 @@ namespace Unity.Entities
             return entity;
         }
 
+        [Obsolete("Please use CreateEntities. (RemovedAfter 2021-07-10)")]
         public void CreateEntityWithValidation(EntityArchetype archetype, Entity* outEntities, int count)
         {
             AssertValidArchetype((EntityComponentStore*)UnsafeUtility.AddressOf(ref this), archetype);
             CreateEntities(archetype.Archetype, outEntities, count);
         }
 
+        [Obsolete("Please use InstantiateEntities. (RemovedAfter 2021-07-10)")]
         public void InstantiateWithValidation(Entity srcEntity, Entity* outputEntities, int count)
         {
             AssertEntitiesExist(&srcEntity, 1);
@@ -128,11 +131,14 @@ namespace Unity.Entities
             InstantiateEntities(srcEntity, outputEntities, count);
         }
 
+        [Obsolete("Please use DestroyEntities. (RemovedAfter 2021-07-10)")]
         public void DestroyEntityWithValidation(Entity entity)
         {
-            DestroyEntityWithValidation(&entity, 1);
+            AssertValidEntities(&entity, 1);
+            DestroyEntities(&entity, 1);
         }
 
+        [Obsolete("Please use DestroyEntities. (RemovedAfter 2021-07-10)")]
         public void DestroyEntityWithValidation(Entity* entities, int count)
         {
             AssertValidEntities(entities, count);
@@ -210,7 +216,7 @@ namespace Unity.Entities
         }
 
         void AddToDestroyList(Chunk* chunk, int indexInChunk, int batchCount, int inputDestroyCount,
-            ref UnsafeList entitiesList, ref int minBufferLength, ref int maxBufferLength)
+            ref UnsafeList<Entity> entitiesList, ref int minBufferLength, ref int maxBufferLength)
         {
             int indexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, m_LinkedGroupType);
             if (indexInArchetype != -1)
@@ -228,8 +234,8 @@ namespace Unity.Entities
                     var entityGroupArray = (Entity*)BufferHeader.GetElementPointer(header) + 1;
 
                     if (entitiesList.Capacity == 0)
-                        entitiesList.SetCapacity<Entity>(inputDestroyCount * entityGroupCount /*, Allocator.TempJob*/);
-                    entitiesList.AddRange<Entity>(entityGroupArray, entityGroupCount /*, Allocator.TempJob*/);
+                        entitiesList.SetCapacity(inputDestroyCount * entityGroupCount /*, Allocator.TempJob*/);
+                    entitiesList.AddRange(entityGroupArray, entityGroupCount /*, Allocator.TempJob*/);
 
                     minBufferLength = math.min(minBufferLength, entityGroupCount);
                     maxBufferLength = math.max(maxBufferLength, entityGroupCount);
@@ -527,7 +533,8 @@ namespace Unity.Entities
                     }
 
                     // It is now a valid entity, but version has changed
-                    if (entityInChunkByEntity[i].Chunk != null)
+                    if (entityInChunkByEntity[i].Chunk != null &&
+                        !entityInChunkByEntity[i].Chunk->Archetype->HasChunkHeader)
                     {
                         CreatedEntities.Add(new Entity { Index = i, Version = versionByEntity[i] });
                         state[i] = versionByEntity[i];

@@ -1,5 +1,4 @@
-﻿#if UNITY_2020_2_OR_NEWER
-using Unity.Assertions;
+﻿using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -13,7 +12,7 @@ namespace Unity.Transforms
     [UpdateInGroup(typeof(ConversionSetupGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.GameObjectConversion)]
     [AlwaysUpdateSystem]
-    class TransformIncrementalConversionSystem : SystemBase
+    partial class TransformIncrementalConversionSystem : SystemBase
     {
         private IncrementalChangesSystem m_Incremental;
         protected override void OnCreate()
@@ -162,4 +161,3 @@ namespace Unity.Transforms
         }
     }
 }
-#endif

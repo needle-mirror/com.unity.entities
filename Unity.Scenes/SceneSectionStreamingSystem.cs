@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -23,12 +22,7 @@ namespace Unity.Scenes
     [ExecuteAlways]
     [UpdateInGroup(typeof(SceneSystemGroup))]
     [UpdateAfter(typeof(ResolveSceneReferenceSystem))]
-#if !UNITY_EDITOR
-#if !UNITY_DOTSRUNTIME
-    [UpdateAfter(typeof(LiveLinkResolveSceneReferenceSystem))]
-#endif
-#endif
-    class SceneSectionStreamingSystem : ComponentSystem
+    public partial class SceneSectionStreamingSystem : SystemBase
     {
         internal enum StreamingStatus
         {
@@ -42,21 +36,25 @@ namespace Unity.Scenes
         {
             public StreamingStatus Status;
             public int            ActiveStreamIndex;
-            public int            LoadedFromLiveLink;
         }
 
         struct Stream
         {
             public World                   World;
-            public Entity                  SceneEntity;
+            public Entity                  SectionEntity;
             public AsyncLoadSceneOperation Operation;
         }
 
-        const int LoadScenesPerFrame = 4;
-        int MaximumMoveEntitiesFromPerFrame = 1;
+        int m_MaximumWorldsMovedPerUpdate = 1;
 
         World m_SynchronousSceneLoadWorld;
-        Stream[] m_Streams = new Stream[LoadScenesPerFrame];
+
+        const int k_InitialConcurrentSectionStreamCount = 4;
+        int m_ConcurrentSectionStreamCount;
+        Stream[] m_Streams = Array.Empty<Stream>();
+
+        WeakAssetReferenceLoadingSystem _WeakAssetReferenceLoadingSystem;
+
         EntityQuery m_PendingStreamRequests;
         EntityQuery m_UnloadStreamRequests;
         EntityQuery m_SceneFilter;
@@ -67,10 +65,64 @@ namespace Unity.Scenes
         ProfilerMarker m_ExtractEntityRemapRefs = new ProfilerMarker("SceneStreaming.ExtractEntityRemapRefs");
         ProfilerMarker m_AddSceneSharedComponents = new ProfilerMarker("SceneStreaming.AddSceneSharedComponents");
 
+        /// <summary>
+        /// The maximum amount of sections that will be streamed in concurrently.
+        /// This defaults to 4.
+        /// </summary>
+        public int ConcurrentSectionStreamCount
+        {
+            get => m_ConcurrentSectionStreamCount;
+            set
+            {
+                if (value > m_Streams.Length)
+                {
+                    Array.Resize(ref m_Streams, value);
+                    for (int i = m_ConcurrentSectionStreamCount; i < value; ++i)
+                    {
+                        if (m_Streams[i].World == null)
+                            CreateStreamWorld(i);
+                    }
+                }
+                else
+                {
+                    for (int i = value; i < m_Streams.Length; ++i)
+                    {
+                        if ((m_Streams[i].Operation == null) && (m_Streams[i].World != null))
+                            DestroyStreamWorld(i);
+                    }
+                }
+                m_ConcurrentSectionStreamCount = value;
+            }
+        }
+
+        /// <summary>
+        /// The maximum amount of streaming worlds that will be moved into the main world per update.
+        /// This defaults to 1.
+        /// </summary>
+        public int MaximumWorldsMovedPerUpdate
+        {
+            get => m_MaximumWorldsMovedPerUpdate;
+            set => m_MaximumWorldsMovedPerUpdate = value;
+        }
+
+        // Exposed for testing
+        internal int StreamArrayLength => m_Streams.Length;
+        internal bool AllStreamsComplete
+        {
+            get
+            {
+                for (int i = 0; i < m_Streams.Length; ++i) {
+                    if (m_Streams[i].Operation != null && !m_Streams[i].Operation.IsCompleted)
+                        return false;
+                }
+                return true;
+            }
+        }
+
         protected override void OnCreate()
         {
-            for (int i = 0; i < LoadScenesPerFrame; ++i)
-                CreateStreamWorld(i);
+            ConcurrentSectionStreamCount = k_InitialConcurrentSectionStreamCount;
+            _WeakAssetReferenceLoadingSystem = World.GetExistingSystem<WeakAssetReferenceLoadingSystem>();
 
             m_SynchronousSceneLoadWorld = new World("LoadingWorld (synchronous)", WorldFlags.Streaming);
             AddStreamingWorldSystems(m_SynchronousSceneLoadWorld);
@@ -95,7 +147,8 @@ namespace Unity.Scenes
 
             m_SectionData = GetEntityQuery
                 (
-                ComponentType.ReadWrite<SceneSectionData>()
+                ComponentType.ReadWrite<SceneSectionData>(),
+                ComponentType.ReadWrite<SceneEntityReference>()
                 );
 
             m_SceneFilter = GetEntityQuery(
@@ -112,7 +165,8 @@ namespace Unity.Scenes
             for (int i = 0; i != m_Streams.Length; i++)
             {
                 m_Streams[i].Operation?.Dispose();
-                DestroyStreamWorld(i);
+                if(m_Streams[i].World != null)
+                    DestroyStreamWorld(i);
             }
 
             m_SynchronousSceneLoadWorld.Dispose();
@@ -131,26 +185,17 @@ namespace Unity.Scenes
             AddStreamingWorldSystems(m_Streams[index].World);
         }
 
+        struct ProcessAfterLoadRootGroups : DefaultWorldInitialization.IIdentifyRootGroups
+        {
+            public bool IsRootGroup(Type type) => type == typeof(ProcessAfterLoadGroup);
+        }
+
         static void AddStreamingWorldSystems(World world)
         {
             var group = world.GetOrCreateSystem<ProcessAfterLoadGroup>();
             var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.ProcessAfterLoad);
-            foreach (var systemType in systemTypes)
-                AddSystemAndLogException(world, group, systemType);
-
+            DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(world, systemTypes, group, new ProcessAfterLoadRootGroups());
             group.SortSystems();
-        }
-
-        static void AddSystemAndLogException(World world, ComponentSystemGroup group, Type type)
-        {
-            try
-            {
-                group.AddSystemToUpdateList(world.GetOrCreateSystem(type) as ComponentSystemBase);
-            }
-            catch (Exception e)
-            {
-                Debug.LogException(e);
-            }
         }
 
         static NativeArray<Entity> GetExternalRefEntities(EntityManager manager, Allocator allocator)
@@ -161,27 +206,26 @@ namespace Unity.Scenes
             }
         }
 
-        NativeArray<SceneTag> ExternalRefToSceneTag(NativeArray<ExternalEntityRefInfo> externalEntityRefInfos, Allocator allocator)
+        NativeArray<SceneTag> ExternalRefToSceneTag(NativeArray<ExternalEntityRefInfo> externalEntityRefInfos, Entity sceneEntity, Allocator allocator)
         {
             var sceneTags = new NativeArray<SceneTag>(externalEntityRefInfos.Length, allocator);
 
             using (var sectionDataEntities = m_SectionData.ToEntityArray(Allocator.TempJob))
+            using (var sectionData = m_SectionData.ToComponentDataArray<SceneSectionData>(Allocator.TempJob))
+            using (var sceneEntityReference = m_SectionData.ToComponentDataArray<SceneEntityReference>(Allocator.TempJob))
             {
-                using (var sectionData = m_SectionData.ToComponentDataArray<SceneSectionData>(Allocator.TempJob))
+                for (int i = 0; i < sectionData.Length; ++i)
                 {
-                    for (int i = 0; i < sectionData.Length; ++i)
+                    for (int j = 0; j < externalEntityRefInfos.Length; ++j)
                     {
-                        for (int j = 0; j < externalEntityRefInfos.Length; ++j)
+                        if (
+                            sceneEntity == sceneEntityReference[i].SceneEntity &&
+                            externalEntityRefInfos[j].SceneGUID == sectionData[i].SceneGUID &&
+                            externalEntityRefInfos[j].SubSectionIndex == sectionData[i].SubSectionIndex
+                        )
                         {
-                            if (
-                                externalEntityRefInfos[j].SceneGUID == sectionData[i].SceneGUID
-                                &&
-                                externalEntityRefInfos[j].SubSectionIndex == sectionData[i].SubSectionIndex
-                            )
-                            {
-                                sceneTags[j] = new SceneTag { SceneEntity = sectionDataEntities[i] };
-                                break;
-                            }
+                            sceneTags[j] = new SceneTag { SceneEntity = sectionDataEntities[i] };
+                            break;
                         }
                     }
                 }
@@ -190,15 +234,17 @@ namespace Unity.Scenes
             return sceneTags;
         }
 
-        bool MoveEntities(EntityManager srcManager, Entity sceneEntity)
+        bool MoveEntities(EntityManager srcManager, Entity sectionEntity, ref Entity prefabRoot)
         {
+            var sceneEntity = GetComponent<SceneEntityReference>(sectionEntity).SceneEntity;
+            Assert.AreNotEqual(Entity.Null, sceneEntity);
+
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping;
             using (m_ExtractEntityRemapRefs.Auto())
             {
-                if (!ExtractEntityRemapRefs(srcManager, out entityRemapping))
+                if (!ExtractEntityRemapRefs(srcManager, sceneEntity, out entityRemapping))
                     return false;
             }
-
 
             var startCapacity = srcManager.EntityCapacity;
             using (m_AddSceneSharedComponents.Auto())
@@ -207,12 +253,12 @@ namespace Unity.Scenes
                 var data = new EditorRenderData()
                 {
                     SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask | (1UL << 59),
-                    PickableObject = EntityManager.HasComponent<SubScene>(sceneEntity) ? EntityManager.GetComponentObject<SubScene>(sceneEntity).gameObject : null
+                    PickableObject = EntityManager.HasComponent<SubScene>(sectionEntity) ? EntityManager.GetComponentObject<SubScene>(sectionEntity).gameObject : null
                 };
                 srcManager.AddSharedComponentData(srcManager.UniversalQuery, data);
 #endif
 
-                srcManager.AddSharedComponentData(srcManager.UniversalQuery, new SceneTag { SceneEntity = sceneEntity });
+                srcManager.AddSharedComponentData(srcManager.UniversalQuery, new SceneTag { SceneEntity = sectionEntity });
             }
             var endCapacity = srcManager.EntityCapacity;
 
@@ -225,13 +271,22 @@ namespace Unity.Scenes
                 EntityManager.MoveEntitiesFrom(srcManager, entityRemapping);
             }
 
+            var sharedComponentFilter = new SceneTag {SceneEntity = sectionEntity};
+            Entities.WithSharedComponentFilter(sharedComponentFilter).ForEach((ref ExternalEntityRefInfo sceneRef) =>
+            {
+                sceneRef.SceneRef = sceneEntity;
+            }).Run();
+
+            if (prefabRoot != Entity.Null)
+                prefabRoot = EntityRemapUtility.RemapEntity(ref entityRemapping, prefabRoot);
+
             entityRemapping.Dispose();
             srcManager.PrepareForDeserialize();
 
             return true;
         }
 
-        bool ExtractEntityRemapRefs(EntityManager srcManager, out NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
+        bool ExtractEntityRemapRefs(EntityManager srcManager, Entity sceneEntity, out NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping)
         {
             // External entity references are "virtual" entities. If we don't have any, only real entities need remapping
             int remapTableSize = srcManager.EntityCapacity;
@@ -252,7 +307,7 @@ namespace Unity.Scenes
                 // Within a scene, external scenes are identified by some ID
                 // In the destination world, scenes are identified by an entity
                 // Every entity coming from a scene needs to have a SceneTag that references the scene entity
-                using (var sceneTags = ExternalRefToSceneTag(externalEntityRefInfos, Allocator.TempJob))
+                using (var sceneTags = ExternalRefToSceneTag(externalEntityRefInfos, sceneEntity, Allocator.TempJob))
                 {
                     entityRemapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(remapTableSize, Allocator.TempJob);
 
@@ -302,21 +357,26 @@ namespace Unity.Scenes
             bool needsMoreProcessing = false;
             int moveEntitiesFromProcessed = 0;
 
+            int lastOperationIndex = -1;
+
             for (int i = 0; i != m_Streams.Length; i++)
             {
                 if (m_Streams[i].Operation != null)
                 {
                     needsMoreProcessing = true;
 
-                    if (moveEntitiesFromProcessed >= MaximumMoveEntitiesFromPerFrame)
-                        break;
-
-                    switch (UpdateLoadOperation(m_Streams[i].Operation, m_Streams[i].World, m_Streams[i].SceneEntity))
+                    bool moveEntities = moveEntitiesFromProcessed < m_MaximumWorldsMovedPerUpdate;
+                    switch (UpdateLoadOperation(m_Streams[i].Operation, m_Streams[i].World, m_Streams[i].SectionEntity, moveEntities))
                     {
                         case UpdateLoadOperationResult.Completed:
-                        case UpdateLoadOperationResult.Aborted:
                         {
                             moveEntitiesFromProcessed += 1;
+                            m_Streams[i].Operation.Dispose();
+                            m_Streams[i].Operation = null;
+                            break;
+                        }
+                        case UpdateLoadOperationResult.Aborted:
+                        {
                             m_Streams[i].Operation.Dispose();
                             m_Streams[i].Operation = null;
                             break;
@@ -324,11 +384,13 @@ namespace Unity.Scenes
                         case UpdateLoadOperationResult.Error:
                         {
                             DestroyStreamWorld(i);
-                            CreateStreamWorld(i);
+                            if (i < m_ConcurrentSectionStreamCount)
+                                CreateStreamWorld(i);
                             break;
                         }
                         case UpdateLoadOperationResult.Busy:
                         {
+                            lastOperationIndex = i;
                             // carry on
                             break;
                         }
@@ -338,6 +400,15 @@ namespace Unity.Scenes
                         }
                     }
                 }
+            }
+
+            if((m_Streams.Length > m_ConcurrentSectionStreamCount) && (lastOperationIndex < m_ConcurrentSectionStreamCount))
+            {
+                for (int i = m_ConcurrentSectionStreamCount; i < m_Streams.Length; ++i)
+                {
+                    m_Streams[i].World?.Dispose();
+                }
+                Array.Resize(ref m_Streams, m_ConcurrentSectionStreamCount);
             }
 
             return needsMoreProcessing;
@@ -351,7 +422,7 @@ namespace Unity.Scenes
             Error,
         }
 
-        UpdateLoadOperationResult UpdateLoadOperation(AsyncLoadSceneOperation operation, World streamingWorld, Entity sceneEntity)
+        UpdateLoadOperationResult UpdateLoadOperation(AsyncLoadSceneOperation operation, World streamingWorld, Entity sectionEntity, bool moveEntities)
         {
             operation.Update();
 
@@ -366,29 +437,44 @@ namespace Unity.Scenes
                     {
                         streamingManager.EndExclusiveEntityTransaction();
 
-                        if (EntityManager.HasComponent<RequestSceneLoaded>(sceneEntity))
+                        Entity prefabRoot = operation.DeserializationResult.PrefabRoot;
+
+                        if (EntityManager.HasComponent<RequestSceneLoaded>(sectionEntity))
                         {
-                            if (MoveEntities(streamingManager, sceneEntity))
+                            if(!moveEntities)
+                                return UpdateLoadOperationResult.Busy;
+
+                            if (MoveEntities(streamingManager, sectionEntity, ref prefabRoot))
                             {
 #if !UNITY_DOTSRUNTIME
                                 var bundles = operation.StealBundles();
 #endif
 
-                                if (EntityManager.HasComponent<StreamingState>(sceneEntity))
+                                if (EntityManager.HasComponent<StreamingState>(sectionEntity))
                                 {
-                                    var state = EntityManager.GetComponentData<StreamingState>(sceneEntity);
+                                    var state = EntityManager.GetComponentData<StreamingState>(sectionEntity);
                                     state.Status = StreamingStatus.Loaded;
-                                    EntityManager.SetComponentData(sceneEntity, state);
+                                    EntityManager.SetComponentData(sectionEntity, state);
                                 }
 
 #if !UNITY_DOTSRUNTIME
                                 if (bundles != null)
                                 {
-                                    EntityManager.AddSharedComponentData(sceneEntity, new SceneSectionBundle(bundles));
+                                    EntityManager.AddSharedComponentData(sectionEntity, new SceneSectionBundle(bundles));
                                     foreach (var b in bundles)
                                         b.Release();
                                 }
 #endif
+                                if (prefabRoot != Entity.Null)
+                                {
+                                    var sceneEntity = EntityManager.GetComponentData<SceneEntityReference>(sectionEntity).SceneEntity;
+                                    EntityManager.AddComponentData(sceneEntity, new PrefabRoot {Root = prefabRoot});
+                                    if (EntityManager.HasComponent<WeakAssetPrefabLoadRequest>(sceneEntity))
+                                    {
+                                        _WeakAssetReferenceLoadingSystem.
+                                            CompleteLoad(sceneEntity, prefabRoot, EntityManager.GetComponentData<WeakAssetPrefabLoadRequest>(sceneEntity).WeakReferenceId);
+                                    }
+                                }
 
                                 return UpdateLoadOperationResult.Completed;
                             }
@@ -408,8 +494,8 @@ namespace Unity.Scenes
 
                             // Do this last just in case there are exceptions.
                             // So that SetLoadFailureOnEntity can set the state to failure
-                            if (EntityManager.HasComponent<StreamingState>(sceneEntity))
-                                EntityManager.RemoveComponent<StreamingState>(sceneEntity);
+                            if (EntityManager.HasComponent<StreamingState>(sectionEntity))
+                                EntityManager.RemoveComponent<StreamingState>(sectionEntity);
 
                             return UpdateLoadOperationResult.Aborted;
                         }
@@ -418,7 +504,7 @@ namespace Unity.Scenes
                     {
                         Debug.LogException(operation.Exception);
                         Debug.LogWarning($"Error when processing '{operation}': {operation.ErrorStatus}");
-                        SetLoadFailureOnEntity(sceneEntity);
+                        SetLoadFailureOnEntity(sectionEntity);
 
                         return UpdateLoadOperationResult.Error;
                     }
@@ -426,7 +512,7 @@ namespace Unity.Scenes
                 catch (Exception e)
                 {
                     Debug.LogWarning($"Error when loading '{operation}': {e}");
-                    SetLoadFailureOnEntity(sceneEntity);
+                    SetLoadFailureOnEntity(sectionEntity);
 
                     return UpdateLoadOperationResult.Error;
                 }
@@ -473,7 +559,8 @@ namespace Unity.Scenes
                             priorities[i] = 0;
                             var operation = CreateAsyncLoadSceneOperation(m_SynchronousSceneLoadWorld.EntityManager,
                                 entity, true);
-                            var result = UpdateLoadOperation(operation, m_SynchronousSceneLoadWorld, entity);
+                            var result = UpdateLoadOperation(operation, m_SynchronousSceneLoadWorld, entity, true);
+                            operation.Dispose();
 
                             if (result == UpdateLoadOperationResult.Error)
                             {
@@ -482,7 +569,6 @@ namespace Unity.Scenes
                                     new World("LoadingWorld (synchronous)", WorldFlags.Streaming);
                                 AddStreamingWorldSystems(m_SynchronousSceneLoadWorld);
                             }
-
                             Assert.AreNotEqual(UpdateLoadOperationResult.Aborted, result);
                         }
                         else if (sceneDataFromEntity[entity].SubSectionIndex == 0)
@@ -495,7 +581,7 @@ namespace Unity.Scenes
                     {
                         for (int i = 0; i < entities.Length; ++i)
                         {
-                            if (priorityList.Length == LoadScenesPerFrame)
+                            if (priorityList.Length == m_ConcurrentSectionStreamCount)
                             {
                                 break;
                             }
@@ -522,9 +608,8 @@ namespace Unity.Scenes
 
             if (!m_UnloadStreamRequests.IsEmptyIgnoreFilter)
             {
-                var destroySubScenes = new NativeList<Entity>(Allocator.Temp);
-                Entities.With(m_UnloadStreamRequests).ForEach((Entity entity) => { destroySubScenes.Add(entity); });
-                foreach (var destroyScene in destroySubScenes.AsArray())
+                var destroySubScenes = m_UnloadStreamRequests.ToEntityArray(Allocator.Temp);
+                foreach (var destroyScene in destroySubScenes)
                     UnloadSectionImmediate(destroyScene);
             }
 
@@ -537,7 +622,7 @@ namespace Unity.Scenes
 #endif
         }
 
-        public void UnloadSectionImmediate(Entity scene)
+        internal void UnloadSectionImmediate(Entity scene)
         {
             if (EntityManager.HasComponent<StreamingState>(scene))
             {
@@ -557,14 +642,14 @@ namespace Unity.Scenes
 
         int CreateAsyncLoadScene(Entity entity, bool blockUntilFullyLoaded)
         {
-            for (int i = 0; i != m_Streams.Length; i++)
+            for (int i = 0; i != m_ConcurrentSectionStreamCount; i++)
             {
                 if (m_Streams[i].Operation != null)
                     continue;
 
                 var dstManager = m_Streams[i].World.EntityManager;
                 m_Streams[i].Operation = CreateAsyncLoadSceneOperation(dstManager, entity, blockUntilFullyLoaded);
-                m_Streams[i].SceneEntity = entity;
+                m_Streams[i].SectionEntity = entity;
                 return i;
             }
 
@@ -574,6 +659,8 @@ namespace Unity.Scenes
         AsyncLoadSceneOperation CreateAsyncLoadSceneOperation(EntityManager dstManager, Entity entity, bool blockUntilFullyLoaded)
         {
             var sceneData = EntityManager.GetComponentData<SceneSectionData>(entity);
+            var blobHeaderOwner = EntityManager.GetSharedComponentData<BlobAssetOwner>(entity);
+            blobHeaderOwner.Retain();
             var sectionData = EntityManager.GetComponentData<ResolvedSectionPath>(entity);
 
             var entitiesBinaryPath = sectionData.ScenePath.ToString();
@@ -614,6 +701,8 @@ namespace Unity.Scenes
                 EntityManager = dstManager,
                 BlockUntilFullyLoaded = blockUntilFullyLoaded,
                 Dependencies = dependencies,
+                BlobHeader = sceneData.BlobHeader,
+                BlobHeaderOwner = blobHeaderOwner,
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 PostLoadCommandBuffer = postLoadCommandBuffer
 #endif

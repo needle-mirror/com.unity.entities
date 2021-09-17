@@ -10,12 +10,6 @@ class TransformConversion : GameObjectConversionSystem
     {
         var entity = GetPrimaryEntity(transform);
 
-#if !UNITY_2020_2_OR_NEWER
-        // We have a dependency, but don't need to add it on 2020.2.
-        // We special-case transforms there and can get away without it.
-        DeclareDependency(transform, transform.parent);
-#endif
-
         DstEntityManager.AddComponentData(entity, new LocalToWorld { Value = transform.localToWorldMatrix });
         if (DstEntityManager.HasComponent<Static>(entity))
             return;
@@ -48,7 +42,6 @@ class TransformConversion : GameObjectConversionSystem
             Convert(transform);
         });
 
-        //@TODO: Remove this again once we add support for inheritance in queries
         Entities.ForEach((RectTransform transform) =>
         {
             Convert(transform);

@@ -8,7 +8,8 @@ using Unity.Profiling;
 
 namespace Unity.Transforms
 {
-    public abstract class ParentSystem : JobComponentSystem
+    [BurstCompile]
+    public partial struct ParentSystem : ISystem
     {
         EntityQuery m_NewParentsQuery;
         EntityQuery m_RemovedParentsQuery;
@@ -31,17 +32,18 @@ namespace Unity.Transforms
             throw new InvalidOperationException("Child entity not in parent");
         }
 
-        void RemoveChildFromParent(Entity childEntity, Entity parentEntity)
+        void RemoveChildFromParent(ref SystemState state, Entity childEntity, Entity parentEntity)
         {
-            if (!EntityManager.HasComponent<Child>(parentEntity))
+            if (!state.EntityManager.HasComponent<Child>(parentEntity))
                 return;
 
-            var children = EntityManager.GetBuffer<Child>(parentEntity);
+            var children = state.EntityManager.GetBuffer<Child>(parentEntity);
             var childIndex = FindChildIndex(children, childEntity);
             children.RemoveAt(childIndex);
             if (children.Length == 0)
             {
-                EntityManager.RemoveComponent(parentEntity, typeof(Child));
+                state.EntityManager.RemoveComponent(parentEntity, ComponentType.FromTypeIndex(
+                    TypeManager.GetTypeIndex<Child>()));
             }
         }
 
@@ -59,7 +61,8 @@ namespace Unity.Transforms
 
             public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                if (batchInChunk.DidChange(ParentTypeHandle, LastSystemVersion))
+                if (batchInChunk.DidChange(ParentTypeHandle, LastSystemVersion) ||
+                    batchInChunk.DidChange(PreviousParentTypeHandle, LastSystemVersion))
                 {
                     var chunkPreviousParents = batchInChunk.GetNativeArray(PreviousParentTypeHandle);
                     var chunkParents = batchInChunk.GetNativeArray(ParentTypeHandle);
@@ -178,10 +181,12 @@ namespace Unity.Transforms
                 }
             }
         }
-
-        protected override void OnCreate()
+        
+        //burst disabled pending burstable EntityQueryDesc
+        //[BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_NewParentsQuery = GetEntityQuery(new EntityQueryDesc
+            m_NewParentsQuery = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -195,7 +200,7 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_RemovedParentsQuery = GetEntityQuery(new EntityQueryDesc
+            m_RemovedParentsQuery = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -207,7 +212,7 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_ExistingParentsQuery = GetEntityQuery(new EntityQueryDesc
+            m_ExistingParentsQuery = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -218,8 +223,8 @@ namespace Unity.Transforms
                 },
                 Options = EntityQueryOptions.FilterWriteGroup
             });
-            m_ExistingParentsQuery.SetChangedVersionFilter(typeof(Parent));
-            m_DeletedParentsQuery = GetEntityQuery(new EntityQueryDesc
+            m_ExistingParentsQuery.SetChangedVersionFilter(new ComponentType[] {typeof(Parent), typeof(PreviousParent)});
+            m_DeletedParentsQuery = state.GetEntityQuery(new EntityQueryDesc
             {
                 All = new ComponentType[]
                 {
@@ -233,15 +238,21 @@ namespace Unity.Transforms
             });
         }
 
-        void UpdateNewParents()
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
+        {
+        }
+
+        void UpdateNewParents(ref SystemState state)
         {
             if (m_NewParentsQuery.IsEmptyIgnoreFilter)
                 return;
 
-            EntityManager.AddComponent(m_NewParentsQuery, typeof(PreviousParent));
+            state.EntityManager.AddComponent(m_NewParentsQuery, ComponentType.FromTypeIndex(
+                TypeManager.GetTypeIndex<PreviousParent>()));
         }
 
-        void UpdateRemoveParents()
+        void UpdateRemoveParents(ref SystemState state)
         {
             if (m_RemovedParentsQuery.IsEmptyIgnoreFilter)
                 return;
@@ -254,15 +265,16 @@ namespace Unity.Transforms
                 var childEntity = childEntities[i];
                 var previousParentEntity = previousParents[i].Value;
 
-                RemoveChildFromParent(childEntity, previousParentEntity);
+                RemoveChildFromParent(ref state, childEntity, previousParentEntity);
             }
 
-            EntityManager.RemoveComponent(m_RemovedParentsQuery, typeof(PreviousParent));
+            state.EntityManager.RemoveComponent(m_RemovedParentsQuery, ComponentType.FromTypeIndex(
+                TypeManager.GetTypeIndex<PreviousParent>()));
             childEntities.Dispose();
             previousParents.Dispose();
         }
 
-        void UpdateChangeParents()
+        void UpdateChangeParents(ref SystemState state)
         {
             if (m_ExistingParentsQuery.IsEmptyIgnoreFilter)
                 return;
@@ -283,12 +295,12 @@ namespace Unity.Transforms
                 ParentChildrenToAdd = parentChildrenToAdd.AsParallelWriter(),
                 ParentChildrenToRemove = parentChildrenToRemove.AsParallelWriter(),
                 UniqueParents = uniqueParents.AsParallelWriter(),
-                PreviousParentTypeHandle = GetComponentTypeHandle<PreviousParent>(false),
-                ParentTypeHandle = GetComponentTypeHandle<Parent>(true),
-                EntityTypeHandle = GetEntityTypeHandle(),
-                LastSystemVersion = LastSystemVersion
+                PreviousParentTypeHandle = state.GetComponentTypeHandle<PreviousParent>(false),
+                ParentTypeHandle = state.GetComponentTypeHandle<Parent>(true),
+                EntityTypeHandle = state.GetEntityTypeHandle(),
+                LastSystemVersion = state.LastSystemVersion
             };
-            var gatherChangedParentsJobHandle = gatherChangedParentsJob.ScheduleParallel(m_ExistingParentsQuery, 1, default(JobHandle));
+            var gatherChangedParentsJobHandle = gatherChangedParentsJob.ScheduleParallel(m_ExistingParentsQuery);
             gatherChangedParentsJobHandle.Complete();
 
             // 5. (Structural change) Add any missing Child to Parents
@@ -296,13 +308,14 @@ namespace Unity.Transforms
             var findMissingChildJob = new FindMissingChild
             {
                 UniqueParents = uniqueParents,
-                ChildFromEntity = GetBufferFromEntity<Child>(),
+                ChildFromEntity = state.GetBufferFromEntity<Child>(true),
                 ParentsMissingChild = parentsMissingChild
             };
             var findMissingChildJobHandle = findMissingChildJob.Schedule();
             findMissingChildJobHandle.Complete();
 
-            EntityManager.AddComponent(parentsMissingChild.AsArray(), typeof(Child));
+            state.EntityManager.AddComponent(parentsMissingChild.AsArray(), ComponentType.FromTypeIndex(
+                TypeManager.GetTypeIndex<Child>()));
 
             // 6. Get Child[] for each unique Parent
             // 7. Update Child[] for each unique Parent
@@ -311,7 +324,7 @@ namespace Unity.Transforms
                 ParentChildrenToAdd = parentChildrenToAdd,
                 ParentChildrenToRemove = parentChildrenToRemove,
                 UniqueParents = uniqueParents,
-                ChildFromEntity = GetBufferFromEntity<Child>()
+                ChildFromEntity = state.GetBufferFromEntity<Child>()
             };
 
             var fixupChangedChildrenJobHandle = fixupChangedChildrenJob.Schedule();
@@ -326,9 +339,10 @@ namespace Unity.Transforms
         [BurstCompile]
         struct GatherChildEntities : IJob
         {
-            public NativeArray<Entity> Parents;
+            [ReadOnly] public NativeArray<Entity> Parents;
             public NativeList<Entity> Children;
-            public BufferFromEntity<Child> ChildFromEntity;
+            [ReadOnly] public BufferFromEntity<Child> ChildFromEntity;
+            [ReadOnly] public ComponentDataFromEntity<Parent> ParentFromEntity;
 
             public void Execute()
             {
@@ -337,12 +351,18 @@ namespace Unity.Transforms
                     var parentEntity = Parents[i];
                     var childEntitiesSource = ChildFromEntity[parentEntity].AsNativeArray();
                     for (int j = 0; j < childEntitiesSource.Length; j++)
-                        Children.Add(childEntitiesSource[j].Value);
+                    {
+                        var childEntity = childEntitiesSource[j].Value;
+                        if (ParentFromEntity.HasComponent(childEntity) && ParentFromEntity[childEntity].Value == parentEntity)
+                        {
+                            Children.Add(childEntitiesSource[j].Value);
+                        }
+                    }
                 }
             }
         }
 
-        void UpdateDeletedParents()
+        void UpdateDeletedParents(ref SystemState state)
         {
             if (m_DeletedParentsQuery.IsEmptyIgnoreFilter)
                 return;
@@ -353,41 +373,51 @@ namespace Unity.Transforms
             {
                 Parents = previousParents,
                 Children = childEntities,
-                ChildFromEntity = GetBufferFromEntity<Child>()
+                ChildFromEntity = state.GetBufferFromEntity<Child>(true),
+                ParentFromEntity = state.GetComponentDataFromEntity<Parent>(true),
             };
             var gatherChildEntitiesJobHandle = gatherChildEntitiesJob.Schedule();
             gatherChildEntitiesJobHandle.Complete();
 
-            EntityManager.RemoveComponent(childEntities, typeof(Parent));
-            EntityManager.RemoveComponent(childEntities, typeof(PreviousParent));
-            EntityManager.RemoveComponent(childEntities, typeof(LocalToParent));
-            EntityManager.RemoveComponent(m_DeletedParentsQuery, typeof(Child));
+            state.EntityManager.RemoveComponent(
+                childEntities,
+                ComponentType.FromTypeIndex(
+                    TypeManager.GetTypeIndex<Parent>()));
+            state.EntityManager.RemoveComponent(childEntities, ComponentType.FromTypeIndex(
+                TypeManager.GetTypeIndex<PreviousParent>()));
+            state.EntityManager.RemoveComponent(childEntities, ComponentType.FromTypeIndex(
+                TypeManager.GetTypeIndex<LocalToParent>()));
+            state.EntityManager.RemoveComponent(m_DeletedParentsQuery, ComponentType.FromTypeIndex(
+                TypeManager.GetTypeIndex<Child>()));
 
             childEntities.Dispose();
             previousParents.Dispose();
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        //burst disabled pending IJobBurstSchedulable not requiring hardcoded calls to init
+        //for every distinct job
+        //[BurstCompile]
+        public void OnUpdate(ref SystemState state)//JobHandle inputDeps)
         {
-            inputDeps.Complete(); // #todo
+            //inputDeps.Complete(); // #todo
+            state.Dependency.Complete();
 
             k_ProfileDeletedParents.Begin();
-            UpdateDeletedParents();
+            UpdateDeletedParents(ref state);
             k_ProfileDeletedParents.End();
 
             k_ProfileRemoveParents.Begin();
-            UpdateRemoveParents();
+            UpdateRemoveParents(ref state);
             k_ProfileRemoveParents.End();
 
             k_ProfileNewParents.Begin();
-            UpdateNewParents();
+            UpdateNewParents(ref state);
             k_ProfileNewParents.End();
 
             k_ProfileChangeParents.Begin();
-            UpdateChangeParents();
+            UpdateChangeParents(ref state);
             k_ProfileChangeParents.End();
 
-            return new JobHandle();
         }
     }
 }

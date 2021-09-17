@@ -43,11 +43,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // We expect that the order of the crated entities is the same as in the creation scene
-            var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var testDataArray = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i != testDataArray.Length; i++)
                 Assert.AreEqual(i, testDataArray[i].value);
 
-            testDataArray.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -81,7 +80,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // We expect that the shared component data matches the correct entities
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i];
@@ -93,7 +92,6 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            chunks.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -134,7 +132,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(entities.Length, group.CalculateEntityCount());
             Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
-            var movedEntities = group.ToEntityArray(Allocator.TempJob);
+            var movedEntities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i < movedEntities.Length; ++i)
             {
                 var entity = movedEntities[i];
@@ -143,7 +141,6 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(valueFromComponent, valueFromChunkComponent);
             }
 
-            movedEntities.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -182,7 +179,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(entities.Length, group.CalculateEntityCount());
             Assert.AreEqual(0, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
-            var movedEntities = group.ToEntityArray(Allocator.TempJob);
+            var movedEntities = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i < movedEntities.Length; ++i)
             {
                 var entity = movedEntities[i];
@@ -191,7 +188,6 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(valueFromComponent, valueFromChunkComponent);
             }
 
-            movedEntities.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -218,7 +214,7 @@ namespace Unity.Entities.Tests
             var filteredComponentGroup = creationManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
             filteredComponentGroup.SetSharedComponentFilter(new SharedData1(2));
 
-            var entityRemapping = creationManager.CreateEntityRemapArray(Allocator.TempJob);
+            var entityRemapping = creationManager.CreateEntityRemapArray(World.UpdateAllocator.ToAllocator);
             m_Manager.MoveEntitiesFrom(creationManager, filteredComponentGroup, entityRemapping);
 
             filteredComponentGroup.Dispose();
@@ -232,7 +228,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(8000, creationManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // We expect that the shared component data matches the correct entities
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i];
@@ -247,8 +243,6 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(shared.value, 2);
             }
 
-            chunks.Dispose();
-            entityRemapping.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -271,7 +265,7 @@ namespace Unity.Entities.Tests
             var srcGroup = creationManager.CreateEntityQuery(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>(), typeof(SharedData1));
 
             var chunksPerValue = new int[5];
-            var chunks = srcGroup.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = srcGroup.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
 
             var sharedData1Type = creationManager.GetSharedComponentTypeHandle<SharedData1>();
             var ecsTestData2Type = creationManager.GetComponentTypeHandle<EcsTestData2>(false);
@@ -283,7 +277,6 @@ namespace Unity.Entities.Tests
                 chunk.SetChunkComponentData(ecsTestData2Type, new EcsTestData2 {value0 = shared.value, value1 = 47 * shared.value});
                 chunksPerValue[shared.value]++;
             }
-            chunks.Dispose();
 
             m_Manager.Debug.CheckInternalConsistency();
             creationManager.Debug.CheckInternalConsistency();
@@ -291,7 +284,7 @@ namespace Unity.Entities.Tests
             var filteredComponentGroup = creationManager.CreateEntityQuery(typeof(EcsTestData), typeof(SharedData1));
             filteredComponentGroup.SetSharedComponentFilter(new SharedData1(2));
 
-            var entityRemapping = creationManager.CreateEntityRemapArray(Allocator.TempJob);
+            var entityRemapping = creationManager.CreateEntityRemapArray(World.UpdateAllocator.ToAllocator);
             m_Manager.MoveEntitiesFrom(creationManager, filteredComponentGroup, entityRemapping);
 
             filteredComponentGroup.Dispose();
@@ -315,7 +308,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(expectedRemainingChunkCount, remainingChunkHeaderGroup.CalculateEntityCount());
 
 
-            var dstEntityArray = dstGroup.ToEntityArray(Allocator.TempJob);
+            var dstEntityArray = dstGroup.ToEntityArray(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i != dstEntityArray.Length; i++)
             {
                 var chunkComponent = m_Manager.GetChunkComponentData<EcsTestData2>(dstEntityArray[i]);
@@ -326,7 +319,7 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(expectedValue * 47, chunkComponent.value1);
             }
 
-            var srcEntityArray = srcGroup.ToEntityArray(Allocator.TempJob);
+            var srcEntityArray = srcGroup.ToEntityArray(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i != srcEntityArray.Length; i++)
             {
                 var chunkComponent = creationManager.GetChunkComponentData<EcsTestData2>(srcEntityArray[i]);
@@ -341,9 +334,6 @@ namespace Unity.Entities.Tests
             srcGroup.Dispose();
             movedChunkHeaderGroup.Dispose();
             remainingChunkHeaderGroup.Dispose();
-            dstEntityArray.Dispose();
-            srcEntityArray.Dispose();
-            entityRemapping.Dispose();
             entities.Dispose();
             creationWorld.Dispose();
         }
@@ -364,12 +354,11 @@ namespace Unity.Entities.Tests
             creationManager.Debug.CheckInternalConsistency();
 
             var componentGroupToMove = creationManager.CreateEntityQuery(typeof(EcsTestData2), typeof(ChunkHeader));
-            var entityRemapping = creationManager.CreateEntityRemapArray(Allocator.TempJob);
+            var entityRemapping = creationManager.CreateEntityRemapArray(World.UpdateAllocator.ToAllocator);
 
             Assert.Throws<ArgumentException>(() => m_Manager.MoveEntitiesFrom(creationManager, componentGroupToMove, entityRemapping));
             Assert.Throws<ArgumentException>(() => m_Manager.MoveEntitiesFrom(out var output, creationManager, componentGroupToMove, entityRemapping));
 
-            entityRemapping.Dispose();
             componentGroupToMove.Dispose();
             creationWorld.Dispose();
         }
@@ -406,11 +395,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, sourceManager.CreateEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // We expect that the order of the crated entities is the same as in the creation scene
-            var testDataArray = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var testDataArray = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i != testDataArray.Length; i++)
                 Assert.AreEqual(i, testDataArray[i].value);
 
-            testDataArray.Dispose();
             targetEntities.Dispose();
             sourceEntities.Dispose();
             sourceWorld.Dispose();
@@ -447,11 +435,10 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(numberOfEntitiesPerManager * 2, group.CalculateEntityCount());
             Assert.AreEqual(0, sourceManager.CreateEntityQuery(typeof(EcsTestDataEntity)).CalculateEntityCount());
 
-            var testDataArray = group.ToComponentDataArray<EcsTestDataEntity>(Allocator.TempJob);
+            var testDataArray = group.ToComponentDataArray<EcsTestDataEntity>(World.UpdateAllocator.ToAllocator);
             for (int i = 0; i != testDataArray.Length; i++)
                 Assert.AreEqual(testDataArray[i].value0, m_Manager.GetComponentData<EcsTestDataEntity>(testDataArray[i].value1).value0);
 
-            testDataArray.Dispose();
             targetEntities.Dispose();
             sourceEntities.Dispose();
             sourceWorld.Dispose();

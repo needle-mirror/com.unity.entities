@@ -1,13 +1,13 @@
-﻿namespace Unity.Entities.SourceGen
+﻿namespace Unity.Entities.SourceGen.AuthoringComponent
 {
-    internal enum AuthoringComponentInterface
+    enum AuthoringComponentInterface
     {
         IComponentData,
         IBufferElementData,
         None
     }
 
-    internal enum FieldType
+    enum FieldType
     {
         SingleEntity,
         EntityArray,

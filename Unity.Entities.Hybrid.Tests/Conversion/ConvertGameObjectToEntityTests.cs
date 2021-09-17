@@ -238,7 +238,5 @@ namespace Unity.Entities.Tests.Conversion
             UnityEngine.Object.DestroyImmediate(a);
             Assert.DoesNotThrow(EndAwakeConversion);
         }
-
-        //@TODO: ConvertToEntity w/ multiple Worlds registered via ConvertToEntitySystem.AddToBeConverted()
     }
 }

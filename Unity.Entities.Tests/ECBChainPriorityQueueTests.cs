@@ -8,7 +8,7 @@ namespace Unity.Entities.Tests
     {
         unsafe public void PQHeapSort(int[] unsorted, int[] sorted)
         {
-            var chainStates = new NativeArray<ECBChainPlaybackState>(unsorted.Length, Allocator.Temp);
+            var chainStates = stackalloc ECBChainPlaybackState[unsorted.Length];
             for (int i = 0; i < unsorted.Length; ++i)
             {
                 chainStates[i] = new ECBChainPlaybackState
@@ -18,8 +18,7 @@ namespace Unity.Entities.Tests
                     NextSortKey = unsorted[i],
                 };
             }
-            ECBChainPriorityQueue pq = new ECBChainPriorityQueue(chainStates, Allocator.Temp);
-            chainStates.Dispose();
+            ECBChainPriorityQueue pq = new ECBChainPriorityQueue(chainStates, unsorted.Length, Allocator.Temp);
 
             for (Int64 i = 0; i < unsorted.Length; ++i)
             {

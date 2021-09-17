@@ -10,8 +10,8 @@ namespace Unity.Transforms
 {
     [UnityEngine.ExecuteAlways]
     [UpdateInGroup(typeof(TransformSystemGroup))]
-    [UpdateAfter(typeof(EndFrameLocalToParentSystem))]
-    public class CopyTransformToGameObjectSystem : JobComponentSystem
+    [UpdateAfter(typeof(LocalToParentSystem))]
+    public partial class CopyTransformToGameObjectSystem : SystemBase
     {
         [BurstCompile]
         struct CopyTransforms : IJobParallelForTransform
@@ -34,15 +34,15 @@ namespace Unity.Transforms
             m_TransformGroup = GetEntityQuery(ComponentType.ReadOnly(typeof(CopyTransformToGameObject)), ComponentType.ReadOnly<LocalToWorld>(), typeof(UnityEngine.Transform));
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             var transforms = m_TransformGroup.GetTransformAccessArray();
             var copyTransformsJob = new CopyTransforms
             {
-                LocalToWorlds = m_TransformGroup.ToComponentDataArrayAsync<LocalToWorld>(Allocator.TempJob, out inputDeps),
+                LocalToWorlds = m_TransformGroup.ToComponentDataArrayAsync<LocalToWorld>(Allocator.TempJob, out var dependency),
             };
 
-            return copyTransformsJob.Schedule(transforms, inputDeps);
+            Dependency = copyTransformsJob.Schedule(transforms, dependency);
         }
     }
 }

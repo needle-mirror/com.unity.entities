@@ -1,6 +1,6 @@
+
 using System;
-using Unity.Transforms;
-using UnityEngine;
+using System.Collections.Generic;
 
 namespace Unity.Entities.Streaming
 {
@@ -18,19 +18,17 @@ namespace Unity.Entities.Streaming
             {
                 if (TypeManager.IsSystemStateComponent(s.TypeIndex))
                 {
-                    //@TODO: Make query instead of this crazy slow shit
                     entityManager.RemoveComponent(entityManager.UniversalQuery, ComponentType.FromTypeIndex(s.TypeIndex));
                 }
             }
         }
 
-        public static void Optimize(World world)
+        internal static void OptimizeInternal(World world, IEnumerable<Type> systemTypes)
         {
             var entityManager = world.EntityManager;
 
             var group = world.GetOrCreateSystem<OptimizationGroup>();
 
-            var systemTypes = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.EntitySceneOptimizations);
             foreach (var systemType in systemTypes)
                 AddSystemAndLogException(world, group, systemType);
             group.SortSystems();
@@ -59,5 +57,7 @@ namespace Unity.Entities.Streaming
                 Debug.LogException(e);
             }
         }
+
+        public static void Optimize(World world) => OptimizeInternal(world, DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.EntitySceneOptimizations));
     }
 }

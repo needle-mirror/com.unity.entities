@@ -36,7 +36,7 @@ namespace Unity.Entities.Tests.Conversion
         }
 
         [Test]
-        public void GameObjectDependencies_AreCollected_WhenLiveLinked()
+        public void GameObjectDependencies_AreCollected_WhenLiveConversioned()
         {
             var goA = CreateGameObject("A");
             var goB = CreateGameObject("B");

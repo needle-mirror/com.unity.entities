@@ -38,7 +38,12 @@ namespace Unity.Entities.Tests
 #endif
                 () => AtomicSafetyHandle.CheckWriteAndThrow(handle));
 
-            Assert.Throws<InvalidOperationException>(() => AtomicSafetyHandle.CheckExistsAndThrow(handle));
+#if UNITY_2020_2_OR_NEWER
+            Assert.Throws<ObjectDisposedException>(
+#else
+            Assert.Throws<InvalidOperationException>(
+#endif
+                () => AtomicSafetyHandle.CheckExistsAndThrow(handle));
         }
 
         [Test]

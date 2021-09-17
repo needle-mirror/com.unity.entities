@@ -1,5 +1,8 @@
 using System;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 
 namespace Unity.Entities
 {
@@ -35,10 +38,6 @@ namespace Unity.Entities
 
         /// <summary>Session-unique ID for originating object (typically the authoring GameObject's InstanceID).</summary>
         public int OriginatingId => (int)a;
-        /// <summary>An ID that supports multiple primary groupings of converted Entities with the same originating object.
-        /// ID zero is reserved for default conversions. Nonzero ID's are for the developer to manage.</summary>
-        [Obsolete("This functionality is no longer supported. (RemovedAfter 2021-01-09).")]
-        public byte NamespaceId => (byte)(b >> 32);
         internal uint FullNamespaceId => (uint) (b >> 32);
         /// <summary>A unique number used to differentiate Entities associated with the same originating object and namespace.</summary>
         public uint Serial => (uint)b;
@@ -263,6 +262,12 @@ namespace Unity.Entities
         public readonly int DestroyedEntityCount;
 
         /// <summary>
+        /// Number of entities of which names changed in <see cref="NameChangedEntityGuids"/> in this change-set,
+        /// not including created and destroyed entities.
+        /// </summary>
+        public readonly int NameChangedCount;
+
+        /// <summary>
         /// A packed array of all entities in this change-set.
         /// </summary>
         public readonly NativeArray<EntityGuid> Entities;
@@ -273,9 +278,14 @@ namespace Unity.Entities
         public readonly NativeArray<ComponentTypeHash> TypeHashes;
 
         /// <summary>
-        /// Names for each entity in this change-set.
+        /// Changed names including created and destroyed entities in this change-set.
         /// </summary>
-        public readonly NativeArray<FixedString64> Names;
+        public readonly NativeArray<FixedString64Bytes> Names;
+
+        /// <summary>
+        /// Entities of which names changed in this change-set, not including created and destroyed entities.
+        /// </summary>
+        public readonly NativeArray<EntityGuid> NameChangedEntityGuids;
 
         /// <summary>
         /// A set of all component additions in this change-set.
@@ -351,9 +361,11 @@ namespace Unity.Entities
         public EntityChangeSet(
             int createdEntityCount,
             int destroyedEntityCount,
+            int nameChangedCount,
             NativeArray<EntityGuid> entities,
             NativeArray<ComponentTypeHash> typeHashes,
-            NativeArray<FixedString64> names,
+            NativeArray<FixedString64Bytes> names,
+            NativeArray<EntityGuid> nameChangedEntityGuids,
             NativeArray<PackedComponent> addComponents,
             NativeArray<PackedComponent> removeComponents,
             NativeArray<PackedComponentDataChange> setComponents,
@@ -370,9 +382,11 @@ namespace Unity.Entities
         {
             CreatedEntityCount = createdEntityCount;
             DestroyedEntityCount = destroyedEntityCount;
+            NameChangedCount = nameChangedCount;
             Entities = entities;
             TypeHashes = typeHashes;
             Names = names;
+            NameChangedEntityGuids = nameChangedEntityGuids;
             AddComponents = addComponents;
             RemoveComponents = removeComponents;
             SetManagedComponents = setManagedComponents;
@@ -394,8 +408,11 @@ namespace Unity.Entities
         /// </summary>
         public bool IsCreated { get; }
 
-        public bool HasChanges =>
-            CreatedEntityCount != 0 ||
+        public bool HasChanges => HasChangesIncludeNames();
+
+        internal bool HasChangesIncludeNames(bool ignoreNameChangeCount = false)
+        {
+            bool hasChange = CreatedEntityCount != 0 ||
             DestroyedEntityCount != 0 ||
             AddComponents.Length != 0 ||
             RemoveComponents.Length != 0 ||
@@ -411,6 +428,14 @@ namespace Unity.Entities
             DestroyedBlobAssets.Length != 0 ||
             BlobAssetData.Length != 0;
 
+            if(!ignoreNameChangeCount)
+            {
+                hasChange = hasChange || NameChangedCount != 0;
+            }
+
+            return hasChange;
+        }
+
         public void Dispose()
         {
             if (!IsCreated)
@@ -421,6 +446,7 @@ namespace Unity.Entities
             Entities.Dispose();
             TypeHashes.Dispose();
             Names.Dispose();
+            NameChangedEntityGuids.Dispose();
             AddComponents.Dispose();
             RemoveComponents.Dispose();
             SetComponents.Dispose();
@@ -443,15 +469,175 @@ namespace Unity.Entities
     }
 
 #if !NET_DOTS
-    internal static class EntityChangeSetFormatter {
-        internal static string PrintSummary(this EntityChangeSet changeSet)
+    internal static unsafe class EntityChangeSetFormatter
+    {
+        static EntityQueryDesc EntityGuidQueryDesc { get; } = new EntityQueryDesc
+        {
+            All = new ComponentType[]
+            {
+                typeof(EntityGuid)
+            },
+            Options = EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab
+        };
+
+        struct NameInfoSet
+        {
+            internal NativeArray<FixedString64Bytes> Names;
+            internal NativeArray<Entity> NameChangedEntities;
+            internal bool IsCreated;
+
+            internal NameInfoSet(int namesLength, int nameChangedEntitiesLength, Allocator allocator)
+            {
+                Names = new NativeArray<FixedString64Bytes>(namesLength, allocator);
+                NameChangedEntities = new NativeArray<Entity>(nameChangedEntitiesLength, allocator);
+                IsCreated = true;
+            }
+
+            internal void Dispose()
+            {
+                Names.Dispose();
+                NameChangedEntities.Dispose();
+                IsCreated = false;
+            }
+        }
+
+        [BurstCompile]
+        struct BuildEntityGuidToEntityHashMap : IJobEntityBatch
+        {
+            [ReadOnly] public ComponentTypeHandle<EntityGuid> ComponentTypeHandle;
+            [ReadOnly] public EntityTypeHandle EntityTypeHandle;
+
+            [WriteOnly] public NativeMultiHashMap<EntityGuid, Entity>.ParallelWriter EntityGuidToEntity;
+
+            [BurstCompile]
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            {
+                var components = batchInChunk.GetNativeArray(ComponentTypeHandle);
+                var entities = batchInChunk.GetNativeArray(EntityTypeHandle);
+                for (var i = 0; i != entities.Length; i++)
+                {
+                    EntityGuidToEntity.Add(components[i], entities[i]);
+                }
+            }
+        }
+
+        [BurstCompile]
+        struct GatherNamesForComponentChanges : IJobParallelFor
+        {
+            [ReadOnly] public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
+            [ReadOnly] public NativeArray<EntityGuid> Entities;
+            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* EntityComponentStore;
+            [WriteOnly] public NativeArray<FixedString64Bytes> Names;
+            [BurstCompile]
+            public void Execute(int index)
+            {
+                var entityGuid = Entities[index];
+                EntityGuidToEntity.TryGetFirstValue(entityGuid, out var entity, out _);
+                EntityComponentStore->GetName(entity, out var entityName);
+                Names[index] = entityName;
+            }
+        }
+
+        [BurstCompile]
+        struct GatherNamesChangedEntities : IJobParallelFor
+        {
+            [ReadOnly] public NativeMultiHashMap<EntityGuid, Entity> EntityGuidToEntity;
+            [ReadOnly] public NativeArray<EntityGuid> NameChangedEntityGuids;
+            [WriteOnly] public NativeArray<Entity> NameChangedEntities;
+            [BurstCompile]
+            public void Execute(int index)
+            {
+                var entityGuid = NameChangedEntityGuids[index];
+                EntityGuidToEntity.TryGetFirstValue(entityGuid, out var entity, out _);
+                NameChangedEntities[index] = entity;
+            }
+        }
+
+        static void GetComponentNameChanges(
+            EntityManager entityManager,
+            EntityChangeSet changeSet,
+            NameInfoSet nameInfoSet,
+            Allocator allocator)
+        {
+            var entityQuery = entityManager.CreateEntityQuery(EntityGuidQueryDesc);
+            var entityCount = entityQuery.CalculateEntityCount();
+
+            var entityGuidToEntity = new NativeMultiHashMap<EntityGuid, Entity>(entityCount, allocator);
+
+            var buildEntityGuidToEntity = new BuildEntityGuidToEntityHashMap
+            {
+                EntityTypeHandle = entityManager.GetEntityTypeHandle(),
+                ComponentTypeHandle = entityManager.GetComponentTypeHandle<EntityGuid>(true),
+                EntityGuidToEntity = entityGuidToEntity.AsParallelWriter()
+            }.ScheduleParallel(entityQuery);
+
+            var startIndex = changeSet.CreatedEntityCount;
+            var numComponentChange = changeSet.Entities.Length - changeSet.CreatedEntityCount - changeSet.DestroyedEntityCount;
+            var subEntities = changeSet.Entities.GetSubArray(startIndex, numComponentChange);
+            var names = nameInfoSet.Names.GetSubArray(startIndex, numComponentChange);
+            var jobNamesForComponentChanges = new GatherNamesForComponentChanges
+            {
+                EntityGuidToEntity = entityGuidToEntity,
+                EntityComponentStore = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
+                Entities = subEntities,
+                Names = names
+            }.Schedule(numComponentChange, 64, buildEntityGuidToEntity);
+
+            var jobNamesChangedEntities = new GatherNamesChangedEntities
+            {
+                EntityGuidToEntity = entityGuidToEntity,
+                NameChangedEntityGuids = changeSet.NameChangedEntityGuids,
+                NameChangedEntities = nameInfoSet.NameChangedEntities
+            }.Schedule(changeSet.NameChangedCount, 64, buildEntityGuidToEntity);
+
+            jobNamesForComponentChanges.Complete();
+            jobNamesChangedEntities.Complete();
+
+            entityQuery.Dispose();
+            entityGuidToEntity.Dispose();
+        }
+
+        // Construct the entity names for each entity in EntityChangeSet.Entities
+        // following the same order
+        static NameInfoSet BuildEntityNames(
+            EntityManager targetEntityManager,
+            EntityChangeSet changeSet,
+            Allocator allocator)
+        {
+            var nameLength = changeSet.Entities.Length;
+            var nameChangedEntitiesLength = changeSet.NameChangedCount;
+            var nameInfoSet = new NameInfoSet(nameLength, nameChangedEntitiesLength, allocator);
+
+            // Copy names for created entities
+            if (changeSet.CreatedEntityCount > 0)
+            {
+                NativeArray<FixedString64Bytes>.Copy(changeSet.Names, nameInfoSet.Names, changeSet.CreatedEntityCount);
+            }
+
+            GetComponentNameChanges(targetEntityManager, changeSet, nameInfoSet, allocator);
+
+            // Copy names for destroyed entities
+            if (changeSet.DestroyedEntityCount > 0)
+            {
+                var srcStartIndex = changeSet.Names.Length - changeSet.DestroyedEntityCount;
+                var dstStartIndex = changeSet.Entities.Length - changeSet.DestroyedEntityCount;
+                NativeArray<FixedString64Bytes>.Copy(changeSet.Names, srcStartIndex, nameInfoSet.Names, dstStartIndex, changeSet.DestroyedEntityCount);
+            }
+
+            return nameInfoSet;
+        }
+
+        internal static string PrintSummary(this EntityChangeSet changeSet, EntityManager targetEntityManager)
         {
             var sb = new System.Text.StringBuilder();
-            PrintSummary(changeSet, sb);
+            PrintSummary(changeSet, targetEntityManager, sb);
             return sb.ToString();
         }
 
-        internal static void PrintSummary(this EntityChangeSet changeSet, System.Text.StringBuilder sb)
+        internal static void PrintSummary(
+            this EntityChangeSet changeSet,
+            EntityManager targetEntityManager,
+            System.Text.StringBuilder sb)
         {
             sb.AppendLine("Change Summary:");
             if (changeSet.CreatedEntityCount > 0)
@@ -498,13 +684,31 @@ namespace Unity.Entities
             if (changeSet.DestroyedEntityCount > 0)
             {
                 sb.AppendLine("Entities destroyed:");
-                int d = changeSet.Names.Length - 1;
+                int nameStart = changeSet.Names.Length - changeSet.DestroyedEntityCount;
+                int guidStart = changeSet.Entities.Length - changeSet.DestroyedEntityCount;
                 for (int i = 0; i < changeSet.DestroyedEntityCount; i++)
                 {
                     sb.Append('\t');
-                    sb.Append(changeSet.Names[d - i].ToString());
+                    sb.Append(changeSet.Names[nameStart + i].ToString());
                     sb.Append(" - ");
-                    sb.AppendLine(changeSet.Entities[d - i].ToString());
+                    sb.AppendLine(changeSet.Entities[guidStart + i].ToString());
+                }
+                sb.AppendLine();
+            }
+
+            // Get the names of all changeSet.Entities and name changed entities
+            var nameInfoSet = BuildEntityNames(targetEntityManager, changeSet, Allocator.TempJob);
+
+            if (changeSet.NameChangedCount > 0)
+            {
+                sb.AppendLine("Entities name changed:");
+                var start = changeSet.CreatedEntityCount;
+                for (int i = 0; i < changeSet.NameChangedCount; i++)
+                {
+                    sb.Append('\t');
+                    sb.Append(changeSet.Names[start + i].ToString());
+                    sb.Append(" - ");
+                    sb.AppendLine(nameInfoSet.NameChangedEntities[i].ToString());
                 }
                 sb.AppendLine();
             }
@@ -513,7 +717,7 @@ namespace Unity.Entities
             {
                 sb.AppendLine("Components added:");
                 for (int i = 0; i < changeSet.AddComponents.Length; i++)
-                    FormatComponentChange(ref changeSet, changeSet.AddComponents[i], sb);
+                    FormatComponentChange(ref changeSet, changeSet.AddComponents[i], nameInfoSet, sb);
                 sb.AppendLine();
             }
 
@@ -521,7 +725,7 @@ namespace Unity.Entities
             {
                 sb.AppendLine("Components removed:");
                 for (int i = 0; i < changeSet.RemoveComponents.Length; i++)
-                    FormatComponentChange(ref changeSet, changeSet.RemoveComponents[i], sb);
+                    FormatComponentChange(ref changeSet, changeSet.RemoveComponents[i], nameInfoSet, sb);
                 sb.AppendLine();
             }
 
@@ -529,7 +733,7 @@ namespace Unity.Entities
             {
                 sb.AppendLine("Unmanaged components changed:");
                 for (int i = 0; i < changeSet.SetComponents.Length; i++)
-                    FormatComponentChange(ref changeSet, changeSet.SetComponents[i].Component, sb);
+                    FormatComponentChange(ref changeSet, changeSet.SetComponents[i].Component, nameInfoSet, sb);
                 sb.AppendLine();
             }
 
@@ -537,7 +741,7 @@ namespace Unity.Entities
             {
                 sb.AppendLine("Managed components changed:");
                 for (int i = 0; i < changeSet.SetManagedComponents.Length; i++)
-                    FormatComponentChange(ref changeSet, changeSet.SetManagedComponents[i].Component, sb);
+                    FormatComponentChange(ref changeSet, changeSet.SetManagedComponents[i].Component, nameInfoSet, sb);
                 sb.AppendLine();
             }
 
@@ -545,7 +749,7 @@ namespace Unity.Entities
             {
                 sb.AppendLine("Shared components changed:");
                 for (int i = 0; i < changeSet.SetSharedComponents.Length; i++)
-                    FormatComponentChange(ref changeSet, changeSet.SetSharedComponents[i].Component, sb);
+                    FormatComponentChange(ref changeSet, changeSet.SetSharedComponents[i].Component, nameInfoSet, sb);
                 sb.AppendLine();
             }
 
@@ -553,7 +757,7 @@ namespace Unity.Entities
             {
                 sb.AppendLine("Entity references changed:");
                 for (int i = 0; i < changeSet.EntityReferenceChanges.Length; i++)
-                    FormatComponentChange(ref changeSet, changeSet.EntityReferenceChanges[i].Component, sb);
+                    FormatComponentChange(ref changeSet, changeSet.EntityReferenceChanges[i].Component, nameInfoSet, sb);
                 sb.AppendLine();
             }
 
@@ -561,7 +765,7 @@ namespace Unity.Entities
             {
                 sb.AppendLine("Blob asset references changed:");
                 for (int i = 0; i < changeSet.BlobAssetReferenceChanges.Length; i++)
-                    FormatComponentChange(ref changeSet, changeSet.BlobAssetReferenceChanges[i].Component, sb);
+                    FormatComponentChange(ref changeSet, changeSet.BlobAssetReferenceChanges[i].Component, nameInfoSet, sb);
                 sb.AppendLine();
             }
 
@@ -594,9 +798,14 @@ namespace Unity.Entities
 
                 sb.AppendLine();
             }
+
+            if (nameInfoSet.IsCreated)
+            {
+                nameInfoSet.Dispose();
+            }
         }
 
-        static void FormatComponentChange(ref EntityChangeSet changeSet, PackedComponent c, System.Text.StringBuilder sb)
+        static void FormatComponentChange(ref EntityChangeSet changeSet, PackedComponent c, NameInfoSet nameInfoSet, System.Text.StringBuilder sb)
         {
             int ti = TypeManager.GetTypeIndexFromStableTypeHash(changeSet.TypeHashes[c.PackedTypeIndex].StableTypeHash);
             var typeName = TypeManager.GetTypeInfo(ti).DebugTypeName;
@@ -604,7 +813,7 @@ namespace Unity.Entities
             sb.Append(typeName);
             sb.Append(" - ");
             // Could also print out GUID here
-            sb.AppendLine(changeSet.Names[c.PackedEntityIndex].ToString());
+            sb.AppendLine(nameInfoSet.Names[c.PackedEntityIndex].ToString());
         }
     }
 #endif

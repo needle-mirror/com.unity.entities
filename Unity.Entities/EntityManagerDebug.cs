@@ -13,7 +13,6 @@ namespace Unity.Entities
         // PUBLIC
         // ----------------------------------------------------------------------------------------------------------
 
-#if UNITY_EDITOR
         /// <summary>
         /// Gets the name assigned to an entity.
         /// </summary>
@@ -23,22 +22,51 @@ namespace Unity.Entities
         [NotBurstCompatible]
         public string GetName(Entity entity)
         {
-            return GetCheckedEntityDataAccess()->EntityComponentStore->GetName(entity);
+#if !DOTS_DISABLE_DEBUG_NAMES
+            return GetCheckedEntityDataAccess()->GetName(entity);
+#else
+            return "";
+#endif
+        }
+
+        [BurstCompatible]
+        public void GetName(Entity entity, out FixedString64Bytes name)
+        {
+#if !DOTS_DISABLE_DEBUG_NAMES
+            GetCheckedEntityDataAccess()->GetName(entity, out name);
+#else
+            name = default;
+#endif
         }
 
         /// <summary>
-        /// Sets the name of an entity.
+        /// Sets the name of an entity, truncating the name if needed
         /// </summary>
         /// <remarks>For performance, entity names only exist when running in the Unity Editor.</remarks>
         /// <param name="entity">The Entity object of the entity to name.</param>
-        /// <param name="name">The name to assign.</param>
+        /// <param name="name">The name to assign.The maximum length of an EntityName is 61 characters. if a string longer than 61
+        /// characters is used a, the name will be truncated.</param>
         [NotBurstCompatible]
         public void SetName(Entity entity, string name)
         {
-            GetCheckedEntityDataAccess()->EntityComponentStore->SetName(entity, name);
+#if !DOTS_DISABLE_DEBUG_NAMES
+            GetCheckedEntityDataAccess()->SetName(entity, name);
+#endif
         }
 
+        [BurstCompatible]
+        public void SetName(Entity entity, FixedString64Bytes name)
+        {
+#if !DOTS_DISABLE_DEBUG_NAMES
+            GetCheckedEntityDataAccess()->SetName(entity, name);
 #endif
+        }
+
+        public enum GetAllEntitiesOptions
+        {
+            ExcludeMeta,
+            IncludeMeta,
+        }
 
         /// <summary>
         /// Gets all the entities managed by this EntityManager.
@@ -51,14 +79,40 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="allocator">The type of allocation for creating the NativeArray to hold the Entity objects.</param>
         /// <returns>An array of Entity objects referring to all the entities in the World.</returns>
+        public NativeArray<Entity> GetAllEntities(Allocator allocator = Allocator.Temp)
+            => GetAllEntities(allocator, GetAllEntitiesOptions.ExcludeMeta);
 
-        public  NativeArray<Entity> GetAllEntities(Allocator allocator = Allocator.Temp)
+        /// <summary>
+        /// Gets all the entities managed by this EntityManager.
+        /// </summary>
+        /// <remarks>
+        /// **Important:** This function creates a sync point, which means that the EntityManager waits for all
+        /// currently running Jobs to complete before getting the entities and no additional Jobs can start before
+        /// the function is finished. A sync point can cause a drop in performance because the ECS framework may not
+        /// be able to make use of the processing power of all available cores.
+        /// </remarks>
+        /// <param name="allocator">The type of allocation for creating the NativeArray to hold the Entity objects.</param>
+        /// <param name="options">Specifies whether entities from chunk components should be included.</param>
+        /// <returns>An array of Entity objects referring to all the entities in the World.</returns>
+        public NativeArray<Entity> GetAllEntities(Allocator allocator, GetAllEntitiesOptions options)
         {
             BeforeStructuralChange();
 
-            var chunks = GetAllChunks(Allocator.TempJob);
+            NativeArray<ArchetypeChunk> chunks = default;
+            switch (options)
+            {
+                case GetAllEntitiesOptions.ExcludeMeta:
+                    chunks = GetAllChunks();
+                    break;
+                case GetAllEntitiesOptions.IncludeMeta:
+                    chunks = GetAllChunksAndMetaChunks();
+                    break;
+                default:
+                    throw new ArgumentException($"Invalid enum value", nameof(options));
+            }
+
             var count = ArchetypeChunkArray.CalculateEntityCount(chunks);
-            var array = new NativeArray<Entity>(count, allocator);
+            var array = CollectionHelper.CreateNativeArray<Entity>(count, allocator);
             var entityType = GetEntityTypeHandle();
             var offset = 0;
 
@@ -78,7 +132,7 @@ namespace Unity.Entities
         /// <summary>
         /// Provides information and utility functions for debugging.
         /// </summary>
-        public class EntityManagerDebug
+        public struct EntityManagerDebug
         {
             private readonly EntityManager m_Manager;
 
@@ -212,7 +266,7 @@ namespace Unity.Entities
                 var entityComponentStore = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
                 var archetype = entityComponentStore->GetArchetype(entity);
                 str.Append(entity.ToString());
-#if UNITY_EDITOR
+#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
                 {
                     var name = m_Manager.GetName(entity);
                     if (!string.IsNullOrEmpty(name))
@@ -246,45 +300,124 @@ namespace Unity.Entities
             }
 #endif
 
-#if !UNITY_DOTSRUNTIME
-            public object GetComponentBoxed(Entity entity, ComponentType type)
+            internal string Debugger_GetName(Entity entity)
             {
-                m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->AssertEntityHasComponent(entity, type);
+#if !DOTS_DISABLE_DEBUG_NAMES
+                if (m_Manager.m_EntityDataAccess == null)
+                    return null;
 
+                return EntityComponentStore.Debugger_GetName(m_Manager.m_EntityDataAccess->EntityComponentStore, entity);
+#else
+                return "";
+#endif
+            }
+
+            internal bool Debugger_Exists(Entity entity)
+            {
+                if (m_Manager.m_EntityDataAccess == null)
+                    return false;
+                return EntityComponentStore.Debugger_Exists(m_Manager.m_EntityDataAccess->EntityComponentStore, entity);
+            }
+
+            internal object[] Debugger_GetComponents(Entity entity)
+            {
+                var access = m_Manager.m_EntityDataAccess;
+                if (access == null || !EntityComponentStore.Debugger_Exists(access->EntityComponentStore, entity))
+                    return null;
+
+                var archetype = access->EntityComponentStore->GetArchetype(entity);
+                if (archetype == null || archetype->TypesCount <= 0 || archetype->TypesCount > 4096)
+                    return null;
+
+                // NOTE: First component is the entity itself
+                var objects = new object[archetype->TypesCount-1];
+                for (int i = 1; i < archetype->TypesCount; i++)
+                    objects[i-1] = GetComponentBoxedUnchecked(access, entity, ComponentType.FromTypeIndex(archetype->Types[i].TypeIndex));
+
+                return objects;
+            }
+
+            static object GetComponentBoxedUnchecked(EntityDataAccess* access, Entity entity, ComponentType type)
+            {
                 var typeInfo = TypeManager.GetTypeInfo(type.TypeIndex);
                 if (typeInfo.Category == TypeManager.TypeCategory.ComponentData)
                 {
                     if (TypeManager.IsManagedComponent(typeInfo.TypeIndex))
                     {
-                        return m_Manager.GetComponentObject<object>(entity, type);
+                        return access->Debugger_GetComponentObject(entity, type);
                     }
 
-                    var obj = Activator.CreateInstance(TypeManager.GetType(type.TypeIndex));
-                    if (!typeInfo.IsZeroSized)
-                    {
-                        ulong handle;
-                        var ptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(obj, out handle);
-                        ptr += TypeManager.ObjectOffset;
-                        var src = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->GetComponentDataWithTypeRO(entity, type.TypeIndex);
-                        UnsafeUtility.MemCpy(ptr, src, TypeManager.GetTypeInfo(type.TypeIndex).SizeInChunk);
-
-                        UnsafeUtility.ReleaseGCObject(handle);
-                    }
+                    var src = EntityComponentStore.Debugger_GetComponentDataWithTypeRO(access->EntityComponentStore, entity, type.TypeIndex);
+                    var obj = TypeManager.ConstructComponentFromBuffer(type.TypeIndex, src);
 
                     return obj;
                 }
                 else if (typeInfo.Category == TypeManager.TypeCategory.ISharedComponentData)
                 {
-                    return m_Manager.GetSharedComponentData(entity, type.TypeIndex);
+                    var sharedComponentIndex = access->EntityComponentStore->Debugger_GetSharedComponentDataIndex(entity, type.TypeIndex);
+                    if (sharedComponentIndex == -1)
+                        return null;
+                    return access->ManagedComponentStore.GetSharedComponentDataBoxed(sharedComponentIndex, type.TypeIndex);
                 }
                 else if (typeInfo.Category == TypeManager.TypeCategory.UnityEngineObject)
                 {
-                    return m_Manager.GetComponentObject<object>(entity, type);
+                    return access->Debugger_GetComponentObject(entity, type);
+                }
+                else if (typeInfo.Category == TypeManager.TypeCategory.BufferData)
+                {
+                    var src = EntityComponentStore.Debugger_GetComponentDataWithTypeRO(access->EntityComponentStore, entity, type.TypeIndex);
+                    var header = (BufferHeader*) src;
+                    if (header == null || header->Length < 0)
+                        return null;
+
+                    int length = header->Length;
+
+#if !NET_DOTS
+                    System.Array array = Array.CreateInstance(TypeManager.GetType(type.TypeIndex), length);
+#else
+                    // no Array.CreateInstance in Tiny BCL
+                    // This unfortunately means that the debugger display for this will be object[], because we can't
+                    // create an array of the right type.  But better than nothing, since the values are still viewable.
+                    var array = new object[length];
+#endif
+
+                    var elementSize = TypeManager.GetTypeInfo(type.TypeIndex).ElementSize;
+                    byte* basePtr = BufferHeader.GetElementPointer(header);
+
+#if !UNITY_DOTSRUNTIME
+                    var dstPtr = UnsafeUtility.PinGCArrayAndGetDataAddress(array, out var handle);
+                    UnsafeUtility.MemCpy(dstPtr, basePtr, elementSize * length);
+                    UnsafeUtility.ReleaseGCObject(handle);
+#else
+                    // DOTS Runtime doesn't have PinGCArrayAndGetDataAddress, because that's in Unity's Mono impl only
+                    for (int i = 0; i < length; i++)
+                    {
+                        var item = TypeManager.ConstructComponentFromBuffer(type.TypeIndex, basePtr + elementSize * i);
+                        #if !NET_DOTS
+                        array.SetValue(item, i);
+                        #else
+                        array[i] = item;
+                        #endif
+                    }
+#endif
+                    return array;
                 }
                 else
                 {
-                    throw new System.NotImplementedException();
+                    return null;
                 }
+            }
+
+            public object GetComponentBoxed(Entity entity, ComponentType type)
+            {
+                var access = m_Manager.GetCheckedEntityDataAccess();
+
+                access->EntityComponentStore->AssertEntitiesExist(&entity, 1);
+
+                if (!access->HasComponent(entity, type))
+                    throw new ArgumentException($"Component of type {type} does not exist on the entity.");
+
+                return GetComponentBoxedUnchecked(access, entity, type);
             }
 
             public object GetComponentBoxed(Entity entity, Type type)
@@ -300,22 +433,8 @@ namespace Unity.Entities
                     throw new ArgumentException($"A component with type:{type} has not been added to the entity.");
 #endif
 
-                return GetComponentBoxed(entity, ComponentType.FromTypeIndex(typeIndex));
+                return GetComponentBoxedUnchecked(access, entity, ComponentType.FromTypeIndex(typeIndex));
             }
-
-#else
-            public object GetComponentBoxed(Entity entity, Type type)
-            {
-                throw new System.NotImplementedException();
-            }
-
-            public object GetComponentBoxed(Entity entity, ComponentType type)
-            {
-                throw new System.NotImplementedException();
-            }
-
-#endif
-
 
 #if UNITY_EDITOR
             /// <summary>
@@ -370,6 +489,15 @@ namespace Unity.Entities
             public void GetEntitiesForAuthoringObject(UnityEngine.Object obj, NativeList<Entity> entities)
             {
                 var instanceID = obj.GetInstanceID();
+                var lookup = GetCachedEntityGUIDToEntityIndexLookup();
+
+                entities.Clear();
+                foreach (var e in lookup.GetValuesForKey(instanceID))
+                    entities.Add(e);
+            }
+
+            internal UnsafeMultiHashMap<int, Entity> GetCachedEntityGUIDToEntityIndexLookup()
+            {
                 var access = m_Manager.GetCheckedEntityDataAccess();
                 var newVersion = m_Manager.GetComponentOrderVersion<EntityGuid>();
                 if (access->m_CachedEntityGUIDToEntityIndexVersion != newVersion)
@@ -388,11 +516,7 @@ namespace Unity.Entities
                     access->m_CachedEntityGUIDToEntityIndexVersion = newVersion;
                 }
 
-                var lookup = access->CachedEntityGUIDToEntityIndex;
-
-                entities.Clear();
-                foreach (var e in lookup.GetValuesForKey(instanceID))
-                    entities.Add(e);
+                return access->CachedEntityGUIDToEntityIndex;
             }
 #endif
 
@@ -425,8 +549,14 @@ namespace Unity.Entities
             }
         }
 
-        // ----------------------------------------------------------------------------------------------------------
-        // INTERNAL
-        // ----------------------------------------------------------------------------------------------------------
+        internal Entity GetEntityByEntityIndex(int index)
+        {
+            return GetCheckedEntityDataAccess()->GetEntityByEntityIndex(index);
+        }
+
+        internal int GetNameIndexByEntityIndex(int index)
+        {
+            return GetCheckedEntityDataAccess()->GetNameIndexByEntityIndex(index);
+        }
     }
 }

@@ -219,7 +219,7 @@ namespace Unity.Entities
 
                 if (res0 == EnforceJobResult.DidSyncRunningJobs || res1 == EnforceJobResult.DidSyncRunningJobs)
                     Debug.LogError(
-                        "Disposing EntityManager but a job is still running against the ComponentData. It appears the job has not been registered with JobComponentSystem.AddDependency.");
+                        "Disposing EntityManager but a job is still running against the ComponentData. It appears the job has not been registered with SystemBase.AddDependency.");
             }
 
             AtomicSafetyHandle.Release(m_TempSafety);
@@ -227,6 +227,15 @@ namespace Unity.Entities
             Memory.Unmanaged.Free(m_TypeArrayIndices, Allocator.Persistent);
             Memory.Unmanaged.Free(m_ComponentSafetyHandles, Allocator.Persistent);
             m_ComponentSafetyHandles = null;
+        }
+
+        internal void PanicSyncAll()
+        {
+            for (var i = 0; i < m_ComponentSafetyHandlesCount; i++)
+            {
+                var res0 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].SafetyHandle);
+                var res1 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].BufferHandle);
+            }
         }
 
         public void PreDisposeCheck()
@@ -237,7 +246,7 @@ namespace Unity.Entities
                 var res1 = AtomicSafetyHandle.EnforceAllBufferJobsHaveCompleted(m_ComponentSafetyHandles[i].BufferHandle);
                 if (res0 == EnforceJobResult.DidSyncRunningJobs || res1 == EnforceJobResult.DidSyncRunningJobs)
                     Debug.LogError(
-                        "Disposing EntityManager but a job is still running against the ComponentData. It appears the job has not been registered with JobComponentSystem.AddDependency.");
+                        "Disposing EntityManager but a job is still running against the ComponentData. It appears the job has not been registered with SystemBase.AddDependency.");
             }
         }
 

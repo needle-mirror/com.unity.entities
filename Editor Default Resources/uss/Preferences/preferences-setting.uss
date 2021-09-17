@@ -1,0 +1,19 @@
+.preferences-setting
+{
+    flex-shrink: 0;
+    margin-top: 21px;
+}
+
+.preferences-setting__name
+{
+    padding: 0px;
+    margin: 1px 0px;
+    height: 19px;
+    font-size: 12px;
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+}
+
+.preferences-setting__content
+{
+}

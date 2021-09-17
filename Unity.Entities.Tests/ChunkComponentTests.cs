@@ -22,7 +22,7 @@ namespace Unity.Entities.Tests
     {
     }
 
-    public class ChunkComponentTests : ECSTestsFixture
+    public partial class ChunkComponentTests : ECSTestsFixture
     {
         [Test]
         public void CreateChunkComponentArchetype()
@@ -163,7 +163,7 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(entity1, new BoundsComponent {boundsMin = new float3(0, 0, 0), boundsMax = new float3(10, 10, 10)});
             var metaGroup = m_Manager.CreateEntityQuery(typeof(ChunkBoundsComponent), typeof(ChunkHeader));
             var metaBoundsCount = metaGroup.CalculateEntityCount();
-            var metaChunkHeaders = metaGroup.ToComponentDataArray<ChunkHeader>(Allocator.TempJob);
+            var metaChunkHeaders = metaGroup.ToComponentDataArray<ChunkHeader>(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(1, metaBoundsCount);
             for (int i = 0; i < metaBoundsCount; ++i)
             {
@@ -184,40 +184,36 @@ namespace Unity.Entities.Tests
             var val = m_Manager.GetChunkComponentData<ChunkBoundsComponent>(entity0);
             Assert.AreEqual(new float3(-10, -10, -10), val.boundsMin);
             Assert.AreEqual(new float3(10, 10, 10), val.boundsMax);
-
-            metaChunkHeaders.Dispose();
         }
 
-#if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
-        [UpdateInGroup(typeof(PresentationSystemGroup))]
-        private class ChunkBoundsUpdateSystem : JobComponentSystem
+#if !UNITY_DOTSRUNTIME
+        partial struct UpdateChunkBoundsJob : IJobEntity
         {
-#pragma warning disable 618
-            struct UpdateChunkBoundsJob : IJobForEach<ChunkBoundsComponent, ChunkHeader>
-            {
-                [ReadOnly] public ComponentTypeHandle<BoundsComponent> ChunkComponentTypeHandle;
+            [ReadOnly] public ComponentTypeHandle<BoundsComponent> ChunkComponentTypeHandle;
 
-                public void Execute(ref ChunkBoundsComponent chunkBounds, [ReadOnly] ref ChunkHeader chunkHeader)
+            internal void Execute(ref ChunkBoundsComponent chunkBounds, in ChunkHeader chunkHeader)
+            {
+                var curBounds = new ChunkBoundsComponent { boundsMin = new float3(1000, 1000, 1000), boundsMax = new float3(-1000, -1000, -1000)};
+                var boundsChunk = chunkHeader.ArchetypeChunk;
+                var bounds = boundsChunk.GetNativeArray(ChunkComponentTypeHandle);
+                for (int j = 0; j < bounds.Length; ++j)
                 {
-                    var curBounds = new ChunkBoundsComponent { boundsMin = new float3(1000, 1000, 1000), boundsMax = new float3(-1000, -1000, -1000)};
-                    var boundsChunk = chunkHeader.ArchetypeChunk;
-                    var bounds = boundsChunk.GetNativeArray(ChunkComponentTypeHandle);
-                    for (int j = 0; j < bounds.Length; ++j)
-                    {
-                        curBounds.boundsMin = math.min(curBounds.boundsMin, bounds[j].boundsMin);
-                        curBounds.boundsMax = math.max(curBounds.boundsMax, bounds[j].boundsMax);
-                    }
-
-                    chunkBounds = curBounds;
+                    curBounds.boundsMin = math.min(curBounds.boundsMin, bounds[j].boundsMin);
+                    curBounds.boundsMax = math.max(curBounds.boundsMax, bounds[j].boundsMax);
                 }
-            }
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
-            {
-                var job = new UpdateChunkBoundsJob {ChunkComponentTypeHandle = EntityManager.GetComponentTypeHandle<BoundsComponent>(true)};
-                return job.Schedule(this, inputDeps);
+
+                chunkBounds = curBounds;
             }
         }
-#pragma warning restore 618
+
+        partial class ChunkBoundsUpdateSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                var job = new UpdateChunkBoundsJob{ ChunkComponentTypeHandle = EntityManager.GetComponentTypeHandle<BoundsComponent>(true)};
+                job.Run();
+            }
+        }
 
         [Test]
         public void SystemProcessMetaChunkComponent()
@@ -236,7 +232,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(new float3(-10, -10, -10), val.boundsMin);
             Assert.AreEqual(new float3(10, 10, 10), val.boundsMax);
         }
-
 #endif
 
         [Test]

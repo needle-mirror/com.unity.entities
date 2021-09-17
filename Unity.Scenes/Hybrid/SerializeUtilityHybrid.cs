@@ -1,9 +1,9 @@
 #if !UNITY_DOTSRUNTIME
-using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Serialization;
+using UnityEngine;
 using UnityEngine.Scripting.APIUpdating;
 using UnityObject = UnityEngine.Object;
 
@@ -40,6 +40,23 @@ namespace Unity.Scenes
             {
                 objRefs = UnityEngine.ScriptableObject.CreateInstance<ReferencedUnityObjects>();
                 objRefs.Array = referencedObjects;
+
+                var companionObjectIndices = new List<int>();
+
+                for (int i = 0; i != objRefs.Array.Length; i++)
+                {
+                    var obj = objRefs.Array[i];
+                    if (obj != null && obj is GameObject gameObject)
+                    {
+                        if (gameObject.scene.IsValid())
+                        {
+                            // Add companion entry, this allows us to differentiate Prefab references and Companion Objects at runtime deserialization
+                            companionObjectIndices.Add(i);
+                        }
+                    }
+                }
+
+                objRefs.CompanionObjectIndices = companionObjectIndices.ToArray();
             }
         }
 
@@ -60,19 +77,22 @@ namespace Unity.Scenes
             for (int i = 0; i != objRefs.Array.Length; i++)
             {
                 if (objRefs.Array[i] != null)
-                {
                     objectReferences[i] = objRefs.Array[i];
-                }
             }
 
-            // Companion Objects
-            // When using bundles, the Companion GameObjects cannot be directly used (prefabs), so we need to instantiate everything.
-#if !UNITY_EDITOR
-            var sourceToInstance = new Dictionary<UnityEngine.GameObject, UnityEngine.GameObject>();
-
+#if UNITY_EDITOR && !UNITY_DISABLE_MANAGED_COMPONENTS
             foreach (var companionIndex in objRefs.CompanionObjectIndices)
             {
-                var source = objectReferences[companionIndex] as UnityEngine.GameObject;
+                var source = (UnityEngine.GameObject) objectReferences[companionIndex];
+                CompanionGameObjectUtility.MoveToCompanionScene(source, false);
+            }
+#else
+            // Companion Objects
+            // When using bundles, the Companion GameObjects cannot be directly used (prefabs), so we need to instantiate everything.
+            var sourceToInstance = new Dictionary<UnityEngine.GameObject, UnityEngine.GameObject>();
+            foreach (var companionIndex in objRefs.CompanionObjectIndices)
+            {
+                var source = (UnityEngine.GameObject) objectReferences[companionIndex];
                 var instance = UnityEngine.Object.Instantiate(source);
                 objectReferences[companionIndex] = instance;
                 sourceToInstance.Add(source, instance);

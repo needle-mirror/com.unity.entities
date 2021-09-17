@@ -43,7 +43,7 @@ namespace Unity.Entities
     /// [DisableAutoTypeRegistration] prevents a Component Type from being registered in the TypeManager
     /// during TypeManager.Initialize(). Types that are not registered will not be recognized by EntityManager.
     /// </summary>
-    public class DisableAutoTypeRegistration : Attribute
+    public class DisableAutoTypeRegistrationAttribute : Attribute
     {
     }
 
@@ -93,10 +93,9 @@ namespace Unity.Entities
             /// Inherits from UnityEngine.Object (class only)
             /// </summary>
             UnityEngineObject,
-            [Obsolete("TypeCategory.Class is deprecated. Please use TypeCategory.UnityEngineObject (RemovedAfter 2020-11-14) (UnityUpgradable) -> UnityEngineObject", true)]
-            Class = UnityEngineObject
         }
 
+        public const int EnableableComponentFlag = 1 << 23;
         public const int HasNoEntityReferencesFlag = 1 << 24; // this flag is inverted to ensure the type id of Entity can still be 1
         public const int SystemStateTypeFlag = 1 << 25;
         public const int BufferComponentTypeFlag = 1 << 26;
@@ -105,7 +104,7 @@ namespace Unity.Entities
         public const int ChunkComponentTypeFlag = 1 << 29;
         public const int ZeroSizeInChunkTypeFlag = 1 << 30; // TODO: If we can ensure TypeIndex is unsigned we can use the top bit for this
 
-        public const int ClearFlagsMask = 0x00FFFFFF;
+        public const int ClearFlagsMask = 0x007FFFFF;
         public const int SystemStateSharedComponentTypeFlag = SystemStateTypeFlag | SharedComponentTypeFlag;
         public const int ManagedSharedComponentTypeFlag = ManagedComponentTypeFlag | SharedComponentTypeFlag;
 
@@ -127,6 +126,7 @@ namespace Unity.Entities
         static NativeHashMap<ulong, int>    s_StableTypeHashToTypeIndex;
         static NativeList<EntityOffsetInfo> s_EntityOffsetList;
         static NativeList<EntityOffsetInfo> s_BlobAssetRefOffsetList;
+        static NativeList<EntityOffsetInfo> s_WeakAssetRefOffsetList;
         static NativeList<int>              s_WriteGroupList;
         static List<FastEquality.TypeInfo>  s_FastEqualityTypeInfoList;
         static List<Type>                   s_Types;
@@ -186,7 +186,9 @@ namespace Unity.Entities
             public TypeInfo(int typeIndex, TypeCategory category, int entityOffsetCount, int entityOffsetStartIndex,
                             ulong memoryOrdering, ulong stableTypeHash, int bufferCapacity, int sizeInChunk, int elementSize,
                             int alignmentInBytes, int maximumChunkCapacity, int writeGroupCount, int writeGroupStartIndex,
-                            bool hasBlobRefs, int blobAssetRefOffsetCount, int blobAssetRefOffsetStartIndex, int fastEqualityIndex, int typeSize)
+                            bool hasBlobRefs, int blobAssetRefOffsetCount, int blobAssetRefOffsetStartIndex,
+                            int weakAssetRefOffsetCount, int weakAssetRefOffsetStartIndex,
+                            int fastEqualityIndex, int typeSize)
             {
                 TypeIndex = typeIndex;
                 Category = category;
@@ -204,6 +206,8 @@ namespace Unity.Entities
                 _HasBlobAssetRefs = hasBlobRefs ? 1 : 0;
                 BlobAssetRefOffsetCount = blobAssetRefOffsetCount;
                 BlobAssetRefOffsetStartIndex = blobAssetRefOffsetStartIndex;
+                WeakAssetRefOffsetCount = weakAssetRefOffsetCount;
+                WeakAssetRefOffsetStartIndex = weakAssetRefOffsetStartIndex;
                 FastEqualityIndex = fastEqualityIndex; // Only used for Hybrid types (should be removed once we code gen all equality cases)
                 TypeSize = typeSize;
             }
@@ -238,6 +242,9 @@ namespace Unity.Entities
             readonly int                 _HasBlobAssetRefs;
             public   readonly int        BlobAssetRefOffsetCount;
             internal readonly int        BlobAssetRefOffsetStartIndex;
+            public   readonly int        WeakAssetRefOffsetCount;
+            internal readonly int        WeakAssetRefOffsetStartIndex;
+
             public   readonly int        WriteGroupCount;
             internal readonly int        WriteGroupStartIndex;
             public   readonly int        MaximumChunkCapacity;
@@ -251,6 +258,8 @@ namespace Unity.Entities
             /// For class based IComponentData it is possible that there are blob asset references. (Polymorphic referenced can not be proven statically)
             /// </summary>
             public bool HasBlobAssetRefs => _HasBlobAssetRefs != 0;
+
+            public bool HasWeakAssetRefs => WeakAssetRefOffsetCount != 0;
 
             // NOTE: We explicitly exclude Type as a member of TypeInfo so the type can remain a ValueType
             public Type Type => TypeManager.GetType(TypeIndex);
@@ -313,6 +322,16 @@ namespace Unity.Entities
             return GetBlobAssetRefOffsetsPointer() + typeInfo.BlobAssetRefOffsetStartIndex;
         }
 
+        internal static EntityOffsetInfo* GetWeakAssetRefOffsetsPointer()
+        {
+            return (EntityOffsetInfo*)SharedWeakAssetRefOffset.Ref.Data;
+        }
+
+        internal static EntityOffsetInfo* GetWeakAssetRefOffsets(in TypeInfo typeInfo)
+        {
+            return GetWeakAssetRefOffsetsPointer() + typeInfo.WeakAssetRefOffsetStartIndex;
+        }
+
         internal static int* GetWriteGroupsPointer()
         {
             return (int*)SharedWriteGroup.Ref.Data;
@@ -367,6 +386,7 @@ namespace Unity.Entities
         public static bool IsManagedType(int typeIndex) => (typeIndex & ManagedComponentTypeFlag) != 0;
         public static bool IsZeroSized(int typeIndex) => (typeIndex & ZeroSizeInChunkTypeFlag) != 0;
         public static bool IsChunkComponent(int typeIndex) => (typeIndex & ChunkComponentTypeFlag) != 0;
+        public static bool IsEnableable(int typeIndex) => (typeIndex & EnableableComponentFlag) != 0;
         public static bool HasEntityReferences(int typeIndex) => (typeIndex & HasNoEntityReferencesFlag) == 0;
 
         public static int MakeChunkComponentTypeIndex(int typeIndex) => (typeIndex | ChunkComponentTypeFlag | ZeroSizeInChunkTypeFlag);
@@ -459,6 +479,7 @@ namespace Unity.Entities
             s_StableTypeHashToTypeIndex = new NativeHashMap<ulong, int>(MaximumTypesCount, Allocator.Persistent);
             s_EntityOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
             s_BlobAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
+            s_WeakAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
             s_WriteGroupList = new NativeList<int>(Allocator.Persistent);
             s_FastEqualityTypeInfoList = new List<FastEquality.TypeInfo>();
             s_Types = new List<Type>();
@@ -481,6 +502,8 @@ namespace Unity.Entities
 
             // Must occur after we've constructed s_TypeInfos
             InitializeSharedStatics();
+
+            EntityNameStorage.Initialize();
         }
 
         static void InitializeSharedStatics()
@@ -488,6 +511,7 @@ namespace Unity.Entities
             SharedTypeInfo.Ref.Data = new IntPtr(s_TypeInfos.GetUnsafePtr());
             SharedEntityOffsetInfo.Ref.Data = new IntPtr(s_EntityOffsetList.GetUnsafePtr());
             SharedBlobAssetRefOffset.Ref.Data = new IntPtr(s_BlobAssetRefOffsetList.GetUnsafePtr());
+            SharedWeakAssetRefOffset.Ref.Data = new IntPtr(s_WeakAssetRefOffsetList.GetUnsafePtr());
 
             SharedWriteGroup.Ref.Data = new IntPtr(s_WriteGroupList.GetUnsafePtr());
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -515,7 +539,7 @@ namespace Unity.Entities
                 new TypeInfo(0, TypeCategory.ComponentData, 0, -1,
                     0, 0, -1, 0, 0, 0,
                     int.MaxValue, 0, -1, false, 0,
-                    -1, 0, 0),
+                    -1, 0, -1, 0, 0),
                 "Null");
 
             // Push Entity TypeInfo
@@ -536,7 +560,7 @@ namespace Unity.Entities
                     0, entityStableTypeHash, -1, UnsafeUtility.SizeOf<Entity>(),
                     UnsafeUtility.SizeOf<Entity>(), CalculateAlignmentInChunk(sizeof(Entity)),
                     int.MaxValue, 0, -1, false, 0,
-                    -1, entityFastEqIndex, UnsafeUtility.SizeOf<Entity>()),
+                    -1, 0, -1, entityFastEqIndex, UnsafeUtility.SizeOf<Entity>()),
                 "Unity.Entities.Entity");
 
             SharedTypeIndex<Entity>.Ref.Data = entityTypeIndex;
@@ -575,6 +599,7 @@ namespace Unity.Entities
             DisposeNative();
 
             ShutdownSharedStatics();
+            EntityNameStorage.Shutdown();
         }
 
         static void DisposeNative()
@@ -583,6 +608,7 @@ namespace Unity.Entities
             s_StableTypeHashToTypeIndex.Dispose();
             s_EntityOffsetList.Dispose();
             s_BlobAssetRefOffsetList.Dispose();
+            s_WeakAssetRefOffsetList.Dispose();
             s_WriteGroupList.Dispose();
         }
 
@@ -613,7 +639,7 @@ namespace Unity.Entities
             ManagedException(typeof(T));
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         static void BurstException<T>()
         {
             throw new ArgumentException($"Unknown Type:`{typeof(T)}` All ComponentType must be known at compile time & be successfully registered. For generic components, each concrete type must be registered with [RegisterGenericComponentType].");
@@ -621,6 +647,7 @@ namespace Unity.Entities
 
         static void ManagedException(Type type)
         {
+            Assert.IsTrue(s_Initialized, "Ensure TypeManager.Initialize has been called before using the TypeManager");
 #if !UNITY_DOTSRUNTIME
             s_FailedTypeBuildException.TryGetValue(type, out var exception);
             // When the type is known but failed to build, we repeat the reason why it failed to build instead.
@@ -777,15 +804,16 @@ namespace Unity.Entities
             return -1;
         }
 
-        public static object ConstructComponentFromBuffer(int typeIndex, void* data)
+        public static unsafe object ConstructComponentFromBuffer(int typeIndex, void* data)
         {
 #if !UNITY_DOTSRUNTIME
             var tinfo = GetTypeInfo(typeIndex);
             Type type = GetType(typeIndex);
             object obj = Activator.CreateInstance(type);
-            unsafe
+            if (!tinfo.IsZeroSized)
             {
-                var ptr = UnsafeUtility.PinGCObjectAndGetAddress(obj, out var handle);
+                var ptr = (byte*) UnsafeUtility.PinGCObjectAndGetAddress(obj, out var handle) + ObjectOffset;
+
                 UnsafeUtility.MemCpy(ptr, data, tinfo.SizeInChunk);
                 UnsafeUtility.ReleaseGCObject(handle);
             }
@@ -796,7 +824,7 @@ namespace Unity.Entities
 #endif
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
         private static readonly Type[] s_SingularInterfaces =
         {
             typeof(IComponentData),
@@ -895,13 +923,16 @@ namespace Unity.Entities
             if (type.ContainsGenericParameters)
                 return false;
 
-            if (type.GetCustomAttribute(typeof(DisableAutoTypeRegistration)) != null)
+            if (type.GetCustomAttribute(typeof(DisableAutoTypeRegistrationAttribute)) != null)
                 return false;
 
             return true;
         }
         static void AddComponentTypeToListIfSupported(HashSet<Type> typeSet, Type type)
         {
+            if (!IsInstantiableComponentType(type))
+                return;
+
             // XXX There's a bug in the Unity Mono scripting backend where if the
             // Mono type hasn't been initialized, the IsUnmanaged result is wrong.
             // We force it to be fully initialized by creating an instance until
@@ -942,7 +973,7 @@ namespace Unity.Entities
 
                 UnityEngineObjectType = typeof(UnityEngine.Object);
 
-#if UNITY_EDITOR && false
+#if UNITY_EDITOR
                 foreach (var type in UnityEditor.TypeCache.GetTypesDerivedFrom<UnityEngine.Object>())
                     AddUnityEngineObjectTypeToListIfSupported(componentTypeSet, type);
                 foreach (var type in UnityEditor.TypeCache.GetTypesDerivedFrom<IComponentData>())
@@ -978,22 +1009,6 @@ namespace Unity.Entities
                     {
                         foreach (var type in assemblyTypes)
                         {
-                            if (!IsInstantiableComponentType(type))
-                                continue;
-
-                            // XXX There's a bug in the Unity Mono scripting backend where if the
-                            // Mono type hasn't been initialized, the IsUnmanaged result is wrong.
-                            // We force it to be fully initialized by creating an instance until
-                            // that bug is fixed.
-                            try
-                            {
-                                var inst = Activator.CreateInstance(type);
-                            }
-                            catch (Exception)
-                            {
-                                // ignored
-                            }
-
                             if (IsSupportedComponentType(type))
                                 AddComponentTypeToListIfSupported(componentTypeSet, type);
                         }
@@ -1160,7 +1175,7 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public static void CheckIsAllowedAsComponentData(Type type, string baseTypeDesc)
         {
             if (UnsafeUtility.IsUnmanaged(type))
@@ -1174,7 +1189,7 @@ namespace Unity.Entities
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public static void CheckIsAllowedAsManagedComponentData(Type type, string baseTypeDesc)
         {
             if (type.IsClass && typeof(IComponentData).IsAssignableFrom(type))
@@ -1187,7 +1202,7 @@ namespace Unity.Entities
             throw new ArgumentException($"{type} cannot be used as managed component data for unknown reasons (BUG)");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public static void ThrowOnDisallowedManagedComponentData(Type type, Type baseType, string baseTypeDesc)
         {
             // Validate the class IComponentData is usable:
@@ -1198,7 +1213,7 @@ namespace Unity.Entities
 
 #endif
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public static void ThrowOnDisallowedComponentData(Type type, Type baseType, string baseTypeDesc)
         {
             if (type.IsPrimitive)
@@ -1254,15 +1269,17 @@ namespace Unity.Entities
 
             int entityOffsetIndex = s_EntityOffsetList.Length;
             int blobAssetRefOffsetIndex = s_BlobAssetRefOffsetList.Length;
+            int weakAssetRefOffsetIndex = s_WeakAssetRefOffsetList.Length;
 
             int elementSize = 0;
             int alignmentInBytes = 0;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (type.IsInterface)
                 throw new ArgumentException($"{type} is an interface. It must be a concrete type.");
 #endif
             bool hasEntityReferences = false;
             bool hasBlobReferences = false;
+            bool hasWeakAssetReferences = false;
 
             if (typeof(IComponentData).IsAssignableFrom(type) && !isManaged)
             {
@@ -1279,7 +1296,7 @@ namespace Unity.Entities
                     sizeInChunk = valueTypeSize;
 
                 typeInfo = FastEquality.CreateTypeInfo(type);
-                EntityRemapUtility.CalculateEntityAndBlobOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList);
+                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList);
             }
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             else if (typeof(IComponentData).IsAssignableFrom(type) && isManaged)
@@ -1312,11 +1329,11 @@ namespace Unity.Entities
 
                 sizeInChunk = sizeof(BufferHeader) + bufferCapacity * elementSize;
                 typeInfo = FastEquality.CreateTypeInfo(type);
-                EntityRemapUtility.CalculateEntityAndBlobOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList);
+                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList);
             }
             else if (typeof(ISharedComponentData).IsAssignableFrom(type))
             {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (!type.IsValueType)
                     throw new ArgumentException($"{type} is an ISharedComponentData, and thus must be a struct.");
 #endif
@@ -1338,7 +1355,7 @@ namespace Unity.Entities
                 hasEntityReferences = false;
                 hasBlobReferences = false;
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (type.FullName == "Unity.Entities.GameObjectEntity")
                     throw new ArgumentException(
                         "GameObjectEntity cannot be used from EntityManager. The component is ignored when creating entities for a GameObject.");
@@ -1354,7 +1371,7 @@ namespace Unity.Entities
                 throw new ArgumentException($"{type} is not a valid component.");
             }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             CheckComponentType(type);
 #endif
             int fastEqIndex = 0;
@@ -1366,6 +1383,7 @@ namespace Unity.Entities
 
             int entityOffsetCount = s_EntityOffsetList.Length - entityOffsetIndex;
             int blobAssetRefOffsetCount = s_BlobAssetRefOffsetList.Length - blobAssetRefOffsetIndex;
+            int weakAssetRefOffsetCount =  s_WeakAssetRefOffsetList.Length - weakAssetRefOffsetIndex;
 
             int writeGroupIndex = s_WriteGroupList.Length;
             int writeGroupCount = writeGroups == null ? 0 : writeGroups.Length;
@@ -1380,6 +1398,13 @@ namespace Unity.Entities
             bool isSystemStateSharedComponent = typeof(ISystemStateSharedComponentData).IsAssignableFrom(type);
             bool isSystemStateBufferElement = typeof(ISystemStateBufferElementData).IsAssignableFrom(type);
             bool isSystemStateComponent = isSystemStateSharedComponent || isSystemStateBufferElement || typeof(ISystemStateComponentData).IsAssignableFrom(type);
+
+            bool isEnableableComponent = typeof(IEnableableComponent).IsAssignableFrom(type);
+            if (isEnableableComponent)
+            {
+                if (!(category == TypeCategory.ComponentData || category == TypeCategory.BufferData) || isSystemStateComponent)
+                    throw new ArgumentException($"IEnableableComponent is not supported for type {type}. Only IComponentData and IBufferElementData can be disabled. System state components are not supported.");
+            }
 
             if (typeIndex != 0)
             {
@@ -1403,14 +1428,18 @@ namespace Unity.Entities
 
                 if (isManaged)
                     typeIndex |= ManagedComponentTypeFlag;
+
+                if (isEnableableComponent)
+                    typeIndex |= EnableableComponentFlag;
             }
 
             return new TypeInfo(typeIndex, category, entityOffsetCount, entityOffsetIndex,
                 memoryOrdering, stableTypeHash, bufferCapacity, sizeInChunk,
                 elementSize > 0 ? elementSize : sizeInChunk, alignmentInBytes,
                 maxChunkCapacity, writeGroupCount, writeGroupIndex,
-                hasBlobReferences, blobAssetRefOffsetCount, blobAssetRefOffsetIndex, fastEqIndex,
-                valueTypeSize);
+                hasBlobReferences, blobAssetRefOffsetCount, blobAssetRefOffsetIndex,
+                weakAssetRefOffsetCount, weakAssetRefOffsetIndex,
+                fastEqIndex, valueTypeSize);
         }
 
  #if UNITY_EDITOR
@@ -1447,6 +1476,7 @@ namespace Unity.Entities
             // We may have added enough types to cause the underlying containers to resize so re-fetch their ptrs
             SharedEntityOffsetInfo.Ref.Data = new IntPtr(s_EntityOffsetList.GetUnsafePtr());
             SharedBlobAssetRefOffset.Ref.Data = new IntPtr(s_BlobAssetRefOffsetList.GetUnsafePtr());
+            SharedWeakAssetRefOffset.Ref.Data = new IntPtr(s_WeakAssetRefOffsetList.GetUnsafePtr());
             SharedWriteGroup.Ref.Data = new IntPtr(s_WriteGroupList.GetUnsafePtr());
 
             // Since the ptrs may have changed we need to ensure all entity component stores are using the correct ones
@@ -1495,6 +1525,11 @@ namespace Unity.Entities
             public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedBlobAssetRefOffset>();
         }
 
+        private sealed class SharedWeakAssetRefOffset
+        {
+            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedWeakAssetRefOffset>();
+        }
+
         private sealed class SharedWriteGroup
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -1514,7 +1549,7 @@ namespace Unity.Entities
 
         internal static void RegisterStaticAssemblyTypes()
         {
-            throw new CodegenShouldReplaceException("To be replaced by codegen");
+            throw new Exception("To be replaced by codegen");
         }
 
         static List<int> s_TypeDelegateIndexRanges = new List<int>();
@@ -1784,7 +1819,7 @@ namespace Unity.Entities
 
         static ulong GetEntityStableTypeHash()
         {
-            throw new CodegenShouldReplaceException("This call should have been replaced by codegen");
+            throw new Exception("This call should have been replaced by codegen");
         }
 
 #endif
@@ -1827,6 +1862,8 @@ namespace Unity.Entities
         public Type[] SystemTypes;
         public WorldSystemFilterFlags[] SystemFilterFlags;
         public string[] SystemTypeNames;
+        public int[] SystemTypeSizes;
+        public long[] SystemTypeHashes;
         public bool[] IsSystemGroup;
 
         public Type[] FieldTypes;

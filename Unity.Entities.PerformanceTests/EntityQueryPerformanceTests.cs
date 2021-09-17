@@ -257,7 +257,7 @@ namespace Unity.Entities.PerformanceTests
             m_Manager.SetComponentData(entity,component);
         }
 
-        NativeArray<EntityArchetype> CreateUniqueArchetypes(int size, params ComponentType[] extraTypes)
+        NativeArray<EntityArchetype> CreateUniqueArchetypes(int size, EnabledBitsMode enabledBitsMode, params ComponentType[] extraTypes)
         {
             var archetypes = new NativeArray<EntityArchetype>(size, Allocator.TempJob);
 
@@ -273,6 +273,8 @@ namespace Unity.Entities.PerformanceTests
 
                 typeList.Add(typeof(EcsTestData));
                 typeList.Add(typeof(EcsTestSharedComp));
+                if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                    typeList.Add(typeof(EcsTestDataEnableable));
 
                 foreach(var extra in extraTypes)
                     typeList.Add(extra);
@@ -284,13 +286,21 @@ namespace Unity.Entities.PerformanceTests
             return archetypes;
         }
 
+        public enum EnabledBitsMode
+        {
+            NoEnableableComponents,
+            NoComponentsDisabled,
+            FewComponentsDisabled,
+            ManyComponentsDisabled,
+        }
+
         [Test, Performance]
         public void EntityQuery_IsEmptyIgnoreFilter_N_Archetypes_SparseMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
         {
             // This measures the cost of EntityQueries filtering a large number of archetypes it matches
-            var archetypes = CreateUniqueArchetypes(archetypeCount);
+            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
             var lastArchetype = archetypes[archetypes.Length - 1];
-            m_Manager.CreateEntity(lastArchetype);
+            var ent = m_Manager.CreateEntity(lastArchetype);
 
             var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
 
@@ -303,7 +313,92 @@ namespace Unity.Entities.PerformanceTests
                         var r = query.IsEmptyIgnoreFilter;
                     }
                 })
+                .WarmupCount(1)
+                .MeasurementCount(100)
                 .SampleGroup("IsEmptyIgnoreFilter")
+                .Run();
+
+            archetypes.Dispose();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_GetSingletonEntity_N_Archetypes_SparseMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
+        {
+            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            var lastArchetype = archetypes[archetypes.Length - 1];
+            var singleton = m_Manager.CreateEntity(lastArchetype);
+
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+
+            Measure.Method(
+                    () =>
+                    {
+                        // To get a useful metric
+                        for (int i = 0; i < 1000; i++)
+                        {
+                            var ent = query.GetSingletonEntity();
+                            Assert.AreEqual(singleton, ent);
+                        }
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup("GetSingletonEntity")
+                .Run();
+
+            archetypes.Dispose();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_GetSingleton_N_Archetypes_SparseMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
+        {
+            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            var lastArchetype = archetypes[archetypes.Length - 1];
+            var singleton = m_Manager.CreateEntity(lastArchetype);
+            m_Manager.SetComponentData(singleton, new EcsTestData {value=42});
+
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+
+            Measure.Method(
+                    () =>
+                    {
+                        // To get a useful metric
+                        for (int i = 0; i < 1000; i++)
+                        {
+                            var val = query.GetSingleton<EcsTestData>().value;
+                            Assert.AreEqual(42, val);
+                        }
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup("GetSingleton")
+                .Run();
+
+            archetypes.Dispose();
+        }
+
+        [Test, Performance]
+        public void EntityQuery_SetSingleton_N_Archetypes_SparseMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
+        {
+            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
+            var lastArchetype = archetypes[archetypes.Length - 1];
+            var singleton = m_Manager.CreateEntity(lastArchetype);
+            m_Manager.SetComponentData(singleton, new EcsTestData {value=42});
+
+            var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>());
+
+            Measure.Method(
+                    () =>
+                    {
+                        // To get a useful metric
+                        for (int i = 0; i < 1000; i++)
+                        {
+                            query.SetSingleton<EcsTestData>(new EcsTestData {value = i});
+                            Assert.AreEqual(i, m_Manager.GetComponentData<EcsTestData>(singleton).value);
+                        }
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup("SetSingleton")
                 .Run();
 
             archetypes.Dispose();
@@ -332,7 +427,7 @@ namespace Unity.Entities.PerformanceTests
         public void EntityQuery_IsEmptyIgnoreFilter_N_Archetypes_RandomMatch([Values(1, 10, 100, 1000, 10000)] int archetypeCount)
         {
             // This measures the cost of EntityQueries filtering a large number of archetypes it matches
-            var archetypes = CreateUniqueArchetypes(archetypeCount);
+            var archetypes = CreateUniqueArchetypes(archetypeCount, EnabledBitsMode.NoEnableableComponents);
             var lastArchetype = archetypes[archetypes.Length - 1];
             m_Manager.CreateEntity(lastArchetype);
 
@@ -347,6 +442,8 @@ namespace Unity.Entities.PerformanceTests
                         var r = query.IsEmptyIgnoreFilter;
                     }
                 })
+                .WarmupCount(1)
+                .MeasurementCount(100)
                 .SampleGroup("IsEmptyIgnoreFilter")
                 .Run();
 
@@ -354,13 +451,30 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [Test, Performance]
-        public void CalculateEntityCount_N_Archetypes_M_ChunksPerArchetype([Values(1, 10, 100)] int archetypeCount, [Values(1, 10, 100)] int chunkCount)
+        public void CalculateEntityCount_N_Archetypes_M_ChunksPerArchetype([Values(1, 10, 100)] int archetypeCount, [Values(1, 10, 100)] int chunkCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            var archetypes = CreateUniqueArchetypes(archetypeCount);
+            var archetypes = CreateUniqueArchetypes(archetypeCount, enabledBitsMode);
             for (int i = 0; i < archetypes.Length; ++i)
             {
-                var entities = new NativeArray<Entity>(archetypes[i].ChunkCapacity * chunkCount, Allocator.Temp);
+                int chunkCapacity = archetypes[i].ChunkCapacity;
+                using var entities = new NativeArray<Entity>( chunkCapacity * chunkCount, Allocator.Temp);
                 m_Manager.CreateEntity(archetypes[i], entities);
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled)
+                {
+                    for (int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex)
+                    {
+                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(
+                            entities[chunkIndex * chunkCapacity + chunkCapacity / 2], false);
+                    }
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled)
+                {
+                    for (int entityIndex=0; entityIndex < entities.Length; entityIndex += 2)
+                    {
+                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[entityIndex], false);
+                    }
+                }
             }
 
             var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestSharedComp>());
@@ -370,6 +484,8 @@ namespace Unity.Entities.PerformanceTests
                 {
                     query.CalculateEntityCount();
                 })
+                .WarmupCount(1)
+                .MeasurementCount(100)
                 .SampleGroup("CalculateEntityCount")
                 .Run();
 
@@ -380,6 +496,8 @@ namespace Unity.Entities.PerformanceTests
                 {
                     query.CalculateEntityCount();
                 })
+                .WarmupCount(1)
+                .MeasurementCount(100)
                 .SampleGroup("CalculateEntityCount with Filtering")
                 .Run();
 
@@ -391,23 +509,40 @@ namespace Unity.Entities.PerformanceTests
             query.Dispose();
         }
 
-        private void ToEntityArray_Performance(int entityCount, bool unique)
+        private void CreateArchetypesAndEntities(int entityCount, EnabledBitsMode enabledBitsMode, bool unique, params ComponentType[] extraTypes)
         {
             NativeArray<EntityArchetype> archetypes;
+            NativeArray<Entity> entities = CollectionHelper.CreateNativeArray<Entity>(entityCount,
+                m_World.UpdateAllocator.ToAllocator);
             if (unique)
             {
-                archetypes = CreateUniqueArchetypes(entityCount);
+                archetypes = CreateUniqueArchetypes(entityCount, enabledBitsMode, extraTypes);
                 for (int entIter = 0; entIter < entityCount; entIter++)
                 {
-                    m_Manager.CreateEntity(archetypes[entIter]);
+                    entities[entIter] = m_Manager.CreateEntity(archetypes[entIter]);
+                    if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (entIter % 2 == 0))
+                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[entIter], false);
                 }
             }
             else
             {
-                archetypes = CreateUniqueArchetypes(1);
-                m_Manager.CreateEntity(archetypes[0], entityCount);
+                archetypes = CreateUniqueArchetypes(1, enabledBitsMode, extraTypes);
+                m_Manager.CreateEntity(archetypes[0], entities);
+                for (int entIter = 0; entIter < entityCount; entIter++)
+                {
+                    if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (entIter % archetypes[0].ChunkCapacity == 0))
+                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[entIter], false);
+                    else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (entIter % 2 == 0))
+                        m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[entIter], false);
+                }
             }
+            entities.Dispose();
             archetypes.Dispose();
+        }
+
+        private void ToEntityArray_Performance(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
+        {
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
 
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
@@ -431,25 +566,9 @@ namespace Unity.Entities.PerformanceTests
             query.Dispose();
         }
 
-        private void ToComponentDataArray_Performance_SmallComponent(int entityCount, bool unique)
+        private void ToComponentDataArray_Performance_SmallComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
         {
-            NativeArray<EntityArchetype> archetypes;
-
-            if (unique)
-            {
-                archetypes = CreateUniqueArchetypes(entityCount);
-                for (int entIter = 0; entIter < entityCount; entIter++)
-                {
-                    m_Manager.CreateEntity(archetypes[entIter]);
-                }
-            }
-            else
-            {
-                archetypes = CreateUniqueArchetypes(1);
-                m_Manager.CreateEntity(archetypes[0],entityCount);
-            }
-
-            archetypes.Dispose();
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
 
             EntityQuery query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite(typeof(EcsTestData)));
 
@@ -470,25 +589,9 @@ namespace Unity.Entities.PerformanceTests
             query.Dispose();
         }
 
-        private void ToComponentDataArray_Performance_LargeComponent(int entityCount, bool unique)
+        private void ToComponentDataArray_Performance_LargeComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
         {
-            NativeArray<EntityArchetype> archetypes;
-
-            if (unique)
-            {
-                archetypes = CreateUniqueArchetypes(entityCount,typeof(LargeComponent));
-                for (int entIter = 0; entIter < entityCount; entIter++)
-                {
-                    m_Manager.CreateEntity(archetypes[entIter]);
-                }
-            }
-            else
-            {
-                archetypes = CreateUniqueArchetypes(1,typeof(LargeComponent));
-                m_Manager.CreateEntity(archetypes[0],entityCount);
-            }
-
-            archetypes.Dispose();
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique, typeof(LargeComponent));
 
             EntityQuery query = default;
             query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly(typeof(LargeComponent)));
@@ -510,25 +613,9 @@ namespace Unity.Entities.PerformanceTests
             query.Dispose();
         }
 
-        private void CopyFromComponentDataArray_Performance_SmallComponent(int entityCount, bool unique)
+        private void CopyFromComponentDataArray_Performance_SmallComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
         {
-            NativeArray<EntityArchetype> archetypes;
-
-            if (unique)
-            {
-                archetypes = CreateUniqueArchetypes(entityCount);
-                for (int entIter = 0; entIter < entityCount; entIter++)
-                {
-                    m_Manager.CreateEntity(archetypes[entIter]);
-                }
-            }
-            else
-            {
-                archetypes = CreateUniqueArchetypes(1);
-                m_Manager.CreateEntity(archetypes[0],entityCount);
-            }
-
-            archetypes.Dispose();
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique);
 
             EntityQuery query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite(typeof(EcsTestData)));
 
@@ -546,25 +633,9 @@ namespace Unity.Entities.PerformanceTests
             query.Dispose();
         }
 
-        private void CopyFromComponentDataArray_Performance_LargeComponent(int entityCount, bool unique)
+        private void CopyFromComponentDataArray_Performance_LargeComponent(int entityCount, EnabledBitsMode enabledBitsMode, bool unique)
         {
-            NativeArray<EntityArchetype> archetypes;
-
-            if (unique)
-            {
-                archetypes = CreateUniqueArchetypes(entityCount,typeof(LargeComponent));
-                for (int entIter = 0; entIter < entityCount; entIter++)
-                {
-                    m_Manager.CreateEntity(archetypes[entIter]);
-                }
-            }
-            else
-            {
-                archetypes = CreateUniqueArchetypes(1,typeof(LargeComponent));
-                m_Manager.CreateEntity(archetypes[0],entityCount);
-            }
-
-            archetypes.Dispose();
+            CreateArchetypesAndEntities(entityCount, enabledBitsMode, unique, typeof(LargeComponent));
 
             EntityQuery query = default;
             query = m_Manager.CreateEntityQuery(ComponentType.ReadOnly(typeof(LargeComponent)));
@@ -584,65 +655,73 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [Test, Performance]
-        public void ToEntityArray_Performance_Same([Values(1,100,1000,10000,1000000)] int entityCount)
+        public void ToEntityArray_Performance_Same([Values(1,100,1000,10000,1000000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            ToEntityArray_Performance(entityCount,false);
+            ToEntityArray_Performance(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
-        public void ToEntityArray_Performance_Unique([Values(1,10,100,1000,10000)] int entityCount)
+        public void ToEntityArray_Performance_Unique([Values(1,10,100,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            ToEntityArray_Performance(entityCount,true);
+            ToEntityArray_Performance(entityCount, enabledBitsMode, true);
         }
 
         [Test, Performance]
         public void ToComponentDataArray_Performance_Same_SmallComponent(
-            [Values(1,100,1000,10000,1000000)] int entityCount)
+            [Values(1,100,1000,10000,1000000)] int entityCount, [Values] EnabledBitsMode enabledBitsMode)
         {
-            ToComponentDataArray_Performance_SmallComponent(entityCount,false);
+            ToComponentDataArray_Performance_SmallComponent(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
         public void ToComponentDataArray_Performance_Same_LargeComponent(
-            [Values(1,100,1000,10000,1000000)] int entityCount)
+            [Values(1,100,1000,10000,1000000)] int entityCount, [Values] EnabledBitsMode enabledBitsMode)
         {
-            ToComponentDataArray_Performance_LargeComponent(entityCount,false);
+            ToComponentDataArray_Performance_LargeComponent(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
-        public void ToComponentDataArray_Performance_Unique_SmallComponent([Values(1,10,100,1000,10000)] int entityCount)
+        public void ToComponentDataArray_Performance_Unique_SmallComponent([Values(1,10,100,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            ToComponentDataArray_Performance_SmallComponent(entityCount,true);
+            ToComponentDataArray_Performance_SmallComponent(entityCount, enabledBitsMode, true);
         }
 
         [Test, Performance]
-        public void ToComponentDataArray_Performance_Unique_LargeComponent([Values(1,10,100,1000,10000)] int entityCount)
+        public void ToComponentDataArray_Performance_Unique_LargeComponent([Values(1,10,100,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            ToComponentDataArray_Performance_LargeComponent(entityCount,true);
+            ToComponentDataArray_Performance_LargeComponent(entityCount, enabledBitsMode, true);
         }
 
         [Test, Performance]
-        public void CopyFromComponentDataArray_Performance_Same_SmallComponent([Values(1,100,1000,10000,1000000)] int entityCount)
+        public void CopyFromComponentDataArray_Performance_Same_SmallComponent([Values(1,100,1000,10000,1000000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            CopyFromComponentDataArray_Performance_SmallComponent(entityCount,false);
+            CopyFromComponentDataArray_Performance_SmallComponent(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
-        public void CopyFromComponentDataArray_Performance_Same_LargeComponent([Values(1,100,1000,10000,1000000)] int entityCount)
+        public void CopyFromComponentDataArray_Performance_Same_LargeComponent([Values(1,100,1000,10000,1000000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            CopyFromComponentDataArray_Performance_LargeComponent(entityCount,false);
+            CopyFromComponentDataArray_Performance_LargeComponent(entityCount, enabledBitsMode, false);
         }
 
         [Test, Performance]
-        public void CopyFromComponentDataArray_Performance_Unique_SmallComponent([Values(1,10,100,1000,10000)] int entityCount)
+        public void CopyFromComponentDataArray_Performance_Unique_SmallComponent([Values(1,10,100,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            CopyFromComponentDataArray_Performance_SmallComponent(entityCount,true);
+            CopyFromComponentDataArray_Performance_SmallComponent(entityCount, enabledBitsMode, true);
         }
 
         [Test, Performance]
-        public void CopyFromComponentDataArray_Performance_Unique_LargeComponent([Values(1,10,100,1000,10000)] int entityCount)
+        public void CopyFromComponentDataArray_Performance_Unique_LargeComponent([Values(1,10,100,1000,10000)] int entityCount,
+            [Values] EnabledBitsMode enabledBitsMode)
         {
-            CopyFromComponentDataArray_Performance_LargeComponent(entityCount,true);
+            CopyFromComponentDataArray_Performance_LargeComponent(entityCount, enabledBitsMode, true);
         }
 
     }

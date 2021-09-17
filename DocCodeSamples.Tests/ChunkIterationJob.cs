@@ -24,7 +24,7 @@ namespace Doc.CodeSamples.Tests
 
     #region rotationspeedsystem
 
-    public class RotationSpeedSystem : SystemBase
+    public partial class RotationSpeedSystem : SystemBase
     {
         private EntityQuery m_Query;
 
@@ -84,7 +84,7 @@ namespace Doc.CodeSamples.Tests
     }
 
 
-    public class RotationSpeedSystemExample2 : SystemBase
+    public partial class RotationSpeedSystemExample2 : SystemBase
     {
         private EntityQuery m_Query;
 
@@ -139,7 +139,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
-    public class RotationSpeedSystemExample3 : SystemBase
+    public partial class RotationSpeedSystemExample3 : SystemBase
     {
         private EntityQuery m_Query;
 
@@ -212,7 +212,7 @@ namespace Doc.CodeSamples.Tests
         public float Value;
     }
 
-    public class UpdateSystemExample : SystemBase
+    public partial class UpdateSystemExample : SystemBase
     {
         #region changefilter
 
@@ -292,7 +292,7 @@ namespace Doc.CodeSamples.Tests
         public Entity entity;
     }
 
-    public class ChaserSystem : SystemBase
+    public partial class ChaserSystem : SystemBase
     {
         private EntityQuery query; // Initialized in Oncreate()
 

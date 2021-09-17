@@ -86,7 +86,7 @@ namespace Doc.CodeSamples.Tests
     #endregion
     #region lookup-ijobchunk
 
-    public class MoveTowardsEntitySystem : SystemBase
+    public partial class MoveTowardsEntitySystem : SystemBase
     {
         private EntityQuery query;
 
@@ -165,12 +165,12 @@ namespace Doc.CodeSamples.Tests
             job.deltaTime = this.Time.DeltaTime;
 
             // Schedule the job using Dependency property
-            this.Dependency = job.ScheduleParallel(query, 1, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, this.Dependency);
         }
     }
     #endregion
 
-    public class Snippets : SystemBase
+    public partial class Snippets : SystemBase
     {
         private EntityQuery query;
         protected override void OnCreate()
@@ -246,7 +246,7 @@ namespace Doc.CodeSamples.Tests
             job.deltaTime = this.Time.DeltaTime;
 
             // Schedule the job using Dependency property
-            this.Dependency = job.ScheduleParallel(query, 1, this.Dependency);
+            this.Dependency = job.ScheduleParallel(query, this.Dependency);
         }
     }
 }

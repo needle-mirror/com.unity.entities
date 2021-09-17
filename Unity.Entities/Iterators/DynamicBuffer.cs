@@ -37,7 +37,11 @@ namespace Unity.Entities
         internal AtomicSafetyHandle m_Safety1;
         internal int m_SafetyReadOnlyCount;
         internal int m_SafetyReadWriteCount;
+
+        [MarshalAs(UnmanagedType.U1)]
         internal bool m_IsReadOnly;
+
+        [MarshalAs(UnmanagedType.U1)]
         internal bool m_useMemoryInitPattern;
         internal byte m_memoryInitPattern;
 #endif
@@ -133,13 +137,11 @@ namespace Unity.Entities
             }
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         void CheckBounds(int index)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if ((uint)index >= (uint)Length)
                 throw new IndexOutOfRangeException($"Index {index} is out of range in DynamicBuffer of '{Length}' Length.");
-#endif
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -313,7 +315,7 @@ namespace Unity.Entities
         /// <code source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" language="csharp" region="dynamicbuffer.add"/>
         /// </example>
         /// <param name="elem">The element to add to the buffer.</param>
-        /// <returns>The new length of the buffer.</returns>
+        /// <returns>The index of the added element, which is equal to the new length of the buffer minus one.</returns>
         public int Add(T elem)
         {
             CheckWriteAccess();
@@ -471,7 +473,7 @@ namespace Unity.Entities
             return BufferHeader.GetElementPointer(m_Buffer);
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void AssertReinterpretSizesMatch<U>() where U : struct
         {
             if (UnsafeUtility.SizeOf<U>() != UnsafeUtility.SizeOf<T>())

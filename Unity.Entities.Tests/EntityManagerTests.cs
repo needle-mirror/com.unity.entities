@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Unity.Collections;
 using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Core;
+using Unity.Jobs;
+using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
@@ -24,37 +28,14 @@ namespace Unity.Entities.Tests
         int value { get; set; }
     }
 
+    [BurstCompile]
     class EntityManagerTests : ECSTestsFixture
     {
-#if UNITY_EDITOR
-        [Test]
-        public void NameEntities()
-        {
-            WordStorage.Setup();
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
-            var count = 1024;
-            var array = new NativeArray<Entity>(count, Allocator.Temp);
-            m_Manager.CreateEntity(archetype, array);
-            for (int i = 0; i < count; i++)
-            {
-                m_Manager.SetName(array[i], "Name" + i);
-            }
-
-            for (int i = 0; i < count; ++i)
-            {
-                Assert.AreEqual(m_Manager.GetName(array[i]), "Name" + i);
-            }
-
-            // even though we've made 1024 entities, the string table should contain only two entries:
-            // "", and "Name"
-            Assert.IsTrue(WordStorage.Instance.Entries == 2);
-            array.Dispose();
-        }
+#if !DOTS_DISABLE_DEBUG_NAMES
 
         [Test]
         public void InstantiateKeepsName()
         {
-            WordStorage.Setup();
             var entity = m_Manager.CreateEntity();
             m_Manager.SetName(entity, "Blah");
 
@@ -854,6 +835,26 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(5, ((TestInterfaceManagedComponent)obj).Value);
         }
 
+
+        [Test]
+        public unsafe void ManagedComponent_DoubleAdd_NoDoubleDispose()
+        {
+            // regression test for https://unity3d.atlassian.net/browse/DOTS-5122
+            var ent = m_Manager.CreateEntity();
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            int RefCount1 = 1;
+            var value = new EcsTestManagedCompWithRefCount(&RefCount1);
+            ecb.AddComponent(ent, value);
+            ecb.AddComponent(ent, value); // oops, accidental redundant add!
+            ecb.Playback(m_Manager);
+            Assert.AreEqual(1, RefCount1); // without the double-dispose guard, this refcount would be zero here. That would be bad.
+            int RefCount2 = 1;
+            var newValue = new EcsTestManagedCompWithRefCount(&RefCount2);
+            m_Manager.SetComponentObject(ent, ComponentType.ReadWrite<EcsTestManagedCompWithRefCount>(), newValue);
+            Assert.AreEqual(0, RefCount1);
+            Assert.AreEqual(1, RefCount2);
+        }
+
         [Test]
         public unsafe void ManagedComponents()
         {
@@ -862,7 +863,7 @@ namespace Unity.Entities.Tests
             var array = new NativeArray<Entity>(count, Allocator.Temp);
             m_Manager.CreateEntity(archetype, array);
 
-            var hash = new NativeHashMap<Entity, FixedString64>(count, Allocator.Temp);
+            var hash = new NativeHashMap<Entity, FixedString64Bytes>(count, Allocator.Temp);
 
             var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestManagedComponent>());
             using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
@@ -880,7 +881,7 @@ namespace Unity.Entities.Tests
                     for (var i = 0; i < chunk.Count; ++i)
                     {
                         components[i] = new EcsTestManagedComponent { value = entities[i].Index.ToString() };
-                        Assert.IsTrue(hash.TryAdd(entities[i], new FixedString64(components[i].value)));
+                        Assert.IsTrue(hash.TryAdd(entities[i], new FixedString64Bytes(components[i].value)));
                     }
                 }
             }
@@ -1235,6 +1236,351 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(info, "Entity.Invalid", "Entity with Negative Index failed test");
 
         }
+
+        partial class WriteSignalSystem: SystemBase
+        {
+            struct WriteWhenSignaledJob : IJob
+            {
+                [ReadOnly]
+                public ComponentDataFromEntity<EcsTestData> TestData;
+
+                [NativeDisableUnsafePtrRestriction]
+                public unsafe volatile int* Result;
+
+                public unsafe void Execute()
+                {
+                    *Result =  1;
+                }
+            }
+
+            protected override unsafe void OnUpdate()
+            {
+                const int COMPONENT_DATA_VALUE = 10;
+                var entity = EntityManager.CreateEntity(typeof(EcsTestData));
+
+                EntityManager.SetComponentData(entity, new EcsTestData
+                {
+                    value = COMPONENT_DATA_VALUE
+                });
+                var testData = GetComponentDataFromEntity<EcsTestData>(true);
+
+                int JobResult = 0;
+                Dependency = new WriteWhenSignaledJob
+                {
+                    Result = &JobResult,
+                    TestData = testData,
+                }.Schedule(Dependency);
+
+                EcsTestData data = *(EcsTestData*) EntityManager.GetComponentDataRawRO(entity,
+                    TypeManager.GetTypeIndex(typeof(EcsTestData)));
+
+                Dependency.Complete();
+
+                Assert.AreEqual(1, JobResult);
+                Assert.AreEqual(COMPONENT_DATA_VALUE, data.value);
+            }
+        }
+
+        [Test]
+        public unsafe void GetComponentDataRaw_SafetyRO()
+        {
+            var system = World.CreateSystem<WriteSignalSystem>();
+            system.Update();
+        }
+
+#if !DOTS_DISABLE_DEBUG_NAMES
+        [Test]
+        public void EntityName_GetName_SetName_Managed_Works()
+        {
+            var archetype = m_Manager.CreateArchetype();
+            var entity = m_Manager.CreateEntity(archetype);
+            Assert.AreEqual("", m_Manager.GetName(entity));
+            var name = "Test entity";
+            m_Manager.SetName(entity,name);
+            Assert.AreEqual(name, m_Manager.GetName(entity));
+        }
+
+        [Test]
+        public void EntityName_SetName_SupportMultipleUpdates()
+        {
+            var entity = m_Manager.CreateEntity();
+            Assert.That(m_Manager.GetName(entity), Is.Empty);
+
+            m_Manager.SetName(entity, "Name");
+            Assert.That(m_Manager.GetName(entity), Is.EqualTo("Name"));
+
+            m_Manager.SetName(entity, "OtherName");
+            Assert.That(m_Manager.GetName(entity), Is.EqualTo("OtherName"));
+        }
+
+        [Test]
+        public void EntityName_FixedString_SetName_SupportMultipleUpdates()
+        {
+            var entity = m_Manager.CreateEntity();
+            Assert.That(m_Manager.GetName(entity), Is.Empty);
+
+            m_Manager.SetName(entity, new FixedString32Bytes("Name"));
+            Assert.That(m_Manager.GetName(entity), Is.EqualTo("Name"));
+
+            m_Manager.SetName(entity, new FixedString32Bytes("OtherName"));
+            Assert.That(m_Manager.GetName(entity), Is.EqualTo("OtherName"));
+        }
+
+        [Test]
+        public unsafe void EntityName_CopyName_SupportOverwritingExistingName()
+        {
+            var entityA = m_Manager.CreateEntity();
+            var entityB = m_Manager.CreateEntity();
+            m_Manager.SetName(entityA, "EntityA");
+            m_Manager.SetName(entityB, "EntityB");
+            Assert.That(m_Manager.GetName(entityA), Is.EqualTo("EntityA"));
+            Assert.That(m_Manager.GetName(entityB), Is.EqualTo("EntityB"));
+
+            m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->CopyName(entityB, entityA);
+
+            Assert.That(m_Manager.GetName(entityA), Is.EqualTo("EntityA"));
+            Assert.That(m_Manager.GetName(entityB), Is.EqualTo("EntityA"));
+        }
+
+        [Test]
+        public void EntityName_GetName_SetName_FixedString_Works()
+        {
+            var archetype = m_Manager.CreateArchetype();
+            var entity = m_Manager.CreateEntity(archetype);
+
+            m_Manager.GetName(entity, out var actualName);
+            Assert.AreEqual(new FixedString64Bytes(""), actualName);
+            var name = new FixedString64Bytes("Test entity");
+            m_Manager.SetName(entity,name);
+            m_Manager.GetName(entity, out actualName);
+            Assert.AreEqual(name,actualName);
+        }
+
+
+        [Test]
+        public void EntityName_GetName_InvalidEntity()
+        {
+            string errorMsg = "ENTITY_NOT_FOUND";
+            Entity invalidEntity = new Entity
+            {
+                Version = 9,
+                Index = 2
+            };
+
+            m_Manager.GetName(invalidEntity, out var invalidFixed);
+            //test unmanaged string
+            Assert.AreEqual(new FixedString64Bytes(errorMsg), invalidFixed);
+            //test managed string
+            Assert.AreEqual(errorMsg,m_Manager.GetName(invalidEntity));
+        }
+
+        [Test]
+        public unsafe void EntityName_SetName_InvalidEntity()
+        {
+            Assert.DoesNotThrow(() => m_Manager.SetName(Entity.Null,"managed argument"));
+            Assert.DoesNotThrow(() => m_Manager.SetName(Entity.Null, new FixedString64Bytes("unmanaged argument")));
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        static unsafe void BurstSetNamesFn(ref EntityManager manager,FixedString64Bytes* names, in Entity* entities, int size)
+        {
+            for (int i = 0; i < size; i++)
+            {
+                manager.SetName(entities[i],names[i]);
+            }
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        static unsafe void BurstGetNamesFn(ref EntityManager manager,FixedString64Bytes* names, in Entity* entities, int size)
+        {
+            for (int i = 0; i < size; i++)
+            {
+                manager.GetName(entities[i],out var fixedName);
+                names[i] = fixedName;
+            }
+        }
+
+        unsafe delegate void BurstGetNameDelegate(ref EntityManager manager,FixedString64Bytes* names,
+         in Entity* entities, int size);
+        unsafe delegate void BurstSetNameDelegate(ref EntityManager manager,FixedString64Bytes* names,
+         in Entity* entities, int size);
+
+
+        [Test]
+        public unsafe void EntityName_SetName_Burst()
+        {
+            var fp = BurstCompiler.CompileFunctionPointer<BurstSetNameDelegate>(BurstSetNamesFn);
+            var invoke = fp.Invoke;
+
+            int size = 100;
+            var names = new NativeArray<FixedString64Bytes>(size, Allocator.TempJob);
+            var entities = new NativeArray<Entity>(size, Allocator.TempJob);
+
+            for (int i = 0; i < size; i++)
+            {
+                names[i] = new FixedString64Bytes("Entity " + i);
+                entities[i] = m_Manager.CreateEntity();
+            }
+
+            invoke(ref m_Manager,(FixedString64Bytes*)names.GetUnsafePtr(),(Entity*)entities.GetUnsafeReadOnlyPtr(), size);
+
+            for (int i = 0; i < size; i++)
+            {
+                Assert.AreEqual("Entity " + i, m_Manager.GetName(entities[i]));
+            }
+
+
+            names.Dispose();
+            entities.Dispose();
+
+        }
+
+        [Test]
+        public unsafe void EntityName_GetName_Burst()
+        {
+            var fp = BurstCompiler.CompileFunctionPointer<BurstGetNameDelegate>(BurstGetNamesFn);
+            var invoke = fp.Invoke;
+
+            int size = 100;
+
+            var entities = new NativeArray<Entity>(size, Allocator.TempJob);
+
+            using(var names = new NativeArray<FixedString64Bytes>(size,Allocator.TempJob))
+            {
+
+                for (int i = 0; i < size; i++)
+                {
+                    entities[i] = m_Manager.CreateEntity();
+                    m_Manager.SetName(entities[i], "Entity " + i);
+                }
+
+                invoke(ref m_Manager,(FixedString64Bytes*)names.GetUnsafePtr(),(Entity*)entities.GetUnsafeReadOnlyPtr(), size);
+
+                for (int i = 0; i < size; i++)
+                {
+                    Assert.AreEqual("Entity " + i,names[i]);
+                }
+            }
+
+            entities.Dispose();
+        }
+
+        [Test]
+        public void EntityName_MoveEntities()
+        {
+            using(var srcWorld = new World("source"))
+            using (var dstWorld = new World("destination"))
+            {
+
+                var srcEM = srcWorld.EntityManager;
+                var entityA = srcEM.CreateEntity(typeof(EcsTestData));
+                var entityB = srcEM.CreateEntity(typeof(EcsTestData));
+                var entityC = srcEM.CreateEntity(typeof(EcsTestData));
+
+                srcEM.SetName(entityA, "A");
+                srcEM.SetName(entityB, "B");
+                srcEM.SetName(entityC, "C");
+
+
+                var dstEM = dstWorld.EntityManager;
+                var entityD = dstEM.CreateEntity(typeof(EcsTestData));
+                dstEM.SetName(entityD, "D");
+                using (var remap = srcEM.CreateEntityRemapArray(Allocator.TempJob))
+                {
+                    var dstQuery = dstEM.CreateEntityQuery(typeof(EcsTestData));
+
+                    //sanity check: one ECSTestData entity before MoveEntities
+                    Assert.AreEqual(1, dstQuery.CalculateEntityCount());
+
+                    dstEM.MoveEntitiesFrom(srcEM, srcEM.UniversalQuery, remap);
+
+                    //old entity handles should still be valid
+                    Assert.AreEqual("D", dstEM.GetName(entityD));
+
+
+                    using (var queriedEntities = dstQuery.ToEntityArray(Allocator.TempJob))
+                    {
+                        Assert.AreEqual(4, queriedEntities.Length);
+
+                        //make sure moved entities are now in destination EntityManager, with proper names
+                        var expectedNames = new[] {"A", "B", "C", "D"};
+                        var acutalNames = new string[expectedNames.Length];
+
+                        for (int i = 0; i < queriedEntities.Length; i++)
+                        {
+                            acutalNames[i] = dstEM.GetName(queriedEntities[i]);
+                        }
+
+                        CollectionAssert.AreEquivalent(expectedNames, acutalNames);
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void EntityName_CopyName()
+        {
+            var entityA = m_Manager.CreateEntity(typeof(EcsTestData));
+            var entityB = m_Manager.CreateEntity(typeof(EcsTestData));
+            var entityC = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetName(entityA,"A");
+            m_Manager.SetName(entityB,"B");
+            m_Manager.SetName(entityC,"C");
+
+            using(var srcEntities = new NativeArray<Entity>(new[] {entityA, entityB, entityC}, Allocator.TempJob))
+            using(var dstEntities = new NativeArray<Entity>(srcEntities.Length,Allocator.TempJob))
+            {
+
+                //underlying function calls into EntityComponentStore.CopyName
+                m_Manager.CopyEntities(srcEntities,dstEntities);
+
+                //make sure entities of interest are actually cloned in the manager
+                var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+                using (var queriedEntities = query.ToEntityArray(Allocator.TempJob))
+                {
+
+                    //length sanity check
+                    Assert.AreEqual(srcEntities.Length + dstEntities.Length, queriedEntities.Length);
+
+
+                    //make sure the clones have the proper names
+                    var expectedNames = new[] {"A", "A", "B", "B", "C", "C"};
+                    var acutalNames = new string[expectedNames.Length];
+
+                    for (int i = 0; i < queriedEntities.Length; i++)
+                    {
+                        acutalNames[i] = m_Manager.GetName(queriedEntities[i]);
+                    }
+
+
+                    CollectionAssert.AreEquivalent(expectedNames, acutalNames);
+                }
+
+            }
+        }
+
+#endif // !DOTS_DISABLE_DEBUG_NAMES
+
+#if DOTS_DISABLE_DEBUG_NAMES
+        public void EntityName_Disable_GetName_SetName_Managed()
+        {
+            var entity = m_Manager.CreateEntity();
+            Assert.AreEqual("", m_Manager.GetName(entity));
+            var name = "Test entity";
+            m_Manager.SetName(entity,name);
+            Assert.AreEqual("", m_Manager.GetName(entity));
+        }
+
+        public void EntityName_Disable_GetName_SetName_Fixed()
+        {
+            var entity = m_Manager.CreateEntity();
+            var name = new FixedString64Bytes("Test entity");
+            m_Manager.SetName(entity,name);
+            m_Manager.GetName(entity,out var newName);
+            Assert.AreEqual(new FixedString64Bytes(), newName);
+        }
+#endif
 
 #endif // UNITY_PORTABLE_TEST_RUNNER
 #endif

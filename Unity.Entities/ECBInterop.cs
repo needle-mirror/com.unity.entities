@@ -23,5 +23,23 @@ namespace Unity.Entities
                 Debug.LogException(e);
             }
         }
+
+        [BurstMonoInteropMethod]
+        internal static unsafe void _ProcessChainChunk(void* walker, int processorType,
+            ECBChainPlaybackState* chainStates, int currentChain, int nextChain)
+        {
+            if (processorType == (int)EntityCommandBuffer.ECBProcessorType.PlaybackProcessor)
+            {
+                var playbackWalker = (EntityCommandBuffer.EcbWalker<EntityCommandBuffer.PlaybackProcessor>*) walker;
+                playbackWalker->ProcessChain(chainStates, currentChain, nextChain);
+            }
+            else if (processorType == (int)EntityCommandBuffer.ECBProcessorType.DebugViewProcessor)
+            {
+                var debugViewWalker = (EntityCommandBuffer.EcbWalker<EntityCommandBuffer.DebugViewProcessor>*) walker;
+                debugViewWalker->ProcessChain(chainStates, currentChain, nextChain);
+            }
+        }
+
+
     }
 }

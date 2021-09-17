@@ -135,8 +135,8 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponentData(a, new EcsTestDataEntity { value0 = 0, value1 = b});
             m_Manager.AddComponentData(b, new EcsTestDataEntity { value0 = 1, value1 = external});
 
-            using (var inputs  = new NativeArray<Entity>(new[] {a, b}, Allocator.TempJob))
-            using (var outputs = new NativeArray<Entity>(2, Allocator.TempJob))
+            using (var inputs = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(new[] { a, b }, ref World.UpdateAllocator))
+            using (var outputs = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(2, ref World.UpdateAllocator))
             {
                 if (instantiate)
                 {

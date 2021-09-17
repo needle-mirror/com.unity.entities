@@ -3,6 +3,7 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+    [AddComponentMenu("")]
     public class MockDynamicBufferDataAuthoring : MonoBehaviour, IConvertGameObjectToEntity
     {
         public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem)

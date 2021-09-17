@@ -5,58 +5,58 @@ using System.Linq;
 using System.Text;
 using Unity.Entities.SourceGen.Common;
 
-namespace Unity.Entities.SourceGen
+namespace Unity.Entities.SourceGen.AuthoringComponent
 {
     static class AuthoringComponentFactory
     {
-        internal static ClassDeclarationSyntax GenerateBufferingElementDataAuthoring(AuthoringComponent authoringComponent)
+        internal static ClassDeclarationSyntax GenerateBufferingElementDataAuthoring(AuthoringComponentDescription authoringComponentDescription)
         {
-            bool exactlyOneField = authoringComponent.FieldDescriptions.Count() == 1;
+            bool exactlyOneField = authoringComponentDescription.FieldDescriptions.Count() == 1;
 
             if (exactlyOneField)
             {
-                return GenerateBufferingElementDataAuthoringClass(authoringComponent, authoringComponent.FieldDescriptions.Single().FieldSymbol.Type.ToString());
+                return GenerateBufferingElementDataAuthoringClass(authoringComponentDescription, authoringComponentDescription.FieldDescriptions.Single().FieldSymbol.Type.ToString());
             }
 
-            string generatedStructName = $"___{authoringComponent.DeclaringType.Name}GeneratedStruct___";
-            return GenerateBufferingElementDataAuthoringClass(authoringComponent, generatedStructName, hasNestedGeneratedClass: true);
+            string generatedStructName = $"___{authoringComponentDescription.DeclaringType.Name}GeneratedStruct___";
+            return GenerateBufferingElementDataAuthoringClass(authoringComponentDescription, generatedStructName, hasNestedGeneratedClass: true);
         }
 
-        internal static ClassDeclarationSyntax GenerateComponentDataAuthoring(AuthoringComponent authoringComponent)
+        internal static ClassDeclarationSyntax GenerateComponentDataAuthoring(AuthoringComponentDescription authoringComponentDescription)
         {
-            string generatedClass = CreateComponentDataAuthoringClass(authoringComponent);
+            string generatedClass = CreateComponentDataAuthoringClass(authoringComponentDescription);
             return (ClassDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(generatedClass);
         }
 
         static ClassDeclarationSyntax GenerateBufferingElementDataAuthoringClass(
-            AuthoringComponent authoringComponent, string storedType, bool hasNestedGeneratedClass = false)
+            AuthoringComponentDescription authoringComponentDescription, string storedType, bool hasNestedGeneratedClass = false)
         {
             const string placeholder = "___HasNestedGeneratedClassPlaceholder___";
 
             string generatedClass =
                 $@"[UnityEngine.DisallowMultipleComponent]
                    [System.Runtime.CompilerServices.CompilerGenerated]
-                   {authoringComponent.AttributesToPreserve.Select(a => $"[{a}]").SeparateByNewLine()}
-                   public class {authoringComponent.DeclaringType.Name}Authoring : UnityEngine.MonoBehaviour, Unity.Entities.IConvertGameObjectToEntity
+                   {authoringComponentDescription.AttributesToPreserve.Select(a => $"[{a}]").SeparateByNewLine()}
+                   public class {authoringComponentDescription.DeclaringType.Name}Authoring : UnityEngine.MonoBehaviour, Unity.Entities.IConvertGameObjectToEntity
                    {{
-                        {placeholder}            
+                        {placeholder}
 
                         public {storedType}[] Values;
 
                         public void Convert(Unity.Entities.Entity __entity,
-                                            Unity.Entities.EntityManager __dstManager, 
+                                            Unity.Entities.EntityManager __dstManager,
                                             GameObjectConversionSystem _)
                         {{
-                            Unity.Entities.DynamicBuffer<{authoringComponent.FullyQualifiedTypeName}> dynamicBuffer =
-                                __dstManager.AddBuffer<{authoringComponent.FullyQualifiedTypeName}>(__entity);
+                            Unity.Entities.DynamicBuffer<{authoringComponentDescription.FullyQualifiedTypeName}> dynamicBuffer =
+                                __dstManager.AddBuffer<{authoringComponentDescription.FullyQualifiedTypeName}>(__entity);
 
                             dynamicBuffer.ResizeUninitialized(Values.Length);
 
                             for (int i = 0; i < dynamicBuffer.Length; i++)
                             {{
-                                dynamicBuffer[i] = new {authoringComponent.FullyQualifiedTypeName} 
-                                                   {{ 
-                                                       {GenerateBufferElementDataFieldAssignments(authoringComponent)}
+                                dynamicBuffer[i] = new {authoringComponentDescription.FullyQualifiedTypeName}
+                                                   {{
+                                                       {GenerateBufferElementDataFieldAssignments(authoringComponentDescription)}
                                                    }};
                             }}
                         }}
@@ -74,89 +74,89 @@ namespace Unity.Entities.SourceGen
                                 [System.Runtime.CompilerServices.CompilerGenerated]
                                 public struct {storedType}
                                 {{
-                                    {CreateBufferElementDataClassFields(authoringComponent)}
+                                    {CreateBufferElementDataClassFields(authoringComponentDescription)}
                                 }}");
 
             return (ClassDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(withNestedType);
         }
 
-        static string GenerateBufferElementDataFieldAssignments(AuthoringComponent authoringComponent)
+        static string GenerateBufferElementDataFieldAssignments(AuthoringComponentDescription authoringComponentDescription)
         {
-            if (authoringComponent.FieldDescriptions.Count() > 1)
+            if (authoringComponentDescription.FieldDescriptions.Count() > 1)
             {
-                return authoringComponent.FieldDescriptions.Select(description =>
+                return authoringComponentDescription.FieldDescriptions.Select(description =>
                 {
                     string fieldName = description.FieldSymbol.Name;
                     return $"{fieldName} = Values[i].{fieldName}";
                 }).SeparateByCommaAndNewLine();
             }
-            return $"{authoringComponent.FieldDescriptions.Single().FieldSymbol.Name} = Values[i]";
+            return $"{authoringComponentDescription.FieldDescriptions.Single().FieldSymbol.Name} = Values[i]";
         }
 
-        static string CreateBufferElementDataClassFields(AuthoringComponent authoringComponent)
+        static string CreateBufferElementDataClassFields(AuthoringComponentDescription authoringComponentDescription)
         {
-            return authoringComponent.FieldDescriptions
+            return authoringComponentDescription.FieldDescriptions
                                      .Select(description => $"public {description.FieldSymbol.Type} {description.FieldSymbol.Name};")
                                      .SeparateByNewLine();
         }
 
-        static string CreateComponentDataAuthoringClass(AuthoringComponent authoringComponent)
+        static string CreateComponentDataAuthoringClass(AuthoringComponentDescription authoringComponentDescription)
         {
             string declareReferencedPrefabsInterface =
-                authoringComponent.ImplementIDeclareReferencedPrefabs ? ", Unity.Entities.IDeclareReferencedPrefabs" : string.Empty;
+                authoringComponentDescription.ImplementIDeclareReferencedPrefabs ? ", Unity.Entities.IDeclareReferencedPrefabs" : string.Empty;
 
             const string placeholder = "$$$InsertDeclareReferencedPrefabsMethodHere$$$";
 
             string generatedClass =
                  $@"[UnityEngine.DisallowMultipleComponent]
                     [System.Runtime.CompilerServices.CompilerGenerated]
-                    {authoringComponent.AttributesToPreserve.Select(a => $"[{a}]").SeparateByNewLine()}
-                    public class {authoringComponent.DeclaringType.Name}Authoring : UnityEngine.MonoBehaviour, Unity.Entities.IConvertGameObjectToEntity{declareReferencedPrefabsInterface}
+                    {authoringComponentDescription.AttributesToPreserve.Select(a => $"[{a}]").SeparateByNewLine()}
+                    public class {authoringComponentDescription.DeclaringType.Name}Authoring : UnityEngine.MonoBehaviour, Unity.Entities.IConvertGameObjectToEntity{declareReferencedPrefabsInterface}
                     {{
-                         {CreateAuthoringClassFieldDeclarations(authoringComponent)}
-                    
-                         public void Convert(Unity.Entities.Entity __entity, 
-                                             Unity.Entities.EntityManager __dstManager, 
+                         {CreateAuthoringClassFieldDeclarations(authoringComponentDescription)}
+
+                         public void Convert(Unity.Entities.Entity __entity,
+                                             Unity.Entities.EntityManager __dstManager,
                                              GameObjectConversionSystem __conversionSystem)
                          {{
-                             {CreateConversionMethodBody(authoringComponent)}
+                             {CreateConversionMethodBody(authoringComponentDescription)}
                          }}
-                    
+
                          {placeholder}
                     }}";
 
-            if (!authoringComponent.ImplementIDeclareReferencedPrefabs)
+            if (!authoringComponentDescription.ImplementIDeclareReferencedPrefabs)
             {
                 return generatedClass.Replace(oldValue: placeholder, newValue: string.Empty);
             }
 
             string declareReferencedPrefabsMethod =
-                $@"public void DeclareReferencedPrefabs(System.Collections.Generic.List<UnityEngine.GameObject> __referencedPrefabs) 
+                $@"public void DeclareReferencedPrefabs(System.Collections.Generic.List<UnityEngine.GameObject> __referencedPrefabs)
                    {{
-                       {CreateDeclareReferencedPrefabsMethodBody(authoringComponent)}
+                       {CreateDeclareReferencedPrefabsMethodBody(authoringComponentDescription)}
                    }}";
 
             return generatedClass.Replace(oldValue: placeholder, newValue: declareReferencedPrefabsMethod);
         }
 
-        private static string CreateDeclareReferencedPrefabsMethodBody(AuthoringComponent authoringComponent)
+        static string CreateDeclareReferencedPrefabsMethodBody(AuthoringComponentDescription authoringComponentDescription)
         {
             var methodBody = new StringBuilder();
 
-            foreach (AuthoringComponentFieldDescription description in authoringComponent.FieldDescriptions)
+            foreach (AuthoringComponentFieldDescription description in authoringComponentDescription.FieldDescriptions)
             {
                 switch (description.FieldType)
                 {
                     case FieldType.SingleEntity:
                         methodBody.AppendLine(
                             $@"Unity.Entities.Hybrid.Internal.GeneratedAuthoringComponentImplementation.AddReferencedPrefab(
-                                   __referencedPrefabs, 
+                                   __referencedPrefabs,
                                    {description.FieldSymbol.Name});");
                         break;
                     case FieldType.EntityArray:
                         methodBody.AppendLine(
                             $@"Unity.Entities.Hybrid.Internal.GeneratedAuthoringComponentImplementation.AddReferencedPrefabs(
-                                   __referencedPrefabs, 
+                                   __referencedPrefabs,
                                    {description.FieldSymbol.Name});");
                         break;
                 }
@@ -165,22 +165,22 @@ namespace Unity.Entities.SourceGen
             return methodBody.ToString();
         }
 
-        private static string CreateConversionMethodBody(AuthoringComponent authoringComponent)
+        static string CreateConversionMethodBody(AuthoringComponentDescription authoringComponentDescription)
         {
             StringBuilder methodBody = new StringBuilder();
 
-            if (authoringComponent.DeclaringType.IsValueType)
+            if (authoringComponentDescription.DeclaringType.IsValueType)
             {
                 methodBody.AppendLine(
-                    $"{authoringComponent.FullyQualifiedTypeName} component = default({authoringComponent.FullyQualifiedTypeName});");
+                    $"{authoringComponentDescription.FullyQualifiedTypeName} component = default({authoringComponentDescription.FullyQualifiedTypeName});");
             }
             else
             {
                 methodBody.AppendLine(
-                    $"{authoringComponent.FullyQualifiedTypeName} component = new {authoringComponent.FullyQualifiedTypeName}();");
+                    $"{authoringComponentDescription.FullyQualifiedTypeName} component = new {authoringComponentDescription.FullyQualifiedTypeName}();");
             }
 
-            foreach (var fieldDescription in authoringComponent.FieldDescriptions)
+            foreach (var fieldDescription in authoringComponentDescription.FieldDescriptions)
             {
                 switch (fieldDescription.FieldType)
                 {
@@ -191,8 +191,8 @@ namespace Unity.Entities.SourceGen
                     case FieldType.EntityArray:
                         methodBody.AppendLine(
                             $@"Unity.Entities.GameObjectConversionUtility.ConvertGameObjectsToEntitiesField(
-                                   __conversionSystem, 
-                                   {fieldDescription.FieldSymbol.Name}, 
+                                   __conversionSystem,
+                                   {fieldDescription.FieldSymbol.Name},
                                    out component.{fieldDescription.FieldSymbol.Name});");
                         break;
                     default:
@@ -201,18 +201,54 @@ namespace Unity.Entities.SourceGen
                 }
             }
 
-            methodBody.AppendLine(authoringComponent.FromValueType
+            methodBody.AppendLine(authoringComponentDescription.FromValueType
                 ? "__dstManager.AddComponentData(__entity, component);"
                 : "Unity.Entities.EntityManagerManagedComponentExtensions.AddComponentData(__dstManager, __entity, component);");
 
             return methodBody.ToString();
         }
 
-        private static string CreateAuthoringClassFieldDeclarations(AuthoringComponent authoringComponent)
+
+        private static void SetupRegisterBindingAttribute(AuthoringComponentDescription authoringComponentDescription,
+            ref StringBuilder fieldDeclarations,AuthoringComponentFieldDescription fieldDescription)
+        {
+            var vectorVariables = new[]{'x', 'y', 'z', 'w'};
+            int count = 0;
+
+            string className = authoringComponentDescription.DeclaringType.Name;
+            string typeName  = fieldDescription.FieldSymbol.Type.ToFullName();
+            string varName = fieldDescription.FieldSymbol.Name;
+
+            if (typeName == "Unity.Mathematics.float4" || typeName == "Unity.Mathematics.bool4" || typeName == "Unity.Mathematics.int4")
+                count = 4;
+            else if (typeName == "Unity.Mathematics.float3" || typeName == "Unity.Mathematics.bool3" || typeName == "Unity.Mathematics.int3")
+                count = 3;
+            else if (typeName == "Unity.Mathematics.float2" || typeName == "Unity.Mathematics.bool2" || typeName == "Unity.Mathematics.int2")
+                count = 2;
+
+            if (count > 0)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    fieldDeclarations.AppendLine($"[Unity.Entities.RegisterBinding(typeof({className})," +
+                                                 $"\"{varName}." + vectorVariables[i] + "\",true)]");
+                }
+            }
+            //default case of binding a name without some vector variable
+            else
+            {
+                fieldDeclarations.AppendLine($"[Unity.Entities.RegisterBinding(typeof({className})," +
+                                             $"\"{varName}\")]");
+            }
+
+            fieldDeclarations.AppendLine($"public {typeName} {varName};");
+        }
+
+        private static string CreateAuthoringClassFieldDeclarations(AuthoringComponentDescription authoringComponentDescription)
         {
             var fieldDeclarations = new StringBuilder();
 
-            foreach (var fieldDescription in authoringComponent.FieldDescriptions)
+            foreach (var fieldDescription in authoringComponentDescription.FieldDescriptions)
             {
                 switch (fieldDescription.FieldType)
                 {
@@ -221,6 +257,9 @@ namespace Unity.Entities.SourceGen
                         break;
                     case FieldType.EntityArray:
                         fieldDeclarations.AppendLine($"public UnityEngine.GameObject[] {fieldDescription.FieldSymbol.Name};");
+                        break;
+                    case FieldType.NonEntityValueType:
+                        SetupRegisterBindingAttribute(authoringComponentDescription, ref fieldDeclarations, fieldDescription);
                         break;
                     default:
                         fieldDeclarations.AppendLine($"public {fieldDescription.FieldSymbol.Type} {fieldDescription.FieldSymbol.Name};");

@@ -77,7 +77,7 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnUpdate()
         {
-            var queryForSingleton = EntityManager.CreateEntityQuery(typeof(Singlet));
+            var queryForSingleton = GetEntityQuery(typeof(Singlet));
             var entityManager = EntityManager;
             #region create-singleton
 
@@ -133,17 +133,6 @@ namespace Doc.CodeSamples.Tests
 
                 #endregion
             }
-            {
-                EntityManager entityManager = World.EntityManager;
-                #region create-query
-
-                EntityQuery query =
-                    entityManager.CreateEntityQuery(typeof(RotationQuaternion),
-                                        ComponentType.ReadOnly<RotationSpeed>());
-                #endregion
-            }
-
-
         }
     }
     #region query-writegroup
@@ -156,7 +145,7 @@ namespace Doc.CodeSamples.Tests
     [WriteGroup(typeof(C1))]
     public struct C3 : IComponentData { }
 
-    public class ECSSystem : SystemBase
+    public partial class ECSSystem : SystemBase
     {
         protected override void OnCreate()
         {
@@ -204,7 +193,7 @@ namespace Doc.CodeSamples.Tests
 
     #region get-query-ijobchunk
 
-    public class RotationSystem : SystemBase
+    public partial class RotationSystem : SystemBase
     {
         private EntityQuery query;
 
@@ -227,7 +216,7 @@ namespace Doc.CodeSamples.Tests
         public int Group;
     }
 
-    class ImpulseSystem : SystemBase
+    partial class ImpulseSystem : SystemBase
     {
         EntityQuery query;
 
@@ -256,7 +245,7 @@ namespace Doc.CodeSamples.Tests
     }
 
     #endregion
-    class UpdateSystem : SystemBase
+    partial class UpdateSystem : SystemBase
     {
         #region change-filter
 

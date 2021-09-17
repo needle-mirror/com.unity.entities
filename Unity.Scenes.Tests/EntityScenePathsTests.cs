@@ -14,17 +14,10 @@ public class EntityScenePathsTests
         Assert.AreEqual(0, EntityScenesPaths.GetSectionIndexFromPath("pathwith.dots.but.no.number.entities"));
     }
 
-#if !NET_DOTS
     [Test]
-    public void TestGetTempCachePath()
+    public void GetFileNameWithoutExtension()
     {
-        var tempCachePath = EntityScenesPaths.GetTempCachePath();
-
-        // Verify we can make and remove this path
-        if (!Directory.Exists(tempCachePath))
-            Directory.CreateDirectory(tempCachePath);
-
-        Directory.Delete(tempCachePath);
+        var result = ResourceCatalogData.GetFileNameWithoutExtension("SomePath/HelloWorld.unity");
+        Assert.AreEqual("SomePath/HelloWorld", result);
     }
-#endif
 }

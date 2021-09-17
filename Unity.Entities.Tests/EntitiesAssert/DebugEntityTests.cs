@@ -52,7 +52,7 @@ namespace Unity.Entities.Tests
 
             var debugEntities = DebugEntity.GetAllEntities(m_Manager);
 
-#if UNITY_DOTSRUNTIME
+#if NET_DOTS
 
             // until ManagedComponentStore.GetSharedComponentDataBoxed supports an alternative to Activator to construct
             // a default instance of T, we can't support it here. once implemented, remove this special case to the test

@@ -52,23 +52,20 @@ namespace Unity.Entities.Tests
         {
             var job = new CreateEntityAddToListJob();
             job.entities = m_Manager.BeginExclusiveEntityTransaction();
-            job.createdEntities = new NativeList<Entity>(0, Allocator.TempJob);
+            job.createdEntities = new NativeList<Entity>(0, World.UpdateAllocator.ToAllocator);
 
             m_Manager.ExclusiveEntityTransactionDependency = job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
             m_Manager.ExclusiveEntityTransactionDependency = job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
 
             m_Manager.EndExclusiveEntityTransaction();
 
-            var data = m_Group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var data = m_Group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(2, m_Group.CalculateEntityCount());
             Assert.AreEqual(42, data[0].value);
             Assert.AreEqual(42, data[1].value);
 
             Assert.IsTrue(m_Manager.Exists(job.createdEntities[0]));
             Assert.IsTrue(m_Manager.Exists(job.createdEntities[1]));
-
-            job.createdEntities.Dispose();
-            data.Dispose();
         }
 
         [Test]
@@ -181,7 +178,7 @@ namespace Unity.Entities.Tests
             buffer.Add(new DynamicBufferElement {Value = 234});
             buffer.Add(new DynamicBufferElement {Value = 345});
 
-            var newEntity = new NativeArray<Entity>(1, Allocator.TempJob);
+            var newEntity = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(1, ref World.UpdateAllocator);
 
             var job = new DynamicBufferJob();
             job.NewEntity = newEntity;
@@ -208,8 +205,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(123 * 2, newBuffer[0].Value);
             Assert.AreEqual(234 * 2, newBuffer[1].Value);
             Assert.AreEqual(345 * 2, newBuffer[2].Value);
-
-            newEntity.Dispose();
         }
 
         struct SyncIJobChunk : IJobChunk

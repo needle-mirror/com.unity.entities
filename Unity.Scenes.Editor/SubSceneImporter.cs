@@ -10,15 +10,13 @@ using Unity.Core.Compression;
 using UnityEditor;
 using UnityEditor.Build.Content;
 using UnityEditor.SceneManagement;
-#if UNITY_2020_2_OR_NEWER
 using UnityEditor.AssetImporters;
-#else
-using UnityEditor.Experimental.AssetImporters;
-#endif
+using UnityEngine;
+using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(90, "extDontMatter")]
+    [ScriptedImporter(105, "extDontMatter")]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {
@@ -89,6 +87,15 @@ namespace Unity.Scenes.Editor
             }
         }
 
+        static unsafe void WriteGlobalUsageArtifact(BuildUsageTagGlobal globalUsage, AssetImportContext ctx)
+        {
+            var path = ctx.GetResultPath(EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesGlobalUsage));
+            using (var writer = new StreamBinaryWriter(path))
+            {
+                writer.WriteBytes(&globalUsage, sizeof(BuildUsageTagGlobal));
+            }
+        }
+
         public override void OnImportAsset(AssetImportContext ctx)
         {
             try
@@ -102,17 +109,35 @@ namespace Unity.Scenes.Editor
                 var config = BuildConfiguration.LoadAsset(sceneWithBuildConfiguration.BuildConfiguration);
 
                 var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneWithBuildConfiguration.SceneGUID);
-                var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+
+                UnityEngine.SceneManagement.Scene scene;
+                bool isPrefab = scenePath.EndsWith(".prefab");
+                GameObject prefab = null;
+                if (isPrefab)
+                {
+                    var prefabGUID = sceneWithBuildConfiguration.SceneGUID;
+                    scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    scene.name = prefabGUID.ToString();
+                    prefab = AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(AssetDatabase.GUIDToAssetPath(prefabGUID.ToString()));
+                }
+                else
+                {
+                    scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+                }
+
                 try
                 {
                     EditorSceneManager.SetActiveScene(scene);
-
+                    // Grab the used lighting and fog values from the scenes lighting & render settings.
+                    // If autobake is enabled, this function will iterate through objects to predict the outcome.
+                    var globalUsage = ContentBuildInterface.GetGlobalUsageFromActiveScene(ctx.selectedBuildTarget);
                     var settings = new GameObjectConversionSettings();
 
                     settings.SceneGUID = sceneWithBuildConfiguration.SceneGUID;
                     if (!sceneWithBuildConfiguration.IsBuildingForEditor)
                         settings.ConversionFlags |= GameObjectConversionUtility.ConversionFlags.IsBuildingForPlayer;
 
+                    settings.PrefabRoot = prefab;
                     settings.BuildConfiguration = config;
                     settings.AssetImportContext = ctx;
                     settings.FilterFlags = WorldSystemFilterFlags.HybridGameObjectConversion;
@@ -144,8 +169,9 @@ namespace Unity.Scenes.Editor
                     var sectionData = EditorEntityScenes.ConvertAndWriteEntityScene(scene, settings, sectionRefObjs, writeEntitySettings);
 
                     WriteAssetDependencyGUIDs(sectionRefObjs, sectionData, ctx);
+                    WriteGlobalUsageArtifact(globalUsage, ctx);
 
-                    foreach(var objRefs in sectionRefObjs)
+                    foreach (var objRefs in sectionRefObjs)
                         DestroyImmediate(objRefs);
                 }
                 finally

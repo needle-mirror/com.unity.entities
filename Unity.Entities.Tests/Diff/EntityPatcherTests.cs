@@ -323,7 +323,8 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if UNITY_EDITOR
+// TODO: remove UNITY_EDITOR conditional once https://unity3d.atlassian.net/browse/DOTS-3862 is fixed
+#if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
         [Test]
         [TestCase("Manny")]
         [TestCase("Moe")]

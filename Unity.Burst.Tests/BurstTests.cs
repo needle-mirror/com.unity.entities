@@ -1,11 +1,13 @@
 using System;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities;
 using Unity.Jobs;
 using Unity.Burst;
 using NUnit.Framework;
 using static Unity.Burst.CompilerServices.Aliasing;
 
+[BurstCompile]
 public class BurstTests
 {
     [BurstCompile(CompileSynchronously = true)]
@@ -277,5 +279,66 @@ public class BurstTests
         job.res = &value;
         job.Schedule().Complete();
         Assert.AreEqual(100, value);
+    }
+
+    public struct Data : IBufferElementData
+    {
+        public int Payload;
+
+        public static implicit operator Data(int i) => new Data { Payload = i };
+        public static implicit operator int(Data d) => d.Payload;
+    }
+
+    [BurstCompile(CompileSynchronously = true)]
+    public static int MinInDynamicBuffer(in DynamicBuffer<Data> buffer)
+    {
+        var min = int.MaxValue;
+
+        foreach (var element in buffer)
+        {
+            min = Math.Min(min, element);
+        }
+
+        return min;
+    }
+
+    public delegate int MinInDynamicBufferDelegate(in DynamicBuffer<Data> buffer);
+
+    [Test]
+    public void DynamicBuffer()
+    {
+        var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+        var entity = ecb.CreateEntity();
+
+        var buffer = ecb.AddBuffer<Data>(entity);
+
+        buffer.Add(42);
+        buffer.Add(13);
+        buffer.Add(-4);
+
+        var d = BurstCompiler.CompileFunctionPointer<MinInDynamicBufferDelegate>(MinInDynamicBuffer);
+
+        Assert.AreEqual(-4, d.Invoke(in buffer));
+
+        ecb.Dispose();
+    }
+
+    [Test]
+    public void DirectCallDynamicBuffer()
+    {
+        var ecb = new EntityCommandBuffer(Allocator.Temp);
+
+        var entity = ecb.CreateEntity();
+
+        var buffer = ecb.AddBuffer<Data>(entity);
+
+        buffer.Add(42);
+        buffer.Add(13);
+        buffer.Add(-4);
+
+        Assert.AreEqual(-4, MinInDynamicBuffer(in buffer));
+
+        ecb.Dispose();
     }
 }

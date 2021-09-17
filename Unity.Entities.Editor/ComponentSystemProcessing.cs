@@ -23,29 +23,11 @@ namespace Unity.Entities.IL2CPPProcessing
             Type[] typesToPreserve = null;
             Type[] typesToIgnore = null;
 
-            if (LiveLinkClassicBuildCustomizer.IsLiveLinkBuild)
-            {
-                typesToPreserve = new[]
-                {
-                    typeof(ComponentSystemBase),
-                    typeof(UnityEngine.Component),
-                };
 
-                typesToIgnore = new[]
-                {
-                    typeof(IConvertGameObjectToEntity),
-                    typeof(IDeclareReferencedPrefabs),
-                };
-            }
-            else
+            typesToPreserve = new[]
             {
-                typesToPreserve = new[]
-                {
-                    typeof(ComponentSystemBase),
-                };
-            }
-
-            LiveLinkClassicBuildCustomizer.IsLiveLinkBuild = false;
+                typeof(ComponentSystemBase),
+            };
 
             bool IsSubclassOf(Type type, Type[] typeFilter)
             {
@@ -99,14 +81,14 @@ namespace Unity.Entities.IL2CPPProcessing
             sb.AppendLine("<linker>");
 
             // For each assembly, add an <assembly> element that will contains <type> elements nested for all the type to include
-            foreach (var assembly in typesByAssemblies.Keys)
+            foreach (var assembly in typesByAssemblies.Keys.OrderBy(a => a.GetName().Name))
             {
                 // Add the assembly element
                 sb.AppendLine($"  <assembly fullname=\"{assembly.GetName().Name}\">");
 
                 // Add the type element
                 var types = typesByAssemblies[assembly];
-                foreach (var type in types)
+                foreach (var type in types.OrderBy(t => t.FullName))
                 {
                     sb.AppendLine($"    <type fullname=\"{FormatForXml(ToCecilName(type.FullName))}\" preserve=\"all\"/>");
                 }

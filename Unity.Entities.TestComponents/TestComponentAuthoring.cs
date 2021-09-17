@@ -3,6 +3,7 @@ using UnityEngine;
 namespace Unity.Entities.Tests
 {
     [ConverterVersion("sschoener", 1)]
+    [AddComponentMenu("")]
     public class TestComponentAuthoring : MonoBehaviour, IConvertGameObjectToEntity
     {
         public int IntValue;

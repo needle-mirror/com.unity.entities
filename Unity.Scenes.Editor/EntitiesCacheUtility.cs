@@ -10,10 +10,8 @@ namespace Unity.Scenes
     {
         internal const string globalEntitiesDependencyDir = "Assets/GlobalEntitiesDependencies/";
         internal const string globalEntitySceneDependencyPath = globalEntitiesDependencyDir + "GlobalEntitySceneDependency.asset";
-        internal const string globalLiveLinkAssetDependencyPath = globalEntitiesDependencyDir + "GlobalLiveLinkAssetDependency.asset";
 
         internal static GlobalEntitiesDependency entitySceneDependency;
-        internal static GlobalEntitiesDependency liveLinkAssetDependency;
 
         internal static void UpdateEntitySceneGlobalDependency()
         {
@@ -34,28 +32,6 @@ namespace Unity.Scenes
                 entitySceneDependency = ScriptableObject.CreateInstance<GlobalEntitiesDependency>();
                 Directory.CreateDirectory(globalEntitiesDependencyDir);
                 AssetDatabase.CreateAsset(entitySceneDependency, globalEntitySceneDependencyPath);
-            }
-        }
-
-        internal static void UpdateLiveLinkAssetGlobalDependency()
-        {
-            if (liveLinkAssetDependency == null)
-                LoadOrCreateGlobalLiveLinkAssetDependency();
-
-            liveLinkAssetDependency.cacheGUID = GUID.Generate();
-            EditorUtility.SetDirty(liveLinkAssetDependency);
-            AssetDatabase.SaveAssets();
-        }
-
-        static void LoadOrCreateGlobalLiveLinkAssetDependency()
-        {
-            liveLinkAssetDependency = AssetDatabase.LoadAssetAtPath<GlobalEntitiesDependency>(globalLiveLinkAssetDependencyPath);
-
-            if (liveLinkAssetDependency == null)
-            {
-                liveLinkAssetDependency = ScriptableObject.CreateInstance<GlobalEntitiesDependency>();
-                Directory.CreateDirectory(globalEntitiesDependencyDir);
-                AssetDatabase.CreateAsset(liveLinkAssetDependency, globalLiveLinkAssetDependencyPath);
             }
         }
 

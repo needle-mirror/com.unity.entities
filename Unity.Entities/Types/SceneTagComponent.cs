@@ -1,10 +1,38 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities.Serialization;
 using Unity.Mathematics;
 using Codec = Unity.Core.Compression.Codec;
 
 namespace Unity.Entities
 {
+    [StructLayout(LayoutKind.Explicit, Size = 8)]
+    internal struct RuntimeBlobHeaderRef
+    {
+        [FieldOffset(0)]
+        internal long m_BlobAssetRefStorage;
+        public ref DotsSerialization.BlobHeader Value => ref UnsafeUtility.As<long, BlobAssetReference<DotsSerialization.BlobHeader>>(ref m_BlobAssetRefStorage).Value;
+        public static implicit operator RuntimeBlobHeaderRef(BlobAssetReference<DotsSerialization.BlobHeader> assetRef)
+        {
+            RuntimeBlobHeaderRef ret = default;
+            UnsafeUtility.As<long, BlobAssetReference<DotsSerialization.BlobHeader>>(ref ret.m_BlobAssetRefStorage) = assetRef;
+            return ret;
+        }
+        public static implicit operator BlobAssetReference<DotsSerialization.BlobHeader>(RuntimeBlobHeaderRef clip)
+        {
+            return UnsafeUtility.As<long, BlobAssetReference<DotsSerialization.BlobHeader>>(ref clip.m_BlobAssetRefStorage);
+        }
+
+        public unsafe RuntimeBlobHeaderRef Resolve(BlobAssetOwner blobAssetOwner)
+        {
+            var blobAssetRef = new BlobAssetReference<DotsSerialization.BlobHeader>();
+            blobAssetRef.m_data.m_Ptr = (byte*) blobAssetOwner.BlobAssetBatchPtr + m_BlobAssetRefStorage;
+            return blobAssetRef;
+        }
+    }
+
     [Serializable]
     public struct SceneSectionData : IComponentData
     {
@@ -15,6 +43,7 @@ namespace Unity.Entities
         public MinMaxAABB       BoundingVolume;
         internal Codec          Codec;
         internal int            DecompressedFileSize;
+        internal RuntimeBlobHeaderRef BlobHeader;
     }
 
     // This component identifies the entity which holds the metadata components belonging to the section with the specified SceneSectionIndex
@@ -28,6 +57,11 @@ namespace Unity.Entities
     {
         public Hash128 SceneGUID;
 
+        public SceneReference(EntitySceneReference sceneReference)
+        {
+            SceneGUID = sceneReference.SceneId.AssetId;
+        }
+
         public bool Equals(SceneReference other)
         {
             return SceneGUID.Equals(other.SceneGUID);
@@ -37,6 +71,11 @@ namespace Unity.Entities
         {
             return SceneGUID.GetHashCode();
         }
+    }
+
+    public struct PrefabRoot : IComponentData
+    {
+        public Entity Root;
     }
 
     [System.Serializable]
@@ -88,7 +127,7 @@ namespace Unity.Entities
         /// </summary>
         DisableAutoLoad = 1,
         /// <summary>
-        /// Wait for the SubScene to be fully converted (only relevant for Editor and LiveLink)
+        /// Wait for the SubScene to be fully converted (only relevant for Editor and LiveLink) and its header loaded
         /// </summary>
         BlockOnImport = 2,
         /// <summary>

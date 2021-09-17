@@ -27,27 +27,24 @@ namespace Unity.Entities.Tests
             where T : IComponentData
         {
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<T>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
-            chunks.Dispose();
         }
 
         void VerifyBufferCount<T>(int expectedCount)
             where T : ISystemStateBufferElementData
         {
             var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<T>());
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
-            chunks.Dispose();
         }
 
         void VerifyQueryCount(EntityQuery group, int expectedCount)
         {
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             Assert.AreEqual(expectedCount, ArchetypeChunkArray.CalculateEntityCount(chunks));
-            chunks.Dispose();
         }
 
         [Test]

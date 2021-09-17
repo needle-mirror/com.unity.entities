@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -257,6 +258,27 @@ namespace Unity.Entities.Tests
             AssetHasChunkOrderVersion(e1, OldVersion);
         }
 
+        [Test]
+        public void SwapComponents_OutOfRangeIndex_Throws()
+        {
+            var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
+
+            m_Manager.SetSharedComponentData(e0, new EcsTestSharedComp(1));
+            m_Manager.SetSharedComponentData(e1, new EcsTestSharedComp(2));
+
+            var chunk0 = m_Manager.GetChunk(e0);
+            var chunk1 = m_Manager.GetChunk(e1);
+
+            Assert.AreNotEqual(chunk0, chunk1);
+            BumpGlobalSystemVersion();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => m_Manager.SwapComponents(chunk0, -1, chunk1, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => m_Manager.SwapComponents(chunk0, 1, chunk1, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => m_Manager.SwapComponents(chunk0, 0, chunk1, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => m_Manager.SwapComponents(chunk0, 0, chunk1, 1));
+        }
+
         // Version Change Case 3:
         //   - Component ChangeVersion: All ComponentType(s) with EntityReference in archetype set to GlobalChangeVersion
         //   - Chunk OrderVersion: Unchanged.
@@ -306,7 +328,7 @@ namespace Unity.Entities.Tests
 
             AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
             AssetHasChangeVersion<EcsTestTag>(e0, NewVersion);
-            AssetHasChunkOrderVersion(e0, OldVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion); // Changing archetype in place causes the order version to be bumped
         }
 
         [Test]
@@ -320,7 +342,7 @@ namespace Unity.Entities.Tests
 
             AssetHasChangeVersion<EcsTestData>(e0, OldVersion);
             AssetHasSharedChangeVersion<SharedData1>(e0, NewVersion);
-            AssetHasChunkOrderVersion(e0, OldVersion);
+            AssetHasChunkOrderVersion(e0, NewVersion); // Changing archetype in place causes the order version to be bumped
         }
 
         // Version Change Case 5:
@@ -417,7 +439,7 @@ namespace Unity.Entities.Tests
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
 
-            var entities = new NativeArray<Entity>(1, Allocator.TempJob);
+            var entities = CollectionHelper.CreateNativeArray<Entity>(1, World.UpdateAllocator.ToAllocator);
             entities[0] = e1;
 
             BumpGlobalSystemVersion();
@@ -430,8 +452,6 @@ namespace Unity.Entities.Tests
             AssetHasChangeVersion<EcsTestData3>(e1, NewVersion);
             AssetHasChunkOrderVersion(e0, NewVersion);
             AssetHasChunkOrderVersion(e1, NewVersion);
-
-            entities.Dispose();
         }
 
         [Test]

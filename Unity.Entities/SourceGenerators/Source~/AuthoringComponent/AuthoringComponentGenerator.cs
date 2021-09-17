@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -9,13 +10,17 @@ using System.IO;
 using Unity.Entities.SourceGen.Common;
 using static Unity.Entities.SourceGen.Common.SourceGenHelpers;
 
-namespace Unity.Entities.SourceGen
+namespace Unity.Entities.SourceGen.AuthoringComponent
 {
     [Generator]
     public class AuthoringComponentGenerator : ISourceGenerator
     {
+        internal static readonly string GeneratorName = "AuthoringComponent";
         public void Execute(GeneratorExecutionContext context)
         {
+            if (context.ParseOptions.PreprocessorSymbolNames.Contains("UNITY_DOTSRUNTIME"))
+                return;
+
             bool IsGeneratedAuthoringComponentAttribute(AttributeData data)
             {
                 return data.AttributeClass.ContainingAssembly.Name == "Unity.Entities"
@@ -28,105 +33,84 @@ namespace Unity.Entities.SourceGen
                 {
                     return;
                 }
-
                 var authoringComponentReceiver = (AuthoringComponentReceiver)context.SyntaxReceiver;
+                if (!authoringComponentReceiver.CandidateSyntaxes.Any())
+                    return;
 
-                if (!authoringComponentReceiver.CandidateSyntaxes.Any() || !context.Compilation.ReferencedAssemblyNames.Any(n => n.Name == "Unity.Entities.Hybrid"))
+                if (context.Compilation.ReferencedAssemblyNames.All(n => n.Name != "Unity.Entities.Hybrid"))
                 {
-                    // TODO: I believe it is valid to have GenerateAuthoringComponent but not reference entities (DocCodeSamples.Tests currently does this).
-                    // We should probably throw a warning here though.
-                    //throw new ArgumentException("Using the [GenerateAuthoringComponent] attribute requires a reference to the Unity.Entities.Hybrid assembly.");
+                    AuthoringComponentErrors.DC0061(context, authoringComponentReceiver.CandidateSyntaxes.First().GetLocation(), context.Compilation.AssemblyName);
                     return;
                 }
 
-                SourceGenHelpers.LogInfo($"Source generating assembly {context.Compilation.Assembly.Name} for authoring components...");
-                var stopwatch = Stopwatch.StartNew();;
+                LogInfo($"Source generating assembly {context.Compilation.Assembly.Name} for authoring components...");
+                var stopwatch = Stopwatch.StartNew();
 
-                foreach (var candidateSyntax in authoringComponentReceiver.CandidateSyntaxes)
+                var syntaxTreesToCandidateAuthoringComponents = authoringComponentReceiver.CandidateSyntaxes.GroupBy(node => node.SyntaxTree);
+                foreach (var candidateAuthoringComponents in syntaxTreesToCandidateAuthoringComponents)
                 {
-                    var semanticModel = context.Compilation.GetSemanticModel(candidateSyntax.SyntaxTree);
-                    var candidateSymbol = semanticModel.GetDeclaredSymbol(candidateSyntax);
-                    LogInfo($"Parsing authoring component {candidateSymbol.Name}");
-
-                    if (!candidateSymbol.GetAttributes().Any(IsGeneratedAuthoringComponentAttribute))
+                    var syntaxTree = candidateAuthoringComponents.Key;
+                    var authoringComponentsInSyntaxTree = new List<AuthoringComponentDescription>();
+                    foreach (var candidateAuthoringComponentSyntax in candidateAuthoringComponents)
                     {
-                        continue;
+                        var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
+                        var candidateSymbol = semanticModel.GetDeclaredSymbol(candidateAuthoringComponentSyntax);
+                        if (!candidateSymbol.GetAttributes().Any(IsGeneratedAuthoringComponentAttribute))
+                            continue;
+
+                        LogInfo($"Parsing authoring component {candidateSymbol.Name}");
+                        var authoringComponent = new AuthoringComponentDescription(candidateAuthoringComponentSyntax, candidateSymbol, context);
+                        if (authoringComponent.IsValid)
+                        {
+                            authoringComponentsInSyntaxTree.Add(authoringComponent);
+                        }
                     }
 
-                    var authoringComponent = new AuthoringComponent(candidateSyntax, candidateSymbol, context);
-
-                    CheckValidity(authoringComponent);
-
                     var compilationUnit =
-                        CompilationUnit().AddMembers(GenerateAuthoringTypeFrom(authoringComponent))
-                                         .NormalizeWhitespace();
+                        CompilationUnit().AddMembers(authoringComponentsInSyntaxTree.Select(GenerateAuthoringTypeFrom).ToArray())
+                            .NormalizeWhitespace();
 
-                    var generatedSourceHint = candidateSyntax.SyntaxTree.GetGeneratedSourceFileName(context.Compilation.Assembly);
-                    var generatedSourceFullPath = candidateSyntax.SyntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly);
+                    var generatedSourceHint = syntaxTree.GetGeneratedSourceFileName(GeneratorName);
+                    var generatedSourceFullPath = syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly, GeneratorName);
                     var sourceTextForNewClass = compilationUnit.GetText(Encoding.UTF8);
                     sourceTextForNewClass = sourceTextForNewClass.WithInitialLineDirectiveToGeneratedSource(generatedSourceFullPath);
                     context.AddSource(generatedSourceHint, sourceTextForNewClass);
 
-                    File.WriteAllLines(
-                        generatedSourceFullPath,
-                        sourceTextForNewClass.ToString().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
+                    // Output as generated source file for debugging/inspection
+                    try
+                    {
+                        LogInfo($"Authoring Component Generator: Outputting generated source to file {generatedSourceFullPath}...");
+                        File.WriteAllText(generatedSourceFullPath, sourceTextForNewClass.ToString());
+                    }
+                    catch (IOException ioException)
+                    {
+                        // Emit exception as info but don't block compilation or generate error to fail tests
+                        context.LogInfo("SGICE006", "Authoring Component Generator", ioException.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+                    }
                 }
 
                 stopwatch.Stop();
-                SourceGenHelpers.LogInfo($"TIME : AuthoringComponent : {context.Compilation.Assembly.Name} : {stopwatch.ElapsedMilliseconds}ms");
+                LogInfo($"TIME : AuthoringComponent : {context.Compilation.Assembly.Name} : {stopwatch.ElapsedMilliseconds}ms");
             }
             catch (Exception exception)
             {
                 //context.WaitForDebuggerInAssembly();
-                context.LogError("SGICE002", "Authoring Component", exception.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+                context.LogError("SGICE004", "Authoring Component", exception.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
             }
         }
 
-        static MemberDeclarationSyntax GenerateAuthoringTypeFrom(AuthoringComponent authoringComponent)
+        static MemberDeclarationSyntax GenerateAuthoringTypeFrom(AuthoringComponentDescription authoringComponentDescription)
         {
-            switch (authoringComponent.Interface)
+            switch (authoringComponentDescription.Interface)
             {
                 case AuthoringComponentInterface.IComponentData:
-                    return AuthoringComponentFactory.GenerateComponentDataAuthoring(authoringComponent)
-                        .AddNamespaces(authoringComponent.NamespacesFromMostToLeastNested);
+                    return AuthoringComponentFactory.GenerateComponentDataAuthoring(authoringComponentDescription)
+                        .AddNamespaces(authoringComponentDescription.NamespacesFromMostToLeastNested);
                 case AuthoringComponentInterface.IBufferElementData:
-                    return AuthoringComponentFactory.GenerateBufferingElementDataAuthoring(authoringComponent)
-                        .AddNamespaces(authoringComponent.NamespacesFromMostToLeastNested);
+                    return AuthoringComponentFactory.GenerateBufferingElementDataAuthoring(authoringComponentDescription)
+                        .AddNamespaces(authoringComponentDescription.NamespacesFromMostToLeastNested);
                 default:
                     return default;
-            }
-        }
-
-        static void CheckValidity(AuthoringComponent authoringComponent)
-        {
-            switch (authoringComponent.Interface)
-            {
-                case AuthoringComponentInterface.IComponentData:
-                    if (authoringComponent.FromValueType &&
-                        authoringComponent.FieldDescriptions.Any(d => d.FieldType == FieldType.EntityArray))
-                    {
-                        throw new ArgumentException(
-                            "Invalid use of Entity[] in a struct: IComponentData structs cannot contain managed types." +
-                            "Either use an array that works in IComponentData structs (DynamicBuffer) or a IComponentData class.");
-                    }
-                    break;
-
-                case AuthoringComponentInterface.IBufferElementData:
-                    if (!authoringComponent.FromValueType)
-                    {
-                        throw new ArgumentException("IBufferElementData types must be structs.");
-                    }
-
-                    if (authoringComponent.FieldDescriptions.Any(d => d.FieldType == FieldType.NonEntityReferenceType || d.FieldType == FieldType.EntityArray))
-                    {
-                        throw new ArgumentException("IBufferElementData types may only contain blittable or primitive fields.");
-                    }
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(
-                        "The [GenerateAuthoringComponent] attribute may only be used with types " +
-                        "that implement either IBufferElementData or IComponentData.");
             }
         }
 

@@ -16,12 +16,57 @@ using Unity.Entities.LowLevel.Unsafe;
 using Unity.IO.LowLevel.Unsafe;
 
 #if UNITY_DOTSRUNTIME
-using Unity.Tiny;
-using Unity.Tiny.IO;
+using Unity.Runtime.IO;
 #endif
 
-public class BlobTests : ECSTestsFixture
+public partial class BlobTests : ECSTestsFixture
 {
+#if !UNITY_DOTSRUNTIME
+    BlobTestSystemEFE _blobTestSystemEFE => World.CreateSystem<BlobTestSystemEFE>();
+    partial class BlobTestSystemEFE : SystemBase
+    {
+        public JobHandle ValidateBlobData_Job(JobHandle inputDependency = default)
+        {
+            return Entities.ForEach((ref ComponentWithBlobData data) =>
+            {
+                ValidateBlobData(ref data.blobAsset.Value);
+                data.blobAsset.Dispose();
+                data.DidSucceed = true;
+            }).Schedule(inputDependency);
+        }
+        protected override void OnUpdate() {}
+    }
+
+    BlobTestSystemIJobEntity _blobTestSystemIJobEntity => World.CreateSystem<BlobTestSystemIJobEntity>();
+    partial class BlobTestSystemIJobEntity : SystemBase
+    {
+        public JobHandle ValidateBlobInComponent(bool expectException = false, JobHandle inputDependency = default)
+        {
+            var job = new ValidateBlobInComponentJob { ExpectException = expectException };
+            var jobHandle = job.Schedule(inputDependency);
+            return jobHandle;
+        }
+
+        public partial struct ValidateBlobInComponentJob : IJobEntity
+        {
+            public bool ExpectException;
+            public unsafe void Execute(ref ComponentWithBlobData componentWithBlobData)
+            {
+                if (ExpectException)
+                {
+                    var blobAsset = componentWithBlobData.blobAsset;
+                    Assert.Throws<InvalidOperationException>(() => { blobAsset.GetUnsafePtr(); });
+                }
+                else
+                {
+                    ValidateBlobData(ref componentWithBlobData.blobAsset.Value);
+                }
+                componentWithBlobData.DidSucceed = true;
+            }
+        }
+        protected override void OnUpdate() {}
+    }
+#endif
     //@TODO: Test Prevent NativeArray and other containers inside of Blob data
     //@TODO: Test Prevent BlobPtr, BlobArray onto job struct
     //@TODO: Various tests trying to break the Allocator. eg. mix multiple BlobAllocator in the same BlobRoot...
@@ -137,6 +182,14 @@ public class BlobTests : ECSTestsFixture
     }
 
     [Test]
+    public void BlobNullComparison()
+    {
+        BlobAssetReference<int> defaultBlobAssetReference = default;
+        Assert.AreEqual(defaultBlobAssetReference.GetHashCode(), BlobAssetReference<int>.Null.GetHashCode());
+        Assert.AreEqual(defaultBlobAssetReference, BlobAssetReference<int>.Null);
+    }
+
+    [Test]
     public unsafe void CreateBlobData()
     {
         var blob = ConstructBlobData();
@@ -186,27 +239,13 @@ public class BlobTests : ECSTestsFixture
         new ConstructAccessAndDisposeBlobData().Schedule().Complete();
     }
 
-#if !UNITY_DOTSRUNTIME  // IJobForEach is deprecated
-#pragma warning disable 618
-    [BurstCompile(CompileSynchronously = true)]
-    struct AccessAndDisposeBlobDataBurst : IJobForEach<ComponentWithBlobData>
-    {
-        public void Execute(ref ComponentWithBlobData data)
-        {
-            ValidateBlobData(ref data.blobAsset.Value);
-            data.blobAsset.Dispose();
-            data.DidSucceed = true;
-        }
-    }
-#pragma warning restore 618
-
-
+#if !UNITY_DOTSRUNTIME
     [Test]
     public  void ReadAndDestroyBlobDataFromBurstJob()
     {
         var entities = CreateUniqueBlob();
 
-        new AccessAndDisposeBlobDataBurst().Schedule(EmptySystem).Complete();
+        _blobTestSystemEFE.ValidateBlobData_Job().Complete();
 
         foreach (var e in entities)
         {
@@ -215,41 +254,15 @@ public class BlobTests : ECSTestsFixture
         }
     }
 
-#pragma warning disable 618
-    struct ValidateBlobInComponentJob : IJobForEach<ComponentWithBlobData>
-    {
-        public bool ExpectException;
-
-        public unsafe void Execute(ref ComponentWithBlobData component)
-        {
-            if (ExpectException)
-            {
-                var blobAsset = component.blobAsset;
-                Assert.Throws<InvalidOperationException>(() => { blobAsset.GetUnsafePtr(); });
-            }
-            else
-            {
-                ValidateBlobData(ref component.blobAsset.Value);
-            }
-
-            component.DidSucceed = true;
-        }
-    }
-#pragma warning restore 618
-
-
     [Test]
     public unsafe void ParallelBlobAccessFromEntityJob()
     {
         var blob = CreateSharedBlob();
-
-        var jobData = new ValidateBlobInComponentJob();
-
-        var jobHandle = jobData.Schedule(EmptySystem);
+        var handle = _blobTestSystemIJobEntity.ValidateBlobInComponent();
 
         ValidateBlobData(ref blob.Value);
 
-        jobHandle.Complete();
+        handle.Complete();
 
         blob.Dispose();
     }
@@ -258,12 +271,9 @@ public class BlobTests : ECSTestsFixture
     public void DestroyedBlobAccessFromEntityJobThrows()
     {
         var blob = CreateSharedBlob();
-
         blob.Dispose();
-
-        var jobData = new ValidateBlobInComponentJob();
-        jobData.ExpectException = true;
-        jobData.Schedule(EmptySystem).Complete();
+        var handle = _blobTestSystemIJobEntity.ValidateBlobInComponent(expectException: true);
+        handle.Complete();
     }
 #endif
 
@@ -374,6 +384,71 @@ public class BlobTests : ECSTestsFixture
             AssertAlignment(blob.Value[x].intPointer.GetUnsafePtr(), 4);
             AssertAlignment(blob.Value[x].intArray.GetUnsafePtr(), 4);
         }
+
+        blob.Dispose();
+    }
+
+    struct AlignmentTest2
+    {
+        public BlobArray<byte> byteArray;
+        public BlobArray<int> intArray;
+    }
+
+    [Test]
+    public unsafe void AllocationWithOverriddenAlignmentWorks([Values(2, 4, 8, 16)] int alignment)
+    {
+        var builder = new BlobBuilder(Allocator.Temp);
+        ref var root = ref builder.ConstructRoot<BlobArray<AlignmentTest2>>();
+        var rootArray = builder.Allocate(ref root, 7);
+
+        for (int i = 0; i < 7; ++i)
+        {
+            builder.Allocate(ref rootArray[i].byteArray, 19+i, alignment);
+        }
+
+        var blob = builder.CreateBlobAssetReference<BlobArray<AlignmentTest2>>(Allocator.Temp);
+        builder.Dispose();
+
+        for (int i = 0; i < 7; ++i)
+        {
+            AssertAlignment(blob.Value[i].byteArray.GetUnsafePtr(), alignment);
+        }
+
+        blob.Dispose();
+    }
+
+    [Test]
+    public unsafe void AlignmentWorksWithAllocationLargerThanChunkSize()
+    {
+        var builder = new BlobBuilder(Allocator.Temp, 4096);
+        ref var root = ref builder.ConstructRoot<AlignmentTest2>();
+        Assert.AreEqual(4, UnsafeUtility.AlignOf<int>());
+
+        builder.Allocate(ref root.byteArray, 1);
+        builder.Allocate(ref root.intArray, 2000);
+
+        var blob = builder.CreateBlobAssetReference<AlignmentTest2>(Allocator.Temp);
+        builder.Dispose();
+
+        AssertAlignment(blob.Value.intArray.GetUnsafePtr(), 4);
+
+        blob.Dispose();
+    }
+
+    [Test]
+    public unsafe void UnalignedChunkSize_Doesnt_Break_Alignment()
+    {
+        var builder = new BlobBuilder(Allocator.Temp, 17);
+        ref var root = ref builder.ConstructRoot<AlignmentTest2>();
+        Assert.AreEqual(4, UnsafeUtility.AlignOf<int>());
+
+        builder.Allocate(ref root.byteArray, 1);
+        var intArray = builder.Allocate(ref root.intArray, 2000);
+
+        var blob = builder.CreateBlobAssetReference<AlignmentTest2>(Allocator.Temp);
+        builder.Dispose();
+
+        AssertAlignment(blob.Value.intArray.GetUnsafePtr(), 4);
 
         blob.Dispose();
     }
@@ -570,8 +645,8 @@ public class BlobTests : ECSTestsFixture
             var writer = new MemoryBinaryWriter();
             var blobBuilder = ConstructBlobBuilder();
             BlobAssetReference<MyData>.Write(writer, blobBuilder, kVersion);
-            Assert.IsFalse(BlobAssetReferenceTryReadVersion(new MemoryBinaryReader(writer.Data), kIncorrectVersion));
-            Assert.IsTrue(BlobAssetReferenceTryReadVersion(new MemoryBinaryReader(writer.Data), kVersion));
+            Assert.IsFalse(BlobAssetReferenceTryReadVersion(new MemoryBinaryReader(writer.Data, writer.Length), kIncorrectVersion));
+            Assert.IsTrue(BlobAssetReferenceTryReadVersion(new MemoryBinaryReader(writer.Data, writer.Length), kVersion));
         }
     }
 

@@ -54,15 +54,6 @@ namespace Unity.Entities.CodeGen
                 {
                     using (marker.CreateChildMarker("GetAllComponentTypes"))
                         componentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where(type => type.IsComponentSystem()).ToArray();
-
-                    using (marker.CreateChildMarker("InjectOnCreateForCompiler"))
-                    {
-                        foreach (var systemType in componentSystemTypes)
-                        {
-                            InjectOnCreateForCompiler(systemType);
-                            madeAnyChange = true;
-                        }
-                    }
                 }
                 catch (FoundErrorInUserCodeException e)
                 {
@@ -83,7 +74,7 @@ namespace Unity.Entities.CodeGen
                     }
                 }
 
-                var unmanagedComponentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where((x) => x.TypeImplements(typeof(ISystemBase))).ToArray();
+                var unmanagedComponentSystemTypes = assemblyDefinition.MainModule.GetAllTypes().Where((x) => x.TypeImplements(typeof(ISystem))).ToArray();
                 foreach (var postProcessor in postProcessors)
                 {
                     diagnostics.AddRange(postProcessor.PostProcessUnmanaged(assemblyDefinition, unmanagedComponentSystemTypes, out var madeChange));
@@ -119,35 +110,6 @@ namespace Unity.Entities.CodeGen
             }
         }
 
-        static void InjectOnCreateForCompiler(TypeDefinition typeDefinition)
-        {
-            // Turns out it's not trivial to inject some code that has to be run OnCreate of the system.
-            // We cannot just create an OnCreate() method, because there might be a deriving class that also implements it.
-            // That child method is probably not calling base.OnCreate(), but even when it is (!!) the c# compiler bakes base.OnCreate()
-            // into a direct reference to whatever is the first baseclass to have OnCreate() at the time of compilation.  So if we go
-            // and inject an OnCreate() in this class later on,  the child's base.OnCreate() call will actually bypass it.
-            //
-            // Instead what we do is add OnCreateForCompiler,  hide it from intellisense, give you an error if wanna be that guy that goes
-            // and implement it anyway,  and then we inject a OnCreateForCompiler method into each and every ComponentSystem.  The reason we have to emit it in
-            // each and every system, and not just the ones where we have something to inject,  is that when we emit these method, we need
-            // to also emit base.OnCreateForCompiler().  However, when we are processing an user system type,  we do not know yet if its baseclass
-            // also needs an OnCreateForCompiler().   So we play it safe, and assume it does.  So every OnCreateForCompiler() that we emit,
-            // will assume its basetype also has an implementation and invoke that.
-
-            if (typeDefinition.Name == nameof(ComponentSystemBase) && typeDefinition.Namespace == "Unity.Entities") return;
-
-            var onCreateForCompilerName = EntitiesILHelpers.GetOnCreateForCompilerName();
-            var preExistingMethod = typeDefinition.Methods.FirstOrDefault(m => m.Name == onCreateForCompilerName);
-
-            // Disable for now to allow for source generated onCreateForCompilerName methods
-#if !ROSLYN_SOURCEGEN_ENABLED
-            if (preExistingMethod != null)
-                UserError.DC0026($"It's not allowed to implement {onCreateForCompilerName}'", preExistingMethod).Throw();
-#endif
-
-            EntitiesILHelpers.GetOrMakeOnCreateForCompilerMethodFor(typeDefinition);
-        }
-
         public override ILPostProcessor GetInstance()
         {
             return this;
@@ -173,7 +135,7 @@ namespace Unity.Entities.CodeGen
                 return true;
             }
 
-            if (compiledAssembly.Name.EndsWith("CodeGen.Tests"))
+            if (compiledAssembly.Name.EndsWith("CodeGen.Tests", StringComparison.Ordinal))
                 return false;
 
             for (int i = 0;
@@ -227,9 +189,6 @@ namespace Unity.Entities.CodeGen
 
             public AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters)
             {
-#if !UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
-                lock (_cache)
-#endif
                 {
                     if (name.Name == _compiledAssembly.Name)
                         return _selfAssembly;
@@ -239,10 +198,6 @@ namespace Unity.Entities.CodeGen
                         return null;
 
                     var cacheKey = fileName;
-#if !UNITY_2020_2_OR_NEWER && !UNITY_DOTSRUNTIME
-                    var lastWriteTime = File.GetLastWriteTime(fileName);
-                    cacheKey += lastWriteTime.ToString();
-#endif
 
                     if (_cache.TryGetValue(cacheKey, out var result))
                         return result;

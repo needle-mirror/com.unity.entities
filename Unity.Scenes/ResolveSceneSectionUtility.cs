@@ -1,204 +1,205 @@
 using System;
+using System.Diagnostics;
 using Unity.Assertions;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Entities.Serialization;
+
 #if UNITY_DOTSRUNTIME
-using Unity.Tiny.IO;
+using Unity.Runtime.IO;
 #endif
 
 namespace Unity.Scenes
 {
-    public static class ResolveSceneSectionUtility
+    internal struct ResolveSceneSectionArchetypes
     {
-#if UNITY_DOTSRUNTIME
-        internal static void RequestLoadAndPollSceneMetaData(EntityManager EntityManager, Entity sceneEntity, Hash128 sceneGUID)
+        public EntityArchetype SectionEntityRequestLoad;
+        public EntityArchetype SectionEntityNoLoad;
+    }
+
+    internal static class ResolveSceneSectionUtility
+    {
+        internal static ResolveSceneSectionArchetypes CreateResolveSceneSectionArchetypes(EntityManager manager)
         {
-            var sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
-
-            RequestSceneHeader requestSceneHeader;
-            if (!EntityManager.HasComponent<RequestSceneHeader>(sceneEntity))
+            return new ResolveSceneSectionArchetypes
             {
-                requestSceneHeader.IOHandle = IOService.RequestAsyncRead(sceneHeaderPath).m_Handle;
-                EntityManager.AddComponentData(sceneEntity, requestSceneHeader);
-            }
-            else
-                requestSceneHeader = EntityManager.GetComponentData< RequestSceneHeader>(sceneEntity);
+                SectionEntityRequestLoad = manager.CreateArchetype(
+                    typeof(RequestSceneLoaded),
+                     typeof(SceneSectionData),
+                    typeof(SceneBoundingVolume),
+                    typeof(SceneEntityReference),
+                    typeof(ResolvedSectionPath)),
+                SectionEntityNoLoad = manager.CreateArchetype(
+                    typeof(SceneSectionData),
+                    typeof(SceneBoundingVolume),
+                    typeof(SceneEntityReference),
+                    typeof(ResolvedSectionPath))
+            };
+        }
 
-            var asyncOp = new AsyncOp() { m_Handle = requestSceneHeader.IOHandle };
-            var sceneHeaderStatus = asyncOp.GetStatus();
-            if (sceneHeaderStatus <= AsyncOp.Status.InProgress)
-                return;
+#if !UNITY_DOTSRUNTIME
+        internal static bool ResolveSceneSections(EntityManager manager, Entity sceneEntity, Hash128 sceneGUID, RequestSceneLoaded requestSceneLoaded, Hash128 artifactHash, string sceneLoadDir)
+        {
+            var bufLen = manager.AddBuffer<ResolvedSectionEntity>(sceneEntity).Length;
+            manager.AddComponentData(sceneEntity, new ResolvedSceneHash { ArtifactHash = artifactHash });
 
-            if (sceneHeaderStatus != AsyncOp.Status.Success)
-            {
-                Debug.LogError($"Loading Entity Scene failed because the entity header file could not be read: guid={sceneGUID}.");
-            }
+#if UNITY_EDITOR
+            AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out var paths);
+            var sceneHeaderPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesHeader);
+#else
+            var sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1, sceneLoadDir);
+#endif
+            if (!ReadHeader(sceneHeaderPath, out var sceneMetaData, sceneGUID, out var headerBlobOwner))
+                return false;
+            var sectionPaths = new UnsafeList<ResolvedSectionPath>(sceneMetaData.Value.Sections.Length, Allocator.Temp);
 
-            // Even if the file doesn't exist we want to stop continously trying to load the scene metadata
-            EntityManager.AddComponentData(sceneEntity, new SceneMetaDataLoaded() { Success = sceneHeaderStatus == AsyncOp.Status.Success });
+#if UNITY_EDITOR
+            SceneHeaderUtility.BuildSectionPaths(ref sectionPaths, ref sceneMetaData.Value, paths);
+#else
+            SceneHeaderUtility.BuildSectionPathsForAssetBundles(ref sectionPaths, ref sceneMetaData.Value, sceneGUID, sceneLoadDir);
+#endif
+
+            var resolveSceneSectionArchetypes = CreateResolveSceneSectionArchetypes(manager);
+
+            return ResolveSceneSections(manager, sceneEntity, requestSceneLoaded, ref sceneMetaData.Value, resolveSceneSectionArchetypes, sectionPaths, headerBlobOwner);
         }
 #endif
-        public unsafe static bool ResolveSceneSections(EntityManager EntityManager, Entity sceneEntity, Hash128 sceneGUID, RequestSceneLoaded requestSceneLoaded, Hash128 artifactHash)
+
+        internal static unsafe bool ResolveSceneSections(EntityManager entityManager, Entity sceneEntity, RequestSceneLoaded requestSceneLoaded, ref SceneMetaData sceneMetaData, ResolveSceneSectionArchetypes sectionArchetypes, UnsafeList<ResolvedSectionPath> sectionPaths, BlobAssetOwner headerBlobOwner)
         {
-            // Resolve first (Even if the file doesn't exist we want to stop continously trying to load the section)
-            var bufLen = EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity).Length;
-            Assert.AreEqual(0, bufLen);
-
-            var sceneHeaderPath = "";
-#if UNITY_EDITOR
-            string[] paths = null;
-#endif
-
-            bool useStreamingAssetPath = true;
-#if !UNITY_DOTSRUNTIME
-            useStreamingAssetPath = SceneBundleHandle.UseAssetBundles;
-#endif
-            if (useStreamingAssetPath)
-            {
-                sceneHeaderPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesHeader, -1);
-            }
-            else
-            {
-#if UNITY_EDITOR
-                AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out paths);
-                sceneHeaderPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesHeader);
-#endif
-            }
-
-            EntityManager.AddComponentData(sceneEntity, new ResolvedSceneHash { ArtifactHash = artifactHash });
-
-            var group = EntityManager.AddBuffer<LinkedEntityGroup>(sceneEntity);
-            Assert.AreEqual(0, group.Length);
-            group.Add(sceneEntity);
-
-            // @TODO: AsyncReadManager currently crashes with empty path.
-            //        It should be possible to remove this after that is fixed.
-            if (String.IsNullOrEmpty(sceneHeaderPath))
-            {
-#if UNITY_EDITOR
-                var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneGUID);
-                var logPath = System.IO.Path.GetFullPath(System.IO.Path.Combine(UnityEngine.Application.dataPath, "../Logs"));
-                Debug.LogError($"Loading Entity Scene failed because the entity header file couldn't be resolved. This might be caused by a failed import of the entity scene. Please take a look at the SubScene MonoBehaviour that references this scene or at the asset import worker log in {logPath}. scenePath={scenePath} guid={sceneGUID}");
-#else
-                Debug.LogError($"Loading Entity Scene failed because the entity header file couldn't be resolved: guid={sceneGUID}.");
-#endif
-                return false;
-            }
-
-#if !UNITY_DOTSRUNTIME
-            if (!BlobAssetReference<SceneMetaData>.TryRead(sceneHeaderPath, SceneMetaDataSerializeUtility.CurrentFileFormatVersion, out var sceneMetaDataRef))
-            {
-#if UNITY_EDITOR
-                Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: guid={sceneGUID} path={sceneHeaderPath}");
-#else
-                Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: {sceneGUID}\nNOTE: In order to load SubScenes in the player you have to use the new BuildConfiguration asset based workflow to build & run your player.\n{sceneHeaderPath}");
-#endif
-                return false;
-            }
-#else
-            Assert.IsTrue(EntityManager.HasComponent<RequestSceneHeader>(sceneEntity), "You may only resolve a scene if the entity has a RequestSceneHeader component");
-            Assert.IsTrue(EntityManager.HasComponent<SceneMetaDataLoaded>(sceneEntity), "You may only resolve a scene if the entity has a SceneMetaDataLoaded component");
-            var sceneMetaDataLoaded = EntityManager.GetComponentData<SceneMetaDataLoaded>(sceneEntity);
-            if (!sceneMetaDataLoaded.Success)
-                return false;
-
-            var requestSceneHeader = EntityManager.GetComponentData<RequestSceneHeader>(sceneEntity);
-            var sceneMetaDataRef = default(BlobAssetReference<SceneMetaData>);
-            var asyncOp = new AsyncOp() { m_Handle = requestSceneHeader.IOHandle };
-            using (asyncOp)
-            {
-                unsafe
-                {
-                    asyncOp.GetData(out var sceneData, out var sceneDataSize);
-
-                    if (!BlobAssetReference<SceneMetaData>.TryRead(sceneData, SceneMetaDataSerializeUtility.CurrentFileFormatVersion, out sceneMetaDataRef))
-                    {
-                        Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: {sceneGUID}\nNOTE: In order to load SubScenes in the player you have to use the new BuildConfiguration asset based workflow to build & run your player.\n{sceneHeaderPath}");
-                        return false;
-                    }
-                }
-            }
-#endif
-
-            ref var sceneMetaData = ref sceneMetaDataRef.Value;
-
 #if UNITY_EDITOR
             var sceneName = sceneMetaData.SceneName.ToString();
-            EntityManager.SetName(sceneEntity, $"Scene: {sceneName}");
+            entityManager.SetName(sceneEntity, $"Scene: {sceneName}");
 #endif
+            // Resolve first (Even if the file doesn't exist we want to stop continuously trying to load the section)
+             entityManager.AddComponents(sceneEntity, new ComponentTypes(typeof(ResolvedSectionEntity), typeof(LinkedEntityGroup)));
+             entityManager.GetBuffer<LinkedEntityGroup>(sceneEntity).Add(sceneEntity);
 
             // If auto-load is enabled
             var loadSections = (requestSceneLoaded.LoadFlags & SceneLoadFlags.DisableAutoLoad) == 0;
 
+            var sectionCount = sceneMetaData.Sections.Length;
+            var sectionEntities = new NativeArray<Entity>(sectionCount, Allocator.Temp);
+            entityManager.CreateEntity(loadSections ? sectionArchetypes.SectionEntityRequestLoad : sectionArchetypes.SectionEntityNoLoad, sectionEntities);
+            var sectionEntitiesBuffer = entityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
+            sectionEntitiesBuffer.AddRange(sectionEntities.Reinterpret<ResolvedSectionEntity>());
+
             for (int i = 0; i != sceneMetaData.Sections.Length; i++)
             {
-                var sectionEntity = EntityManager.CreateEntity();
+                var sectionEntity = sectionEntities[i];
                 var sectionIndex = sceneMetaData.Sections[i].SubSectionIndex;
 #if UNITY_EDITOR
-                EntityManager.SetName(sectionEntity, $"SceneSection: {sceneName} ({sectionIndex})");
+                entityManager.SetName(sectionEntity, $"SceneSection: {sceneName} ({sectionIndex})");
 #endif
 
                 if (loadSections)
                 {
-                    EntityManager.AddComponentData(sectionEntity, requestSceneLoaded);
+                    entityManager.SetComponentData(sectionEntity, requestSceneLoaded);
                 }
 
-                EntityManager.AddComponentData(sectionEntity, sceneMetaData.Sections[i]);
-                EntityManager.AddComponentData(sectionEntity, new SceneBoundingVolume { Value = sceneMetaData.Sections[i].BoundingVolume });
-                EntityManager.AddComponentData(sectionEntity, new SceneEntityReference { SceneEntity = sceneEntity });
-                if (EntityManager.HasComponent<SceneTag>(sceneEntity))
-                    EntityManager.AddSharedComponentData(sectionEntity, EntityManager.GetSharedComponentData<SceneTag>(sceneEntity));
+                entityManager.SetComponentData(sectionEntity, sceneMetaData.Sections[i]);
+                entityManager.SetComponentData(sectionEntity, new SceneBoundingVolume { Value = sceneMetaData.Sections[i].BoundingVolume });
+                entityManager.SetComponentData(sectionEntity, new SceneEntityReference { SceneEntity = sceneEntity });
+                entityManager.SetComponentData(sectionEntity, sectionPaths[i]);
 
-                var hybridPath = "";
-                var scenePath = "";
-                var sectionPath = new ResolvedSectionPath();
+                entityManager.AddSharedComponentData(sectionEntity, headerBlobOwner);
 
-                if (useStreamingAssetPath)
-                {
-                    hybridPath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesUnityObjectReferencesBundle, sectionIndex);
-                    scenePath = EntityScenesPaths.GetLoadPath(sceneGUID, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
-                }
-                else
-                {
-#if UNITY_EDITOR
-                    scenePath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesBinary, sectionIndex);
-                    hybridPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(paths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, sectionIndex);
-#endif
-                }
+                AddSectionMetadataComponents(sectionEntity, ref sceneMetaData.SceneSectionCustomMetadata[i], entityManager);
 
-                sectionPath.ScenePath.SetString(scenePath);
-                if (hybridPath != null)
-                    sectionPath.HybridPath.SetString(hybridPath);
-
-                EntityManager.AddComponentData(sectionEntity, sectionPath);
-
-#if UNITY_EDITOR
-                if (EntityManager.HasComponent<SubScene>(sceneEntity))
-                    EntityManager.AddComponentObject(sectionEntity, EntityManager.GetComponentObject<SubScene>(sceneEntity));
-#endif
-
-                AddSectionMetadataComponents(sectionEntity, ref sceneMetaData.SceneSectionCustomMetadata[i], EntityManager);
-
-                var buffer = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);
-                buffer.Add(new ResolvedSectionEntity { SectionEntity = sectionEntity });
                 if (sceneMetaData.Dependencies.Length > 0)
                 {
                     ref var deps = ref sceneMetaData.Dependencies[i];
                     if (deps.Length > 0)
                     {
-                        var bundleSet = EntityManager.AddBuffer<BundleElementData>(sectionEntity);
+                        var bundleSet = entityManager.AddBuffer<BundleElementData>(sectionEntity);
                         bundleSet.ResizeUninitialized(deps.Length);
                         UnsafeUtility.MemCpy(bundleSet.GetUnsafePtr(), deps.GetUnsafePtr(), sizeof(Hash128) * deps.Length);
                     }
                 }
-                var linkedEntityGroup = EntityManager.GetBuffer<LinkedEntityGroup>(sceneEntity);
+                var linkedEntityGroup = entityManager.GetBuffer<LinkedEntityGroup>(sceneEntity);
                 linkedEntityGroup.Add(new LinkedEntityGroup { Value = sectionEntity });
             }
-            sceneMetaDataRef.Dispose();
-
+            sectionEntities.Dispose();
             return true;
         }
 
+#if !UNITY_DOTSRUNTIME
+        internal static unsafe bool ReadHeader(string sceneHeaderPath, out BlobAssetReference<SceneMetaData> sceneMetaDataRef, Hash128 sceneGUID) =>
+            ReadHeader(sceneHeaderPath, out sceneMetaDataRef, sceneGUID, out _, false);
+
+        internal static unsafe bool ReadHeader(string sceneHeaderPath, out BlobAssetReference<SceneMetaData> sceneMetaDataRef, Hash128 sceneGUID, out BlobAssetOwner headerBlobOwner, bool readBlobAssetHeader = true)
+        {
+            headerBlobOwner = default;
+            if (string.IsNullOrEmpty(sceneHeaderPath))
+            {
+                sceneMetaDataRef = default;
+                SceneHeaderUtility.LogHeaderLoadError(SceneHeaderUtility.HeaderLoadStatus.MissingFile, sceneGUID);
+                return false;
+            }
+
+            using (var binaryReader = new StreamBinaryReader(sceneHeaderPath, 16*1024))
+            {
+                if (!BlobAssetReference<SceneMetaData>.TryRead(binaryReader, SceneMetaDataSerializeUtility.CurrentFileFormatVersion, out sceneMetaDataRef))
+                {
+#if UNITY_EDITOR
+                    Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: guid={sceneGUID} path={sceneHeaderPath}");
+#else
+                    Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: {sceneGUID}\nNOTE: In order to load SubScenes in the player you have to use the new BuildConfiguration asset based workflow to build & run your player.\n{sceneHeaderPath}");
+#endif
+                }
+
+                if (readBlobAssetHeader)
+                {
+                    //Load header blob batch
+                    var dataSize = sceneMetaDataRef.Value.HeaderBlobAssetBatchSize;
+                    void* blobAssetBatch = Memory.Unmanaged.Allocate(dataSize, 16, Allocator.Persistent);
+                    binaryReader.ReadBytes(blobAssetBatch, dataSize);
+                    headerBlobOwner =  new BlobAssetOwner(blobAssetBatch, dataSize);
+                }
+            }
+
+
+            if (readBlobAssetHeader)
+            {
+                for (int i = 0; i < sceneMetaDataRef.Value.Sections.Length; ++i)
+                {
+                    sceneMetaDataRef.Value.Sections[i].BlobHeader =
+                        sceneMetaDataRef.Value.Sections[i].BlobHeader.Resolve(headerBlobOwner);
+                }
+            }
+            return true;
+        }
+#else
+        internal static unsafe bool ReadHeader(byte* data, long length, out BlobAssetReference<SceneMetaData> sceneMetaDataRef, Hash128 sceneGUID, out BlobAssetOwner headerBlobOwner)
+        {
+            headerBlobOwner = default;
+
+            var binaryReader = new MemoryBinaryReader(data, length);
+            var storedVersion = binaryReader.ReadInt();
+            if (storedVersion != SceneMetaDataSerializeUtility.CurrentFileFormatVersion)
+            {
+                sceneMetaDataRef = default;
+                Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: {sceneGUID}\nNOTE: In order to load SubScenes in the player you have to use the new BuildConfiguration asset based workflow to build & run your player.");
+                return false;
+            }
+
+            sceneMetaDataRef = binaryReader.Read<SceneMetaData>();
+
+            //Load header blob batch
+            var dataSize = sceneMetaDataRef.Value.HeaderBlobAssetBatchSize;
+            void* blobAssetBatch = Memory.Unmanaged.Allocate(dataSize, 16, Allocator.Persistent);
+
+            binaryReader.ReadBytes(blobAssetBatch, dataSize);
+            headerBlobOwner =  new BlobAssetOwner(blobAssetBatch, dataSize);
+
+            for(int i=0;i<sceneMetaDataRef.Value.Sections.Length;++i)
+            {
+                sceneMetaDataRef.Value.Sections[i].BlobHeader = sceneMetaDataRef.Value.Sections[i].BlobHeader.Resolve(headerBlobOwner);
+            }
+            return true;
+        }
+#endif
         internal static unsafe void AddSectionMetadataComponents(Entity sectionEntity, ref BlobArray<SceneSectionCustomMetadata> sectionMetaDataArray, EntityManager entityManager)
         {
             // Deserialize the SceneSection custom metadata

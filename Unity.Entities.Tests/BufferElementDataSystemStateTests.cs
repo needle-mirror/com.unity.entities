@@ -290,7 +290,7 @@ namespace Unity.Entities.Tests
 
             var group = m_Manager.CreateEntityQuery(typeof(EcsIntStateElement));
 
-            var chunks = group.CreateArchetypeChunkArray(Allocator.TempJob);
+            var chunks = group.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             var buffers = chunks[0].GetBufferAccessor(m_Manager.GetBufferTypeHandle<EcsIntStateElement>(false));
 
             Assert.AreEqual(2, buffers.Length);
@@ -307,8 +307,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(13, buffers[0][1].Value);
 
             Assert.AreEqual(0, buffers[1].Length);
-
-            chunks.Dispose();
         }
 
         [Test]

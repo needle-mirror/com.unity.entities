@@ -167,7 +167,7 @@ namespace Unity.Entities.CodeGen
 
         public static bool IsDynamicArray(this TypeReference type)
         {
-            return type.Name.StartsWith("DynamicArray`");
+            return type.Name.StartsWith("DynamicArray`", StringComparison.Ordinal);
         }
 
         public static ulong CalculateStableTypeHash(this TypeReference typeRef)

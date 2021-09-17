@@ -2,11 +2,12 @@ using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
+using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
     [TestFixture]
-    class EntityQueryDelta : ECSTestsFixture
+    partial class EntityQueryDelta : ECSTestsFixture
     {
         private static Entity[] nothing = {};
         // * TODO: using out of date version cached ComponentDataArray should give exception... (We store the System order version in it...)
@@ -27,12 +28,11 @@ namespace Unity.Entities.Tests
                 var group = GetEntityQuery(typeof(EcsTestData));
                 group.SetChangedVersionFilter(typeof(EcsTestData));
 
-                var actualEntityArray = group.ToEntityArray(Allocator.TempJob);
+                var actualEntityArray = group.ToEntityArray(World.UpdateAllocator.ToAllocator);
                 var systemVersion = GlobalSystemVersion;
                 var lastSystemVersion = LastSystemVersion;
 
                 CollectionAssert.AreEqual(Expected, actualEntityArray);
-                actualEntityArray.Dispose();
             }
 
             public void UpdateExpectedResults(Entity[] expected)
@@ -41,7 +41,6 @@ namespace Unity.Entities.Tests
                 Update();
             }
         }
-
 
         [Test]
         public void CreateEntityTriggersChange()
@@ -74,7 +73,7 @@ namespace Unity.Entities.Tests
         unsafe void SetValue(int index, int value, ChangeMode mode)
         {
             EmptySystem.Update();
-            var entityArray = EmptySystem.GetEntityQuery(typeof(EcsTestData)).ToEntityArray(Allocator.TempJob);
+            var entityArray = EmptySystem.GetEntityQuery(typeof(EcsTestData)).ToEntityArray(World.UpdateAllocator.ToAllocator);
             var entity = entityArray[index];
 
             if (mode == ChangeMode.SetComponentData)
@@ -87,15 +86,13 @@ namespace Unity.Entities.Tests
                 var array = EmptySystem.GetComponentDataFromEntity<EcsTestData>(false);
                 array[entity] = new EcsTestData(value);
             }
-
-            entityArray.Dispose();
         }
 
         // Running GetValue should not trigger any changes to chunk version.
         void GetValue(ChangeMode mode)
         {
             EmptySystem.Update();
-            var entityArray = EmptySystem.GetEntityQuery(typeof(EcsTestData)).ToEntityArray(Allocator.TempJob);
+            var entityArray = EmptySystem.GetEntityQuery(typeof(EcsTestData)).ToEntityArray(World.UpdateAllocator.ToAllocator);
 
             if (mode == ChangeMode.SetComponentData)
             {
@@ -107,7 +104,6 @@ namespace Unity.Entities.Tests
                 for (int i = 0; i != entityArray.Length; i++)
                     m_Manager.GetComponentData<EcsTestData>(entityArray[i]);
             }
-            entityArray.Dispose();
         }
 
         [Test]
@@ -197,24 +193,16 @@ namespace Unity.Entities.Tests
         }
 
 #if !UNITY_DOTSRUNTIME
-        public class DeltaProcessComponentSystem : JobComponentSystem
+        public partial class DeltaProcessComponentSystem : SystemBase
         {
-#pragma warning disable 618
-            struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
+            protected override void OnUpdate()
             {
-                public void Execute([ChangedFilter][Collections.ReadOnly] ref EcsTestData input, ref EcsTestData2 output)
+                Entities.ForEach((ref EcsTestData2 output, in EcsTestData input) =>
                 {
                     output.value0 += input.value + 100;
-                }
-            }
-#pragma warning restore 618
-
-            protected override JobHandle OnUpdate(JobHandle deps)
-            {
-                return new DeltaJob().Schedule(this, deps);
+                }).Schedule();
             }
         }
-
 
         [Test]
         public void IJobProcessComponentDeltaWorks()
@@ -244,21 +232,14 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData2>(entity1).value0);
         }
 
-        public class DeltaProcessComponentSystemUsingRun : ComponentSystem
+        public partial class DeltaProcessComponentSystemUsingRun : SystemBase
         {
-#pragma warning disable 618
-            struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
-            {
-                public void Execute([ChangedFilter][Collections.ReadOnly] ref EcsTestData input, ref EcsTestData2 output)
-                {
-                    output.value0 += input.value + 100;
-                }
-            }
-#pragma warning restore 618
-
             protected override void OnUpdate()
             {
-                new DeltaJob().Run(this);
+                Entities.WithChangeFilter<EcsTestData>().ForEach((ref EcsTestData2 output, in EcsTestData input) =>
+                {
+                    output.value0 += input.value + 100;
+                }).Run();
             }
         }
 
@@ -288,80 +269,31 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData2>(entity1).value0);
         }
 
-#if false
-        [Test]
-        public void IJobProcessComponentDeltaWorksWhenSetSharedComponent()
+        public partial class ModifyComponentSystem1Comp : SystemBase
         {
-            var entity0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedComp));
-            var entity1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
-
-            var deltaSystem = World.CreateManager<DeltaProcessComponentSystem>();
-
-            SetValue(0, 2, ChangeMode.SetComponentData);
-            m_Manager.SetSharedComponentData(entity0, new EcsTestSharedComp(50));
-
-            deltaSystem.Update();
-
-            Assert.AreEqual(100 + 2, m_Manager.GetComponentData<EcsTestData2>(entity0).value0);
-            Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData2>(entity1).value0);
-        }
-
-#endif
-
-        public class ModifyComponentSystem1Comp : JobComponentSystem
-        {
-            public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-#pragma warning disable 618
-            struct DeltaJob : IJobForEach<EcsTestData>
+            protected override void OnUpdate()
             {
-                public void Execute(ref EcsTestData data)
+                Entities.WithSharedComponentFilter(m_sharedComp).ForEach((ref EcsTestData data) =>
                 {
                     data = new EcsTestData(100);
-                }
-            }
-#pragma warning restore 618
-
-            protected override JobHandle OnUpdate(JobHandle deps)
-            {
-                m_Group = GetEntityQuery(
-                    typeof(EcsTestData),
-                    ComponentType.ReadOnly(typeof(EcsTestSharedComp)));
-
-                m_Group.SetSharedComponentFilter(m_sharedComp);
-
-                DeltaJob job = new DeltaJob();
-                return job.Schedule(m_Group, deps);
+                }).Schedule();
             }
         }
 
-        public class DeltaModifyComponentSystem1Comp : JobComponentSystem
+        public partial class DeltaModifyComponentSystem1Comp : SystemBase
         {
-#pragma warning disable 618
-            struct DeltaJobFirstRunAfterCreation : IJobForEach<EcsTestData>
-            {
-                public void Execute([ChangedFilter] ref EcsTestData output)
-                {
-                    output.value = 0;
-                }
-            }
-            struct DeltaJob : IJobForEach<EcsTestData>
-            {
-                public void Execute([ChangedFilter] ref EcsTestData output)
-                {
-                    output.value += 150;
-                }
-            }
-#pragma warning restore 618
-
-            protected override JobHandle OnUpdate(JobHandle deps)
+            protected override void OnUpdate()
             {
                 if (LastSystemVersion == 0)
                 {
-                    return new DeltaJobFirstRunAfterCreation().Schedule(this, deps);
+                    Entities.WithChangeFilter<EcsTestData>().ForEach((ref EcsTestData output) => { output.value = 0; }).Schedule();
                 }
-                return new DeltaJob().Schedule(this, deps);
+                else
+                {
+                    Entities.WithChangeFilter<EcsTestData>().ForEach((ref EcsTestData output) => { output.value += 150; }).Schedule();
+                }
             }
         }
 
@@ -372,20 +304,20 @@ namespace Unity.Entities.Tests
             var entities = new NativeArray<Entity>(10000, Allocator.Persistent);
             m_Manager.CreateEntity(archetype, entities);
 
-            var modifSystem = World.CreateSystem<ModifyComponentSystem1Comp>();
+            var modifySystem = World.CreateSystem<ModifyComponentSystem1Comp>();
             var deltaSystem = World.CreateSystem<DeltaModifyComponentSystem1Comp>();
 
             // First update of chunks after creation.
-            modifSystem.Update();
+            modifySystem.Update();
             deltaSystem.Update();
 
-            modifSystem.m_sharedComp = new EcsTestSharedComp(456);
+            modifySystem.m_sharedComp = new EcsTestSharedComp(456);
             for (int i = 123; i < entities.Length; i += 345)
             {
-                m_Manager.SetSharedComponentData(entities[i], modifSystem.m_sharedComp);
+                m_Manager.SetSharedComponentData(entities[i], modifySystem.m_sharedComp);
             }
 
-            modifSystem.Update();
+            modifySystem.Update();
             deltaSystem.Update();
 
             foreach (var entity in entities)
@@ -399,71 +331,25 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(entity).value);
                 }
             }
-
             entities.Dispose();
         }
 
-        public class ModifyComponentSystem2Comp : JobComponentSystem
+        public partial class ModifyComponentSystem2Comp : SystemBase
         {
-            public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-#pragma warning disable 618
-            struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2>
+            protected override void OnUpdate()
             {
-                public void Execute(ref EcsTestData data, ref EcsTestData2 data2)
+                Entities.WithSharedComponentFilter(m_sharedComp).ForEach((ref EcsTestData data, ref EcsTestData2 data2) =>
                 {
                     data = new EcsTestData(100);
                     data2 = new EcsTestData2(102);
-                }
-            }
-#pragma warning restore 618
-
-            protected override JobHandle OnUpdate(JobHandle deps)
-            {
-                m_Group = GetEntityQuery(
-                    typeof(EcsTestData),
-                    typeof(EcsTestData2),
-                    ComponentType.ReadOnly(typeof(EcsTestSharedComp)));
-
-                m_Group.SetSharedComponentFilter(m_sharedComp);
-
-                DeltaJob job = new DeltaJob();
-                return job.Schedule(m_Group, deps);
+                }).Schedule();
             }
         }
 
-        public class DeltaModifyComponentSystem2Comp : JobComponentSystem
+        public partial class DeltaModifyComponentSystem2Comp : SystemBase
         {
-#pragma warning disable 618
-            struct DeltaJobFirstRunAfterCreation : IJobForEach<EcsTestData, EcsTestData2>
-            {
-                public void Execute(ref EcsTestData output, ref EcsTestData2 output2)
-                {
-                    output.value = 0;
-                    output2.value0 = 0;
-                }
-            }
-
-            struct DeltaJobChanged0 : IJobForEach<EcsTestData, EcsTestData2>
-            {
-                public void Execute([ChangedFilter] ref EcsTestData output, ref EcsTestData2 output2)
-                {
-                    output.value += 150;
-                    output2.value0 += 152;
-                }
-            }
-
-            struct DeltaJobChanged1 : IJobForEach<EcsTestData, EcsTestData2>
-            {
-                public void Execute(ref EcsTestData output, [ChangedFilter] ref EcsTestData2 output2)
-                {
-                    output.value += 150;
-                    output2.value0 += 152;
-                }
-            }
-#pragma warning restore 618
-
             public enum Variant
             {
                 FirstComponentChanged,
@@ -472,21 +358,37 @@ namespace Unity.Entities.Tests
 
             public Variant variant;
 
-            protected override JobHandle OnUpdate(JobHandle deps)
+            protected override void OnUpdate()
             {
                 if (LastSystemVersion == 0)
                 {
-                    return new DeltaJobFirstRunAfterCreation().Schedule(this, deps);
+                    Entities.ForEach((ref EcsTestData output, ref EcsTestData2 output2) =>
+                    {
+                        output.value = 0;
+                        output2.value0 = 0;
+                    }).Schedule();
                 }
-                switch (variant)
+                else
                 {
-                    case Variant.FirstComponentChanged:
-                        return new DeltaJobChanged0().Schedule(this, deps);
-                    case Variant.SecondComponentChanged:
-                        return new DeltaJobChanged1().Schedule(this, deps);
+                    switch (variant)
+                    {
+                        case Variant.FirstComponentChanged:
+                            Entities.WithChangeFilter<EcsTestData>().ForEach((ref EcsTestData output, ref EcsTestData2 output2) =>
+                            {
+                                output.value += 150;
+                                output2.value0 += 152;
+                            }).Schedule();
+                            return;
+                        case Variant.SecondComponentChanged:
+                            Entities.WithChangeFilter<EcsTestData2>().ForEach((ref EcsTestData output, ref EcsTestData2 output2) =>
+                            {
+                                output.value += 150;
+                                output2.value0 += 152;
+                            }).Schedule();
+                            return;
+                    }
+                    throw new NotImplementedException();
                 }
-
-                throw new NotImplementedException();
             }
         }
 
@@ -532,72 +434,25 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-        public class ModifyComponentSystem3Comp : JobComponentSystem
+        public partial class ModifyComponentSystem3Comp : SystemBase
         {
-            public EntityQuery m_Group;
             public EcsTestSharedComp m_sharedComp;
 
-#pragma warning disable 618
-            struct DeltaJob : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
+            protected override void OnUpdate()
             {
-                public void Execute(ref EcsTestData data, ref EcsTestData2 data2, ref EcsTestData3 data3)
-                {
-                    data = new EcsTestData(100);
-                    data2 = new EcsTestData2(102);
-                    data3 = new EcsTestData3(103);
-                }
-            }
-#pragma warning restore 618
-
-            protected override JobHandle OnUpdate(JobHandle deps)
-            {
-                m_Group = GetEntityQuery(
-                    typeof(EcsTestData),
-                    typeof(EcsTestData2),
-                    typeof(EcsTestData3),
-                    ComponentType.ReadOnly(typeof(EcsTestSharedComp)));
-
-                m_Group.SetSharedComponentFilter(m_sharedComp);
-
-                DeltaJob job = new DeltaJob();
-                return job.Schedule(m_Group, deps);
+                Entities
+                    .WithSharedComponentFilter(m_sharedComp)
+                    .ForEach((ref EcsTestData data, ref EcsTestData2 data2, ref EcsTestData3 data3) =>
+                    {
+                        data = new EcsTestData(100);
+                        data2 = new EcsTestData2(102);
+                        data3 = new EcsTestData3(103);
+                    }).Schedule();
             }
         }
 
-        public class DeltaModifyComponentSystem3Comp : JobComponentSystem
+        public partial class DeltaModifyComponentSystem3Comp : SystemBase
         {
-#pragma warning disable 618
-            struct DeltaJobChanged0 : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
-            {
-                public void Execute([ChangedFilter] ref EcsTestData output, ref EcsTestData2 output2, ref EcsTestData3 output3)
-                {
-                    output.value += 150;
-                    output2.value0 += 152;
-                    output3.value0 += 153;
-                }
-            }
-
-            struct DeltaJobChanged1 : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
-            {
-                public void Execute(ref EcsTestData output, [ChangedFilter] ref EcsTestData2 output2, ref EcsTestData3 output3)
-                {
-                    output.value += 150;
-                    output2.value0 += 152;
-                    output3.value0 += 153;
-                }
-            }
-
-            struct DeltaJobChanged2 : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
-            {
-                public void Execute(ref EcsTestData output, ref EcsTestData2 output2, [ChangedFilter] ref EcsTestData3 output3)
-                {
-                    output.value += 150;
-                    output2.value0 += 152;
-                    output3.value0 += 153;
-                }
-            }
-#pragma warning restore 618
-
             public enum Variant
             {
                 FirstComponentChanged,
@@ -607,40 +462,81 @@ namespace Unity.Entities.Tests
 
             public Variant variant;
 
-            protected override JobHandle OnUpdate(JobHandle deps)
+            protected override void OnUpdate()
             {
+                if (LastSystemVersion == 0)
+                {
+                    Entities.ForEach((ref EcsTestData output, ref EcsTestData2 output2, ref EcsTestData3 output3) =>
+                    {
+                        output.value = 0;
+                        output2.value0 = 0;
+                        output3.value0 = 0;
+                    }).Schedule();
+
+                    return;
+                }
+
                 switch (variant)
                 {
                     case Variant.FirstComponentChanged:
-                        return new DeltaJobChanged0().Schedule(this, deps);
+                        Entities
+                            .WithChangeFilter<EcsTestData>()
+                            .ForEach((ref EcsTestData data, ref EcsTestData2 data2, ref EcsTestData3 data3) =>
+                            {
+                                data.value += 150;
+                                data2.value0 += 152;
+                                data3.value0 += 153;
+                            }).Schedule();
+                        return;
                     case Variant.SecondComponentChanged:
-                        return new DeltaJobChanged1().Schedule(this, deps);
+                            Entities
+                                .WithChangeFilter<EcsTestData2>()
+                                .ForEach((ref EcsTestData data, ref EcsTestData2 data2, ref EcsTestData3 data3) =>
+                                {
+                                    data.value += 150;
+                                    data2.value0 += 152;
+                                    data3.value0 += 153;
+                                }).Schedule();
+                        return;
                     case Variant.ThirdComponentChanged:
-                        return new DeltaJobChanged2().Schedule(this, deps);
+                        Entities
+                            .WithChangeFilter<EcsTestData3>()
+                            .ForEach((ref EcsTestData data, ref EcsTestData2 data2, ref EcsTestData3 data3) =>
+                            {
+                                data.value += 150;
+                                data2.value0 += 152;
+                                data3.value0 += 153;
+                            }).Schedule();
+                        return;
                 }
 
                 throw new NotImplementedException();
             }
         }
 
+        [Test]
         public void ChangedFilterJobAfterAnotherJob3Comp([Values] DeltaModifyComponentSystem3Comp.Variant variant)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestSharedComp));
             var entities = new NativeArray<Entity>(10000, Allocator.Persistent);
             m_Manager.CreateEntity(archetype, entities);
 
-            var modifSystem = World.CreateSystem<ModifyComponentSystem3Comp>();
+            var modifySystem = World.CreateSystem<ModifyComponentSystem3Comp>();
             var deltaSystem = World.CreateSystem<DeltaModifyComponentSystem3Comp>();
+
+            // First update of chunks after creation.
+            modifySystem.Update();
+            deltaSystem.Update();
 
             deltaSystem.variant = variant;
 
-            modifSystem.m_sharedComp = new EcsTestSharedComp(456);
+            modifySystem.m_sharedComp = new EcsTestSharedComp(456);
             for (int i = 123; i < entities.Length; i += 345)
             {
-                m_Manager.SetSharedComponentData(entities[i], modifSystem.m_sharedComp);
+                m_Manager.SetSharedComponentData(entities[i], modifySystem.m_sharedComp);
             }
 
-            modifSystem.Update();
+            modifySystem.Update();
             deltaSystem.Update();
 
             foreach (var entity in entities)
@@ -660,22 +556,14 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-        class ChangeFilter1TestSystem : JobComponentSystem
+        partial class ChangeFilter1TestSystem : SystemBase
         {
-#pragma warning disable 618
-            struct ChangedFilterJob : IJobForEach<EcsTestData, EcsTestData2>
+            protected override void OnUpdate()
             {
-                public void Execute(ref EcsTestData output, [ChangedFilter][Collections.ReadOnly] ref EcsTestData2 output2)
-                {
-                    output.value = output2.value0;
-                }
-            }
-#pragma warning restore 618
-
-
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
-            {
-                return new ChangedFilterJob().Schedule(this, inputDeps);
+                Entities
+                    .WithChangeFilter<EcsTestData2>()
+                    .ForEach((ref EcsTestData output, in EcsTestData2 output2) => { output.value = output2.value0; })
+                    .Schedule();
             }
         }
 
@@ -707,22 +595,18 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData>(e).value);
         }
 
-        class ChangeFilter2TestSystem : JobComponentSystem
+        partial class ChangeFilter2TestSystem : SystemBase
         {
-#pragma warning disable 618
-            struct ChangedFilterJob : IJobForEach<EcsTestData, EcsTestData2, EcsTestData3>
+            protected override void OnUpdate()
             {
-                public void Execute(ref EcsTestData output, [ChangedFilter][Collections.ReadOnly] ref EcsTestData2 output2, [ChangedFilter][Collections.ReadOnly] ref EcsTestData3 output3)
-                {
-                    output.value = output2.value0 + output3.value0;
-                }
-            }
-#pragma warning restore 618
-
-
-            protected override JobHandle OnUpdate(JobHandle inputDeps)
-            {
-                return new ChangedFilterJob().Schedule(this, inputDeps);
+                Entities
+                    .WithChangeFilter<EcsTestData2>()
+                    .WithChangeFilter<EcsTestData3>()
+                    .ForEach((ref EcsTestData output, in EcsTestData2 output2, in EcsTestData3 output3) =>
+                    {
+                        output.value = output2.value0 + output3.value0;
+                    })
+                    .Schedule();
             }
         }
 

@@ -7,6 +7,7 @@ using Unity.Jobs;
 using Unity.Transforms;
 using UnityEngine;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 #if !UNITY_PORTABLE_TEST_RUNNER
 using System.Linq;
 #endif
@@ -16,36 +17,32 @@ namespace Unity.Entities.Tests.ForEachCodegen
     [TestFixture]
     public partial class ForEachCodegenTests : ECSTestsFixture
     {
-        [InternalBufferCapacity(8)]
-        public struct TestBufferElement : IBufferElementData
-        {
-            public static implicit operator int(TestBufferElement e) { return e.Value; }
-            public static implicit operator TestBufferElement(int e) { return new TestBufferElement { Value = e }; }
-            public int Value;
-        }
-
-        private MyTestSystem TestSystem;
-        private Entity TestEntity;
+        MyTestSystem TestSystem;
+        Entity TestEntity;
+        MyImplicitProfilingDoesntClearStackSystem ImplicitProfilingDoesntClearStackSystem;
 
         [SetUp]
         public void SetUp()
         {
             TestSystem = World.GetOrCreateSystem<MyTestSystem>();
+            ImplicitProfilingDoesntClearStackSystem = World.GetOrCreateSystem<MyImplicitProfilingDoesntClearStackSystem>();
 
             var myArch = m_Manager.CreateArchetype(
                 ComponentType.ReadWrite<EcsTestData>(),
                 ComponentType.ReadWrite<EcsTestData2>(),
                 ComponentType.ReadWrite<EcsTestSharedComp>(),
-                ComponentType.ReadWrite<TestBufferElement>(),
+                ComponentType.ReadWrite<EcsTestSharedComp2>(),
+                ComponentType.ReadWrite<EcsIntElement>(),
                 ComponentType.ReadWrite<EcsTestTag>());
 
             TestEntity = m_Manager.CreateEntity(myArch);
             m_Manager.SetComponentData(TestEntity, new EcsTestData() { value = 3});
             m_Manager.SetComponentData(TestEntity, new EcsTestData2() { value0 = 4});
-            var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
-            buffer.Add(new TestBufferElement() {Value = 18});
-            buffer.Add(new TestBufferElement() {Value = 19});
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
+            buffer.Add(new EcsIntElement {Value = 18});
+            buffer.Add(new EcsIntElement {Value = 19});
             m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp() { value = 5 });
+            m_Manager.SetSharedComponentData(TestEntity, new EcsTestSharedComp2() { value0 = 11, value1 = 13 });
         }
 
         [Test]
@@ -59,6 +56,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void MatchingMethodInDerivedSystem()
         {
             TestSystem.MatchingMethodInDerivedSystem();
+            Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
+        public void WithConstant()
+        {
+            TestSystem.WithConstant();
             Assert.AreEqual(7, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
@@ -91,6 +95,34 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
+        public void WithSharedComponentFilterTwoParameters()
+        {
+            TestSystem.WithSharedComponentFilterTwoParameters();
+            Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
+        public void WithSharedComponentFilterTwoParametersNoMatch()
+        {
+            TestSystem.WithSharedComponentFilterTwoParametersNoMatch();
+            Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
+        public void WithSharedComponentFilterCapturingDirectly()
+        {
+            TestSystem.WithSharedComponentFilterCapturingDirectly();
+            Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
+        public void WithSharedComponentFilterCapturingInExpression()
+        {
+            TestSystem.WithSharedComponentFilterCapturingInExpression();
+            Assert.AreEqual(4, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
         public void WithChangeFilter()
         {
             TestSystem.WithChangeFilter();
@@ -116,7 +148,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void AddToDynamicBuffer()
         {
             TestSystem.AddToDynamicBuffer();
-            var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
             Assert.AreEqual(3, buffer.Length);
             CollectionAssert.AreEqual(new[] {18, 19, 4}, buffer.Reinterpret<int>().AsNativeArray());
         }
@@ -125,7 +157,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void ModifyDynamicBuffer()
         {
             TestSystem.ModifyDynamicBuffer();
-            var buffer = m_Manager.GetBuffer<TestBufferElement>(TestEntity);
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
             CollectionAssert.AreEqual(new[] {18 * 2, 19 * 2}, buffer.Reinterpret<int>().AsNativeArray());
         }
 
@@ -160,7 +192,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void ExecuteLocalFunctionThatCapturesTest()
         {
-            TestSystem.ExecuteLocalFunctionThatCaptures();
+            TestSystem.ExecuteLocalFunctionInLambdaThatCaptures();
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
         }
 
@@ -176,6 +208,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.FirstNotCapturingThenCapturing();
             Assert.AreEqual(9, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
+        }
+
+        [Test]
+        public void ImplicitProfilingDoesntClearStack()
+        {
+            ImplicitProfilingDoesntClearStackSystem.ImplicitProfilingDoesntClearStack();
+            Assert.AreEqual(true, ImplicitProfilingDoesntClearStackSystem.WasEntityMatched());
         }
 
         struct EntityInQueryValue : IComponentData { public int Value; }
@@ -349,18 +388,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(entity, reportedEntity);
         }
 
-#endif
-
-#if ROSLYN_SOURCEGEN_ENABLED
         [Test]
-        public void PreventStructuralChangeInRunWithBurst()
+        public void UnityEngineObjectAsLambdaParam()
         {
-            Assert.Throws<InvalidOperationException>(() => { TestSystem.PreventStructuralChangeInRunWithBurst(); });
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponent<ParticleSystem>(entity);
+            TestSystem.UnityEngineObjectAsLambdaParam();
         }
+
         [Test]
-        public void PreventStructuralChangeInRunWithoutBurst()
+        public void UnityEngineObjectAsWithParam()
         {
-            Assert.Throws<InvalidOperationException>(() => { TestSystem.PreventStructuralChangeInRunWithoutBurst(); });
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddComponent<ParticleSystem>(entity);
+            TestSystem.UnityEngineObjectAsWithParam();
         }
 #endif
 
@@ -389,14 +430,12 @@ namespace Unity.Entities.Tests.ForEachCodegen
         [Test]
         public void ResolveDuplicateFieldsInEntityQuery()
         {
-            var entityQueryArray = new EntityQueryDesc[1]
+            using (var builder = new EntityQueryDescBuilder(Allocator.Temp))
             {
-                new EntityQueryDesc()
-                {
-                    All = new ComponentType[1] {ComponentType.ReadWrite<EcsTestData>()}
-                }
-            };
-            Assert.IsTrue(TestSystem.m_ResolvedQuery.CompareQuery(entityQueryArray));
+                builder.AddAll(ComponentType.ReadWrite<EcsTestData>());
+                builder.FinalizeQuery();
+                Assert.IsTrue(TestSystem.m_ResolvedQuery.CompareQuery(builder));
+            }
         }
 
         [Test]
@@ -429,6 +468,96 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.RunWithUsingEntityCommandBuffer();
         }
 
+        [Test]
+        public void DoNotExecuteCodeRemovedWithDirective()
+        {
+            TestSystem.DoNotExecuteCodeRemovedWithDirective();
+        }
+
+        [Test]
+        public void DoExecuteCodeInElseDirective()
+        {
+            TestSystem.DoExecuteCodeInElseDirective();
+        }
+
+        [Test]
+        public void ExecuteLocalFunction()
+        {
+            TestSystem.ExecuteLocalFunction();
+        }
+
+        [Test]
+        public void ExecuteLocalFunctionThatCaptures()
+        {
+            TestSystem.ExecuteLocalFunctionThatCaptures();
+        }
+
+        [Test]
+        public void ExecuteLocalFunctionWithSameFunctionNameInClass()
+        {
+            TestSystem.ExecuteLocalFunctionWithSameFunctionNameInClass();
+        }
+
+        [Test]
+        public void ExecuteLocalFunctionAlsoInvokedInMethod()
+        {
+            TestSystem.ExecuteLocalFunctionAlsoInvokedInMethod();
+        }
+
+        [Test]
+        public void ExecuteLocalFunctionThatAccessesEntity()
+        {
+            TestSystem.ExecuteLocalFunctionThatAccessesEntity();
+        }
+
+        [Test]
+        public void UseOfConstantFloatValuesInLambda()
+        {
+            TestSystem.UseOfConstantFloatValuesInLambda();
+        }
+
+        [Test]
+        public void RunWithNoParametersCountEntities()
+        {
+            Assert.AreEqual(1, TestSystem.RunWithNoParametersCountEntities());
+        }
+
+        [Test]
+        public void RunWithNoParametersAndNoQueryCountEntities()
+        {
+            Assert.AreEqual(1, TestSystem.RunWithNoParametersAndNoQueryCountEntities());
+        }
+
+        [Test]
+        public void RunWithNoParametersCountEntitiesNoBurst()
+        {
+            Assert.AreEqual(1, TestSystem.RunWithNoParametersCountEntitiesNoBurst());
+        }
+
+        [Test]
+        public void RunWithNoParametersAndNoQueryCountEntitiesNoBurst()
+        {
+            Assert.AreEqual(1, TestSystem.RunWithNoParametersAndNoQueryCountEntitiesNoBurst());
+        }
+
+        [Test]
+        public void MethodsWithSameName()
+        {
+            TestSystem.MethodsWithSameName();
+
+            TestSystem.MethodsWithSameName(0);
+
+            var val = 0;
+            TestSystem.MethodsWithSameName(ref val);
+
+            int val1 = 1, val2 = 2;
+            val = TestSystem.MethodsWithSameName(in val1, ref val2, out var val3);
+            val = val3;
+
+            MyTestSystem.GenericTypeWithTwoTypeParams<int, int> genericType = default;
+            TestSystem.MethodsWithSameName(genericType);
+        }
+
         partial class ParentTestSystem  : SystemBase
         {
             protected override void OnUpdate() { }
@@ -459,6 +588,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public override void MatchingMethodInDerivedSystem()
             {
                 Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value += e2.value0;}).Schedule();
+                Dependency.Complete();
+            }
+
+            public void WithConstant()
+            {
+                const int constVal = 7;
+                Entities.ForEach((ref EcsTestData e1, in EcsTestData2 e2) => { e1.value = constVal;}).Schedule();
                 Dependency.Complete();
             }
 
@@ -514,6 +650,51 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
+            public void WithSharedComponentFilterTwoParameters()
+            {
+                int multiplier = 1;
+                Entities
+                    .WithSharedComponentFilter(new EcsTestSharedComp() { value = 5 }, new EcsTestSharedComp2() { value0 = 11, value1 = 13 })
+                    .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
+                    .Schedule();
+                Dependency.Complete();
+            }
+
+            public void WithSharedComponentFilterTwoParametersNoMatch()
+            {
+                int multiplier = 1;
+                Entities
+                    .WithSharedComponentFilter(new EcsTestSharedComp() { value = 5 }, new EcsTestSharedComp2() { value0 = 11, value1 = 0 })
+                    .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
+                    .Schedule();
+                Dependency.Complete();
+            }
+
+            public void WithSharedComponentFilterCapturingDirectly()
+            {
+                const int multiplier = 1;
+                const int value = 5;
+                var sharedComponent = new EcsTestSharedComp() {value = value};
+
+                Entities
+                    .WithSharedComponentFilter(sharedComponent)
+                    .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
+                    .Schedule();
+                Dependency.Complete();
+            }
+
+            public void WithSharedComponentFilterCapturingInExpression()
+            {
+                const int multiplier = 1;
+                const int value = 5;
+
+                Entities
+                    .WithSharedComponentFilter(new EcsTestSharedComp() { value = value })
+                    .ForEach((ref EcsTestData e1) => { e1.value += multiplier;})
+                    .Schedule();
+                Dependency.Complete();
+            }
+
             public void WithChangeFilter()
             {
                 int multiplier = 1;
@@ -562,7 +743,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void AddToDynamicBuffer()
             {
                 Entities
-                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<TestBufferElement> buf) =>
+                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
                     {
                         buf.Add(4);
                     })
@@ -573,7 +754,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void ModifyDynamicBuffer()
             {
                 Entities
-                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<TestBufferElement> buf) =>
+                    .ForEach((ref EcsTestData e1, ref DynamicBuffer<EcsIntElement> buf) =>
                     {
                         for (int i = 0; i < buf.Length; ++i) buf[i] = buf[i].Value * 2;
                     })
@@ -584,7 +765,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void IterateExistingDynamicBufferReadOnly()
             {
                 Entities
-                    .ForEach((ref EcsTestData e1, in DynamicBuffer<TestBufferElement> buf) =>
+                    .ForEach((ref EcsTestData e1, in DynamicBuffer<EcsIntElement> buf) =>
                     {
                         e1.value = SumOfBufferElements(buf);
                     })
@@ -595,7 +776,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void IterateExistingDynamicBuffer_NoModifier()
             {
                 Entities
-                    .ForEach((DynamicBuffer<TestBufferElement> buf, ref EcsTestData e1) =>
+                    .ForEach((DynamicBuffer<EcsIntElement> buf, ref EcsTestData e1) =>
                     {
                         buf.Add(20);
                         e1.value = SumOfBufferElements(buf);
@@ -604,7 +785,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
-            static int SumOfBufferElements(DynamicBuffer<TestBufferElement> buf)
+            static int SumOfBufferElements(DynamicBuffer<EcsIntElement> buf)
             {
                 int total = 0;
                 for (int i = 0; i != buf.Length; i++)
@@ -654,7 +835,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
-            public void ExecuteLocalFunctionThatCaptures()
+            public void ExecuteLocalFunctionInLambdaThatCaptures()
             {
                 int capture_from_outer_scope = 1;
                 Entities
@@ -729,35 +910,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .ForEach((ref EcsTestData e1) => { e1.value += multiplier; })
                     .Run();
             }
-
-#if ROSLYN_SOURCEGEN_ENABLED
-            struct EMHolder
-            {
-                public EntityManager EM;
-            }
-            public void PreventStructuralChangeInRunWithBurst()
-            {
-                var holder = new EMHolder {EM = EntityManager};
-                Entities
-                    .ForEach((ref EcsTestData e1) =>
-                    {
-                        holder.EM.CreateEntity();
-                    })
-                    .Run();
-            }
-
-            public void PreventStructuralChangeInRunWithoutBurst()
-            {
-                var em = EntityManager;
-                Entities
-                    .WithoutBurst()
-                    .ForEach((ref EcsTestData e1) =>
-                    {
-                        em.CreateEntity();
-                    })
-                    .Run();
-            }
-#endif
 
             public void RunInsideLoopCapturingLoopCondition()
             {
@@ -880,9 +1032,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 JobHandle jobHandle = default;
                 var time = 5;
 
-                using (var refStartPos = new NativeArray<int>(10, Allocator.TempJob))
+                using (var refStartPos = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(10, ref World.UpdateAllocator))
                 {
-                    using (var refEndPos = new NativeArray<int>(10, Allocator.TempJob))
+                    using (var refEndPos = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(10, ref World.UpdateAllocator))
                     {
                         jobHandle = Entities
                             .ForEach((ref EcsTestData testData) =>
@@ -931,6 +1083,25 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 return result;
             }
 
+            public void UnityEngineObjectAsLambdaParam()
+            {
+                var count = 0;
+                Entities.WithoutBurst().ForEach((ParticleSystem ps) =>
+                {
+                    count++;
+                }).Run();
+                Assert.AreEqual(1, count);
+            }
+
+            public void UnityEngineObjectAsWithParam()
+            {
+                var count = 0;
+                Entities.WithoutBurst().WithAll<ParticleSystem>().ForEach((Entity _) =>
+                {
+                    count++;
+                }).Run();
+                Assert.AreEqual(1, count);
+            }
 #endif
             public void RunForEachWithCustomDelegateTypeWithMoreThan8Parameters()
             {
@@ -955,6 +1126,46 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void RunWithFilterButNotQuery()
             {
                 Entities.WithChangeFilter<Translation>().ForEach((Entity entity) => { }).Run();
+            }
+
+            public int RunWithNoParametersCountEntities()
+            {
+                int counter = 0;
+                Entities.WithAll<EcsTestData>().ForEach(() =>
+                {
+                    counter++;
+                }).Run();
+                return counter;
+            }
+
+            public int RunWithNoParametersAndNoQueryCountEntities()
+            {
+                int counter = 0;
+                Entities.ForEach(() =>
+                {
+                    counter++;
+                }).Run();
+                return counter;
+            }
+
+            public int RunWithNoParametersCountEntitiesNoBurst()
+            {
+                int counter = 0;
+                Entities.WithoutBurst().WithAll<EcsTestData>().ForEach(() =>
+                {
+                    counter++;
+                }).Run();
+                return counter;
+            }
+
+            public int RunWithNoParametersAndNoQueryCountEntitiesNoBurst()
+            {
+                int counter = 0;
+                Entities.WithoutBurst().ForEach(() =>
+                {
+                    counter++;
+                }).Run();
+                return counter;
             }
 
             public void RunWithNativeArrayForEachCreatingTryFinallyBlock()
@@ -1006,9 +1217,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
             {
                 var startEntities = EntityManager.GetAllEntities().Length;
 
-                using (var outerCommandBuffer = new EntityCommandBuffer(Allocator.TempJob))
+                using (var outerCommandBuffer = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
                 {
-                    using (var innerCommandBuffer = new EntityCommandBuffer(Allocator.TempJob))
+                    using (var innerCommandBuffer = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
                     {
                         Entities
                             .ForEach((Entity entity) =>
@@ -1025,11 +1236,202 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Assert.AreEqual(startEntities * 3, EntityManager.GetAllEntities().Length);
             }
 
+            public void DoNotExecuteCodeRemovedWithDirective()
+            {
+                var someBool = true;
+                Entities
+                    .ForEach((Entity entity) =>
+                    {
+#if SOME_UNDEFINED_SYMBOL
+                        someBool = false;
+#endif
+                    }).Run();
+
+                Assert.IsTrue(someBool);
+            }
+
+            public void DoExecuteCodeInElseDirective()
+            {
+                var someBool = false;
+                Entities
+                    .WithStructuralChanges()
+                    .ForEach((Entity entity) =>
+                    {
+#if SOME_UNDEFINED_SYMBOL
+#else
+                        someBool = true;
+#endif
+                    }).Run();
+
+                Assert.IsTrue(someBool);
+            }
+
+            public void ExecuteLocalFunction()
+            {
+                var value = 0;
+                int LocalFunction() { return 3; }
+
+                Entities.ForEach((Entity entity) =>
+                {
+                    value = LocalFunction();
+                }).Run();
+
+                Assert.AreEqual(3, value);
+            }
+
+            public void ExecuteLocalFunctionThatCaptures()
+            {
+                var value = 0;
+                var capturedValue = 3;
+                int LocalFunction() { return capturedValue; }
+
+                Entities.ForEach((Entity entity) =>
+                {
+                    value = LocalFunction();
+                }).Run();
+
+                Assert.AreEqual(3, value);
+            }
+
+            int LocalFunctionWithSameNameInClass() { return 5; }
+            public void ExecuteLocalFunctionWithSameFunctionNameInClass()
+            {
+                var value = 0;
+                int LocalFunctionWithSameNameInClass() { return 3; }
+
+                Entities.WithoutBurst().ForEach((Entity entity) =>
+                {
+                    value = LocalFunctionWithSameNameInClass() * this.LocalFunctionWithSameNameInClass();
+                }).Run();
+
+                Assert.AreEqual(15, value);
+            }
+
+            public void ExecuteLocalFunctionAlsoInvokedInMethod()
+            {
+                var value = 0;
+                int LocalFunction() { return 3; }
+
+                Entities.ForEach((Entity entity) => { value = LocalFunction(); }).Run();
+
+                Assert.AreEqual(9, value * LocalFunction());
+            }
+
+            public void ExecuteLocalFunctionThatAccessesEntity()
+            {
+                var value = 0;
+                var dataFromEntity = GetComponentDataFromEntity<EcsTestData>();
+                int SomeLocalFunc(Entity entity) { return dataFromEntity[entity].value; }
+
+                Entities.ForEach((Entity entity, in EcsTestData data) => {
+                    value = SomeLocalFunc(entity);
+                }).Run();
+
+                Assert.AreEqual(3, value);
+            }
+
+            static bool TakesFloat(float val) => (val > 0.0);
+            public void UseOfConstantFloatValuesInLambda()
+            {
+                var testVal = false;
+                const float testFloat = 1.0f;
+                Entities.ForEach((Entity e) =>
+                {
+                    const float deltaAngleEpsilon = math.PI / 32;
+                    if (math.abs(testFloat) > deltaAngleEpsilon)
+                    {
+                        const float constVal = 1.0f;
+                        testVal = TakesFloat(constVal);
+                    }
+                }).Run();
+
+                Assert.AreEqual(true, testVal);
+            }
+
+            public void MethodsWithSameName()
+            {
+                var value = 0;
+                Entities.ForEach((Entity entity, in EcsTestData data) => { value = 3; }).Run();
+                Assert.AreEqual(3, value);
+            }
+
+            public void MethodsWithSameName(int someVal)
+            {
+                var value = 0;
+                Entities.ForEach((Entity entity, in EcsTestData data) => { value = 3; }).Run();
+                Assert.AreEqual(3, value);
+            }
+
+            public void MethodsWithSameName(ref int someVal)
+            {
+                var value = 0;
+                Entities.ForEach((Entity entity, in EcsTestData data) => { value = 3; }).Run();
+                Assert.AreEqual(3, value);
+            }
+
+            public int MethodsWithSameName(in int someVal1, ref int someVal2, out int someVal3)
+            {
+                var value = someVal1 * someVal2;
+                Entities.ForEach((Entity entity, in EcsTestData data) => { value = 3; }).Run();
+                someVal3 = value;
+                Assert.AreEqual(3, value);
+                return value;
+            }
+
+            public struct GenericTypeWithTwoTypeParams<TKey, TValue> { }
+            public void MethodsWithSameName(GenericTypeWithTwoTypeParams<int, int> genericType)
+            {
+                var value = 0;
+                Entities.ForEach((Entity entity, in EcsTestData data) => { value = 3; }).Run();
+                Assert.AreEqual(3, value);
+            }
+
             protected override void OnUpdate() { }
         }
 
-#if ROSLYN_SOURCEGEN_ENABLED
-        // Move this test over to LambdaJobPostProcessorSourceGenErrorTests as part of the source generator error handling PR
+        // test for a stack underflow introduced by an ILPP introduced try/finally clearing the
+        // runtime stack - http://fogbugz.unity3d.com/f/cases/1287367/
+        // this test is very codegen specific.
+        struct MyImplicitProfilingDoesntClearStackTestTag : IComponentData
+        {
+        };
+
+        class MyImplicitProfilingDoesntClearStackFoo
+        {
+            public Entity entity;
+        };
+
+        partial class MyImplicitProfilingDoesntClearStackSystem : ParentTestSystemWithoutEntitiesForEach
+        {
+            public MyImplicitProfilingDoesntClearStackFoo m_Foo = null;
+            public bool m_WasEntityMatched = false;
+
+            protected override void OnCreate()
+            {
+                m_WasEntityMatched = false;
+                m_Foo = new MyImplicitProfilingDoesntClearStackFoo();
+            }
+
+            protected override void OnUpdate() { }
+
+            public void ImplicitProfilingDoesntClearStack()
+            {
+                MyImplicitProfilingDoesntClearStackFoo testComponent = m_Foo;
+                Entity matchedEntity = Entity.Null;
+
+                Entities.WithAll<MyImplicitProfilingDoesntClearStackTestTag>().ForEach((Entity entity) =>
+                {
+                    matchedEntity = entity;
+                }).Run();
+
+                testComponent.entity = matchedEntity;
+                m_WasEntityMatched = true;
+            }
+
+            public bool WasEntityMatched() { return m_WasEntityMatched; }
+        }
+
+        // !!! Move this test over to LambdaJobPostProcessorSourceGenErrorTests as part of the source generator error handling PR
         /*
         [Test]
         public void SystemWithMultipleUsesOfEntitiesTest()
@@ -1061,7 +1463,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             protected override void OnUpdate() { }
         }
-#endif
 
         void AssertNothingChanged() => Assert.AreEqual(3, m_Manager.GetComponentData<EcsTestData>(TestEntity).value);
     }
@@ -1077,4 +1478,3 @@ static class BringYourOwnDelegate
         where TDescription : struct, ISupportForEachWithUniversalDelegate =>
         LambdaForEachDescriptionConstructionMethods.ThrowCodeGenException<TDescription>();
 }
-

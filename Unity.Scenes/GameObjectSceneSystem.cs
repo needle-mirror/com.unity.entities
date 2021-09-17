@@ -14,7 +14,6 @@ namespace Unity.Scenes
     [UpdateAfter(typeof(SceneSystem))]
     internal class GameObjectSceneSystem : ComponentSystem
     {
-        EntityQuery m_LiveLinkDependency;
         EntityQuery m_LoadScenes;
         EntityQuery m_LoadedScenes;
 
@@ -23,21 +22,6 @@ namespace Unity.Scenes
         protected override void OnCreate()
         {
             m_SceneSystem = World.GetOrCreateSystem<SceneSystem>();
-
-            m_LiveLinkDependency = GetEntityQuery(
-                new EntityQueryDesc
-                {
-                    All = new[]
-                    {
-                        ComponentType.ReadOnly<RequestSceneLoaded>(),
-                        ComponentType.ReadOnly<GameObjectReference>(),
-                    },
-                    None = new[]
-                    {
-                        ComponentType.ReadOnly<GameObjectSceneDependency>(),
-                        ComponentType.ReadOnly<DisableSceneResolveAndLoad>(),
-                    }
-                });
 
             m_LoadScenes = GetEntityQuery(
                 new EntityQueryDesc
@@ -111,44 +95,18 @@ namespace Unity.Scenes
 #else
             Scene gameObjectScene = default;
 
-            if (!LiveLinkUtility.LiveLinkEnabled)
-            {
-                var scenePath = World.GetExistingSystem<SceneSystem>().GetScenePath(sceneGUID);
+            var scenePath = World.GetExistingSystem<SceneSystem>().GetScenePath(sceneGUID);
 
-                if (async)
-                {
-                    var sceneLoadOperation = SceneManager.LoadSceneAsync(scenePath, req.loadParameters);
-                    sceneLoadOperation.allowSceneActivation = req.activateOnLoad;
-                    sceneLoadOperation.priority = req.priority;
-                    gameObjectScene = SceneManager.GetSceneAt(SceneManager.sceneCount-1);
-                }
-                else
-                {
-                    gameObjectScene = SceneManager.LoadScene(scenePath, req.loadParameters);
-                }
+            if (async)
+            {
+                var sceneLoadOperation = SceneManager.LoadSceneAsync(scenePath, req.loadParameters);
+                sceneLoadOperation.allowSceneActivation = req.activateOnLoad;
+                sceneLoadOperation.priority = req.priority;
+                gameObjectScene = SceneManager.GetSceneAt(SceneManager.sceneCount-1);
             }
             else
             {
-                var assetResolver = LiveLinkPlayerAssetRefreshSystem.GlobalAssetObjectResolver;
-
-                if (assetResolver.HasAsset(sceneGUID))
-                {
-                    var firstBundle = assetResolver.GetAssetBundle(sceneGUID);
-                    var scenePath = firstBundle.GetAllScenePaths()[0];
-                    LiveLinkMsg.LogInfo($"Loading GameObject Scene with path {scenePath}.");
-
-                    if (async)
-                    {
-                        var sceneLoadOperation = SceneManager.LoadSceneAsync(scenePath, req.loadParameters);
-                        sceneLoadOperation.allowSceneActivation = req.activateOnLoad;
-                        sceneLoadOperation.priority = req.priority;
-                        gameObjectScene = SceneManager.GetSceneAt(SceneManager.sceneCount-1);
-                    }
-                    else
-                    {
-                        gameObjectScene = SceneManager.LoadScene(scenePath, req.loadParameters);
-                    }
-                }
+                gameObjectScene = SceneManager.LoadScene(scenePath, req.loadParameters);
             }
 
             return gameObjectScene;
@@ -157,17 +115,6 @@ namespace Unity.Scenes
 
         protected override void OnUpdate()
         {
-            if (LiveLinkUtility.LiveLinkEnabled && !m_LiveLinkDependency.IsEmptyIgnoreFilter)
-            {
-                Entities.With(m_LiveLinkDependency).ForEach((Entity sceneEntity, ref GameObjectReference sceneReference) =>
-                {
-                    var dependency = EntityManager.CreateEntity(typeof(ResourceGUID));
-                    EntityManager.SetComponentData(dependency, new ResourceGUID() {Guid = sceneReference.SceneGUID});
-
-                    EntityManager.AddComponentData(sceneEntity, new GameObjectSceneDependency {Value = dependency});
-                });
-            }
-
             if (!m_LoadScenes.IsEmptyIgnoreFilter)
             {
                 Entities.With(m_LoadScenes).ForEach((Entity sceneEntity, ref RequestGameObjectSceneLoaded requestGameObjectSceneLoaded, ref GameObjectReference sceneReference, ref RequestSceneLoaded requestSceneLoaded) =>
@@ -179,10 +126,6 @@ namespace Unity.Scenes
                     {
                         // No existing scene found, so load a new one
                         gameObjectScene = LoadGameObjectScene(sceneReference.SceneGUID, requestGameObjectSceneLoaded, async);
-
-                        // We are in LiveLink and couldn't load the scene, this means we are waiting for it to be sent
-                        if (LiveLinkUtility.LiveLinkEnabled && gameObjectScene == default)
-                            return;
                     }
                     // TODO: Exposing Scene.loadingState in Root Scene Conversion PR
                     // TODO: https://unity3d.atlassian.net/browse/DOTS-3329
@@ -207,7 +150,6 @@ namespace Unity.Scenes
 
         internal void UnloadAllScenes()
         {
-            LiveLinkMsg.LogInfo($"Unloading all GameObject Scenes.");
             var sceneSystem = World.GetExistingSystem<SceneSystem>();
             Entities.With(m_LoadedScenes).ForEach((Entity entity, ref GameObjectReference sceneReference) =>
             {

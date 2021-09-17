@@ -3,55 +3,10 @@ using System;
 namespace Unity.Entities
 {
     /// <summary>
-    /// An interface for implementing general-purpose components.
+    /// This interface marks structs as 'unmanaged components' and classes as 'managed components'.
     /// </summary>
     /// <remarks>
-    /// An IComponentData implementation must be a struct and can only contain unmanaged, blittable types, including:
-    ///
-    /// * C#-defined [blittable types](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types)
-    /// * bool
-    /// * char
-    /// * <see cref="BlobAssetReference{T}"/> (a reference to a Blob data structure)
-    /// * <see cref="Collections.FixedString"/> (a fixed-sized character buffer)
-    /// * <see cref="Collections.FixedList"/>
-    /// * [fixed arrays](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/fixed-statement) (in
-    ///   an [unsafe](https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/unsafe) context)
-    /// * structs containing these unmanaged, blittable fields
-    ///
-    /// Note that you can also use a separate, <see cref="IBufferElementData"/> component in a
-    /// <see cref="DynamicBuffer{T}"/> as an array-like data structure.
-    ///
-    /// A single IComponentData implementation should only contain fields for data that is always, or almost always,
-    /// accessed at the same time. In general, using a greater number of smaller component types is more
-    /// efficient than using fewer, larger component types.
-    ///
-    /// Add, set, and remove the components of an entity using the <see cref="EntityManager"/> or an
-    /// <see cref="EntityCommandBuffer"/>. (You can also update the fields of an IComponentData struct normally when you
-    /// have a reference to it.)
-    ///
-    /// IComponentData objects are stored in chunks (<see cref="ArchetypeChunk"/>), indexed by <see cref="Entity"/>. You
-    /// can implement systems (<see cref="ComponentSystemBase"/>) to select and iterate over a set of entities having
-    /// specific components. Use <see cref="EntityQueryBuilder"/> with <see cref="ComponentSystem"/> for non-Job based
-    /// systems. Use <see cref="EntityQuery"/> with <see cref="JobComponentSystem"/> for <see cref="IJobForEach{T0}"/>
-    /// and <see cref="IJobChunk"/> based systems. All the components of an entity must fit into a single chunk and
-    /// thus cannot exceed 16 KB. (Some components, such as <see cref="DynamicBuffer{T}"/> and
-    /// <see cref="BlobArray{T}"/> can store data outside the chunk, so may not fully count against that limit.)
-    ///
-    /// While, most of the components that you add to entities implement IComponentData, ECS also provides several,
-    /// specialized component types. These specialized types include:
-    ///
-    /// * <see cref="IBufferElementData"/> -- for use in a <see cref="DynamicBuffer{T}"/>
-    /// * <see cref="ISharedComponentData"/> -- a component whose value is shared by all entities in the same chunk
-    /// * <see cref="ISystemStateComponentData"/> -- a component for storing internal system state associated with an entity.
-    /// * <see cref="ISystemStateSharedComponentData"/> -- the system state version of the shared component interface.
-    /// * <see cref="ISystemStateBufferElementData"/> -- the system state version of the buffer element interface.
-    ///
-    /// *Note:* Chunk components, which you can use to store data associated with a chunk
-    /// (see <see cref="EntityManager.AddChunkComponentData{T}(Entity)"/>) and singleton components, which are
-    /// components for which only one instance of a type is allowed (see
-    /// <see cref="ComponentSystemBase.SetSingleton{T}"/>), use the IComponentData interface.
-    ///
-    /// See [General-purpose components](xref:ecs-component-data) for additional information.
+    /// See https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/manual/ecs_components.html
     /// </remarks>
     public interface IComponentData
     {
@@ -60,34 +15,7 @@ namespace Unity.Entities
     /// <summary>
     /// An interface for creating structs that can be stored in a <see cref="DynamicBuffer{T}"/>.
     /// </summary>
-    /// <remarks>IBufferElementData implementations are subject to the same constraints as
-    /// <see cref="IComponentData"/>.
-    ///
-    /// Create a <see cref="DynamicBuffer{T}"/> containing a given type `T` by adding that IBufferElementData type to
-    /// an entity. The DynamicBuffer container is created automatically. You can specify the maximum number of elements a buffer
-    /// stores inside a chunk by placing an <see cref="InternalBufferCapacityAttribute"/> on the IBufferElementData
-    /// declaration. When the number of elements exceeds the internal capacity, the entire is moved outside the chunk
-    /// into heap memory. (In either case, you access an element the same way through the dynamic buffer API.)
-    ///
-    /// To remove a buffer from an entity, remove that entity's IBufferElementData component. (To remove an individual
-    /// element from a buffer, call <see cref="DynamicBuffer{T}.RemoveAt(Int32)"/>.)
-    ///
-    /// You can find entities with a particular type of buffer using either <see cref="EntityQuery"/> or
-    /// <see cref="EntityQueryBuilder"/> in the same way you select entities with specific types of <see cref="IComponentData"/>.
-    /// Use the IBufferElementData type in the query (not DynamicBuffer).
-    ///
-    /// To access the buffer of an entity in a <see cref="ComponentSystem"/>, use <see cref="EntityManager.GetBuffer{T}(Entity)"/>,
-    /// where `T` is the IBufferElementData subtype.
-    ///
-    /// To access the buffer of an entity in a <see cref="ComponentSystemBase"/> instance, define a field of type,
-    /// <see cref="ComponentSystemBase.GetBufferFromEntity{T}(bool)"/>, as part of the Job struct. Set the field value when you
-    /// schedule the Job with <see cref="EntityManager.GetBufferFromEntity{T}(bool)"/>.
-    ///
-    /// The DynamicBuffer interface provides array-like access to buffer contents. You can treat a buffer like a
-    /// [NativeArray](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html). You can also use
-    /// <see cref="DynamicBuffer{T}.Reinterpret{T}"/> to treat the buffer as a container of the underlying type, rather
-    /// than a container of IBufferElementData.
-    ///
+    /// <remarks>
     /// See [Dynamic Buffers](xref:ecs-dynamic-buffers) for additional information.
     /// </remarks>
     public interface IBufferElementData
@@ -111,6 +39,9 @@ namespace Unity.Entities
     /// All <see cref="DynamicBuffer{T}"/> with this type of element store the specified number of elements inside the
     /// chunk along with other component types in the same archetype. When the number of elements in the buffer exceeds
     /// this limit, the entire buffer is moved outside the chunk.
+    ///
+    /// [DefaultBufferCapacityNumerator](xref:Unity.Entities.TypeManager.DefaultBufferCapacityNumerator) defines
+    /// the default number of elements.
     /// </remarks>
     [AttributeUsage(AttributeTargets.Struct)]
     public class InternalBufferCapacityAttribute : Attribute
@@ -175,42 +106,10 @@ namespace Unity.Entities
 
     // [TODO: Document shared components with Jobs...]
     /// <summary>
-    /// An interface for a component type whose value is shared by all entities in the same chunk.
+    /// An interface for a component type whose value is shared across all entities with the same value.
     /// </summary>
-    /// <remarks>ISharedComponentData implementations are subject to the same constraints as
-    /// <see cref="IComponentData"/>.
-    ///
-    /// ISharedComponent implementations must implement <see cref="IEquatable{T}"/> and <see cref="Object.GetHashCode"/>.
-    ///
-    /// *Note:* Currently, the ISharedComponentData interface allows fields having reference types. However, we plan to
-    /// restrict ISharedComponentData to unmanaged, blittable types only in a future version of the Entities package.
-    ///
-    /// When you add a shared component to an <see cref="EntityArchetype"/>, ECS stores entities assigned the same
-    /// values of that shared component in the same chunks. Thus, shared components further categorize entities within
-    /// the same archetype. Use shared components when many entities share the same data values and it is more efficient
-    /// to process all the entities of a given value together. For example, the `RenderMesh` shared component (in the
-    /// Hybrid.Rendering package) defines a set of fields whose values can be shared by many 3D objects. Since all the
-    /// entities with the same values for the RenderMesh fields are stored in the same chunks, the renderer can
-    /// efficiently batch the draw calls for those entities based on the shared values.
-    ///
-    /// You must set the value of a shared component on the main thread using either the <see cref="EntityManager"/>
-    /// or an <see cref="EntityCommandBuffer"/>. When you change a shared component value, the affected entity is
-    /// moved to a different chunk. If a chunk already exists with the same values, and has enough room, the entity is moved
-    /// to that chunk. Otherwise, a new chunk is allocated. Changing a shared component value is a structural change that
-    /// potentially creates a sync-point in your application.
-    ///
-    /// You can find entities with a particular type of shared component using either <see cref="EntityQuery"/> or
-    /// <see cref="EntityQueryBuilder"/> in the same way you select entities with specific types of <see cref="IComponentData"/>.
-    /// You can also filter an entity query to select only entities with a specific shared component value using
-    /// <see cref="EntityQuery.SetSharedComponentFilter{SharedComponent1}"/>. You can filter based on two different shared components.
-    /// (EntityQueryBuilder does not support filtering queries by shared component value.)
-    ///
-    /// Avoid too many shared components and values on the same archetype. Since each combination of values, whether in the
-    /// same component type or in different shared components, is stored in different chunks, too many combinations can
-    /// lead to poor chunk utilization. Use the Entity Debugger window in the Unity Editor
-    /// (menu: *Window* > *Analysis* > *Entity Debugger*) to monitor chunk utilization.
-    ///
-    /// See [Shared Component Data](xref:ecs-shared-component-data) for additional information.
+    /// <remarks>
+    /// See https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/manual/shared_component_data.html
     /// </remarks>
     public interface ISharedComponentData
     {
@@ -220,23 +119,6 @@ namespace Unity.Entities
     /// An interface for a component type that stores system-specific data.
     /// </summary>
     /// <remarks>
-    /// ISystemStateComponentData implementations are subject to the same constraints as
-    /// <see cref="IComponentData"/>: they can only contain
-    /// [blittable](https://docs.microsoft.com/en-us/dotnet/framework/interop/blittable-and-non-blittable-types) data
-    /// types.
-    ///
-    /// System state components are specialized components designed to allow systems to store their own stateful data on
-    /// an entity. The functional difference between a general-purpose component and a system state component is that the
-    /// presence of a system state component delays entity destruction until the system explicitly removes the component.
-    /// This delay allows a system to cleanup any state or persistent resources it has created and associated with an entity.
-    ///
-    /// The typical pattern for using a system state component is for the system to find new entities by querying for
-    /// entities with specific archetype, that do not have the component. The system can add a system state component to
-    /// the entity and then set state values or create resources for the new entity. A system can then detect entity
-    /// destruction by querying for entities that have the system state component, but not the other components in the
-    /// original archetype. The system must then cleanup any state or resources and then remove the system state
-    /// component. The ECS code only fully deletes the entity after the system removes the system state component.
-    ///
     /// See [System State Components](xref:ecs-system-state-component-data) for additional information.
     /// </remarks>
     public interface ISystemStateComponentData : IComponentData
@@ -258,6 +140,16 @@ namespace Unity.Entities
     /// <seealso cref="ISystemStateComponentData"/>
     /// <seealso cref="ISharedComponentData"/>
     public interface ISystemStateSharedComponentData : ISharedComponentData
+    {
+    }
+
+    /// <summary>
+    /// An interface for a component type which allows the component to be Enabled and Disabled
+    /// </summary>
+    /// <remarks>
+    /// This interface is marked as "internal" during development of the feature. It will be made public when the feature is complete.
+    /// </remarks>
+    internal interface IEnableableComponent
     {
     }
 

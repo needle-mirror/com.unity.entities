@@ -1,6 +1,7 @@
 using System;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
 #if !NET_DOTS
@@ -9,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace Unity.Entities.Tests
 {
-    class IJobChunkTests : ECSTestsFixture
+    partial class IJobChunkTests : ECSTestsFixture
     {
         struct ProcessChunks : IJobChunk
         {
@@ -120,12 +121,10 @@ namespace Unity.Entities.Tests
 
             entities.Dispose();
 
-            var copyIndices = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var copyIndices = group.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             for (int i = 0; i < 50000; ++i)
                 Assert.AreEqual(copyIndices[i].value, i);
-
-            copyIndices.Dispose();
         }
 
         struct ProcessChunkIndex : IJobChunk
@@ -358,7 +357,7 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetypeA, entitiesA);
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
-            using (var local = new NativeArray<int>(archetypeA.ChunkCapacity * 2, Allocator.TempJob))
+            using (var local = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(archetypeA.ChunkCapacity * 2, ref World.UpdateAllocator))
             {
                 LogAssert.Expect(LogType.Exception, new Regex("IndexOutOfRangeException: *"));
 
@@ -377,7 +376,7 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetypeA, entitiesA);
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
-            using (var local = new NativeArray<int>(archetypeA.ChunkCapacity * 2, Allocator.TempJob))
+            using (var local = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(archetypeA.ChunkCapacity * 2, ref World.UpdateAllocator))
             {
                 new WriteToArray
                 {
@@ -387,16 +386,26 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-#if !UNITY_DOTSRUNTIME // IJobForEach is deprecated
-#pragma warning disable 618
-        struct ForEachComponentData : IJobForEachWithEntity<EcsTestData>
+#if !UNITY_DOTSRUNTIME
+        public partial class RewriteEcsTestDataSystem : SystemBase
         {
-            public void Execute(Entity entity, int index, ref EcsTestData c0)
+            public void RewriteData(JobHandle inputDeps = default)
             {
-                c0 = new EcsTestData { value = index };
+                Entities
+                    .WithSharedComponentFilter(new EcsTestSharedComp { value = 1 })
+                    .WithoutBurst()
+                    .ForEach((Entity entity, int entityInQueryIndex, ref EcsTestData data, in EcsTestSharedComp _) =>
+                    {
+                        data = new EcsTestData { value = entityInQueryIndex };
+                    }).Run();
+            }
+
+            protected override void OnUpdate()
+            {
             }
         }
-#pragma warning restore 618
+
+        RewriteEcsTestDataSystem _rewriteEcsTestDataSystem => World.GetOrCreateSystem<RewriteEcsTestDataSystem>();
 
         [Test]
         public void FilteredIJobChunkProcessesSameChunksAsFilteredJobForEach()
@@ -408,8 +417,7 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(archetypeA, entitiesA);
 
             var entitiesB = new NativeArray<Entity>(5000, Allocator.Temp);
-            // TODO this looks like a test bug. Shouldn't it be (archetypeB, entitiesB)?
-            m_Manager.CreateEntity(archetypeA, entitiesB);
+            m_Manager.CreateEntity(archetypeB, entitiesB);
 
             for (int i = 0; i < 5000; ++i)
             {
@@ -417,46 +425,72 @@ namespace Unity.Entities.Tests
                 m_Manager.SetSharedComponentData(entitiesB[i], new EcsTestSharedComp { value = i % 8 });
             }
 
-            var group = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
-
-            group.SetSharedComponentFilter(new EcsTestSharedComp { value = 1 });
+            var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            entityQuery.SetSharedComponentFilter(new EcsTestSharedComp { value = 1 });
 
             var jobChunk = new ProcessChunkWriteIndex
             {
                 EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
             };
-            jobChunk.Schedule(group).Complete();
+            jobChunk.Schedule(entityQuery).Complete();
 
-            var componentArrayA = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var componentArrayA = entityQuery.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
-            var jobProcess = new ForEachComponentData
-            {};
-            jobProcess.Schedule(group).Complete();
+            _rewriteEcsTestDataSystem.RewriteData();
 
-            var componentArrayB = group.ToComponentDataArray<EcsTestData>(Allocator.TempJob);
+            var componentArrayB = entityQuery.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator);
 
             CollectionAssert.AreEqual(componentArrayA.ToArray(), componentArrayB.ToArray());
 
-            componentArrayA.Dispose();
-            componentArrayB.Dispose();
-            group.Dispose();
+            entityQuery.Dispose();
         }
 
 #endif // !UNITY_DOTSRUNTIME
 
-#if !UNITY_2020_2_OR_NEWER
-        struct InitializedAsSingleAndParallelJob : IJobChunk
+        struct LargeJobChunk : IJobChunk
         {
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int entityOffset) {}
+            public FixedString4096Bytes StrA;
+            public FixedString4096Bytes StrB;
+            public FixedString4096Bytes StrC;
+            public FixedString4096Bytes StrD;
+            public NativeArray<int> TotalLengths;
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                TotalLengths[chunkIndex] = StrA.Length + StrB.Length + StrC.Length + StrD.Length;
+            }
         }
-        [Test]
-        public void IJobChunkInitializedAsSingleAndParallel_CreatesDifferentScheduleData()
-        {
-            var jobReflectionDataParallel = JobChunkExtensions.JobChunkProducer<InitializedAsSingleAndParallelJob>.InitializeParallel();
-            var jobReflectionDataSingle = JobChunkExtensions.JobChunkProducer<InitializedAsSingleAndParallelJob>.InitializeSingle();
 
-            Assert.AreNotEqual(jobReflectionDataParallel, jobReflectionDataSingle);
+        public enum ScheduleMode
+        {
+            Schedule, ScheduleParallel, ScheduleSingle, Run
         }
-#endif
+
+        [Test]
+        public void IJobChunk_LargeJobStruct_ScheduleByRefWorks(
+            [Values(ScheduleMode.Schedule, ScheduleMode.ScheduleParallel, ScheduleMode.ScheduleSingle, ScheduleMode.Run)] ScheduleMode scheduleMode)
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+            using(var lengths = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator))
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                var job = new LargeJobChunk
+                {
+                        StrA = "A",
+                        StrB = "BB",
+                        StrC = "CCC",
+                        StrD = "DDDD",
+                        TotalLengths = lengths,
+                };
+                if (scheduleMode == ScheduleMode.Schedule)
+                    Assert.DoesNotThrow(() => { job.ScheduleByRef(query).Complete(); });
+                else if (scheduleMode == ScheduleMode.ScheduleParallel)
+                    Assert.DoesNotThrow(() => { job.ScheduleParallelByRef(query).Complete(); });
+                else if (scheduleMode == ScheduleMode.ScheduleSingle)
+                    Assert.DoesNotThrow(() => { job.ScheduleSingleByRef(query).Complete(); });
+                else if (scheduleMode == ScheduleMode.Run)
+                    Assert.DoesNotThrow(() => { job.RunByRef(query); });
+                Assert.AreEqual(lengths[0], 10);
+            }
+        }
     }
 }

@@ -34,12 +34,6 @@ namespace Unity.Entities
         public int Count => math.select(m_BatchEntityCount, m_Chunk->Count, m_BatchEntityCount == kUseChunkCount && m_Chunk != null);
 
         /// <summary>
-        /// If the ArchetypeChunk is sub-batched, returns the number of entities referenced by this batch.
-        /// </summary>
-        [Obsolete("Use the Count property instead. (RemovedAfter 2020-12-20). (UnityUpgradable) -> Count", false)]
-        public int BatchEntityCount => Count;
-
-        /// <summary>
         /// The number of entities currently stored in the chunk (ignoring any sub-batching)
         /// </summary>
         public int ChunkEntityCount => m_Chunk->Count;
@@ -157,7 +151,7 @@ namespace Unity.Entities
                 return new EntityArchetype()
                 {
                     Archetype = m_Chunk->Archetype,
-                    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                     _DebugComponentStore =  m_EntityComponentStore
                     #endif
                 };
@@ -550,6 +544,46 @@ namespace Unity.Entities
             return m_Chunk->GetOrderVersion();
         }
 
+        internal bool IsComponentEnabled<T>(ComponentTypeHandle<T> typeHandle, int entityIndexInChunk) where T : struct, IComponentData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(typeHandle.m_Safety);
+#endif
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, typeHandle.m_TypeIndex);
+
+            return m_EntityComponentStore->IsComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype);
+        }
+
+        internal bool IsComponentEnabled<T>(BufferTypeHandle<T> typeHandle, int entityIndexInChunk) where T : struct, IBufferElementData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(typeHandle.m_Safety0);
+#endif
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, typeHandle.m_TypeIndex);
+
+            return m_EntityComponentStore->IsComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype);
+        }
+
+        internal void SetComponentEnabled<T>(ComponentTypeHandle<T> typeHandle, int entityIndexInChunk, bool value) where T : struct, IComponentData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(typeHandle.m_Safety);
+#endif
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, typeHandle.m_TypeIndex);
+
+            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
+        }
+
+        internal void SetComponentEnabled<T>(BufferTypeHandle<T> typeHandle, int entityIndexInChunk, bool value) where T : struct, IBufferElementData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(typeHandle.m_Safety0);
+#endif
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, typeHandle.m_TypeIndex);
+
+            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
+        }
+
         /// <summary>
         /// Gets the value of a chunk component.
         /// </summary>
@@ -794,7 +828,7 @@ namespace Unity.Entities
             return (typeIndexInArchetype != -1);
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void CheckZeroSizedComponentData<T>(ComponentTypeHandle<T> chunkComponentType)
         {
             if (chunkComponentType.m_IsZeroSized)
@@ -805,6 +839,8 @@ namespace Unity.Entities
         /// Provides a native array interface to components stored in this chunk.
         /// </summary>
         /// <remarks>The native array returned by this method references existing data, not a copy.</remarks>
+        /// <remarks>For raw unsafe access to a chunk's component data, see <see cref="ComponentTypeHandle.GetComponentDataPtrRO()"/>
+        /// and <see cref="ComponentTypeHandle{T}.GetComponentDataPtrRW()"/>.</remarks>
         /// <param name="chunkComponentTypeHandle">An object containing type and job safety information. Create this
         /// object by calling <see cref="ComponentSystemBase.GetComponentTypeHandle{T}(bool)"/>immediately
         /// before scheduling a job. Pass the object to a job using a public field you define as part of the job struct.</param>
@@ -843,21 +879,79 @@ namespace Unity.Entities
             return result;
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        /// <summary>
+        /// Provides an unsafe read-only interface to components stored in this chunk.
+        /// </summary>
+        /// <param name="chunkComponentTypeHandle">An object containing type and job safety information. Create this
+        /// object by calling <see cref="ComponentSystemBase.GetComponentTypeHandle{T}(bool)"/>immediately
+        /// before scheduling a job. Pass the object to a job using a public field you define as part of the job struct.</param>
+        /// <typeparam name="T">The data type of the component.</typeparam>
+        /// <exception cref="ArgumentException">If you call this function on a "tag" component type (which is an empty
+        /// component with no fields).</exception>
+        /// <returns>A pointer to the component data stored in the chunk.</returns>
+        public void* GetComponentDataPtrRO<T>(ref ComponentTypeHandle<T> chunkComponentTypeHandle)
+        {
+            CheckZeroSizedComponentData(chunkComponentTypeHandle);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(chunkComponentTypeHandle.m_Safety);
+#endif
+
+            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentTypeHandle.m_TypeIndex, ref chunkComponentTypeHandle.m_LookupCache);
+            if (chunkComponentTypeHandle.m_LookupCache == -1)
+                return null;
+
+            byte* ptr = ChunkDataUtility.GetComponentDataRO(m_Chunk, 0, chunkComponentTypeHandle.m_LookupCache);
+            var archetype = m_Chunk->Archetype;
+            var batchStartOffset = m_BatchStartEntityIndex * archetype->SizeOfs[chunkComponentTypeHandle.m_LookupCache];
+            return ptr + batchStartOffset;
+        }
+
+        /// <summary>
+        /// Provides an unsafe read/write interface to components stored in this chunk.
+        /// </summary>
+        /// <param name="chunkComponentTypeHandle">An object containing type and job safety information. Create this
+        /// object by calling <see cref="ComponentSystemBase.GetComponentTypeHandle{T}(bool)"/>immediately
+        /// before scheduling a job. Pass the object to a job using a public field you define as part of the job struct.</param>
+        /// <typeparam name="T">The data type of the component.</typeparam>
+        /// <exception cref="ArgumentException">If you call this function on a "tag" component type (which is an empty
+        /// component with no fields).</exception>
+        /// <exception cref="InvalidOperationException">If the provided type handle is read-only.</exception>
+        /// <returns>A pointer to the component data stored in the chunk.</returns>
+        public void* GetComponentDataPtrRW<T>(ref ComponentTypeHandle<T> chunkComponentTypeHandle)
+        {
+            CheckZeroSizedComponentData(chunkComponentTypeHandle);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(chunkComponentTypeHandle.m_Safety);
+            if (chunkComponentTypeHandle.IsReadOnly)
+                throw new InvalidOperationException(
+                    "Provided ComponentTypeHandle is read-only; can't get a read/write pointer to component data");
+#endif
+
+            ChunkDataUtility.GetIndexInTypeArray(m_Chunk->Archetype, chunkComponentTypeHandle.m_TypeIndex, ref chunkComponentTypeHandle.m_LookupCache);
+            if (chunkComponentTypeHandle.m_LookupCache == -1)
+                return null;
+
+            byte* ptr = ChunkDataUtility.GetComponentDataRW(m_Chunk, 0, chunkComponentTypeHandle.m_LookupCache, chunkComponentTypeHandle.GlobalSystemVersion);
+            var archetype = m_Chunk->Archetype;
+            var batchStartOffset = m_BatchStartEntityIndex * archetype->SizeOfs[chunkComponentTypeHandle.m_LookupCache];
+            return ptr + batchStartOffset;
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void CheckZeroSizedGetDynamicComponentDataArrayReinterpret<T>(DynamicComponentTypeHandle chunkComponentType)
         {
             if (chunkComponentType.m_IsZeroSized)
                 throw new ArgumentException($"ArchetypeChunk.GetDynamicComponentDataArrayReinterpret<{typeof(T)}> cannot be called on zero-sized IComponentData");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void CheckComponentSizeMatches(DynamicComponentTypeHandle chunkComponentType, int typeSize, int expectedTypeSize)
         {
             if (typeSize != expectedTypeSize)
                 throw new InvalidOperationException($"Dynamic chunk component type {TypeManager.GetType(chunkComponentType.m_TypeIndex)} (size = {typeSize}) size does not equal {expectedTypeSize}. Component size must match with expectedTypeSize.");
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void CheckCannotBeAliasedDueToSizeConstraints<T>(DynamicComponentTypeHandle chunkComponentType, int outTypeSize, int outLength, int byteLen, int length)
         {
             if (outTypeSize * outLength != byteLen)
@@ -1136,7 +1230,7 @@ namespace Unity.Entities
 
 #endif
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private void AssertIndexInRange(int index)
         {
             if (index < 0 || index >= Length)
@@ -1242,7 +1336,7 @@ namespace Unity.Entities
     #endif
             }
 
-            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             private void AssertIndexInRange(int index)
             {
                 if (index < 0 || index >= m_Length)
@@ -1388,9 +1482,11 @@ namespace Unity.Entities
     public struct ComponentTypeHandle<T>
     {
         internal readonly int m_TypeIndex;
-        internal readonly uint m_GlobalSystemVersion;
+        internal readonly int m_SizeInChunk;
+        internal uint m_GlobalSystemVersion;
         internal readonly bool m_IsReadOnly;
         internal readonly bool m_IsZeroSized;
+        public short m_LookupCache;
 
         public uint GlobalSystemVersion => m_GlobalSystemVersion;
         public bool IsReadOnly => m_IsReadOnly;
@@ -1400,7 +1496,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         private readonly int m_MinIndex;
         private readonly int m_MaxIndex;
-        internal readonly AtomicSafetyHandle m_Safety;
+        internal AtomicSafetyHandle m_Safety;
 #endif
 #pragma warning restore 0414
 
@@ -1410,17 +1506,50 @@ namespace Unity.Entities
         internal ComponentTypeHandle(bool isReadOnly, uint globalSystemVersion)
 #endif
         {
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var typeInfo = TypeManager.GetTypeInfo(typeIndex);
+
             m_Length = 1;
-            m_TypeIndex = TypeManager.GetTypeIndex<T>();
-            m_IsZeroSized = TypeManager.GetTypeInfo(m_TypeIndex).IsZeroSized;
+            m_TypeIndex = typeIndex;
+            m_SizeInChunk = typeInfo.SizeInChunk;
+            m_IsZeroSized = typeInfo.IsZeroSized;
             m_GlobalSystemVersion = globalSystemVersion;
             m_IsReadOnly = isReadOnly;
+            m_LookupCache = -1;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             m_MinIndex = 0;
             m_MaxIndex = 0;
             m_Safety = safety;
 #endif
+        }
+
+        /// <summary>
+        /// When a ComponentTypeHandle is cached by a system across multiple system updates, calling this function
+        /// inside the system's OnUpdate() method performs the minimal incremental updates necessary to make the
+        /// type handle safe to use.
+        /// </summary>
+        /// <param name="state">The SystemState of the system on which this type handle is cached.</param>
+        public unsafe void Update(ref SystemState state)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_Safety = state.m_DependencyManager->Safety.GetSafetyHandleForComponentTypeHandle(m_TypeIndex, m_IsReadOnly);
+#endif
+            m_GlobalSystemVersion = state.GlobalSystemVersion;
+        }
+
+        /// <summary>
+        /// When a ComponentTypeHandle is cached by a system across multiple system updates, calling this function
+        /// inside the system's OnUpdate() method performs the minimal incremental updates necessary to make the
+        /// type handle safe to use.
+        /// </summary>
+        /// <param name="system">The system on which this type handle is cached.</param>
+        public unsafe void Update(SystemBase system)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_Safety = system.m_StatePtr->m_DependencyManager->Safety.GetSafetyHandleForComponentTypeHandle(m_TypeIndex, m_IsReadOnly);
+#endif
+            m_GlobalSystemVersion =  system.m_StatePtr->GlobalSystemVersion;
         }
     }
 

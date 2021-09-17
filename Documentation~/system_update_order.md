@@ -4,7 +4,7 @@ uid: ecs-system-update-order
 
 # System Update Order
 
-Use Component System Groups to specify the update order of your systems. You can place a systems in a group using the [UpdateInGroup] attribute on the system’s class declaration. You can then use [UpdateBefore] and [UpdateAfter] attributes to specify the update order within the group. 
+Use Component System Groups to specify the update order of your systems. You can place a systems in a group using the `UpdateInGroup` attribute on the system’s class declaration. You can then use `UpdateBefore` and `UpdateAfter` attributes to specify the update order within the group. 
 
 The ECS framework creates a set of [default system groups](#default-system-groups) that you can use to update your systems in the correct phase of a frame. You can nest one group inside another so that all systems in your group update in the correct phase and, then, also update according to the order within their group.
 
@@ -20,10 +20,10 @@ By default, when a ComponentSystemGroup’s `Update()` method is called, it call
 
 The existing system ordering attributes are maintained, with slightly different semantics and restrictions.
 
-* [UpdateInGroup] — specifies a ComponentSystemGroup that this system should be a member of. If this attribute is omitted, the system is automatically added to the default World’s SimulationSystemGroup (see below).
-* [UpdateBefore] and [UpdateAfter] — order systems relative to other systems. The system type specified for these attributes must be a member of the same group. Ordering across group boundaries is handled at the appropriate deepest group containing both systems:
+* `UpdateInGroup` — specifies a ComponentSystemGroup that this system should be a member of. If this attribute is omitted, the system is automatically added to the default World’s SimulationSystemGroup (see below).
+* `UpdateBefore` and `UpdateAfter` — order systems relative to other systems. The system type specified for these attributes must be a member of the same group. Ordering across group boundaries is handled at the appropriate deepest group containing both systems:
     * __Example:__ if SystemA is in GroupA and SystemB is in GroupB, and GroupA and GroupB are both members of GroupC, then the ordering of GroupA and GroupB implicitly determines the relative ordering of SystemA and SystemB; no explicit ordering of the systems is necessary.
-* [DisableAutoCreation] — prevents the system from being created during default world initialization. You must explicitly create and update the system. However, you can add a system with this tag to a ComponentSystemGroup’s update list, and it will then be automatically updated just like the other systems in that list.
+* `DisableAutoCreation` — prevents the system from being created during default world initialization. You must explicitly create and update the system. However, you can add a system with this tag to a ComponentSystemGroup’s update list, and it will then be automatically updated just like the other systems in that list.
 
 <a name="default-system-groups"></a>
 ## Default System Groups
@@ -33,17 +33,17 @@ The default World contains a hierarchy of ComponentSystemGroup instances. Only t
 * InitializationSystemGroup (updated at the end of the `Initialization` phase of the player loop)
     * BeginInitializationEntityCommandBufferSystem
     * CopyInitialTransformFromGameObjectSystem
-    * SubSceneLiveLinkSystem
+    * SubSceneLiveConversionSystem
     * SubSceneStreamingSystem
     * EndInitializationEntityCommandBufferSystem
 * SimulationSystemGroup (updated at the end of the `Update` phase of the player loop)
     * BeginSimulationEntityCommandBufferSystem
     * TransformSystemGroup
-        * EndFrameParentSystem
+        * ParentSystem
         * CopyTransformFromGameObjectSystem
-        * EndFrameTRSToLocalToWorldSystem
-        * EndFrameTRSToLocalToParentSystem
-        * EndFrameLocalToParentSystem
+        * TRSToLocalToWorldSystem
+        * TRSToLocalToParentSystem
+        * LocalToParentSystem
         * CopyTransformToGameObjectSystem
     * LateSimulationSystemGroup
     * EndSimulationEntityCommandBufferSystem
@@ -95,7 +95,7 @@ For example, here’s the typical procedure of a custom `MyCustomBootstrap.Initi
 
 ## Tips and Best Practices
 
-* __Use [UpdateInGroup] to specify the system group for each system you write.__ If not specified, the implicit default group is SimulationSystemGroup.
+* __Use UpdateInGroup to specify the system group for each system you write.__ If not specified, the implicit default group is SimulationSystemGroup.
 * __Use manually-ticked ComponentSystemGroups to update systems elsewhere in the Unity player loop.__ Adding the [DisableAutoCreation] attribute to a component system (or system group) prevents it from being created or added to the default system groups. You can still manually create the system with World.GetOrCreateSystem<MySystem>() and update it by calling manually calling MySystem.Update() from the main thread. This is an easy way to insert systems elsewhere in the Unity player loop (for example, if you have a system that should run later or earlier in the frame).
-* __Use the existing `EntityCommandBufferSystem`s instead of adding new ones, if possible.__ An `EntityCommandBufferSystem` represents a sync point where the main thread waits for worker threads to complete before processing any outstanding `EntityCommandBuffer`s. Reusing one of the predefined Begin/End systems in each root-level system group is less likely to introduce a new "bubble" into the frame pipeline than creating a new one.
-* __Avoid putting custom logic in `ComponentSystemGroup.OnUpdate()`__. Since `ComponentSystemGroup` is functionally a component system itself, it may be tempting to add custom processing to its OnUpdate() method, to perform some work, spawn some jobs, etc. We advise against this in general, as it’s not immediately clear from the outside whether the custom logic is executed before or after the group’s members are updated. It’s preferable to keep system groups limited to a grouping mechanism, and to implement the desired logic in a separate component system, explicitly ordered relative to the group.
+* __Use the existing EntityCommandBufferSystem instead of adding new ones, if possible.__ An `EntityCommandBufferSystem` represents a sync point where the main thread waits for worker threads to complete before processing any outstanding `EntityCommandBuffer`s. Reusing one of the predefined Begin/End systems in each root-level system group is less likely to introduce a new "bubble" into the frame pipeline than creating a new one.
+* __Avoid putting custom logic in ComponentSystemGroup.OnUpdate__. Since `ComponentSystemGroup` is functionally a component system itself, it may be tempting to add custom processing to its OnUpdate() method, to perform some work, spawn some jobs, etc. We advise against this in general, as it’s not immediately clear from the outside whether the custom logic is executed before or after the group’s members are updated. It’s preferable to keep system groups limited to a grouping mechanism, and to implement the desired logic in a separate component system, explicitly ordered relative to the group.

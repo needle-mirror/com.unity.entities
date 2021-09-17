@@ -1,5 +1,6 @@
 {
     "name": "Unity.Entities.Hybrid.Tests",
+    "rootNamespace": "",
     "references": [
         "Unity.Entities",
         "Unity.Entities.Hybrid",
@@ -14,10 +15,9 @@
         "Unity.Build.Classic",
         "Unity.Burst",
         "Unity.Entities.Hybrid.EndToEnd.Tests",
-        "Unity.Scenes"
-    ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
+        "Unity.Scenes",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
     ],
     "includePlatforms": [
         "Editor"
@@ -25,8 +25,19 @@
     "excludePlatforms": [],
     "allowUnsafeCode": true,
     "overrideReferences": false,
-    "precompiledReferences": [],
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
     "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": []
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.roslyn",
+            "expression": "0.0.0-preview.2",
+            "define": "ROSLYN_SOURCEGEN_ENABLED"
+        }
+    ],
+    "noEngineReferences": false
 }

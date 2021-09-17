@@ -1,4 +1,7 @@
 using System;
+using System.Diagnostics;
+using Unity.Burst;
+using Unity.Collections;
 
 namespace Unity.Entities
 {
@@ -21,6 +24,8 @@ namespace Unity.Entities
     /// or the <see cref="ComponentSystem"/> in order to add or remove components, to access components, or to destroy
     /// the entity.
     /// </remarks>
+    [DebuggerTypeProxy(typeof(EntityDebugProxy))]
+    [DebuggerDisplay("{EntityDebugProxy.GetDebugName(Index, Version)}")]
     public struct Entity : IEquatable<Entity>, IComparable<Entity>
     {
         /// <summary>
@@ -83,7 +88,7 @@ namespace Unity.Entities
         /// as this Entity.</returns>
         public override bool Equals(object compare)
         {
-            return this == (Entity)compare;
+            return compare is Entity compareEntity && Equals(compareEntity);
         }
 
         /// <summary>
@@ -116,7 +121,27 @@ namespace Unity.Entities
         /// <returns>A string containing the entity index and generational version.</returns>
         public override string ToString()
         {
-            return Equals(Entity.Null) ? "Entity.Null" : $"Entity({Index}:{Version})";
+            return Equals(Null) ? "Entity.Null" : $"Entity({Index}:{Version})";
+        }
+
+        /// <summary>
+        /// <inheritdoc cref="ToString"/>
+        /// Burst compatible.
+        /// </summary>
+        /// <returns><inheritdoc cref="ToString"/></returns>
+        [BurstCompatible]
+        public FixedString64Bytes ToFixedString()
+        {
+            if (Equals(Null))
+                return (FixedString64Bytes)"Entity.Null";
+
+            var fs = new FixedString64Bytes();
+            fs.Append((FixedString32Bytes)"Entity(");
+            fs.Append(Index);
+            fs.Append(':');
+            fs.Append(Version);
+            fs.Append(')');
+            return fs;
         }
     }
 }

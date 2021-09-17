@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Collections.NotBurstCompatible;
 using UnityEngine;
 
 namespace Unity.Entities.Tests.Conversion
@@ -54,10 +55,10 @@ namespace Unity.Entities.Tests.Conversion
             using (var entities = new NativeList<Entity>(Allocator.TempJob))
             {
                 m_Manager.Debug.GetEntitiesForAuthoringObject(go, entities);
-                Assert.AreEqual(new []{entity}, entities.ToArray());
+                Assert.AreEqual(new []{entity}, entities.ToArrayNBC());
 
                 m_Manager.Debug.GetEntitiesForAuthoringObject(child, entities);
-                Assert.AreEqual(new []{childEntity}, entities.ToArray());
+                Assert.AreEqual(new []{childEntity}, entities.ToArrayNBC());
             }
         }
 
@@ -76,7 +77,7 @@ namespace Unity.Entities.Tests.Conversion
             using (var entities = new NativeList<Entity>(Allocator.TempJob))
             {
                 m_Manager.Debug.GetEntitiesForAuthoringObject(go, entities);
-                Assert.AreEqual(linkedEntities, entities.ToArray());
+                CollectionAssert.AreEquivalent(linkedEntities, entities.ToArrayNBC());
             }
         }
 

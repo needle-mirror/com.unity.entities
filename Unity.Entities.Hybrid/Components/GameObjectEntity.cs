@@ -57,7 +57,6 @@ namespace Unity.Entities
 
         static List<Component> s_ComponentsCache = new List<Component>();
 
-        // TODO: Very wrong error messages when creating entity with empty ComponentType array?
         public static Entity AddToEntityManager(EntityManager entityManager, GameObject gameObject)
         {
             var entity = GameObjectConversionMappingSystem.CreateGameObjectEntity(entityManager, gameObject, s_ComponentsCache);
@@ -106,11 +105,6 @@ namespace Unity.Entities
 
             m_World = null;
             m_Entity = Entity.Null;
-        }
-
-        [Obsolete("This function is a no-op since there are no proxy components any more. (RemovedAfter 2020-11-30)")]
-        public static void CopyAllComponentsToEntity(GameObject gameObject, EntityManager entityManager, Entity entity)
-        {
         }
     }
 }

@@ -4,6 +4,9 @@ using System.Threading;
 using Unity.Entities;
 using Unity.Entities.Tests;
 using Unity.Assertions;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<int>))]
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<float>))]
@@ -85,6 +88,81 @@ namespace Unity.Entities.Tests
         public int value4;
 
         public EcsTestData5(int inValue)
+        {
+            value4 = value3 = value2 = value1 = value0 = inValue;
+        }
+
+        public int GetValue() => value0;
+    }
+
+    public struct EcsTestDataEnableable : IComponentData, IGetValue, IEnableableComponent
+    {
+        public int value;
+
+        public EcsTestDataEnableable(int inValue)
+        {
+            value = inValue;
+        }
+
+        public override string ToString()
+        {
+            return value.ToString();
+        }
+
+        public int GetValue() => value;
+    }
+
+    public struct EcsTestDataEnableable2 : IComponentData, IGetValue, IEnableableComponent
+    {
+        public int value0;
+        public int value1;
+
+        public EcsTestDataEnableable2(int inValue)
+        {
+            value1 = value0 = inValue;
+        }
+
+        public int GetValue() => value0;
+    }
+
+    public struct EcsTestDataEnableable3 : IComponentData, IGetValue, IEnableableComponent
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestDataEnableable3(int inValue)
+        {
+            value2 = value1 = value0 = inValue;
+        }
+
+        public int GetValue() => value0;
+    }
+
+    public struct EcsTestDataEnableable4 : IComponentData, IGetValue, IEnableableComponent
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+        public int value3;
+
+        public EcsTestDataEnableable4(int inValue)
+        {
+            value3 = value2 = value1 = value0 = inValue;
+        }
+
+        public int GetValue() => value0;
+    }
+
+    public struct EcsTestDataEnableable5 : IComponentData, IGetValue, IEnableableComponent
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+        public int value3;
+        public int value4;
+
+        public EcsTestDataEnableable5(int inValue)
         {
             value4 = value3 = value2 = value1 = value0 = inValue;
         }
@@ -392,6 +470,46 @@ namespace Unity.Entities.Tests
     }
 
     [InternalBufferCapacity(8)]
+    public struct EcsIntElementEnableable : IBufferElementData, IEnableableComponent
+    {
+        public static implicit operator int(EcsIntElementEnableable e)
+        {
+            return e.Value;
+        }
+
+        public static implicit operator EcsIntElementEnableable(int e)
+        {
+            return new EcsIntElementEnableable {Value = e};
+        }
+
+        public int Value;
+    }
+
+    [InternalBufferCapacity(8)]
+    public struct EcsIntElementEnableable2 : IBufferElementData, IEnableableComponent
+    {
+        public int Value0;
+        public int Value1;
+    }
+
+    [InternalBufferCapacity(8)]
+    public struct EcsIntElementEnableable3 : IBufferElementData, IEnableableComponent
+    {
+        public int Value0;
+        public int Value1;
+        public int Value2;
+    }
+
+    [InternalBufferCapacity(8)]
+    public struct EcsIntElementEnableable4 : IBufferElementData, IEnableableComponent
+    {
+        public int Value0;
+        public int Value1;
+        public int Value2;
+        public int Value3;
+    }
+
+    [InternalBufferCapacity(8)]
     public struct EcsIntStateElement : ISystemStateBufferElementData
     {
         public static implicit operator int(EcsIntStateElement e)
@@ -415,6 +533,10 @@ namespace Unity.Entities.Tests
     }
 
     public struct EcsTestTag : IComponentData
+    {
+    }
+
+    public struct EcsTestTagEnableable : IComponentData, IEnableableComponent
     {
     }
 
@@ -577,4 +699,82 @@ namespace Unity.Entities.Tests
     }
 
 #endif
+
+    public partial struct EcsTestUpdateOneComponentJob : IJobEntity
+    {
+        public void Execute(ref EcsTestData ecsTestData)
+        {
+            ecsTestData.value++;
+        }
+    }
+
+    public partial struct EcsTestUpdateTwoComponentsJob : IJobEntity
+    {
+        public void Execute(ref EcsTestData ecsTestData, ref EcsTestData2 ecsTestData2)
+        {
+            ecsTestData.value++;
+            ecsTestData2.value0++;
+        }
+    }
+
+    public partial struct EcsTestUpdateThreeComponentsJob : IJobEntity
+    {
+        public void Execute(ref EcsTestData ecsTestData, ref EcsTestData2 ecsTestData2, ref EcsTestData3 ecsTestData3)
+        {
+            ecsTestData.value++;
+            ecsTestData2.value0++;
+            ecsTestData3.value0++;
+        }
+    }
+
+    public partial struct EcsTestUpdateOneComponentWithValuesFromOtherComponentsJob : IJobEntity
+    {
+        public void Execute(ref EcsTestData ecsTestData, in EcsTestData2 ecsTestData2, in EcsTestData3 ecsTestData3)
+        {
+            ecsTestData.value = ecsTestData2.value0 * ecsTestData3.value0 +
+                                ecsTestData2.value1 * ecsTestData3.value1 +
+                                ecsTestData3.value2;
+        }
+    }
+
+    [BurstCompile(FloatPrecision.Standard, FloatMode.Default, CompileSynchronously = true)]
+    public partial struct EcsTestSetComponentValueTo10 : IJobEntity
+    {
+        public void Execute(ref EcsTestData ecsTestData)
+        {
+            ecsTestData = new EcsTestData {value = 10};
+        }
+    }
+
+    public partial struct EcsTestSetFirstComponentValueTo10 : IJobEntity
+    {
+        public void Execute(ref EcsTestData ecsTestData, ref EcsTestData2 ecsTestData2)
+        {
+            ecsTestData = new EcsTestData {value = 10};
+        }
+    }
+
+    public partial struct EcsTestSetFirstComponentValueTo10_WithSharedComponent : IJobEntity
+    {
+        public void Execute(ref EcsTestData ecsTestData, ref EcsTestData2 ecsTestData2)
+        {
+            ecsTestData = new EcsTestData {value = 10};
+        }
+    }
+
+    [NoAlias]
+    [BurstCompile(FloatPrecision.Standard, FloatMode.Default, CompileSynchronously = true)]
+    struct EcsTestSetComponentValueTo10_BaseLine : IJobEntityBatch
+    {
+        public ComponentTypeHandle<EcsTestData> EcsTestDataRW;
+
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+        {
+            var data = batchInChunk.GetNativeArray(EcsTestDataRW);
+            for (int i = 0; i < batchInChunk.Count; i++)
+            {
+                data[i] = new EcsTestData {value = 10};
+            }
+        }
+    }
 }

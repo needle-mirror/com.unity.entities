@@ -2,9 +2,11 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
+using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Profiling;
@@ -12,21 +14,31 @@ using Unity.Profiling;
 namespace Unity.Entities
 {
     /// <summary>
-    /// Contains raw entity system state. Used by unmanaged systems (ISystemBase) as well as managed systems behind the scenes.
+    /// Contains raw entity system state. Used by unmanaged systems (ISystem) as well as managed systems behind the scenes.
     /// </summary>
-    [BurstCompatible(RequiredUnityDefine = "UNITY_2020_2_OR_NEWER || UNITY_DOTSRUNTIME")]
+    [BurstCompatible]
+    [DebuggerTypeProxy(typeof(SystemStateDebugView))]
     public unsafe struct SystemState
     {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        internal readonly static SharedStatic<IntPtr> s_SystemIdCellPtr = SharedStatic<IntPtr>.GetOrCreate<SystemState>();
+#endif
+
         // For unmanaged systems, points to user struct that was allocated to front this system state
         internal void* m_SystemPtr;
 
-        private UnsafeList m_EntityQueries;
-        private UnsafeList m_RequiredEntityQueries;
+        private UnsafeList<EntityQuery> m_EntityQueries;
+        private UnsafeList<EntityQuery> m_RequiredEntityQueries;
+
+        /// <summary>
+        /// Entities property used to access Entities.ForEach functionality
+        /// </summary>
+        public ForEachLambdaJobDescription Entities => new ForEachLambdaJobDescription();
 
         /// <summary>
         /// Return a debug name for unmanaged systems.
         /// </summary>
-        public FixedString64 DebugName => UnmanagedMetaIndex >= 0 ? SystemBaseRegistry.GetDebugName(UnmanagedMetaIndex) : default;
+        public FixedString64Bytes DebugName => UnmanagedMetaIndex >= 0 ? SystemBaseRegistry.GetDebugName(UnmanagedMetaIndex) : default;
 
         internal ref UnsafeList<EntityQuery> EntityQueries
         {
@@ -50,8 +62,8 @@ namespace Unity.Entities
             }
         }
 
-        internal UnsafeIntList m_JobDependencyForReadingSystems;
-        internal UnsafeIntList m_JobDependencyForWritingSystems;
+        internal UnsafeList<int> m_JobDependencyForReadingSystems;
+        internal UnsafeList<int> m_JobDependencyForWritingSystems;
 
         internal uint m_LastSystemVersion;
 
@@ -78,6 +90,9 @@ namespace Unity.Entities
     #endif
 
         internal int                        m_SystemID;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        internal int                        m_PreviousSystemID;
+#endif
 
 #if UNITY_ENTITIES_RUNTIME_TOOLING
         internal long m_NewStartTime;
@@ -87,7 +102,7 @@ namespace Unity.Entities
 #endif
 
         /// <summary>
-        /// Return the unmanaged type index of the system (>= 0 for ISystemBase-type systems), or -1 for managed systems.
+        /// Return the unmanaged type index of the system (>= 0 for ISystem-type systems), or -1 for managed systems.
         /// </summary>
         public int UnmanagedMetaIndex { get; private set; }
 
@@ -159,6 +174,11 @@ namespace Unity.Entities
         public WorldUnmanaged WorldUnmanaged => m_WorldUnmanaged;
 
         /// <summary>
+        /// The untyped system's handle.
+        /// </summary>
+        public SystemHandleUntyped SystemHandleUntyped => m_Handle;
+
+        /// <summary>
         /// The current Time data for this system's world.
         /// </summary>
         public ref readonly TimeData Time => ref WorldUnmanaged.CurrentTime;
@@ -208,8 +228,8 @@ namespace Unity.Entities
             EntityQueries = new UnsafeList<EntityQuery>(0, Allocator.Persistent);
             RequiredEntityQueries = new UnsafeList<EntityQuery>(0, Allocator.Persistent);
 
-            m_JobDependencyForReadingSystems = new UnsafeIntList(0, Allocator.Persistent);
-            m_JobDependencyForWritingSystems = new UnsafeIntList(0, Allocator.Persistent);
+            m_JobDependencyForReadingSystems = new UnsafeList<int>(0, Allocator.Persistent);
+            m_JobDependencyForWritingSystems = new UnsafeList<int>(0, Allocator.Persistent);
 
             AlwaysUpdateSystem = false;
         }
@@ -224,11 +244,17 @@ namespace Unity.Entities
 
             CommonInit(world, handle);
 
+#if !NET_DOTS
+            AlwaysUpdateSystem = Attribute.IsDefined(SystemBaseRegistry.GetStructType(unmanagedMetaIndex), typeof(AlwaysUpdateSystemAttribute), true);
+#else
+            var attrs = TypeManager.GetSystemAttributes(SystemBaseRegistry.GetStructType(unmanagedMetaIndex), typeof(AlwaysUpdateSystemAttribute));
+            if (attrs.Length > 0)
+                AlwaysUpdateSystem = true;
+#endif
+
 #if ENABLE_PROFILER
             m_ProfilerMarker = new Profiling.ProfilerMarker($"{world.Name} {SystemBaseRegistry.GetDebugName(UnmanagedMetaIndex)}");
 #endif
-
-            // TODO: AlwaysUpdate reflection code needs to go here as for managed, or be backed into systembaseregistry and/or typemanager
         }
 
         [NotBurstCompatible]
@@ -382,6 +408,42 @@ namespace Unity.Entities
 #endif
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal static void InitSystemIdCell()
+        {
+#if !UNITY_DOTSRUNTIME
+            s_SystemIdCellPtr.Data = JobsUtility.GetSystemIdCellPtr();
+#endif
+        }
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal static int SetCurrentSystemIdForJobDebugger(int id)
+        {
+#if !UNITY_DOTSRUNTIME
+            int* ptr = (int*) s_SystemIdCellPtr.Data;
+            var old = *ptr;
+            *ptr = id;
+            return old;
+#else
+            return 0;
+#endif
+        }
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal static SystemState* GetCurrentSystemFromJobDebugger()
+        {
+            IntPtr ptr = s_SystemIdCellPtr.Data;
+            if (ptr == IntPtr.Zero)
+                return null;
+            return World.FindSystemStateForId(*(int*)ptr);
+        }
+#endif
+
         internal void BeforeOnUpdate()
         {
             BeforeUpdateVersioning();
@@ -390,6 +452,10 @@ namespace Unity.Entities
             // without anyone ever waiting on it
             m_JobHandle.Complete();
             NeedToGetDependencyFromSafetyManager = true;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_PreviousSystemID = SetCurrentSystemIdForJobDebugger(m_SystemID);
+#endif
         }
 
 #pragma warning disable 649
@@ -414,24 +480,40 @@ namespace Unity.Entities
                     m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
                     m_JobDependencyForWritingSystems.Length, outputJob);
             }
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            SetCurrentSystemIdForJobDebugger(m_PreviousSystemID);
+#endif
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal void CheckSafety(ref SystemDependencySafetyUtility.SafetyErrorDetails details, ref bool errorFound)
+        [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
+        internal void LogSafetyErrors()
         {
-            var depMgr = m_DependencyManager;
-            if (JobsUtility.JobDebuggerEnabled)
-            {
-                var dependencyError = SystemDependencySafetyUtility.CheckSafetyAfterUpdate(ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems, depMgr, out details);
+            if (!JobsUtility.JobDebuggerEnabled)
+                return;
 
-                if (dependencyError)
+            var depMgr = m_DependencyManager;
+            if (SystemDependencySafetyUtility.FindSystemSchedulingErrors(m_SystemID, ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems, depMgr, out var details))
+            {
+                bool logged = false;
+                LogSafetyDetails(details, ref logged);
+
+                if (!logged)
                 {
-                    SystemDependencySafetyUtility.EmergencySyncAllJobs(ref m_JobDependencyForReadingSystems, ref m_JobDependencyForWritingSystems, depMgr);
+                    Debug.LogError("A system dependency error was detected but could not be logged accurately from Burst. Disable Burst compilation to see full error message.");
                 }
 
-                errorFound = dependencyError;
+                m_DependencyManager->Safety.PanicSyncAll();
             }
+        }
+
+        [BurstDiscard]
+        private static void LogSafetyDetails(in SystemDependencySafetyUtility.SafetyErrorDetails details, ref bool logged)
+        {
+            Debug.LogError(details.FormatToString());
+            logged = true;
         }
 
 #endif
@@ -461,8 +543,7 @@ namespace Unity.Entities
             }
             else
             {
-                // Systems without queriesDesc should always run. Specifically,
-                // IJobForEach adds its queriesDesc the first time it's run.
+                // Systems without queriesDesc should always run.
                 ref var eqs = ref EntityQueries;
                 var length = eqs.Length;
                 if (length == 0)
@@ -481,7 +562,6 @@ namespace Unity.Entities
             }
         }
 
-        [NotBurstCompatible] // We need to fix up EntityQueryManager
         internal EntityQuery GetEntityQueryInternal(ComponentType* componentTypes, int count)
         {
             ref var handles = ref EntityQueries;
@@ -561,12 +641,25 @@ namespace Unity.Entities
         {
             ref var handles = ref EntityQueries;
 
+            var builder = new EntityQueryDescBuilder(Allocator.Temp);
+            EntityQueryManager.ConvertToEntityQueryDescBuilder(ref builder, desc);
+            EntityQuery result = GetEntityQueryInternal(builder);
+            builder.Dispose();
+            return result;
+        }
+
+        internal EntityQuery GetEntityQueryInternal(in EntityQueryDescBuilder desc)
+        {
+            ref var handles = ref EntityQueries;
+
             for (var i = 0; i != handles.Length; i++)
             {
                 var query = handles[i];
 
                 if (query.CompareQuery(desc))
+                {
                     return query;
+                }
             }
 
             var newQuery = EntityManager.CreateEntityQuery(desc);
@@ -575,6 +668,14 @@ namespace Unity.Entities
             AfterQueryCreated(newQuery);
 
             return newQuery;
+        }
+
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
+        internal DynamicBuffer<T> GetBuffer<T>(Entity entity, bool isReadOnly = false)
+            where T : struct, IBufferElementData
+        {
+            AddReaderWriter(isReadOnly ? ComponentType.ReadOnly<T>() : ComponentType.ReadWrite<T>());
+            return EntityManager.GetBuffer<T>(entity, isReadOnly);
         }
 
         /// <summary>
@@ -598,7 +699,6 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="componentTypes">An array of component types.</param>
         /// <returns>The new or cached query.</returns>
-        [NotBurstCompatible]
         public EntityQuery GetEntityQuery(NativeArray<ComponentType> componentTypes)
         {
             return GetEntityQueryInternal((ComponentType*)componentTypes.GetUnsafeReadOnlyPtr(), componentTypes.Length);
@@ -615,6 +715,18 @@ namespace Unity.Entities
         public EntityQuery GetEntityQuery(params EntityQueryDesc[] queryDesc)
         {
             return GetEntityQueryInternal(queryDesc);
+        }
+
+        /// <summary>
+        /// Create an entity query from a query description builder.
+        /// </summary>
+        /// <remarks>This function looks for a cached query matching the combined query descriptions, and returns it
+        /// if one exists; otherwise, the function creates a new query instance and caches it.</remarks>
+        /// <returns>The new or cached query.</returns>
+        /// <param name="queryDesc">The description builder</param>
+        public EntityQuery GetEntityQuery(in EntityQueryDescBuilder builder)
+        {
+            return GetEntityQueryInternal(builder);
         }
 
         /// <summary>
@@ -733,6 +845,16 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Gets an dictionary-like container containing information about how entities are stored.
+        /// </summary>
+        /// <returns>A StorageInfoFromEntity object.</returns>
+        /// <seealso cref="StorageInfoFromEntity"/>
+        public StorageInfoFromEntity GetStorageInfoFromEntity()
+        {
+            return EntityManager.GetStorageInfoFromEntity();
+        }
+
+        /// <summary>
         /// Adds a query that must return entities for the system to run. You can add multiple required queries to a
         /// system; all of them must match at least one entity for the system to run.
         /// </summary>
@@ -764,7 +886,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Checks whether a singelton component of the specified type exists.
+        /// Checks whether a singleton component of the specified type exists.
         /// </summary>
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.</typeparam>
         /// <returns>True, if a singleton of the specified type exists in the current <see cref="World"/>.</returns>
@@ -858,6 +980,5 @@ namespace Unity.Entities
 
             return hasSingleton;
         }
-
     }
 }

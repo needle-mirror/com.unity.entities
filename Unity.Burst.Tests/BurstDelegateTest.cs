@@ -5,6 +5,7 @@ using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Entities;
+using UnityEngine.TestTools;
 
 [BurstCompile]
 public unsafe class BurstDelegateTest
@@ -66,6 +67,7 @@ public unsafe class BurstDelegateTest
     }
 
     [Test]
+    [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
     public void CompileMissingBurstCompile()
     {
         Assert.Throws<InvalidOperationException>(() => BurstCompiler.CompileFunctionPointer<DoThingDelegate>(DoThingMissingBurstCompile));
@@ -102,7 +104,6 @@ public unsafe class BurstDelegateTest
     [Test, Ignore("DOTS-2992")]
     public void CallJobFromFunctionPointer()
     {
-        IJobBurstSchedulableExtensions.JobStruct<DivideByZeroJob>.Initialize();
         var funcPtr = BurstCompiler.CompileFunctionPointer<CallJobDelegate>(CallJob);
         var job = new DivideByZeroJob { I = 0 };
         funcPtr.Invoke(ref job);

@@ -9,8 +9,8 @@ namespace Unity.Transforms
 {
     [UnityEngine.ExecuteAlways]
     [UpdateInGroup(typeof(TransformSystemGroup))]
-    [UpdateBefore(typeof(EndFrameTRSToLocalToWorldSystem))]
-    public class CopyTransformFromGameObjectSystem : JobComponentSystem
+    [UpdateBefore(typeof(TRSToLocalToWorldSystem))]
+    public partial class CopyTransformFromGameObjectSystem : SystemBase
     {
         struct TransformStash
         {
@@ -33,15 +33,14 @@ namespace Unity.Transforms
             }
         }
 
-#pragma warning disable 618
         [BurstCompile]
-        struct CopyTransforms : IJobForEachWithEntity<LocalToWorld>
+        partial struct CopyTransforms : IJobEntity
         {
             [DeallocateOnJobCompletion] public NativeArray<TransformStash> transformStashes;
 
-            public void Execute(Entity entity, int index, ref LocalToWorld localToWorld)
+            public void Execute([EntityInQueryIndex]int entityInQueryIndex, ref LocalToWorld localToWorld)
             {
-                var transformStash = transformStashes[index];
+                var transformStash = transformStashes[entityInQueryIndex];
 
                 localToWorld = new LocalToWorld
                 {
@@ -52,7 +51,6 @@ namespace Unity.Transforms
                 };
             }
         }
-#pragma warning restore 618
 
         EntityQuery m_TransformGroup;
 
@@ -67,23 +65,12 @@ namespace Unity.Transforms
             RequireForUpdate(m_TransformGroup);
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        protected override void OnUpdate()
         {
             var transforms = m_TransformGroup.GetTransformAccessArray();
             var transformStashes = new NativeArray<TransformStash>(transforms.length, Allocator.TempJob);
-            var stashTransformsJob = new StashTransforms
-            {
-                transformStashes = transformStashes
-            };
-
-            var stashTransformsJobHandle = stashTransformsJob.Schedule(transforms, inputDeps);
-
-            var copyTransformsJob = new CopyTransforms
-            {
-                transformStashes = transformStashes,
-            };
-
-            return copyTransformsJob.Schedule(m_TransformGroup, stashTransformsJobHandle);
+            Dependency = new StashTransforms {transformStashes = transformStashes}.Schedule(transforms, Dependency);
+            new CopyTransforms {transformStashes = transformStashes}.Schedule(m_TransformGroup);
         }
     }
 }

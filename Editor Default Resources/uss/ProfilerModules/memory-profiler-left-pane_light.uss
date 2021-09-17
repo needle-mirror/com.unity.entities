@@ -1,0 +1,24 @@
+.memory-profiler-left-pane__options
+{
+    background-image: resource("builtin skins/lightskin/images/pane options.png");
+}
+
+.memory-profiler-left-pane__options:hover
+{
+    background-color: #efefef;
+}
+
+.memory-profiler-left-pane__header
+{
+    background-color: #dddddd;
+}
+
+.memory-profiler-left-pane__column2
+{
+    border-color: #aeaeae;
+}
+
+.memory-profiler-left-pane__column3
+{
+    border-color: #aeaeae;
+}

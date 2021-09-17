@@ -4,6 +4,7 @@ using System.Diagnostics;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Burst;
+using Unity.Mathematics;
 #if !NET_DOTS
 using System.Linq;
 #endif
@@ -22,8 +23,14 @@ namespace Unity.Entities
             Data = (ushort) index;
             Data |= (ushort)((managed ? 1 : 0) << 15);
         }
+
+        override public string ToString()
+        {
+            return IsManaged ? "Managed: Index " + Index : "UnManaged: Index " + Index;
+        }
     }
 
+    [DebuggerTypeProxy(typeof(ComponentSystemGroupDebugView))]
     public unsafe abstract class ComponentSystemGroup : ComponentSystem
     {
         private bool m_systemSortDirty = false;
@@ -36,13 +43,23 @@ namespace Unity.Entities
         // If false, calls to SortSystems() on this system group will have no effect on update order of systems in this
         // group (though SortSystems() will still be called recursively on any child system groups). The group's systems
         // will update in the order of the most recent sort operation, with any newly-added systems updating in
-        // insertion order at the end of the list. In this mode, removing systems from the group is an error.
+        // insertion order at the end of the list.
         //
         // Setting this value to false is not recommended unless you know exactly what you're doing, and you have full
         // control over the systems which will be updated in this group.
-        public bool EnableSystemSorting { get; protected set; } = true;
+        private bool m_EnableSystemSorting = true;
+        public bool EnableSystemSorting
+        {
+            get => m_EnableSystemSorting;
+            protected set
+            {
+                if (value && !m_EnableSystemSorting)
+                    m_systemSortDirty = true; // force a sort after re-enabling sorting
+                m_EnableSystemSorting = value;
+            }
+        }
 
-        internal bool Created { get; private set; } = false;
+        public bool Created { get; private set; } = false;
 
         internal List<ComponentSystemBase> m_systemsToUpdate = new List<ComponentSystemBase>();
         internal List<ComponentSystemBase> m_systemsToRemove = new List<ComponentSystemBase>();
@@ -120,7 +137,7 @@ namespace Unity.Entities
             return -1;
         }
 
-        internal void AddUnmanagedSystemToUpdateList(SystemHandleUntyped sysHandle)
+        public void AddUnmanagedSystemToUpdateList(SystemHandleUntyped sysHandle)
         {
             CheckCreated();
 
@@ -140,8 +157,6 @@ namespace Unity.Entities
         public void RemoveSystemFromUpdateList(ComponentSystemBase sys)
         {
             CheckCreated();
-            if (!EnableSystemSorting)
-                throw new InvalidOperationException("Removing systems from a group is not supported if group.EnableSystemSorting is false.");
 
             if (m_systemsToUpdate.Contains(sys) && !m_systemsToRemove.Contains(sys))
             {
@@ -153,8 +168,6 @@ namespace Unity.Entities
         internal void RemoveUnmanagedSystemFromUpdateList(SystemHandleUntyped sys)
         {
             CheckCreated();
-            if (!EnableSystemSorting)
-                throw new InvalidOperationException("Removing systems from a group is not supported if group.EnableSystemSorting is false.");
 
             if (m_UnmanagedSystemsToUpdate.Contains(sys) && !m_UnmanagedSystemsToRemove.Contains(sys))
             {
@@ -184,16 +197,115 @@ namespace Unity.Entities
             m_UnmanagedSystemsToRemove.Clear();
         }
 
+
+        private void RemoveSystemsFromUnsortedUpdateList()
+        {
+            if (m_systemsToRemove.Count <= 0 && m_UnmanagedSystemsToRemove.Length <= 0)
+                return;
+
+            var world = World.Unmanaged;
+            int largestID = 0;
+
+            //determine the size of the lookup table used for looking up system information; whether a system is due to be removed
+            //and/or the new update index of the system
+            foreach (var managedSystem in m_systemsToUpdate)
+            {
+                largestID = math.max(largestID, managedSystem.CheckedState()->m_SystemID);
+            }
+            foreach (var unmanagedSystem in m_UnmanagedSystemsToUpdate)
+            {
+                largestID = math.max(largestID, world.ResolveSystemState(unmanagedSystem)->m_SystemID);
+            }
+
+            var newListIndices = new NativeArray<int>(largestID + 1, Allocator.Temp);
+            var systemIsRemoved = new NativeArray<byte>(largestID + 1, Allocator.Temp,NativeArrayOptions.ClearMemory);
+
+            //update removed system lookup table
+            foreach (var managedSystem in m_systemsToRemove)
+            {
+                systemIsRemoved[managedSystem.CheckedState()->m_SystemID] = 1;
+            }
+
+            foreach (var unmanagedSystem in m_UnmanagedSystemsToRemove)
+            {
+                systemIsRemoved[world.ResolveSystemState(unmanagedSystem)->m_SystemID] = 1;
+            }
+
+            var newManagedUpdateList = new List<ComponentSystemBase>(m_systemsToUpdate.Count);
+            var newUnmanagedUpdateList = new UnsafeList<SystemHandleUntyped>(m_UnmanagedSystemsToUpdate.Length,Allocator.Persistent);
+
+            //use removed lookup table to determine which systems will be in the new update
+            foreach (var managedSystem in m_systemsToUpdate)
+            {
+                var systemID = managedSystem.CheckedState()->m_SystemID;
+                if (systemIsRemoved[systemID] == 0)
+                {
+                    //the new update index will be based on the position in the systems list
+                    newListIndices[systemID] = newManagedUpdateList.Count;
+                    newManagedUpdateList.Add(managedSystem);
+                }
+            }
+
+            foreach (var unmanagedSystem in m_UnmanagedSystemsToUpdate)
+            {
+                var systemID = world.ResolveSystemState(unmanagedSystem)->m_SystemID;
+                if (systemIsRemoved[systemID] == 0)
+                {
+                    newListIndices[systemID] = newUnmanagedUpdateList.Length;
+                    newUnmanagedUpdateList.Add(unmanagedSystem);
+                }
+            }
+
+            var newMasterUpdateList = new UnsafeList<UpdateIndex>(newManagedUpdateList.Count + newUnmanagedUpdateList.Length,Allocator.Persistent);
+
+            foreach (var updateIndex in m_MasterUpdateList)
+            {
+                if (updateIndex.IsManaged)
+                {
+                    var system = m_systemsToUpdate[updateIndex.Index];
+                    var systemID = system.CheckedState()->m_SystemID;
+                    //use the two lookup tables to determine if and where the new master update list entries go
+                    if (systemIsRemoved[systemID] == 0)
+                    {
+                        newMasterUpdateList.Add(new UpdateIndex(newListIndices[systemID], true));
+                    }
+                }
+                else
+                {
+                    var system = m_UnmanagedSystemsToUpdate[updateIndex.Index];
+                    var systemID = world.ResolveSystemState(system)->m_SystemID;
+                    if (systemIsRemoved[systemID] == 0)
+                    {
+                        newMasterUpdateList.Add(new UpdateIndex(newListIndices[systemID], false));
+                    }
+                }
+            }
+
+            newListIndices.Dispose();
+            systemIsRemoved.Dispose();
+
+            m_systemsToUpdate = newManagedUpdateList;
+            m_systemsToRemove.Clear();
+
+            m_UnmanagedSystemsToUpdate.Dispose();
+            m_UnmanagedSystemsToUpdate = newUnmanagedUpdateList;
+            m_UnmanagedSystemsToRemove.Clear();
+
+            m_MasterUpdateList.Dispose();
+            m_MasterUpdateList = newMasterUpdateList;
+        }
+
         private void RecurseUpdate()
         {
             if (!EnableSystemSorting)
             {
-                m_systemSortDirty = true;
+                RemoveSystemsFromUnsortedUpdateList();
             }
             else if (m_systemSortDirty)
             {
                 GenerateMasterUpdateList();
             }
+            m_systemSortDirty = false;
 
             foreach (var sys in m_systemsToUpdate)
             {
@@ -305,8 +417,6 @@ namespace Unity.Entities
                     }
                 }
             }
-
-            m_systemSortDirty = false;
         }
 
         internal static int ComputeSystemOrdering(Type sysType, Type ourType)
@@ -395,36 +505,50 @@ namespace Unity.Entities
             }
         }
 
-        /// <summary>
-        /// An optional callback.  If set, this group's systems will be updated in a loop while
-        /// this callback returns true.  This can be used to implement custom processing before/after
-        /// update (first call should return true, second should return false), or to run a group's
-        /// systems multiple times (return true more than once).
-        ///
-        /// The group is passed as the first parameter.
-        /// </summary>
-        [Obsolete("To enable fixed-timestep functionality, use the group's FixedRateManager property. (RemovedAfter 2020-12-26)")]
-        public Func<ComponentSystemGroup, bool> UpdateCallback;
+        [Obsolete("This property has been renamed to RateManager. (RemovedAfter DOTS 1.0)")]
+        public IRateManager FixedRateManager
+        {
+            get => RateManager;
+            set => RateManager = value;
+        }
 
-        public IFixedRateManager FixedRateManager { get; set; }
+        public IRateManager RateManager { get; set; }
 
         protected override void OnUpdate()
         {
             CheckCreated();
 
-            if (FixedRateManager == null)
+            if (RateManager == null)
             {
                 UpdateAllSystems();
             }
             else
             {
-                while (FixedRateManager.ShouldGroupUpdate(this))
+                while (RateManager.ShouldGroupUpdate(this))
                 {
                     UpdateAllSystems();
                 }
             }
         }
 
+        public static void UpdateSystem(ref WorldUnmanaged world, SystemHandleUntyped sh)
+        {
+            SystemState* sys = world.ResolveSystemState(sh);
+
+            if (sys != null)
+            {
+                bool updateError = false;
+                updateError = s_UnmanagedUpdateFn((IntPtr) sys, out var details);
+
+                if (updateError)
+                {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    var errorString = details.FormatToString();
+                    Debug.LogError(errorString);
+#endif
+                }
+            }
+        }
         void UpdateAllSystems()
         {
             if (m_systemSortDirty)
@@ -450,20 +574,7 @@ namespace Unity.Entities
                         // Update unmanaged (burstable) code.
                         var handle = m_UnmanagedSystemsToUpdate[index.Index];
                         world.ExecutingSystem = handle;
-                        SystemState* sys = world.ResolveSystemState(m_UnmanagedSystemsToUpdate[index.Index]);
-                        if (sys != null)
-                        {
-                            bool updateError = false;
-                            updateError = s_UnmanagedUpdateFn((IntPtr) sys, out var details);
-
-                            if (updateError)
-                            {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                                var errorString = details.FormatToString(sys->DebugName);
-                                Debug.LogError(errorString);
-#endif
-                            }
-                        }
+                        UpdateSystem(ref world, m_UnmanagedSystemsToUpdate[index.Index]);
                     }
                     else
                     {

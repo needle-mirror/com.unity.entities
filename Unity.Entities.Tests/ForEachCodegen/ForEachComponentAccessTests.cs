@@ -87,7 +87,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         Entities.ForEach((ref EcsTestDataEntity tde) => { SetComponent(entity, new EcsTestData(){ value = 2 }); }).Schedule();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        Entities.ForEach((ref EcsTestDataEntity tde) => { SetComponent(entity, new EcsTestData(){ value = 2 }); }).ScheduleParallel();
+                        // Flagged as an DC0063 error at compile-time with sourcegen
                         break;
                 }
 
@@ -131,11 +131,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                         }).Schedule();
                         break;
                     case ScheduleType.ScheduleParallel:
-                        Entities.ForEach((ref EcsTestDataEntity tde) =>
-                        {
-                            var cdfe = GetComponentDataFromEntity<EcsTestData>(false);
-                            cdfe[entity] = new EcsTestData(){ value = 2 };
-                        }).ScheduleParallel();
+                        // Flagged as an DC0063 error at compile-time with sourcegen
                         break;
                 }
 
@@ -346,12 +342,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        public void SetComponent_Throws([Values(ScheduleType.ScheduleParallel)] ScheduleType scheduleType)
-        {
-            Assert.Throws<InvalidOperationException>(() => TestSystem.SetComponent_SetsValue(TestEntity1, scheduleType));
-        }
-
-        [Test]
         public void GetComponentThroughGetComponentDataFromEntity_GetsValue([Values] ScheduleType scheduleType)
         {
             TestSystem.GetComponentThroughGetComponentDataFromEntity_GetsValue(TestEntity2, scheduleType);
@@ -363,12 +353,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.SetComponentThroughGetComponentDataFromEntity_SetsValue(TestEntity1, scheduleType);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
-        }
-
-        [Test]
-        public void SetComponentThroughGetComponentDataFromEntity_Throws([Values(ScheduleType.ScheduleParallel)] ScheduleType scheduleType)
-        {
-            Assert.Throws<InvalidOperationException>(() => TestSystem.SetComponentThroughGetComponentDataFromEntity_SetsValue(TestEntity1, scheduleType));
         }
 
         [Test]

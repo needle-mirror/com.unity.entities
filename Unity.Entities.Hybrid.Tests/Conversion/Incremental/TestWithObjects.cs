@@ -5,7 +5,8 @@ using Object = UnityEngine.Object;
 
 namespace Unity.Entities.Tests.Conversion
 {
-    struct TestWithObjects
+    [System.Serializable]
+    internal struct TestWithObjects
     {
         private List<Object> m_ObjectsToDestroy;
 
@@ -25,6 +26,13 @@ namespace Unity.Entities.Tests.Conversion
         public GameObject CreateGameObject() {
             var go = new GameObject();
             m_ObjectsToDestroy.Add(go);
+            return go;
+        }
+
+        public GameObject CreatePrimitive(PrimitiveType type)
+        {
+            var go = GameObject.CreatePrimitive(type);
+            RegisterForDestruction(go);
             return go;
         }
 

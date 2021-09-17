@@ -1,0 +1,4 @@
+<UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <uie:ToolbarSearchField name="System Search" class="entity-inspector-components-tab__search-field"/>
+    <ui:VisualElement class="entity-inspector-components-tab__content"/>
+</UXML>

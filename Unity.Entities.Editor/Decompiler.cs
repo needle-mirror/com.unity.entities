@@ -26,15 +26,27 @@ namespace Unity.Entities.Editor
         {
             StringBuilder referencePaths = GetAllReferencePaths();
 
-            bool isWindows = Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT;
-            string ilspycmdFullPath = Path.GetFullPath("Packages/com.unity.entities/Unity.Entities.Editor/PostprocessedILInspector/.ilspyfolder/ilspycmd.exe");
+            string executionPath = default;
+            string arguments = default;
+            string ilSpyPath = Path.GetFullPath("Packages\\com.unity.entities\\Unity.Entities.Editor\\DOTSCompiler\\.ilspyfolder\\ilspycmd.exe");
 
-            if (isWindows)
+            switch (Environment.OSVersion.Platform)
             {
-                ilspycmdFullPath = ilspycmdFullPath.Replace("/", "\\");
+                case PlatformID.Win32Windows:
+                case PlatformID.Win32NT:
+                {
+                    executionPath = ilSpyPath;
+                    arguments = $"\"{fullDllPath}\" -t \"{fullyQualifiedTypeName}\" {referencePaths}";
+                    break;
+                }
+                case PlatformID.MacOSX:
+                case PlatformID.Unix:
+                {
+                    executionPath = $"{EditorApplication.applicationContentsPath}/MonoBleedingEdge/bin/mono";
+                    arguments = $"{ilSpyPath} \"{fullDllPath}\" -t \"{fullyQualifiedTypeName}\" {referencePaths}";
+                    break;
+                }
             }
-
-            string ilSpyArgument = $"{(isWindows ? "" : ilspycmdFullPath)} \"{fullDllPath}\" -t \"{fullyQualifiedTypeName}\" {referencePaths}";
 
             Process outputCSharpProcess =
                 new Process
@@ -43,10 +55,8 @@ namespace Unity.Entities.Editor
                     {
                         UseShellExecute = false,
                         CreateNoWindow = true,
-                        FileName = isWindows
-                            ? ilspycmdFullPath
-                            : $"{EditorApplication.applicationPath}/Contents/MonoBleedingEdge/bin/mono",
-                        Arguments = ilSpyArgument,
+                        FileName = executionPath,
+                        Arguments = arguments,
                         RedirectStandardOutput = true
                     }
                 };
@@ -113,7 +123,7 @@ namespace Unity.Entities.Editor
             StringBuilder referencePaths = GetAllReferencePaths();
 
             var isWin = Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT;
-            var ilspycmd = Path.GetFullPath("Packages/com.unity.entities/Unity.Entities.Editor/PostprocessedILInspector/.ilspyfolder/ilspycmd.exe");
+            var ilspycmd = Path.GetFullPath("Packages/com.unity.entities/Unity.Entities.Editor/DOTSCompiler/.ilspyfolder/ilspycmd.exe");
             if (isWin)
                 ilspycmd = ilspycmd.Replace("/", "\\");
 

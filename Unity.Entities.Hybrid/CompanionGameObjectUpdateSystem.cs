@@ -11,30 +11,36 @@
  * Going the other way around, from the Companion GameObject to the Entity, isn't possible nor advised.
  */
 
-using Unity.Entities;
 using UnityEngine;
 
-// Needs to be a system state because instantiation will always create disabled GameObjects
-struct CompanionGameObjectActiveSystemState : ISystemStateComponentData {}
-
-[ExecuteAlways]
-class CompanionGameObjectUpdateSystem : ComponentSystem
+namespace Unity.Entities
 {
-    protected override void OnUpdate()
+    // Needs to be a system state because instantiation will always create disabled GameObjects
+    struct CompanionGameObjectActiveSystemState : ISystemStateComponentData
     {
-        var toActivate = Entities.WithNone<CompanionGameObjectActiveSystemState>().WithAll<CompanionLink>();
-        toActivate.ForEach((CompanionLink link) => link.Companion.SetActive(true));
-        EntityManager.AddComponent<CompanionGameObjectActiveSystemState>(toActivate.ToEntityQuery());
+    }
 
-        var toDeactivate = Entities.WithAny<Disabled, Prefab>()
-            .With(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab)
-            .WithAll<CompanionGameObjectActiveSystemState, CompanionLink>();
-        toDeactivate.ForEach((CompanionLink link) => link.Companion.SetActive(false));
-        EntityManager.RemoveComponent<CompanionGameObjectActiveSystemState>(toDeactivate.ToEntityQuery());
+    [ExecuteAlways]
+    class CompanionGameObjectUpdateSystem : ComponentSystem
+    {
+        protected override void OnUpdate()
+        {
+            var toActivate = Entities
+                .WithNone<CompanionGameObjectActiveSystemState, Disabled>()
+                .WithAll<CompanionLink>();
+            toActivate.ForEach((CompanionLink link) => link.Companion.SetActive(true));
+            EntityManager.AddComponent<CompanionGameObjectActiveSystemState>(toActivate.ToEntityQuery());
 
-        var activeSystemStateCleanup = Entities.WithNone<CompanionLink>().WithAll<CompanionGameObjectActiveSystemState>().ToEntityQuery();
-        EntityManager.RemoveComponent<CompanionGameObjectActiveSystemState>(activeSystemStateCleanup);
+            var toDeactivate = Entities
+                .WithAny<Disabled, Prefab>()
+                .With(EntityQueryOptions.IncludeDisabled | EntityQueryOptions.IncludePrefab)
+                .WithAll<CompanionGameObjectActiveSystemState, CompanionLink>();
+            toDeactivate.ForEach((CompanionLink link) => link.Companion.SetActive(false));
+            EntityManager.RemoveComponent<CompanionGameObjectActiveSystemState>(toDeactivate.ToEntityQuery());
+
+            var activeSystemStateCleanup = Entities.WithNone<CompanionLink>().WithAll<CompanionGameObjectActiveSystemState>().ToEntityQuery();
+            EntityManager.RemoveComponent<CompanionGameObjectActiveSystemState>(activeSystemStateCleanup);
+        }
     }
 }
-
 #endif

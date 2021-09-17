@@ -231,7 +231,7 @@ namespace Unity.Scenes.Tests
             AssetDatabaseCompatibility.GetArtifactPaths(list[0].ArtifactID, out var paths);
 
             Assert.AreEqual(paths.Length, 2);
-            var path = paths.First(p => p.EndsWith("output"));
+            var path = paths.First(p => p.EndsWith("output", StringComparison.Ordinal));
             Assert.AreEqual(content, File.ReadAllText(path));
         }
     }

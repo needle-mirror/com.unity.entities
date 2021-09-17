@@ -14,16 +14,16 @@ namespace Unity.Entities.Tests
     class IJobEntityBatchTests : ECSTestsFixture
     {
         [BurstCompile(CompileSynchronously = true)]
-        struct WriteBatchIndex : IJobEntityBatch
+        struct WriteBatchId : IJobEntityBatch
         {
             public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
 
-            public void Execute(ArchetypeChunk batch, int batchIndex)
+            public void Execute(ArchetypeChunk batch, int batchId)
             {
                 var testDataArray = batch.GetNativeArray(EcsTestTypeHandle);
                 testDataArray[0] = new EcsTestData
                 {
-                    value = batchIndex
+                    value = batchId
                 };
             }
         }
@@ -39,14 +39,16 @@ namespace Unity.Entities.Tests
             [NativeDisableParallelForRestriction]
             public NativeArray<ArchetypeChunk> BatchInfos;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchId)
             {
                 // We expect the BatchInfos array to be uninitialized until written by this job.
                 // If this fires, some other job thread has filled in this batch's info already!
-                Assert.IsFalse(IsBatchInitialized(BatchInfos[batchIndex]));
+                // TODO https://unity3d.atlassian.net/browse/DOTS-4591: this will break when enabled bits are enabled. batchId is no longer guaranteed to be tightly-packed and zero-based.
+                // a new approach will be needed for this test.
+                Assert.IsFalse(IsBatchInitialized(BatchInfos[batchId]));
                 Assert.NotZero(batchInChunk.Count);
 
-                BatchInfos[batchIndex] = batchInChunk;
+                BatchInfos[batchId] = batchInChunk;
             }
         }
 
@@ -80,7 +82,7 @@ namespace Unity.Entities.Tests
             {
                 var entityCount = 100;
                 m_Manager.CreateEntity(archetype, entityCount);
-                var job = new WriteBatchIndex
+                var job = new WriteBatchId
                 {
                     EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
                 };
@@ -96,7 +98,7 @@ namespace Unity.Entities.Tests
             {
                 var entityCount = 100;
                 m_Manager.CreateEntity(archetype, entityCount);
-                var job = new WriteBatchIndex
+                var job = new WriteBatchId
                 {
                     EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)
                 };
@@ -106,14 +108,42 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test]
-        public void IJobEntityBatch_WithoutFiltering_GeneratesExpectedBatches([Values(1, 4, 17, 100)] int batchesPerChunk)
+        [BurstCompile(CompileSynchronously = true)]
+        struct WriteEntityIndex : IJobEntityBatchWithIndex
+        {
+            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
+
+            public void Execute(ArchetypeChunk batch, int batchIndex, int indexOfFirstEntityInQuery)
+            {
+                var testDataArray = batch.GetNativeArray(EcsTestTypeHandle);
+                testDataArray[0] = new EcsTestData
+                {
+                    value = indexOfFirstEntityInQuery
+                };
+            }
+        }
+
+        public enum ScheduleMode
+        {
+            Parallel, Single, Run, RunWithoutJobs
+        }
+
+// TODO(https://unity3d.atlassian.net/browse/DOTSR-2746): [TestCase(args)] is not supported in the portable test runner
+#if !UNITY_PORTABLE_TEST_RUNNER
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public void IJobEntityBatch_GeneratesExpectedBatches_WithoutFiltering(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entityCount = 10000;
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob))
-            using (var batches = new NativeArray<ArchetypeChunk>(archetype.ChunkCount * batchesPerChunk, Allocator.TempJob))
+            using (var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator))
+            using (var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(
+                (granularity == ScheduleGranularity.Chunk) ? archetype.ChunkCount : entityCount, ref World.UpdateAllocator))
             {
                 for (var i = 0; i < entityCount; ++i)
                 {
@@ -124,7 +154,19 @@ namespace Unity.Entities.Tests
                 {
                     BatchInfos = batches,
                 };
-                job.ScheduleParallel(query, batchesPerChunk).Complete();
+                if (mode == ScheduleMode.Parallel)
+                {
+                    if (granularity == ScheduleGranularity.Chunk)
+                        job.ScheduleParallel(query).Complete();
+                    else
+                        job.ScheduleParallel(query, granularity, default).Complete();
+                }
+                else if (mode == ScheduleMode.Single)
+                    job.Schedule(query).Complete();
+                else if (mode == ScheduleMode.Run)
+                    job.Run(query);
+                else if (mode == ScheduleMode.RunWithoutJobs)
+                    JobEntityBatchExtensions.RunWithoutJobs(ref job, query);
 
                 var entityTypeHandle = m_Manager.GetEntityTypeHandle();
                 int markedEntityCount = 0;
@@ -133,8 +175,13 @@ namespace Unity.Entities.Tests
                     var batch = batches[batchIndex];
                     if (!IsBatchInitialized(batch))
                         continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
-                    Assert.Greater(batch.Count, 0); // empty batches should not have been Execute()ed
-                    Assert.LessOrEqual(batch.Count, (batch.ChunkEntityCount / batchesPerChunk) + 1);
+                    if (granularity == ScheduleGranularity.Entity)
+                        Assert.AreEqual(1, batch.Count);
+                    else
+                    {
+                        Assert.Greater(batch.Count, 0); // empty batches should not have been Execute()ed
+                        Assert.AreEqual(batch.ChunkEntityCount, batch.Count);
+                    }
                     var batchEntities = batch.GetNativeArray(entityTypeHandle);
                     for (int i = 0; i < batchEntities.Length; ++i)
                     {
@@ -152,16 +199,20 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test]
-        public void IJobEntityBatch_WithFiltering_GeneratesExpectedBatches([Values(1, 4, 17, 100)] int batchesPerChunk)
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public void IJobEntityBatch_GeneratesExpectedBatches_WithFiltering(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
             query.SetSharedComponentFilter(new EcsTestSharedComp {value = 17});
 
             var entityCount = 10000;
-
-            using (var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob))
+            using (var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator))
             {
                 for (var i = 0; i < entityCount; ++i)
                 {
@@ -172,13 +223,26 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var batches = new NativeArray<ArchetypeChunk>(archetype.ChunkCount * batchesPerChunk, Allocator.TempJob))
+                var maxBatchCount = (granularity == ScheduleGranularity.Chunk) ? archetype.ChunkCount : entityCount;
+                using (var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(maxBatchCount, ref World.UpdateAllocator))
                 {
                     var job = new WriteBatchInfoToArray
                     {
                         BatchInfos = batches,
                     };
-                    job.ScheduleParallel(query, batchesPerChunk).Complete();
+                    if (mode == ScheduleMode.Parallel)
+                    {
+                        if (granularity == ScheduleGranularity.Chunk)
+                            job.ScheduleParallel(query).Complete();
+                        else
+                            job.ScheduleParallel(query, granularity, default).Complete();
+                    }
+                    else if (mode == ScheduleMode.Single)
+                        job.Schedule(query).Complete();
+                    else if (mode == ScheduleMode.Run)
+                        job.Run(query);
+                    else if (mode == ScheduleMode.RunWithoutJobs)
+                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query);
 
                     var entityTypeHandle = m_Manager.GetEntityTypeHandle();
                     int markedEntityCount = 0;
@@ -187,8 +251,13 @@ namespace Unity.Entities.Tests
                         var batch = batches[batchIndex];
                         if (!IsBatchInitialized(batch))
                             continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
-                        Assert.Greater(batch.Count, 0); // empty batches should not have been Execute()ed.
-                        Assert.LessOrEqual(batch.Count, (batch.ChunkEntityCount / batchesPerChunk) + 1);
+                        if (granularity == ScheduleGranularity.Entity)
+                            Assert.AreEqual(1, batch.Count);
+                        else
+                        {
+                            Assert.Greater(batch.Count, 0); // empty batches should not have been Execute()ed
+                            Assert.AreEqual(batch.ChunkEntityCount, batch.Count);
+                        }
                         var batchEntities = batch.GetNativeArray(entityTypeHandle);
                         for (int i = 0; i < batchEntities.Length; ++i)
                         {
@@ -218,36 +287,27 @@ namespace Unity.Entities.Tests
             query.Dispose();
         }
 
-        [BurstCompile(CompileSynchronously = true)]
-        struct WriteEntityIndex : IJobEntityBatchWithIndex
-        {
-            public ComponentTypeHandle<EcsTestData> EcsTestTypeHandle;
-
-            public void Execute(ArchetypeChunk batch, int batchIndex, int indexOfFirstEntityInQuery)
-            {
-                var testDataArray = batch.GetNativeArray(EcsTestTypeHandle);
-                testDataArray[0] = new EcsTestData
-                {
-                    value = indexOfFirstEntityInQuery
-                };
-            }
-        }
-
-        [Test]
-        public void IJobEntityBatchWithIndex_WithoutFiltering_GeneratesExpectedBatches([Values(1, 4, 17, 100)] int batchesPerChunk)
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public void IJobEntityBatchWithIndex_GeneratesExpectedBatches_WithoutFiltering(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
             var entityCount = 10000;
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob))
-            using (var batches = new NativeArray<ArchetypeChunk>(archetype.ChunkCount * batchesPerChunk, Allocator.TempJob))
+            using (var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator))
+            using (var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(
+                (granularity == ScheduleGranularity.Chunk) ? archetype.ChunkCount : entityCount, ref World.UpdateAllocator))
             {
                 for (var i = 0; i < entityCount; ++i)
                 {
                     m_Manager.SetComponentData(entities[i], new EcsTestData {value = -1});
                 }
 
-                var batchEntityOffsets = new NativeArray<int>(batches.Length, Allocator.TempJob);
+                var batchEntityOffsets = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(batches.Length, ref World.UpdateAllocator);
                 for (int i = 0; i < batchEntityOffsets.Length; ++i)
                 {
                     batchEntityOffsets[i] = -1;
@@ -258,9 +318,21 @@ namespace Unity.Entities.Tests
                     BatchInfos = batches,
                     BatchFirstEntityOffsets = batchEntityOffsets,
                 };
-                job.ScheduleParallel(query, batchesPerChunk).Complete();
+                if (mode == ScheduleMode.Parallel)
+                {
+                    if (granularity == ScheduleGranularity.Chunk)
+                        job.ScheduleParallel(query).Complete();
+                    else
+                        job.ScheduleParallel(query, granularity, default).Complete();
+                }
+                else if (mode == ScheduleMode.Single)
+                    job.Schedule(query).Complete();
+                else if (mode == ScheduleMode.Run)
+                    job.Run(query);
+                else if (mode == ScheduleMode.RunWithoutJobs)
+                    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query);
 
-                using (var matchingEntities = query.ToEntityArray(Allocator.TempJob))
+                using (var matchingEntities = query.ToEntityArray(World.UpdateAllocator.ToAllocator))
                 {
                     var entityTypeHandle = m_Manager.GetEntityTypeHandle();
                     int markedEntityCount = 0;
@@ -269,8 +341,14 @@ namespace Unity.Entities.Tests
                         var batch = batches[batchIndex];
                         if (!IsBatchInitialized(batch))
                             continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
-                        Assert.Greater(batch.Count, 0); // empty batches should not have been Execute()ed
-                        Assert.LessOrEqual(batch.Count, (batch.ChunkEntityCount / batchesPerChunk) + 1);
+                        if (granularity == ScheduleGranularity.Entity)
+                            Assert.AreEqual(1, batch.Count);
+                        else
+                        {
+                            Assert.Greater(batch.Count, 0); // empty batches should not have been Execute()ed
+                            Assert.AreEqual(batch.ChunkEntityCount, batch.Count);
+                        }
+
                         var batchEntities = batch.GetNativeArray(entityTypeHandle);
                         int batchFirstEntityIndex = batchEntityOffsets[batchIndex];
                         Assert.AreNotEqual(-1, batchFirstEntityIndex);
@@ -284,7 +362,6 @@ namespace Unity.Entities.Tests
                     }
                     Assert.AreEqual(entities.Length, markedEntityCount);
                 }
-                batchEntityOffsets.Dispose();
 
                 for (int i = 0; i < entities.Length; ++i)
                 {
@@ -293,16 +370,20 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test]
-        public void IJobEntityBatchWithIndex_WithFiltering_GeneratesExpectedBatches([Values(1, 4, 17, 100)] int batchesPerChunk)
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public void IJobEntityBatchWithIndex_GeneratesExpectedBatches_WithFiltering(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp));
             query.SetSharedComponentFilter(new EcsTestSharedComp {value = 17});
 
             var entityCount = 10000;
-
-            using (var entities = m_Manager.CreateEntity(archetype, entityCount, Allocator.TempJob))
+            using (var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator))
             {
                 for (var i = 0; i < entityCount; ++i)
                 {
@@ -313,9 +394,10 @@ namespace Unity.Entities.Tests
                     }
                 }
 
-                using (var batches = new NativeArray<ArchetypeChunk>(archetype.ChunkCount * batchesPerChunk, Allocator.TempJob))
+                var maxBatchCount = (granularity == ScheduleGranularity.Chunk) ? archetype.ChunkCount : entityCount;
+                using (var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(maxBatchCount, ref World.UpdateAllocator))
                 {
-                    var batchEntityOffsets = new NativeArray<int>(batches.Length, Allocator.TempJob);
+                    var batchEntityOffsets = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(batches.Length, ref World.UpdateAllocator);
                     for (int i = 0; i < batchEntityOffsets.Length; ++i)
                     {
                         batchEntityOffsets[i] = -1;
@@ -326,9 +408,21 @@ namespace Unity.Entities.Tests
                         BatchInfos = batches,
                         BatchFirstEntityOffsets = batchEntityOffsets,
                     };
-                    job.ScheduleParallel(query, batchesPerChunk).Complete();
+                    if (mode == ScheduleMode.Parallel)
+                    {
+                        if (granularity == ScheduleGranularity.Chunk)
+                            job.ScheduleParallel(query).Complete();
+                        else
+                            job.ScheduleParallel(query, granularity, default).Complete();
+                    }
+                    else if (mode == ScheduleMode.Single)
+                        job.Schedule(query).Complete();
+                    else if (mode == ScheduleMode.Run)
+                        job.Run(query);
+                    else if (mode == ScheduleMode.RunWithoutJobs)
+                        JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query);
 
-                    using (var matchingEntities = query.ToEntityArray(Allocator.TempJob))
+                    using (var matchingEntities = query.ToEntityArray(World.UpdateAllocator.ToAllocator))
                     {
                         var entityTypeHandle = m_Manager.GetEntityTypeHandle();
                         int markedEntityCount = 0;
@@ -337,8 +431,13 @@ namespace Unity.Entities.Tests
                             var batch = batches[batchIndex];
                             if (!IsBatchInitialized(batch))
                                 continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
-                            Assert.Greater(batch.Count, 0); // empty batches should not have been Execute()ed
-                            Assert.LessOrEqual(batch.Count, (batch.ChunkEntityCount / batchesPerChunk) + 1);
+                            if (granularity == ScheduleGranularity.Entity)
+                                Assert.AreEqual(1, batch.Count);
+                            else
+                            {
+                                Assert.Greater(batch.Count, 0); // empty batches should not have been Execute()ed
+                                Assert.AreEqual(batch.ChunkEntityCount, batch.Count);
+                            }
                             var batchEntities = batch.GetNativeArray(entityTypeHandle);
                             int batchFirstEntityIndex = batchEntityOffsets[batchIndex];
                             Assert.AreNotEqual(-1, batchFirstEntityIndex);
@@ -356,7 +455,6 @@ namespace Unity.Entities.Tests
                         }
                         Assert.AreEqual(query.CalculateEntityCount(), markedEntityCount);
                     }
-                    batchEntityOffsets.Dispose();
                 }
 
                 for (int i = 0; i < entities.Length; ++i)
@@ -375,6 +473,7 @@ namespace Unity.Entities.Tests
 
             query.Dispose();
         }
+#endif
 
         [Test]
         public void IJobEntityBatchWithIndex_Run()
@@ -418,11 +517,11 @@ namespace Unity.Entities.Tests
         {
             public NativeArray<int> MyArray;
 
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchId)
             {
                 for (int i = 0; i < MyArray.Length; i++)
                 {
-                    MyArray[i] = batchIndex;
+                    MyArray[i] = batchId;
                 }
             }
         }
@@ -432,9 +531,9 @@ namespace Unity.Entities.Tests
         public void ParallelArrayWriteTriggersSafetySystem()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-            using(var entitiesA = new NativeArray<Entity>(archetypeA.ChunkCapacity, Allocator.TempJob))
+            using(var entitiesA = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(archetypeA.ChunkCapacity, ref World.UpdateAllocator))
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var local = new NativeArray<int>(archetypeA.ChunkCapacity * 2, Allocator.TempJob))
+            using (var local = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(archetypeA.ChunkCapacity * 2, ref World.UpdateAllocator))
             {
                 m_Manager.CreateEntity(archetypeA, entitiesA);
                 LogAssert.Expect(LogType.Exception, new Regex("IndexOutOfRangeException: *"));
@@ -450,9 +549,9 @@ namespace Unity.Entities.Tests
         public void SingleArrayWriteDoesNotTriggerSafetySystem()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-            using(var entitiesA = new NativeArray<Entity>(archetypeA.ChunkCapacity, Allocator.TempJob))
+            using(var entitiesA = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(archetypeA.ChunkCapacity, ref World.UpdateAllocator))
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var local = new NativeArray<int>(archetypeA.ChunkCapacity * 2, Allocator.TempJob))
+            using (var local = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(archetypeA.ChunkCapacity * 2, ref World.UpdateAllocator))
             {
                 m_Manager.CreateEntity(archetypeA, entitiesA);
                 new WriteToArray
@@ -481,9 +580,9 @@ namespace Unity.Entities.Tests
         public void ParallelArrayWriteTriggersSafetySystem_WithIndex()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-            using(var entitiesA = new NativeArray<Entity>(archetypeA.ChunkCapacity, Allocator.TempJob))
+            using(var entitiesA = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(archetypeA.ChunkCapacity, ref World.UpdateAllocator))
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var local = new NativeArray<int>(archetypeA.ChunkCapacity * 2, Allocator.TempJob))
+            using (var local = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(archetypeA.ChunkCapacity * 2, ref World.UpdateAllocator))
             {
                 m_Manager.CreateEntity(archetypeA, entitiesA);
                 LogAssert.Expect(LogType.Exception, new Regex("IndexOutOfRangeException: *"));
@@ -500,9 +599,9 @@ namespace Unity.Entities.Tests
         public void SingleArrayWriteDoesNotTriggerSafetySystem_WithIndex()
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-            using(var entitiesA = new NativeArray<Entity>(archetypeA.ChunkCapacity, Allocator.TempJob))
+            using(var entitiesA = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(archetypeA.ChunkCapacity, ref World.UpdateAllocator))
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var local = new NativeArray<int>(archetypeA.ChunkCapacity * 2, Allocator.TempJob))
+            using (var local = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(archetypeA.ChunkCapacity * 2, ref World.UpdateAllocator))
             {
                 m_Manager.CreateEntity(archetypeA, entitiesA);
                 new WriteToArrayWithIndex
@@ -512,20 +611,27 @@ namespace Unity.Entities.Tests
             }
         }
 
+// TODO(https://unity3d.atlassian.net/browse/DOTSR-2746): [TestCase(args)] is not supported in the portable test runner
+#if !UNITY_PORTABLE_TEST_RUNNER
         [Test]
-        public unsafe void IJobEntityBatch_ScheduleWithEntityList()
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public unsafe void IJobEntityBatch_WithEntityList(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2));
 
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 100, Allocator.TempJob))
-            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 100, Allocator.TempJob))
+            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 100, World.UpdateAllocator.ToAllocator))
+            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 100, World.UpdateAllocator.ToAllocator))
             {
-
                 // One batch, all matching
                 {
-                    var entities = new NativeArray<Entity>(10, Allocator.TempJob);
+                    var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator);
 
                     for (int i = 0; i < 10; ++i)
                     {
@@ -537,19 +643,34 @@ namespace Unity.Entities.Tests
                         m_Manager.SetComponentData(allEntitiesA[i], new EcsTestData {value = -1});
                     }
 
-                    new WriteBatchIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)}
-                        .Schedule(query, entities).Complete();
+                    var job = new WriteBatchId {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)};
+                    if (mode == ScheduleMode.Single)
+                        job.Schedule(query, entities).Complete();
+                    else if (mode == ScheduleMode.Run)
+                        job.Run(query, entities);
+                    else if (mode == ScheduleMode.RunWithoutJobs)
+                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query, entities);
+                    else if (mode == ScheduleMode.Parallel)
+                        job.ScheduleParallel(query, granularity, entities).Complete();
 
-                    Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[0]).value);
-                    for (int i = 1; i < 100; ++i)
-                        Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
-
-                    entities.Dispose();
+                    if (granularity == ScheduleGranularity.Chunk)
+                    {
+                        Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[0]).value);
+                        for (int i = 1; i < 100; ++i)
+                            Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                    }
+                    else if (granularity == ScheduleGranularity.Entity)
+                    {
+                        for(int i = 0; i < 10; ++i)
+                            Assert.AreEqual(i, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                        for (int i = 10; i < 100; ++i)
+                            Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                    }
                 }
 
                 // All separate batches, all matching
                 {
-                    var entities = new NativeArray<Entity>(10, Allocator.TempJob);
+                    var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator);
                     for (int i = 0; i < 10; ++i)
                     {
                         entities[i] = allEntitiesA[i * 10];
@@ -560,8 +681,15 @@ namespace Unity.Entities.Tests
                         m_Manager.SetComponentData(allEntitiesA[i], new EcsTestData {value = -1});
                     }
 
-                    new WriteBatchIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)}
-                        .Schedule(query, entities).Complete();
+                    var job = new WriteBatchId {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)};
+                    if (mode == ScheduleMode.Single)
+                        job.Schedule(query, entities).Complete();
+                    else if (mode == ScheduleMode.Run)
+                        job.Run(query, entities);
+                    else if (mode == ScheduleMode.RunWithoutJobs)
+                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query, entities);
+                    else if (mode == ScheduleMode.Parallel)
+                        job.ScheduleParallel(query, granularity, entities).Complete();
 
                     for (int i = 0; i < 100; i++)
                     {
@@ -572,13 +700,11 @@ namespace Unity.Entities.Tests
                         else
                             Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
                     }
-
-                    entities.Dispose();
                 }
 
                 // Mixed batches, mixed matching archetype
                 {
-                    var entities = new NativeArray<Entity>(100, Allocator.TempJob);
+                    var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(100, ref World.UpdateAllocator);
                     for (int i = 0; i < 100; ++i)
                     {
                         if (i % 5 == 0)
@@ -592,38 +718,63 @@ namespace Unity.Entities.Tests
                         m_Manager.SetComponentData(allEntitiesA[i], new EcsTestData {value = -1});
                     }
 
-                    new WriteBatchIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)}
-                        .Schedule(query, entities).Complete();
+                    var job = new WriteBatchId {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)};
+                    if (mode == ScheduleMode.Single)
+                        job.Schedule(query, entities).Complete();
+                    else if (mode == ScheduleMode.Run)
+                        job.Run(query, entities);
+                    else if (mode == ScheduleMode.RunWithoutJobs)
+                        JobEntityBatchExtensions.RunWithoutJobs(ref job, query, entities);
+                    else if (mode == ScheduleMode.Parallel)
+                        job.ScheduleParallel(query, granularity, entities).Complete();
 
                     for (int i = 0; i < 100; ++i)
                     {
                         var div = i / 5;
                         var mod = i % 5;
-                        if (mod == 1)
-                            Assert.AreEqual(div, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
-                        else
-                            Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                        if (granularity == ScheduleGranularity.Chunk)
+                        {
+                            // pattern is BAAAABAAAA. Job writes to the first entity in each batch, so
+                            //             0    1     expected batch indices are as shown. Other As should be -1.
+                            if (mod == 1)
+                                Assert.AreEqual(div, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                            else
+                                Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                        }
+                        else if (granularity == ScheduleGranularity.Entity)
+                        {
+                            // pattern is BAAAABAAAA. Each entity from A will be its own batch, so
+                            //             0123 4567  expected batch indices are as shown.
+                            var index = (4 * div) + mod - 1;
+                            if (mod == 0)
+                                Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                            else
+                                Assert.AreEqual(index, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                        }
                     }
-
-                    entities.Dispose();
                 }
             }
         }
 
         [Test]
-        public unsafe void IJobEntityBatchWithIndex_ScheduleWithEntityList()
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)] // TODO: https://unity3d.atlassian.net/browse/DOTS-4463
+        public unsafe void IJobEntityBatchWithIndex_WithEntityList(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
-
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2));
 
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 100, Allocator.TempJob))
-            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 100, Allocator.TempJob))
+            using (var allEntitiesA = m_Manager.CreateEntity(archetypeA, 100, World.UpdateAllocator.ToAllocator))
+            using (var allEntitiesB = m_Manager.CreateEntity(archetypeB, 100, World.UpdateAllocator.ToAllocator))
             {
                 // One batch, all matching
                 {
-                    var entities = new NativeArray<Entity>(10, Allocator.TempJob);
+                    var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator);
 
                     for (int i = 0; i < 10; ++i)
                     {
@@ -635,19 +786,35 @@ namespace Unity.Entities.Tests
                         m_Manager.SetComponentData(allEntitiesA[i], new EcsTestData {value = -1});
                     }
 
-                    new WriteEntityIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)}
-                        .Schedule(query, entities).Complete();
+                    var job = new WriteEntityIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)};
+                    if (mode == ScheduleMode.Single)
+                        job.Schedule(query, entities).Complete();
+                    else if (mode == ScheduleMode.Run)
+                        job.Run(query, entities);
+                    // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                    //else if (mode == ScheduleMode.RunWithoutJobs)
+                    //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                    else if (mode == ScheduleMode.Parallel)
+                        job.ScheduleParallel(query, granularity, entities).Complete();
 
-                    Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[0]).value);
-                    for (int i = 1; i < 100; ++i)
-                        Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
-
-                    entities.Dispose();
+                    if (granularity == ScheduleGranularity.Chunk)
+                    {
+                        Assert.AreEqual(0, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[0]).value);
+                        for (int i = 1; i < 100; ++i)
+                            Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                    }
+                    else if (granularity == ScheduleGranularity.Entity)
+                    {
+                        for(int i = 0; i < 10; ++i)
+                            Assert.AreEqual(i, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                        for (int i = 10; i < 100; ++i)
+                            Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                    }
                 }
 
                 // All separate batches, all matching
                 {
-                    var entities = new NativeArray<Entity>(10, Allocator.TempJob);
+                    var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(10, ref World.UpdateAllocator);
                     for (int i = 0; i < 10; ++i)
                     {
                         entities[i] = allEntitiesA[i * 10];
@@ -658,8 +825,16 @@ namespace Unity.Entities.Tests
                         m_Manager.SetComponentData(allEntitiesA[i], new EcsTestData {value = -1});
                     }
 
-                    new WriteEntityIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)}
-                        .Schedule(query, entities).Complete();
+                    var job = new WriteEntityIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)};
+                    if (mode == ScheduleMode.Single)
+                        job.Schedule(query, entities).Complete();
+                    else if (mode == ScheduleMode.Run)
+                        job.Run(query, entities);
+                    // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                    //else if (mode == ScheduleMode.RunWithoutJobs)
+                    //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                    else if (mode == ScheduleMode.Parallel)
+                        job.ScheduleParallel(query, granularity, entities).Complete();
 
                     for (int i = 0; i < 100; i++)
                     {
@@ -670,13 +845,11 @@ namespace Unity.Entities.Tests
                         else
                             Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
                     }
-
-                    entities.Dispose();
                 }
 
                 // Mixed batches, mixed matching archetype
                 {
-                    var entities = new NativeArray<Entity>(100, Allocator.TempJob);
+                    var entities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(100, ref World.UpdateAllocator);
                     for (int i = 0; i < 100; ++i)
                     {
                         if (i % 5 == 0)
@@ -690,42 +863,69 @@ namespace Unity.Entities.Tests
                         m_Manager.SetComponentData(allEntitiesA[i], new EcsTestData {value = -1});
                     }
 
-                    new WriteEntityIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)}
-                        .Schedule(query, entities).Complete();
+                    var job = new WriteEntityIndex {EcsTestTypeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false)};
+                    if (mode == ScheduleMode.Single)
+                        job.Schedule(query, entities).Complete();
+                    else if (mode == ScheduleMode.Run)
+                        job.Run(query, entities);
+                    // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                    //else if (mode == ScheduleMode.RunWithoutJobs)
+                    //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                    else if (mode == ScheduleMode.Parallel)
+                        job.ScheduleParallel(query, granularity, entities).Complete();
 
                     for (int i = 0; i < 100; ++i)
                     {
                         var div = i / 5;
                         var mod = i % 5;
-                        if (mod == 1)
-                            Assert.AreEqual(div * 4, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
-                        else
-                            Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                        if (granularity == ScheduleGranularity.Chunk)
+                        {
+                            // pattern is BAAAABAAAA. Job writes to the first entity in each batch, so
+                            //             0    1     expected batch indices are as shown. Other As should be -1.
+                            if (mod == 1)
+                                Assert.AreEqual(div * 4,  m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                            else
+                                Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                        }
+                        else if (granularity == ScheduleGranularity.Entity)
+                        {
+                            // pattern is BAAAABAAAA. Each entity from A will be its own batch, so
+                            //             0123 4567  expected batch indices are as shown.
+                            var index = (4 * div) + mod - 1;
+                            if (mod == 0)
+                                Assert.AreEqual(-1, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                            else
+                                Assert.AreEqual(index, m_Manager.GetComponentData<EcsTestData>(allEntitiesA[i]).value);
+                        }
                     }
-
-                    entities.Dispose();
                 }
             }
         }
 
         [Test]
-        public void IJobEntityBatch_GeneratesExpectedBatches_WithEntityList()
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public void IJobEntityBatch_GeneratesExpectedBatches_WithEntityList(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2));
             var archetypeC = m_Manager.CreateArchetype(typeof(EcsTestData3));
 
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
-            using(var entitiesA = m_Manager.CreateEntity(archetypeA, 100, Allocator.TempJob))
-            using(var entitiesB = m_Manager.CreateEntity(archetypeB, 100, Allocator.TempJob))
-            using(var entitiesC = m_Manager.CreateEntity(archetypeC, 100, Allocator.TempJob))
+            using(var entitiesA = m_Manager.CreateEntity(archetypeA, 100, World.UpdateAllocator.ToAllocator))
+            using(var entitiesB = m_Manager.CreateEntity(archetypeB, 100, World.UpdateAllocator.ToAllocator))
+            using(var entitiesC = m_Manager.CreateEntity(archetypeC, 100, World.UpdateAllocator.ToAllocator))
             {
                 for (int i = 0; i < entitiesA.Length; ++i)
                 {
                     m_Manager.SetComponentData(entitiesA[i], new EcsTestData(i));
                 }
                 // AAAAABBBBCAAAAABBBBC...
-                var limitEntities = new NativeArray<Entity>(100, Allocator.TempJob);
+                var limitEntities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(100, ref World.UpdateAllocator);
                 for (int i = 0; i < 100; ++i)
                 {
                     var mod = i % 10;
@@ -737,14 +937,22 @@ namespace Unity.Entities.Tests
                         limitEntities[i] = entitiesC[i];
                 }
 
-                var batches = new NativeArray<ArchetypeChunk>(10, Allocator.TempJob);
+                int expectedBatchCount = (granularity == ScheduleGranularity.Chunk) ? 10 : 50;
+                var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(expectedBatchCount, ref World.UpdateAllocator);
                 var job = new WriteBatchInfoToArray
                 {
                     BatchInfos = batches,
                 };
-                job.ScheduleParallel(query, limitEntities).Complete();
+                if (mode == ScheduleMode.Single)
+                    job.Schedule(query, limitEntities).Complete();
+                else if (mode == ScheduleMode.Run)
+                    job.Run(query, limitEntities);
+                else if (mode == ScheduleMode.RunWithoutJobs)
+                    JobEntityBatchExtensions.RunWithoutJobs(ref job, query, limitEntities);
+                else if (mode == ScheduleMode.Parallel)
+                    job.ScheduleParallel(query, granularity, limitEntities).Complete();
 
-                using (var matchingEntities = query.ToEntityArray(limitEntities, Allocator.TempJob))
+                using (var matchingEntities = query.ToEntityArray(limitEntities, World.UpdateAllocator.ToAllocator))
                 {
                     var entityTypeHandle = m_Manager.GetEntityTypeHandle();
                     int markedEntityCount = 0;
@@ -753,35 +961,41 @@ namespace Unity.Entities.Tests
                         var batch = batches[batchIndex];
                         Assert.IsTrue(IsBatchInitialized(batch));
 
-                        Assert.AreEqual(5, batch.Count);
+                        Assert.AreEqual((granularity == ScheduleGranularity.Chunk) ? 5 : 1, batch.Count);
 
                         var batchEntities = batch.GetNativeArray(entityTypeHandle);
                         for (int i = 0; i < batchEntities.Length; ++i)
                         {
-                            Assert.AreEqual(batchIndex * 10 + i, m_Manager.GetComponentData<EcsTestData>(batchEntities[i]).value);
+                            var expectedValue = (granularity == ScheduleGranularity.Chunk)
+                                ? batchIndex * 10 + i
+                                : (batchIndex/5) * 10 + (batchIndex % 5);
+                            Assert.AreEqual(expectedValue, m_Manager.GetComponentData<EcsTestData>(batchEntities[i]).value);
                             Assert.AreEqual(matchingEntities[markedEntityCount], batchEntities[i]);
                             markedEntityCount++;
                         }
                     }
                     Assert.AreEqual(query.CalculateEntityCount(limitEntities), markedEntityCount);
                 }
-
-                limitEntities.Dispose();
-                batches.Dispose();
             }
         }
 
         [Test]
-        public void IJobEntityBatch_GeneratesExpectedBatches_WithEntityList_WithFiltering()
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        [TestCase(ScheduleMode.RunWithoutJobs)]
+        public void IJobEntityBatch_GeneratesExpectedBatches_WithEntityList_WithFiltering(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
         {
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
             var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2), typeof(EcsTestSharedComp));
             var archetypeC = m_Manager.CreateArchetype(typeof(EcsTestData3), typeof(EcsTestSharedComp));
 
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
-            using(var entitiesA = m_Manager.CreateEntity(archetypeA, 100, Allocator.TempJob))
-            using(var entitiesB = m_Manager.CreateEntity(archetypeB, 100, Allocator.TempJob))
-            using(var entitiesC = m_Manager.CreateEntity(archetypeC, 100, Allocator.TempJob))
+            using(var entitiesA = m_Manager.CreateEntity(archetypeA, 100, World.UpdateAllocator.ToAllocator))
+            using(var entitiesB = m_Manager.CreateEntity(archetypeB, 100, World.UpdateAllocator.ToAllocator))
+            using(var entitiesC = m_Manager.CreateEntity(archetypeC, 100, World.UpdateAllocator.ToAllocator))
             {
                 for (int i = 0; i < entitiesA.Length; ++i)
                 {
@@ -795,8 +1009,8 @@ namespace Unity.Entities.Tests
                 query.SetSharedComponentFilter(new EcsTestSharedComp(17));
 
                 // AAAAABBBBCAAAAABBBBC...
-                    // With filtering its A1A1A1A2A2BBBBCA1A1A1A2A2BBBBC...
-                var limitEntities = new NativeArray<Entity>(100, Allocator.TempJob);
+                // With filtering its A1A1A1A2A2BBBBCA1A1A1A2A2BBBBC...
+                var limitEntities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(100, ref World.UpdateAllocator);
                 for (int i = 0; i < 100; ++i)
                 {
                     var mod = i % 10;
@@ -808,14 +1022,21 @@ namespace Unity.Entities.Tests
                         limitEntities[i] = entitiesC[i];
                 }
 
-                var batches = new NativeArray<ArchetypeChunk>(20, Allocator.TempJob);
+                var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(50, ref World.UpdateAllocator);
                 var job = new WriteBatchInfoToArray
                 {
                     BatchInfos = batches,
                 };
-                job.ScheduleParallel(query, limitEntities).Complete();
+                if (mode == ScheduleMode.Single)
+                    job.Schedule(query, limitEntities).Complete();
+                else if (mode == ScheduleMode.Run)
+                    job.Run(query, limitEntities);
+                else if (mode == ScheduleMode.RunWithoutJobs)
+                    JobEntityBatchExtensions.RunWithoutJobs(ref job, query, limitEntities);
+                else if (mode == ScheduleMode.Parallel)
+                    job.ScheduleParallel(query, granularity, limitEntities).Complete();
 
-                using (var matchingEntities = query.ToEntityArray(limitEntities, Allocator.TempJob))
+                using (var matchingEntities = query.ToEntityArray(limitEntities, World.UpdateAllocator.ToAllocator))
                 {
                     var entityTypeHandle = m_Manager.GetEntityTypeHandle();
                     int markedEntityCount = 0;
@@ -826,12 +1047,19 @@ namespace Unity.Entities.Tests
                         if (!IsBatchInitialized(batch))
                             continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
 
-                        Assert.AreEqual(3, batch.Count);
+                        int expectedBatchEntityCount =
+                            (granularity == ScheduleGranularity.Chunk) ? 3 : 1;
+                        Assert.AreEqual(expectedBatchEntityCount, batch.Count);
 
                         var batchEntities = batch.GetNativeArray(entityTypeHandle);
                         for (int i = 0; i < batchEntities.Length; ++i)
                         {
-                            Assert.AreEqual(validBatchCount * 10 + i, m_Manager.GetComponentData<EcsTestData>(batchEntities[i]).value);
+                            int expectedComponentValue =
+                                (granularity == ScheduleGranularity.Chunk)
+                                    ? validBatchCount * 10 + i
+                                    : (batchIndex/5) * 10 + (batchIndex % 5);
+                            ;
+                            Assert.AreEqual(expectedComponentValue, m_Manager.GetComponentData<EcsTestData>(batchEntities[i]).value);
                             Assert.AreEqual(matchingEntities[markedEntityCount], batchEntities[i]);
                             markedEntityCount++;
                         }
@@ -840,20 +1068,209 @@ namespace Unity.Entities.Tests
                     }
                     Assert.AreEqual(query.CalculateEntityCount(limitEntities), markedEntityCount);
                 }
-
-                limitEntities.Dispose();
-                batches.Dispose();
             }
         }
+
+        [Test]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)] // TODO: https://unity3d.atlassian.net/browse/DOTS-4463
+        public void IJobEntityBatchWithIndex_GeneratesExpectedBatches_WithEntityList_WithFiltering(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
+        {
+            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2), typeof(EcsTestSharedComp));
+            var archetypeC = m_Manager.CreateArchetype(typeof(EcsTestData3), typeof(EcsTestSharedComp));
+
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
+            using(var entitiesA = m_Manager.CreateEntity(archetypeA, 100, World.UpdateAllocator.ToAllocator))
+            using(var entitiesB = m_Manager.CreateEntity(archetypeB, 100, World.UpdateAllocator.ToAllocator))
+            using(var entitiesC = m_Manager.CreateEntity(archetypeC, 100, World.UpdateAllocator.ToAllocator))
+            {
+                for (int i = 0; i < entitiesA.Length; ++i)
+                {
+                    m_Manager.SetComponentData(entitiesA[i], new EcsTestData(i));
+
+                    var mod = i % 5;
+                    var val = mod < 3 ? 17 : 7;
+                    m_Manager.SetSharedComponentData(entitiesA[i], new EcsTestSharedComp(val));
+                }
+
+                query.SetSharedComponentFilter(new EcsTestSharedComp(17));
+
+                // AAAAABBBBCAAAAABBBBC...
+                // With filtering its A1A1A1A2A2BBBBCA1A1A1A2A2BBBBC...
+                var limitEntities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(100, ref World.UpdateAllocator);
+                for (int i = 0; i < 100; ++i)
+                {
+                    var mod = i % 10;
+                    if (mod < 5)
+                        limitEntities[i] = entitiesA[i];
+                    else if (mod < 9)
+                        limitEntities[i] = entitiesB[i];
+                    else
+                        limitEntities[i] = entitiesC[i];
+                }
+
+                var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(30, ref World.UpdateAllocator);
+                var batchEntityOffsets = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(batches.Length, ref World.UpdateAllocator);
+                for (int i = 0; i < batchEntityOffsets.Length; ++i)
+                {
+                    batchEntityOffsets[i] = -1;
+                }
+
+                var job = new WriteBatchInfoAndEntityOffsetToArray
+                {
+                    BatchInfos = batches,
+                    BatchFirstEntityOffsets = batchEntityOffsets,
+                };
+                if (mode == ScheduleMode.Single)
+                    job.Schedule(query, limitEntities).Complete();
+                else if (mode == ScheduleMode.Run)
+                    job.Run(query, limitEntities);
+                // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                //else if (mode == ScheduleMode.RunWithoutJobs)
+                //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                else if (mode == ScheduleMode.Parallel)
+                    job.ScheduleParallel(query, granularity, limitEntities).Complete();
+
+                using (var matchingEntities = query.ToEntityArray(limitEntities, World.UpdateAllocator.ToAllocator))
+                {
+                    var entityTypeHandle = m_Manager.GetEntityTypeHandle();
+                    int markedEntityCount = 0;
+                    int validBatchCount = 0;
+                    for (int batchIndex = 0; batchIndex < batches.Length; ++batchIndex)
+                    {
+                        var batch = batches[batchIndex];
+                        if (!IsBatchInitialized(batch))
+                            continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
+
+                        int expectedBatchEntityCount =
+                            (granularity == ScheduleGranularity.Chunk) ? 3 : 1;
+                        Assert.AreEqual(expectedBatchEntityCount, batch.Count);
+
+                        var batchEntities = batch.GetNativeArray(entityTypeHandle);
+                        int batchFirstEntityIndex = batchEntityOffsets[batchIndex];
+                        Assert.AreNotEqual(-1, batchFirstEntityIndex);
+                        Assert.AreEqual(matchingEntities[batchFirstEntityIndex], batchEntities[0]);
+                        for (int i = 0; i < batchEntities.Length; ++i)
+                        {
+                            int expectedComponentValue =
+                                (granularity == ScheduleGranularity.Chunk)
+                                    ? validBatchCount * 10 + i
+                                    : (batchIndex/3) * 10 + (batchIndex % 3);
+                            ;
+                            Assert.AreEqual(expectedComponentValue, m_Manager.GetComponentData<EcsTestData>(batchEntities[i]).value);
+                            Assert.AreEqual(matchingEntities[markedEntityCount], batchEntities[i]);
+                            markedEntityCount++;
+                        }
+
+                        validBatchCount++;
+                    }
+                    Assert.AreEqual(query.CalculateEntityCount(limitEntities), markedEntityCount);
+                }
+            }
+        }
+
+        [Test]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Chunk)]
+        [TestCase(ScheduleMode.Parallel, ScheduleGranularity.Entity)]
+        [TestCase(ScheduleMode.Single)]
+        [TestCase(ScheduleMode.Run)]
+        //[TestCase(ScheduleMode.RunWithoutJobs)] // TODO: https://unity3d.atlassian.net/browse/DOTS-4463
+        public void IJobEntityBatchWithIndex_GeneratesExpectedBatches_WithEntityList(ScheduleMode mode,
+            ScheduleGranularity granularity = ScheduleGranularity.Chunk)
+        {
+            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetypeB = m_Manager.CreateArchetype(typeof(EcsTestData2));
+            var archetypeC = m_Manager.CreateArchetype(typeof(EcsTestData3));
+
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            using(var entitiesA = m_Manager.CreateEntity(archetypeA, 100, World.UpdateAllocator.ToAllocator))
+            using(var entitiesB = m_Manager.CreateEntity(archetypeB, 100, World.UpdateAllocator.ToAllocator))
+            using(var entitiesC = m_Manager.CreateEntity(archetypeC, 100, World.UpdateAllocator.ToAllocator))
+            {
+                for (int i = 0; i < entitiesA.Length; ++i)
+                {
+                    m_Manager.SetComponentData(entitiesA[i], new EcsTestData(i));
+                }
+                // AAAAABBBBCAAAAABBBBC...
+                var limitEntities = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(100, ref World.UpdateAllocator);
+                for (int i = 0; i < 100; ++i)
+                {
+                    var mod = i % 10;
+                    if (mod < 5)
+                        limitEntities[i] = entitiesA[i];
+                    else if (mod < 9)
+                        limitEntities[i] = entitiesB[i];
+                    else
+                        limitEntities[i] = entitiesC[i];
+                }
+
+                int expectedBatchCount = (granularity == ScheduleGranularity.Chunk) ? 10 : 50;
+                var batches = CollectionHelper.CreateNativeArray<ArchetypeChunk, RewindableAllocator>(expectedBatchCount, ref World.UpdateAllocator);
+                var batchEntityOffsets = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(batches.Length, ref World.UpdateAllocator);
+                for (int i = 0; i < batchEntityOffsets.Length; ++i)
+                {
+                    batchEntityOffsets[i] = -1;
+                }
+
+                var job = new WriteBatchInfoAndEntityOffsetToArray
+                {
+                    BatchInfos = batches,
+                    BatchFirstEntityOffsets = batchEntityOffsets,
+                };
+                if (mode == ScheduleMode.Single)
+                    job.Schedule(query, limitEntities).Complete();
+                else if (mode == ScheduleMode.Run)
+                    job.Run(query, limitEntities);
+                // TODO: this code path is missing; https://unity3d.atlassian.net/browse/DOTS-4463 tracks the fix
+                //else if (mode == ScheduleMode.RunWithoutJobs)
+                //    JobEntityBatchIndexExtensions.RunWithoutJobs(ref job, query, entities);
+                else if (mode == ScheduleMode.Parallel)
+                    job.ScheduleParallel(query, granularity, limitEntities).Complete();
+
+                using (var matchingEntities = query.ToEntityArray(limitEntities, World.UpdateAllocator.ToAllocator))
+                {
+                    var entityTypeHandle = m_Manager.GetEntityTypeHandle();
+                    int markedEntityCount = 0;
+                    for (int batchIndex = 0; batchIndex < batches.Length; ++batchIndex)
+                    {
+                        var batch = batches[batchIndex];
+                        Assert.IsTrue(IsBatchInitialized(batch));
+
+                        Assert.AreEqual((granularity == ScheduleGranularity.Chunk) ? 5 : 1, batch.Count);
+
+                        var batchEntities = batch.GetNativeArray(entityTypeHandle);
+                        int batchFirstEntityIndex = batchEntityOffsets[batchIndex];
+                        Assert.AreNotEqual(-1, batchFirstEntityIndex);
+                        Assert.AreEqual(matchingEntities[batchFirstEntityIndex], batchEntities[0]);
+                        for (int i = 0; i < batchEntities.Length; ++i)
+                        {
+                            var expectedValue = (granularity == ScheduleGranularity.Chunk)
+                                ? batchIndex * 10 + i
+                                : (batchIndex/5) * 10 + (batchIndex % 5);
+                            Assert.AreEqual(expectedValue, m_Manager.GetComponentData<EcsTestData>(batchEntities[i]).value);
+                            Assert.AreEqual(matchingEntities[markedEntityCount], batchEntities[i]);
+                            markedEntityCount++;
+                        }
+                    }
+                    Assert.AreEqual(query.CalculateEntityCount(limitEntities), markedEntityCount);
+                }
+            }
+        }
+#endif
 
         // Not Burst compiling since we are Asserting in this job
         struct CheckBatchIndices : IJobEntityBatch
         {
             public ComponentTypeHandle<EcsTestData> EcsTestDataTypeHandle;
-            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchId)
             {
                 var testData = batchInChunk.GetNativeArray(EcsTestDataTypeHandle);
-                Assert.AreEqual(batchIndex, testData[0].value);
+                Assert.AreEqual(batchId, testData[0].value);
             }
         }
         struct CheckBatchAndFirstEntityIndices : IJobEntityBatchWithIndex
@@ -867,11 +1284,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        public enum ScheduleMode
-        {
-            Parallel, Single, Run, RunWithoutJobs
-        }
-
         [Test]
         public void IJobEntityBatch_WithNoBatching_HasCorrectIndices(
             [Values(ScheduleMode.Parallel, ScheduleMode.Single, ScheduleMode.Run, ScheduleMode.RunWithoutJobs)] ScheduleMode scheduleMode)
@@ -879,7 +1291,7 @@ namespace Unity.Entities.Tests
             var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
 
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData), typeof(EcsTestSharedComp)))
-            using (var entities = m_Manager.CreateEntity(archetypeA, 100, Allocator.TempJob))
+            using (var entities = m_Manager.CreateEntity(archetypeA, 100, World.UpdateAllocator.ToAllocator))
             {
                 var val = 0;
                 foreach (var entity in entities)
@@ -911,6 +1323,86 @@ namespace Unity.Entities.Tests
                         JobEntityBatchIndexExtensions.RunWithoutJobs(ref jobWithIndex, query);
                         break;
                 }
+            }
+        }
+
+        struct LargeJobEntityBatch : IJobEntityBatch
+        {
+            public FixedString4096Bytes StrA;
+            public FixedString4096Bytes StrB;
+            public FixedString4096Bytes StrC;
+            public FixedString4096Bytes StrD;
+            [NativeDisableParallelForRestriction]
+            public NativeArray<int> TotalLengths;
+            public void Execute(ArchetypeChunk batchInChunk, int batchId)
+            {
+                TotalLengths[0] = StrA.Length + StrB.Length + StrC.Length + StrD.Length;
+            }
+        }
+
+        [Test]
+        public void IJobEntityBatch_LargeJobStruct_ScheduleByRefWorks(
+            [Values(ScheduleMode.Parallel, ScheduleMode.Single, ScheduleMode.Run)] ScheduleMode scheduleMode)
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+            using(var lengths = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator))
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                var job = new LargeJobEntityBatch
+                {
+                        StrA = "A",
+                        StrB = "BB",
+                        StrC = "CCC",
+                        StrD = "DDDD",
+                        TotalLengths = lengths,
+                };
+                if (scheduleMode == ScheduleMode.Parallel)
+                    Assert.DoesNotThrow(() => { job.ScheduleParallelByRef(query).Complete(); });
+                else if (scheduleMode == ScheduleMode.Single)
+                    Assert.DoesNotThrow(() => { job.ScheduleByRef(query).Complete(); });
+                else if (scheduleMode == ScheduleMode.Run)
+                    Assert.DoesNotThrow(() => { job.RunByRef(query); });
+                Assert.AreEqual(lengths[0], 10);
+            }
+        }
+
+        struct LargeJobEntityBatchWithIndex : IJobEntityBatchWithIndex
+        {
+            public FixedString4096Bytes StrA;
+            public FixedString4096Bytes StrB;
+            public FixedString4096Bytes StrC;
+            public FixedString4096Bytes StrD;
+            [NativeDisableParallelForRestriction]
+            public NativeArray<int> TotalLengths;
+            public void Execute(ArchetypeChunk batchInChunk, int batchId, int indexOfFirstEntityInQuery)
+            {
+                TotalLengths[0] = StrA.Length + StrB.Length + StrC.Length + StrD.Length;
+            }
+        }
+
+        [Test]
+        public void IJobEntityBatchWithIndex_LargeJobStruct_ScheduleByRefWorks(
+            [Values(ScheduleMode.Parallel, ScheduleMode.Single, ScheduleMode.Run)] ScheduleMode scheduleMode)
+        {
+            m_Manager.CreateEntity(typeof(EcsTestData));
+            using(var lengths = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(1, ref World.UpdateAllocator))
+            using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
+            {
+                var job = new LargeJobEntityBatchWithIndex
+                {
+                        StrA = "A",
+                        StrB = "BB",
+                        StrC = "CCC",
+                        StrD = "DDDD",
+                        TotalLengths = lengths,
+                };
+                if (scheduleMode == ScheduleMode.Parallel)
+                    Assert.DoesNotThrow(() => { job.ScheduleParallelByRef(query).Complete(); });
+                else if (scheduleMode == ScheduleMode.Single)
+                    Assert.DoesNotThrow(() => { job.ScheduleByRef(query).Complete(); });
+                else if (scheduleMode == ScheduleMode.Run)
+                    Assert.DoesNotThrow(() => { job.RunByRef(query); });
+                Assert.AreEqual(lengths[0], 10);
             }
         }
     }

@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
+    [AddComponentMenu("")]
     public class DependsOnComponentTransitiveTestAuthoring : MonoBehaviour, IConvertGameObjectToEntity
     {
         public int SelfValue;

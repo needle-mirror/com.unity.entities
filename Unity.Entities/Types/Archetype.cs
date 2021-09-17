@@ -14,23 +14,25 @@ namespace Unity.Entities
         Prefab = 8,
         HasChunkHeader = 16,
         HasBlobAssetRefs = 32,
-        HasHybridComponents = 64,
+        HasCompanionComponents = 64,
         HasBufferComponents = 128,
         HasManagedComponents = 256,
-        HasManagedEntityRefs = 512
+        HasManagedEntityRefs = 512,
+        HasWeakAssetRefs = 1024
     }
 
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct Archetype
     {
         public ArchetypeChunkData Chunks;
-        public UnsafeChunkPtrList ChunksWithEmptySlots;
+        public UnsafePtrList<Chunk> ChunksWithEmptySlots;
 
         public ChunkListMap FreeChunksBySharedComponents;
         public ComponentTypeInArchetype* Types;
+        public int* EnableableTypeIndexInArchetype;
 
         // back pointer to EntityQueryData(s), used for chunk list caching
-        public UnsafePtrList MatchingQueryData;
+        public UnsafeList<IntPtr> MatchingQueryData;
 
         // single-linked list used for invalidating chunk list caches
         public Archetype* NextChangedArchetype;
@@ -39,10 +41,12 @@ namespace Unity.Entities
         public int ChunkCapacity;
 
         public int TypesCount;
+        public int EnableableTypesCount;
         public int InstanceSize;
         public int InstanceSizeWithOverhead;
         public int ScalarEntityPatchCount;
         public int BufferEntityPatchCount;
+        public ulong StableHash;
 
         // Index matches archetype types
         public int*    Offsets;
@@ -85,7 +89,8 @@ namespace Unity.Entities
         public bool HasChunkHeader => (Flags & ArchetypeFlags.HasChunkHeader) != 0;
         public bool HasBlobAssetRefs => (Flags & ArchetypeFlags.HasBlobAssetRefs) != 0;
         public bool HasManagedEntityRefs => (Flags & ArchetypeFlags.HasManagedEntityRefs) != 0;
-        public bool HasHybridComponents => (Flags & ArchetypeFlags.HasHybridComponents) != 0;
+        public bool HasCompanionComponents => (Flags & ArchetypeFlags.HasCompanionComponents) != 0;
+        public bool HasWeakAssetRefs => (Flags & ArchetypeFlags.HasWeakAssetRefs) != 0;
 
         public int NumNativeComponentData => FirstBufferComponent - 1;
         public int NumBufferComponents => FirstManagedComponent - FirstBufferComponent;
@@ -103,19 +108,6 @@ namespace Unity.Entities
         public int TagComponentsEnd => FirstSharedComponent;
         public int SharedComponentsEnd => FirstChunkComponent;
         public int ChunkComponentsEnd => TypesCount;
-
-        public ulong GetStableHash()
-        {
-            ulong hash = 1;
-            for (int i = 0; i != TypesCount; i++)
-            {
-                int typeIndex = Types[TypeMemoryOrder[i]].TypeIndex;
-                ulong stableTypeIndex = TypeManager.GetTypeInfo(typeIndex).StableTypeHash;
-                hash = TypeHash.CombineFNV1A64(hash, stableTypeIndex);
-            }
-
-            return hash;
-        }
 
         public bool HasChunkComponents => FirstChunkComponent != TypesCount;
 

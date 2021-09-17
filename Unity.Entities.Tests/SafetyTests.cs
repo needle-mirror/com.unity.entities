@@ -1,5 +1,10 @@
 using NUnit.Framework;
 using System;
+#if !NET_DOTS
+using System.Text.RegularExpressions;
+#endif
+using UnityEngine;
+using UnityEngine.TestTools;
 
 //@TODO: We should really design systems / jobs / exceptions / errors
 //       so that an error in one system does not affect the next system.
@@ -9,7 +14,7 @@ using System;
 
 namespace Unity.Entities.Tests
 {
-    class SafetyTests : ECSTestsFixture
+    partial class SafetyTests : ECSTestsFixture
     {
         [Test]
         public void RemoveEntityComponentThrows()
@@ -189,5 +194,129 @@ namespace Unity.Entities.Tests
                 m_Manager.CreateArchetype(typeof(BigComponentData1), typeof(BigComponentData2));
             });
         }
+
+        struct ReadWriteJob : IJobEntityBatch
+        {
+            public ComponentTypeHandle<EcsTestData> Blah;
+
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            {
+
+            }
+        }
+
+        internal partial class DependencyTestSystem : SystemBase
+        {
+            private EntityQuery m_Query;
+            private bool m_BadGuy;
+
+            protected DependencyTestSystem(bool badGuy)
+            {
+                m_BadGuy = badGuy;
+            }
+
+            protected override void OnCreate()
+            {
+                base.OnCreate();
+                m_Query = GetEntityQuery(typeof(EcsTestData));
+            }
+            protected override void OnUpdate()
+            {
+                var job = new ReadWriteJob { Blah = EntityManager.GetComponentTypeHandle<EcsTestData>(false) };
+                if (m_BadGuy)
+                    job.Schedule(m_Query);
+                else
+                    Dependency = job.Schedule(m_Query, Dependency);
+            }
+        }
+
+        [UpdateBefore(typeof(CorrectSystem))]
+        internal class MisbehavingSystem : DependencyTestSystem
+        {
+            public MisbehavingSystem() : base(true) { }
+        }
+
+        [UpdateBefore(typeof(CorrectSystem))]
+        internal partial class NestedBrokenSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                World.GetOrCreateSystem<MisbehavingSystem>().Update();
+            }
+        }
+
+        internal class CorrectSystem : DependencyTestSystem
+        {
+            public CorrectSystem() : base(false) { }
+        }
+
+        [Test]
+        [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
+        public void MissedDependencyMakesActionableErrorMessage()
+        {
+            var arch = World.EntityManager.CreateArchetype(typeof(EcsTestData));
+            World.EntityManager.CreateEntity(arch, 5000);
+            var g = World.GetOrCreateSystem<SimulationSystemGroup>();
+            g.AddSystemToUpdateList(World.GetOrCreateSystem<MisbehavingSystem>());
+            g.AddSystemToUpdateList(World.GetOrCreateSystem<CorrectSystem>());
+            LogAssert.Expect(LogType.Error,
+                "The system Unity.Entities.Tests.SafetyTests+MisbehavingSystem writes Unity.Entities.Tests.EcsTestData" +
+                " via SafetyTests:ReadWriteJob but that type was not assigned to the Dependency property. To ensure correct" +
+                " behavior of other systems, the job or a dependency must be assigned to the Dependency property before " +
+                "returning from the OnUpdate method.");
+            World.Update();
+        }
+
+        [Test]
+        [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
+        public void MissedDependencyFromNestedUpdateMakesActionableErrorMessage()
+        {
+            var arch = World.EntityManager.CreateArchetype(typeof(EcsTestData));
+            World.EntityManager.CreateEntity(arch, 5000);
+            var g = World.GetOrCreateSystem<SimulationSystemGroup>();
+            g.AddSystemToUpdateList(World.GetOrCreateSystem<NestedBrokenSystem>());
+            g.AddSystemToUpdateList(World.GetOrCreateSystem<CorrectSystem>());
+            LogAssert.Expect(LogType.Error,
+                "The system Unity.Entities.Tests.SafetyTests+MisbehavingSystem writes Unity.Entities.Tests.EcsTestData" +
+                " via SafetyTests:ReadWriteJob but that type was not assigned to the Dependency property. To ensure correct" +
+                " behavior of other systems, the job or a dependency must be assigned to the Dependency property before " +
+                "returning from the OnUpdate method.");
+            World.Update();
+        }
+
+        public partial class ForEachReproSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                float deltaTime = Time.DeltaTime;
+
+                var lookup = GetComponentDataFromEntity<EcsTestData>();
+
+                Entities
+                    .WithName("RotationSpeedSystem_ForEach")
+                    .ForEach((Entity entity, ref EcsTestData rotation, in EcsTestData2 rotationSpeed) =>
+                    {
+                        var value = lookup[entity];
+                    })
+                    .ScheduleParallel();
+            }
+        }
+
+#if !NET_DOTS
+        [Test]
+        [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
+        public void NoExtraMessageFromForEachSystemRepro()
+        {
+            var arch = World.EntityManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            World.EntityManager.CreateEntity(arch, 5000);
+            var g = World.GetOrCreateSystem<SimulationSystemGroup>();
+            g.AddSystemToUpdateList(World.GetOrCreateSystem<ForEachReproSystem>());
+            World.Update();
+            LogAssert.Expect(LogType.Exception,
+            new Regex("^InvalidOperationException: RotationSpeedSystem_ForEach(?:_Job)?\\.JobData\\.lookup is not declared \\[ReadOnly\\] in a IJobParallelFor"+
+                " job\\. The container does not support parallel writing\\. Please use a more suitable container type\\.$"));
+        }
+#endif
+
     }
 }

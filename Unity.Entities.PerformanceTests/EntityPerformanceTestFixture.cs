@@ -13,7 +13,7 @@ namespace Unity.Entities.PerformanceTests
         virtual public void Setup()
         {
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
-            m_World = World.DefaultGameObjectInjectionWorld = new World("Test World");
+            m_World = World.DefaultGameObjectInjectionWorld = new World("Test World", WorldFlags.EnableBlockFree);
             m_Manager = m_World.EntityManager;
         }
 

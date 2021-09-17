@@ -2,7 +2,7 @@ using NUnit.Framework;
 
 namespace Unity.Entities.Tests
 {
-    class EntityManagerTests : HybridRuntimeTestFixture
+    class EntityManagerTests : CompanionComponentsRuntimeTestFixture
     {
         [Test]
         public unsafe void ArchetypeIsManaged()
@@ -10,7 +10,7 @@ namespace Unity.Entities.Tests
             var types = new ComponentType[]
             {
                 typeof(EcsTestData),
-                typeof(ConversionTestHybridComponent),
+                typeof(ConversionTestCompanionComponent),
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 typeof(EcsTestManagedComponent)
 #endif

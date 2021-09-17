@@ -7,10 +7,8 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using System.Threading;
-using System.Threading.Tasks;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 using Microsoft.CodeAnalysis.Text;
 
 namespace Unity.Entities.SourceGen.Common
@@ -21,22 +19,6 @@ namespace Unity.Entities.SourceGen.Common
         public static void SetProjectPath(string projectPath) => s_ProjectPath = projectPath;
         public static string GetProjectPath() => s_ProjectPath;
 
-        public static string GetAccessModifiers(this ISourceGenerationDescription sourceGenerationDescription)
-        {
-            // Access must be protected unless this assembly has InternalsVisibleTo access to Unity.Entities,
-            // in which case it should be `protected internal`
-            IAssemblySymbol currentAssembly =
-                sourceGenerationDescription.Context.Compilation.Assembly;
-            IAssemblySymbol entitiesAssembly =
-                currentAssembly
-                    .Modules
-                    .First()
-                    .ReferencedAssemblySymbols
-                    .First(asm => asm.Name == "Unity.Entities");
-
-            return entitiesAssembly.GivesAccessTo(currentAssembly) ? "protected internal" : "protected";
-        }
-
         public static string GetTempGeneratedPathToFile(string fileNameWithExtension)
         {
             var tempFileDirectory = Path.Combine(s_ProjectPath, "Temp", "GeneratedCode");
@@ -46,40 +28,51 @@ namespace Unity.Entities.SourceGen.Common
 
         public static void WaitForDebugger(this GeneratorExecutionContext context, string inAssembly = null)
         {
-            if (inAssembly != null && !context.Compilation.Assembly.Name.Contains(inAssembly))
-                return;
+            if (inAssembly != null && !context.Compilation.Assembly.Name.Contains(inAssembly)) return;
 
             // Debugger.Launch only works on Windows and not in Rider
-            while (!Debugger.IsAttached)
-                Task.Delay(500).Wait();
+            SpinWait.SpinUntil(() => Debugger.IsAttached);
 
-            LogInfo($"Debugger attached to assembly: {context.Compilation.Assembly.Name}");
+            LogInfo($"DEBUG: Connected for assembly: {context.Compilation.Assembly.Name}");
+        }
+
+        public static SyntaxList<AttributeListSyntax> GetCompilerGeneratedAttribute()
+        {
+            return AttributeListFromAttributeName("System.Runtime.CompilerServices.CompilerGenerated");
         }
 
         public static SyntaxList<AttributeListSyntax> AttributeListFromAttributeName(string attributeName) =>
-            new SyntaxList<AttributeListSyntax>(SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Attribute(SyntaxFactory.IdentifierName(attributeName)))));
+            new SyntaxList<AttributeListSyntax>(AttributeList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Attribute(SyntaxFactory.IdentifierName(attributeName)))));
 
         public static void LogInfo(string message)
         {
             // Ignore IO exceptions in case there is already a lock, could use a named mutex but don't want to eat the performance cost
             try
             {
-                using (StreamWriter w = File.AppendText(GetTempGeneratedPathToFile("SourceGen.log")))
-                {
-                    w.WriteLine(message);
-                }
+                using StreamWriter w = File.AppendText(GetTempGeneratedPathToFile("SourceGen.log"));
+                w.WriteLine(message);
             }
             catch (IOException) { }
         }
 
         public static void LogError(this GeneratorExecutionContext context, string errorCode, string title, string errorMessage, Location location, string description = "")
         {
-            LogInfo($"Error: {errorCode}, {title}, {errorMessage}");
-            var message = errorMessage;
             if (errorCode.Contains("ICE"))
-                errorMessage = $"Seeing this error indicates a bug in the dots compiler. We'd appreciate a bug report (About->Report a Bug...). Thnx! <3 {message}";
+                errorMessage = $"Seeing this error indicates a bug in the dots compiler. We'd appreciate a bug report (About->Report a Bug...). Thnx! <3 {errorMessage}";
 
-            var rule = new DiagnosticDescriptor(errorCode, title, message, "Source Generator", DiagnosticSeverity.Error, true, description);
+            context.Log(DiagnosticSeverity.Error, errorCode, title, errorMessage, location, description);
+        }
+
+        public static void LogWarning(this GeneratorExecutionContext context, string errorCode, string title, string errorMessage, Location location, string description = "")
+            => context.Log(DiagnosticSeverity.Warning, errorCode, title, errorMessage, location, description);
+
+        public static void LogInfo(this GeneratorExecutionContext context, string errorCode, string title, string errorMessage, Location location, string description = "")
+            => context.Log(DiagnosticSeverity.Info, errorCode, title, errorMessage, location, description);
+
+        static void Log(this GeneratorExecutionContext context, DiagnosticSeverity diagnosticSeverity, string errorCode, string title, string errorMessage, Location location, string description = "")
+        {
+            LogInfo($"{diagnosticSeverity}: {errorCode}, {title}, {errorMessage}");
+            var rule = new DiagnosticDescriptor(errorCode, title, errorMessage, "Source Generator", diagnosticSeverity, true, description);
             context.ReportDiagnostic(Diagnostic.Create(rule, location));
         }
 
@@ -92,7 +85,7 @@ namespace Unity.Entities.SourceGen.Common
             int loc = value.LastIndexOf('.');
             if (loc > 0)
                 parseString = value.Substring(loc + 1);
-            return Enum.TryParse(parseString, out result);
+            return Enum.TryParse(parseString, out result) && Enum.IsDefined(typeof(TEnum), result);
         }
 
         public static IEnumerable<Enum> GetFlags(this Enum e)
@@ -109,6 +102,26 @@ namespace Unity.Entities.SourceGen.Common
         {
             var firstLine = sourceText.Lines.FirstOrDefault();
             return sourceText.WithChanges(new TextChange(firstLine.Span, $"#pragma warning disable 0219" + Environment.NewLine + firstLine));
+        }
+
+        // Stable version of String.GetHashCode
+        public static int GetStableHashCode(string str)
+        {
+            unchecked
+            {
+                var hash1 = 5381;
+                var hash2 = hash1;
+
+                for(var i = 0; i < str.Length && str[i] != '\0'; i += 2)
+                {
+                    hash1 = ((hash1 << 5) + hash1) ^ str[i];
+                    if (i == str.Length - 1 || str[i+1] == '\0')
+                        break;
+                    hash2 = ((hash2 << 5) + hash2) ^ str[i+1];
+                }
+
+                return hash1 + (hash2*1566083941);
+            }
         }
     }
 }

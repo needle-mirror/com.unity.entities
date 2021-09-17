@@ -1,68 +1,34 @@
 using System;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Editor
 {
-    internal delegate void WorldSelectionSetter(World world);
+    delegate void WorldSelectionSetter(World world);
 
-    internal delegate bool ShowInactiveSystemsGetter();
+    delegate bool ShowInactiveSystemsGetter();
 
-    internal class WorldPopup
+    class WorldPopup
     {
         public const string kNoWorldName = "\n\n\n";
 
-        private const string kPlayerLoopName = "Show Full Player Loop";
-        private const string kShowInactiveSystemsName = "Show Inactive Systems";
+        const string kPlayerLoopName = "Show Full Player Loop";
+        const string kShowInactiveSystemsName = "Show Inactive Systems";
 
-        private GenericMenu Menu
-        {
-            get
-            {
-                var currentSelection = getWorldSelection();
-                var menu = new GenericMenu();
-                foreach (var world in World.All)
-                {
-                    if (getShowAllWorlds() || (world.Flags & (WorldFlags.Streaming | WorldFlags.Shadow)) == 0)
-                        menu.AddItem(new GUIContent(world.Name), currentSelection == world, () => setWorldSelection(world));
-                }
+        readonly WorldDisplayNameCache m_WorldDisplayNameCache;
+        GenericMenu m_CachedMenu;
 
-                if (menu.GetItemCount() == 0)
-                    menu.AddDisabledItem(new GUIContent("No Worlds"));
+        readonly WorldSelectionGetter getWorldSelection;
+        readonly WorldSelectionSetter setWorldSelection;
 
-                menu.AddSeparator("");
-                menu.AddItem(new GUIContent("Show All Worlds"), getShowAllWorlds(), ToggleShowAllWorlds);
-                menu.AddSeparator("");
-                menu.AddItem(new GUIContent(kPlayerLoopName), currentSelection == null, () => setWorldSelection(null));
-                menu.AddSeparator("");
-                menu.AddItem(new GUIContent(kShowInactiveSystemsName), getShowInactiveSystems(), setShowInactiveSystems);
-                return menu;
-            }
-        }
+        readonly ShowInactiveSystemsGetter getShowInactiveSystems;
+        readonly GenericMenu.MenuFunction setShowInactiveSystems;
 
-        void ToggleShowAllWorlds()
-        {
-            var showAllWorlds = !getShowAllWorlds();
-            setShowAllWorlds(showAllWorlds);
+        readonly Func<bool> getShowAllWorlds;
+        readonly Action<bool> setShowAllWorlds;
 
-            if (showAllWorlds)
-                return;
-
-            var currentSelection = getWorldSelection();
-            if (currentSelection != null && (currentSelection.Flags & (WorldFlags.Streaming | WorldFlags.Shadow)) != 0)
-                setWorldSelection(World.All.Count > 0 ? World.All[0] : null);
-        }
-
-        private readonly WorldSelectionGetter getWorldSelection;
-        private readonly WorldSelectionSetter setWorldSelection;
-
-        private readonly ShowInactiveSystemsGetter getShowInactiveSystems;
-        private readonly GenericMenu.MenuFunction setShowInactiveSystems;
-
-        private readonly Func<bool> getShowAllWorlds;
-        private readonly Action<bool> setShowAllWorlds;
+        readonly WorldListChangeTracker m_WorldListChangeTracker = new WorldListChangeTracker();
 
         public WorldPopup(WorldSelectionGetter getWorld, WorldSelectionSetter setWorld, ShowInactiveSystemsGetter getShowSystems, GenericMenu.MenuFunction setShowSystems, Func<bool> getShowAllWorlds, Action<bool> setShowAllWorlds)
         {
@@ -74,16 +40,24 @@ namespace Unity.Entities.Editor
 
             this.getShowAllWorlds = getShowAllWorlds;
             this.setShowAllWorlds = setShowAllWorlds;
+
+            m_WorldDisplayNameCache = new WorldDisplayNameCache(IncludeWorldInMenu);
         }
 
         public void OnGUI(bool showingPlayerLoop, string lastSelectedWorldName, GUIStyle style = null)
         {
+            if (m_WorldListChangeTracker.HasChanged())
+            {
+                m_CachedMenu = null;
+                m_WorldDisplayNameCache.RebuildCache();
+            }
+
             TryRestorePreviousSelection(showingPlayerLoop, lastSelectedWorldName);
 
-            var worldName = getWorldSelection()?.Name ?? kPlayerLoopName;
-            if (EditorGUILayout.DropdownButton(new GUIContent(worldName), FocusType.Passive, style ?? (GUIStyle)"MiniPullDown"))
+            var worldName = m_WorldDisplayNameCache.GetWorldDisplayName(getWorldSelection()) ?? kPlayerLoopName;
+            if (EditorGUILayout.DropdownButton(new GUIContent(worldName), FocusType.Passive, style ?? "MiniPullDown"))
             {
-                Menu.ShowAsContext();
+                (m_CachedMenu ?? (m_CachedMenu = BuildWorldDropdown())).ShowAsContext();
             }
         }
 
@@ -96,7 +70,7 @@ namespace Unity.Entities.Editor
                     if (World.All.Count > 0)
                         setWorldSelection(World.All[0]);
                 }
-                else
+                else if (lastSelectedWorldName != getWorldSelection()?.Name)
                 {
                     foreach (var world in World.All)
                     {
@@ -108,6 +82,58 @@ namespace Unity.Entities.Editor
                     }
                 }
             }
+        }
+
+        GenericMenu BuildWorldDropdown()
+        {
+            var menu = new GenericMenu();
+            var currentSelection = getWorldSelection();
+
+            foreach (var world in World.All)
+            {
+                if (!IncludeWorldInMenu(world))
+                    continue;
+
+                var worldName = m_WorldDisplayNameCache.GetWorldDisplayName(world);
+                menu.AddItem(new GUIContent(worldName), currentSelection == world, () => ChangeSelectedWorld(world));
+            }
+
+            if (menu.GetItemCount() == 0)
+                menu.AddDisabledItem(new GUIContent("No Worlds"));
+
+            menu.AddSeparator("");
+            menu.AddItem(new GUIContent("Show All Worlds"), getShowAllWorlds(), ToggleShowAllWorlds);
+            menu.AddSeparator("");
+            menu.AddItem(new GUIContent(kPlayerLoopName), currentSelection == null, () => ChangeSelectedWorld(null));
+            menu.AddSeparator("");
+            menu.AddItem(new GUIContent(kShowInactiveSystemsName), getShowInactiveSystems(), setShowInactiveSystems);
+            return menu;
+        }
+
+        void ToggleShowAllWorlds()
+        {
+            var showAllWorlds = !getShowAllWorlds();
+            setShowAllWorlds(showAllWorlds);
+
+            // Filter might have changed, we need to rebuild the display name
+            // cache because some worlds can share the same name now.
+            m_WorldDisplayNameCache.RebuildCache();
+            m_CachedMenu = null;
+
+            if (showAllWorlds)
+                return;
+
+            var currentSelection = getWorldSelection();
+            if (currentSelection != null && (currentSelection.Flags & (WorldFlags.Streaming | WorldFlags.Shadow)) != 0)
+                setWorldSelection(World.All.Count > 0 ? World.All[0] : null);
+        }
+
+        bool IncludeWorldInMenu(World w) => getShowAllWorlds() || (w.Flags & (WorldFlags.Streaming | WorldFlags.Shadow)) == 0;
+
+        void ChangeSelectedWorld(World w)
+        {
+            m_CachedMenu = null;
+            setWorldSelection(w);
         }
     }
 }

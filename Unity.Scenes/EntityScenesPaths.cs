@@ -14,29 +14,17 @@ namespace Unity.Scenes
 {
     internal class EntityScenesPaths
     {
-        public static Type SubSceneImporterType = null;
+        internal static Type SubSceneImporterType = null;
 
-        internal static readonly string PersistentDataPath;
-        internal static readonly string StreamingAssetsPath;
+        internal const string k_SceneInfoFileName = "catalog.bin";
+        internal const string k_EntitySceneSubDir = "EntityScenes";
 
-        static EntityScenesPaths()
+        internal static string GetSceneInfoPath(string sceneLoadDir)
         {
-#if UNITY_DOTSRUNTIME
-            PersistentDataPath = "Data";
-            StreamingAssetsPath = "Data";
-#elif PLATFORM_SWITCH
-            // Temporary hack around using Application.persistentDataPath during static initialisation which fails on switch and crashes
-            // WHY does it fail on switch? Shouldn't this just silently fail on Switch?
-            // We need to find a way to not use PersistentDataPath during LiveLink. This means LiveLink doesn't work on Switch right now.
-            PersistentDataPath = "DOESNOTWORK";
-            StreamingAssetsPath = Application.streamingAssetsPath;
-#else
-            PersistentDataPath = Application.persistentDataPath;
-            StreamingAssetsPath = Application.streamingAssetsPath;
-#endif
+            return $"{sceneLoadDir}/{k_SceneInfoFileName}";
         }
 
-        public enum PathType
+        internal enum PathType
         {
             EntitiesUnityObjectReferences,
             EntitiesUnityObjectReferencesBundle,
@@ -44,10 +32,12 @@ namespace Unity.Scenes
             EntitiesBinary,
             EntitiesConversionLog,
             EntitiesHeader,
-            EntitiesSharedReferencesBundle
+            EntitiesSharedReferencesBundle,
+            EntitiesWeakAssetRefs,
+            EntitiesGlobalUsage
         }
 
-        public static string GetExtension(PathType pathType)
+        internal static string GetExtension(PathType pathType)
         {
             switch (pathType)
             {
@@ -59,6 +49,8 @@ namespace Unity.Scenes
                 case PathType.EntitiesConversionLog: return "conversionlog";
                 case PathType.EntitiesSharedReferencesBundle: return "bundle";
                 case PathType.EntitiesAssetDependencyGUIDs: return "dependencies";
+                case PathType.EntitiesWeakAssetRefs: return "weakassetrefs";
+                case PathType.EntitiesGlobalUsage: return "globalusage";
             }
 
             throw new ArgumentException($"Unknown PathType {pathType}");
@@ -69,7 +61,7 @@ namespace Unity.Scenes
         static Dictionary<Hash128, string> s_HashToString = new Dictionary<Hash128, string>();
 
 
-        public static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, ImportMode importMode)
+        internal static Hash128 GetSubSceneArtifactHash(Hash128 sceneGUID, Hash128 buildConfigurationGUID, bool isBuildingForEditor, ImportMode importMode)
         {
             var guid = SceneWithBuildConfigurationGUIDs.EnsureExistsFor(sceneGUID, buildConfigurationGUID, isBuildingForEditor, out var mustRequestRefresh);
             if (mustRequestRefresh)
@@ -80,68 +72,65 @@ namespace Unity.Scenes
             return AssetDatabaseCompatibility.GetArtifactHash(guidString, SubSceneImporterType, importMode);
         }
 
-        public static string GetLoadPathFromArtifactPaths(string[] paths, PathType type, int? sectionIndex = null)
+        // This specialization is faster than calling GetLoadPathFromArtifactPaths with a null section index
+        internal static string GetHeaderPathFromArtifactPaths(string[] paths)
+        {
+            int length = paths.Length;
+
+            for (int i = 0; i < length; ++i)
+            {
+                var path = paths[i];
+                if (path.EndsWith(".entityheader", StringComparison.Ordinal))
+                {
+                    return path;
+                }
+            }
+            return null;
+        }
+
+        internal static string GetLoadPathFromArtifactPaths(string[] paths, PathType type)
         {
             var extension = GetExtension(type);
-            if (sectionIndex != null)
-                extension = $"{sectionIndex}.{extension}";
-
-            return paths.FirstOrDefault(p => p.EndsWith(extension));
+            return paths.FirstOrDefault(p => p.EndsWith(extension, StringComparison.Ordinal));
         }
+
+        internal static string GetLoadPathFromArtifactPaths(string[] paths, PathType type, int sectionIndex)
+        {
+            var extension = $"{sectionIndex}.{GetExtension(type)}";
+            return paths.FirstOrDefault(p => p.EndsWith(extension, StringComparison.Ordinal));
+        }
+
 
 #endif // UNITY_EDITOR
 
-        public static string GetLoadPath(Hash128 sceneGUID, PathType type, int sectionIndex)
+        internal static string GetLoadPath(Hash128 sceneGUID, PathType type, int sectionIndex, string sceneLoadDir)
         {
-            return StreamingAssetsPath + "/" + RelativePathFolderFor(sceneGUID, type, sectionIndex);
+            return $"{sceneLoadDir}/{RelativePathFolderFor(sceneGUID, type, sectionIndex)}";
         }
 
-        public static string RelativePathFolderFor(Hash128 sceneGUID, PathType type, int sectionIndex)
+        internal static string GetFileName(Hash128 sceneGUID, PathType type, int sectionIndex)
         {
             var extension = GetExtension(type);
             switch (type)
             {
                 case PathType.EntitiesBinary:
-                    return $"SubScenes/{sceneGUID}.{sectionIndex}.{extension}";
+                    return $"{sceneGUID}.{sectionIndex}.{extension}";
                 case PathType.EntitiesHeader:
                 case PathType.EntitiesConversionLog:
-                    return $"SubScenes/{sceneGUID}.{extension}";
+                    return $"{sceneGUID}.{extension}";
                 case PathType.EntitiesUnityObjectReferences:
                 case PathType.EntitiesUnityObjectReferencesBundle:
-                    return $"SubScenes/{sceneGUID}.{sectionIndex}.{extension}";
+                    return $"{sceneGUID}.{sectionIndex}.{extension}";
                 case PathType.EntitiesSharedReferencesBundle:
-                    return $"SubScenes/{sceneGUID}.{extension}";
+                    return $"{sceneGUID}.{extension}";
                 default:
                     throw new ArgumentException();
             }
         }
 
-        public static string GetLiveLinkCachePath(UnityEngine.Hash128 targetHash, PathType type, int sectionIndex)
+        internal static string RelativePathFolderFor(Hash128 sceneGUID, PathType type, int sectionIndex)
         {
-            var extension = GetExtension(type);
-            switch (type)
-            {
-                case PathType.EntitiesHeader:
-                    return $"{PersistentDataPath}/{k_LiveLinkCacheDir}/{targetHash}.{extension}";
-                case PathType.EntitiesBinary:
-                case PathType.EntitiesUnityObjectReferences:
-                case PathType.EntitiesUnityObjectReferencesBundle:
-                    return $"{PersistentDataPath}/{k_LiveLinkCacheDir}/{targetHash}.{sectionIndex}.{extension}";
-                default:
-                    return "";
-            }
-        }
-
-        const string k_LiveLinkCacheDir = "LiveLinkCache";
-
-        public static string GetCachePath(Hash128 targetHash)
-        {
-            return $"{PersistentDataPath}/{k_LiveLinkCacheDir}/{targetHash}";
-        }
-
-        public static string GetTempCachePath()
-        {
-            return $"{PersistentDataPath}/{k_LiveLinkCacheDir}/{MakeRandomFileName()}";
+            return $"{k_EntitySceneSubDir}/{GetFileName(sceneGUID, type, sectionIndex)}";
         }
 
         static unsafe string MakeRandomFileName()
@@ -156,20 +145,10 @@ namespace Unity.Scenes
             return new string(filenameBuffer, 0, kFilenameLen);
         }
 
-        public static string ComposeLiveLinkCachePath(string fileName)
+        internal static int GetSectionIndexFromPath(string path)
         {
-            return $"{PersistentDataPath}/{k_LiveLinkCacheDir}/{fileName}";
-        }
-
-        public static string GetLiveLinkCacheDirPath()
-        {
-            return $"{PersistentDataPath}/{k_LiveLinkCacheDir}";
-        }
-
-        public static int GetSectionIndexFromPath(string path)
-        {
-            var dot = new FixedString32(".");
-            var localStr = new FixedString512(path);
+            var dot = new FixedString32Bytes(".");
+            var localStr = new FixedString512Bytes(path);
 
             // Find the extension '.'
             var index = localStr.LastIndexOf(dot);

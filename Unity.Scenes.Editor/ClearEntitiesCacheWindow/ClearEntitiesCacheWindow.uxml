@@ -12,12 +12,6 @@
             <engine:VisualElement class = "clear-cache_field">
                 <engine:Toggle name="clear-entityscene-toggle" class="cache-toggle" text="Entity Scene Cache" value="true" tooltip="All of your EntityScenes (SubScenes) will be re-imported the next time they are accessed."/>
             </engine:VisualElement>
-            <engine:VisualElement class = "clear-cache_field">
-                <engine:Toggle name="clear-livelinkassets-toggle" class="cache-toggle" text="Live Link Asset Cache" value="true" tooltip="All Live Linked assets will be re-imported the next time a Live Link Player connects to this project."/>
-            </engine:VisualElement>
-            <engine:VisualElement class = "clear-cache_field">
-                <engine:Toggle name="clear-livelinkplayer-toggle" class="cache-toggle" text="Live Link Player Cache" value="true" tooltip="Every unique Live Link Player that next connects to this Editor and project will have it's local Live Link cache deleted and every asset requested again."/>
-            </engine:VisualElement>
         </engine:VisualElement>
 
         <engine:VisualElement name="clear-cache_footer">

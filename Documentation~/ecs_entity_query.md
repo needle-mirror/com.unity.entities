@@ -71,11 +71,7 @@ To combine multiple queries, you can pass an array of [EntityQueryDesc] objects 
 
 ## Creating an EntityQuery
 
-Outside of a system class, you can create an [EntityQuery] with the [EntityManager.CreateEntityQuery] function as follows:
-
-[!code-cs[create-query](../DocCodeSamples.Tests/EntityQueryExamples.cs#create-query)]
-
-However, inside a system class, you get a query from the system rather than creating it from scratch. Systems cache any queries that your implementation creates and return the cached instance rather than creating a new one when possible. 
+Inside a system class, you get a query from the system rather than creating it from scratch. Systems cache any queries that your implementation creates and return the cached instance rather than creating a new one when possible. 
 
 When your system uses [Entities.ForEach], use [WithStoreEntityQueryInField] to get an instance of the query used by an [Entities.ForEach] construction: 
 
@@ -132,7 +128,6 @@ You can also call one of the [EntityQuery] methods that returns arrays of entiti
 [Entities.ForEach]: xref:ecs-entities-foreach
 [typeof]: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/operators/type-testing-and-cast#typeof-operator
 [EntityQueryDesc]: xref:Unity.Entities.EntityQueryDesc
-[EntityManager.CreateEntityQuery]: xref:Unity.Entities.EntityManager.CreateEntityQuery*
 [WithStoreEntityQueryInField]: xref:Unity.Entities.SystemBase.Entities
 [GetEntityQuery]: xref:Unity.Entities.ComponentSystemBase.GetEntityQuery
 [ResetFilter]: xref:Unity.Entities.EntityQuery.ResetFilter
@@ -144,3 +139,7 @@ You can also call one of the [EntityQuery] methods that returns arrays of entiti
 [ComponentType.ReadOnly&lt;T&gt;]: xref:Unity.Entities.ComponentType.ReadOnly*
 [ArchetypeChunk.Has<T>]: xref:Unity.Entities.ArchetypeChunk.Has*
 [GetEntityQuery]: xref:Unity.Entities.ComponentSystemBase.GetEntityQuery*
+
+## Queries in the Editor
+
+In the Editor, the following icon represents a query: ![](images/editor-query-icon.png) . You’ll see this when you use the specific [Entities windows and Inspectors](editor-workflows.md). You can also use the [Query window](editor-query-window.md) to see the Components and Entities that match the selected query.

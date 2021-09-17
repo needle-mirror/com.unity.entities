@@ -16,6 +16,7 @@ using System;
 using Unity.Burst;
 using Unity.Collections;
 using System.Runtime.InteropServices;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
@@ -42,6 +43,8 @@ namespace Unity.Entities
         {
             public static bool _initialized = false;
 
+            public delegate void _dlg_ProcessChainChunk(IntPtr walker, int processorType, IntPtr chainStates, int currentChain, int nextChain);
+            public static _dlg_ProcessChainChunk _bfp_ProcessChainChunk;
             public delegate void _dlg_RemoveManagedReferences(IntPtr mgr, IntPtr sharedIndex, int count);
             public static object _gcDefeat_RemoveManagedReferences;
         }
@@ -58,12 +61,43 @@ namespace Unity.Entities
             if (Managed._initialized)
                 return;
             Managed._initialized = true;
-        Managed._dlg_RemoveManagedReferences delegateObject = _wrapper_RemoveManagedReferences;
-        Managed._gcDefeat_RemoveManagedReferences = delegateObject;
-        _bfp_RemoveManagedReferences.Data = Marshal.GetFunctionPointerForDelegate(delegateObject);
+            Managed._bfp_ProcessChainChunk = BurstCompiler.CompileFunctionPointer<Managed._dlg_ProcessChainChunk>(_mono_to_burst_ProcessChainChunk).Invoke;
+        {
+            Managed._dlg_RemoveManagedReferences delegateObject = _wrapper_RemoveManagedReferences;
+            Managed._gcDefeat_RemoveManagedReferences = delegateObject;
+            _bfp_RemoveManagedReferences.Data = Marshal.GetFunctionPointerForDelegate(delegateObject);
+        }
 
 #endif
         }
+
+        internal  static void ProcessChainChunk (void* walker, int processorType, ECBChainPlaybackState* chainStates, int currentChain, int nextChain)
+        {
+#if !UNITY_IOS
+            if (UseDelegate())
+            {
+                _forward_mono_ProcessChainChunk(walker, processorType, chainStates, currentChain, nextChain);
+                return;
+            }
+#endif
+
+            _ProcessChainChunk(walker, processorType, chainStates, currentChain, nextChain);
+        }
+
+#if !UNITY_IOS
+        [BurstCompile]
+        [MonoPInvokeCallback(typeof(Managed._dlg_ProcessChainChunk))]
+        private static void _mono_to_burst_ProcessChainChunk(IntPtr walker, int processorType, IntPtr chainStates, int currentChain, int nextChain)
+        {
+            _ProcessChainChunk((void*)walker, processorType, (ECBChainPlaybackState*)chainStates, currentChain, nextChain);
+        }
+
+        [BurstDiscard]
+        private static void _forward_mono_ProcessChainChunk(void* walker, int processorType, ECBChainPlaybackState* chainStates, int currentChain, int nextChain)
+        {
+            Managed._bfp_ProcessChainChunk((IntPtr) walker, processorType, (IntPtr) chainStates, currentChain, nextChain);
+        }
+#endif
 
 
         internal static void RemoveManagedReferences (EntityDataAccess* mgr, int* sharedIndex, int count)
