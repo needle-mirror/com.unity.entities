@@ -171,7 +171,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                             throw new InvalidDescriptionException();
                         }
                     }
-                    else                    
+                    else
                         throw new InvalidOperationException($"Invalid system type for lambda job {namedSystemTypeSymbol.ToFullName()}");
                 }
                 else
@@ -475,7 +475,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         {
                             if (Schedule.Mode != ScheduleMode.Run && capturedVariable.SupportsDeallocateOnJobCompletion())
                             {
-                                capturedVariable.Attributes.Add("DeallocateOnJobCompletion");
+                                capturedVariable.Attributes.Add("Unity.Collections.DeallocateOnJobCompletion");
                             }
                             else
                             {

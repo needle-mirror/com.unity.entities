@@ -82,7 +82,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                 static string EntitiesJournaling_RecordChunkMethod(LambdaJobDescription description) =>
                     description.HasJournalingEnabled && description.HasJournalingRecordableChunkParameters ?
-                        $@"[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+                        $@"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
                         void EntitiesJournaling_RecordChunk(in ArchetypeChunk chunk, {EntitiesJournaling_RecordChunkMethodParams(description)})
                         {{
                             {EntitiesJournaling_RecordChunkSetComponent(description)}
@@ -112,7 +112,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                 static string EntitiesJournaling_RecordEntityMethod(LambdaJobDescription description) =>
                     description.HasJournalingEnabled && description.HasJournalingRecordableEntityParameters ?
-                        $@"[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+                        $@"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
                         void EntitiesJournaling_RecordEntity(in Entity entity, {EntitiesJournaling_RecordEntityMethodParams(description)})
                         {{
                             {EntitiesJournaling_RecordEntitySetComponent(description)}
@@ -166,7 +166,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
 
                 // void OriginalLambdaBody(ref ComponentType1 component1, in ComponentType2 component2) {}";
                 string OriginalLambdaBody() => $@"
-                {"[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]".EmitIfTrue(description.Burst.IsEnabled)}
+                {"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]".EmitIfTrue(description.Burst.IsEnabled)}
                 void OriginalLambdaBody({description.LambdaParameters.Select(param => param.LambdaBodyMethodParameter(description.Burst.IsEnabled)).SeparateByComma()}) {{}}
                 {Common.GeneratedLineTriviaToGeneratedSource}";
 
@@ -358,7 +358,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                     ? $@"
                                     {Common.BurstCompileAttribute(description)}
                                     {Common.MonoPInvokeCallbackAttributeAttribute(description)}
-                                    public static void RunWithoutJobSystem(ref EntityQuery query, System.IntPtr limitToEntityArrayPtr, int limitToEntityArrayLength, System.IntPtr jobPtr)
+                                    public static void RunWithoutJobSystem(ref EntityQuery query, global::System.IntPtr limitToEntityArrayPtr, int limitToEntityArrayLength, global::System.IntPtr jobPtr)
                                     {{
                                         {EnterTempMemoryScope(description)}
                                         try
@@ -373,7 +373,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                     : $@"
                                     {Common.BurstCompileAttribute(description)}
                                     {Common.MonoPInvokeCallbackAttributeAttribute(description)}
-                                    public static void RunWithoutJobSystem(ref Unity.Entities.ArchetypeChunkIterator archetypeChunkIterator, System.IntPtr jobPtr)
+                                    public static void RunWithoutJobSystem(ref Unity.Entities.ArchetypeChunkIterator archetypeChunkIterator, global::System.IntPtr jobPtr)
                                     {{
                                         {EnterTempMemoryScope(description)}
                                         try
@@ -392,7 +392,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                                 $@"
                                 {Common.BurstCompileAttribute(description)}
                                 {Common.MonoPInvokeCallbackAttributeAttribute(description)}
-                                public static void RunWithoutJobSystem(System.IntPtr jobPtr)
+                                public static void RunWithoutJobSystem(global::System.IntPtr jobPtr)
                                 {{
                                     {EnterTempMemoryScope(description)}
                                     try
@@ -474,69 +474,69 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 static string IJobBaseMethods(LambdaJobDescription description)
                 {
                     return @"
-                    public void PrepareJobAtExecuteTimeFn_Gen(int jobIndex, System.IntPtr localNodes)
+                    public void PrepareJobAtExecuteTimeFn_Gen(int jobIndex, global::System.IntPtr localNodes)
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public void CleanupJobAfterExecuteTimeFn_Gen()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public void CleanupJobFn_Gen()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public Unity.Jobs.LowLevel.Unsafe.JobsUtility.ManagedJobForEachDelegate GetExecuteMethod_Gen()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public int GetUnmanagedJobSize_Gen()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public Unity.Jobs.LowLevel.Unsafe.JobsUtility.ManagedJobMarshalDelegate GetMarshalToBurstMethod_Gen()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public Unity.Jobs.LowLevel.Unsafe.JobsUtility.ManagedJobMarshalDelegate GetMarshalFromBurstMethod_Gen()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public int IsBursted_Gen()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }" +
                     (description.SafetyChecksEnabled ? @"
-                    public int PrepareJobAtPreScheduleTimeFn_Gen(ref Unity.Development.JobsDebugger.DependencyValidator data, ref Unity.Jobs.JobHandle dependsOn, System.IntPtr deferredSafety)
+                    public int PrepareJobAtPreScheduleTimeFn_Gen(ref Unity.Development.JobsDebugger.DependencyValidator data, ref Unity.Jobs.JobHandle dependsOn, global::System.IntPtr deferredSafety)
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public void PrepareJobAtPostScheduleTimeFn_Gen(ref Unity.Development.JobsDebugger.DependencyValidator data, ref Unity.Jobs.JobHandle scheduledJob)
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public void PatchMinMax_Gen(Unity.Jobs.LowLevel.Unsafe.JobsUtility.MinMax param)
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }
 
                     public int GetSafetyFieldCount()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }" : "") +
                     (description.SafetyChecksEnabled || description.DOTSRuntimeProfilerEnabled ? @"
                     public int GetJobNameIndex_Gen()
                     {
-                        throw new System.NotImplementedException();
+                        throw new global::System.NotImplementedException();
                     }" : "");
                 }
             }

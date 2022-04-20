@@ -10,7 +10,6 @@ namespace Unity.Entities
         public readonly struct TimeCounter
         {
             readonly ProfilerCounterValue<long> m_Counter;
-            readonly FixedString32Bytes m_Name;
 
             public long Value
             {
@@ -19,12 +18,8 @@ namespace Unity.Entities
             }
 
             [NotBurstCompatible]
-            public string Name => m_Name.ToString();
-
-            [NotBurstCompatible]
             public TimeCounter(string name)
             {
-                m_Name = name;
                 m_Counter = new ProfilerCounterValue<long>(SharedProfilerCategory.Ref.Data, name, ProfilerMarkerDataUnit.TimeNanoseconds,
                     ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush);
             }

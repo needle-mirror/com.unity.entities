@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -14,12 +15,14 @@ namespace Unity.Entities.SourceGen.SystemGenerator
     public class SystemSyntaxReceiver : ISyntaxReceiver
     {
         internal HashSet<TypeDeclarationSyntax> SystemBaseDerivedTypesWithoutPartialKeyword = new HashSet<TypeDeclarationSyntax>();
+        readonly CancellationToken _cancelationToken;
 
         internal List<ISystemModule> SystemModules { get; }
 
-        public SystemSyntaxReceiver()
+        public SystemSyntaxReceiver(CancellationToken cancellationToken)
         {
-            SystemModules = new List<ISystemModule>()
+            _cancelationToken = cancellationToken;
+            SystemModules = new List<ISystemModule>
             {
                 new LambdaJobsModule(),
                 new JobEntityModule(),
@@ -30,8 +33,12 @@ namespace Unity.Entities.SourceGen.SystemGenerator
         public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
         {
             foreach (var module in SystemModules)
+            {
+                _cancelationToken.ThrowIfCancellationRequested();
                 module.OnReceiveSyntaxNode(syntaxNode);
+            }
 
+            _cancelationToken.ThrowIfCancellationRequested();
             CheckForSystemWithoutPartial(syntaxNode);
         }
 

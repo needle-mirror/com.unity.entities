@@ -81,28 +81,6 @@ namespace Unity.Entities.SourceGen.Common
             }
         }
 
-        public static IEnumerable<INamespaceOrTypeSymbol> GetParentsFromMostToLeastNested(this INamedTypeSymbol symbol)
-        {
-            INamespaceOrTypeSymbol current = symbol;
-            while (current.ContainingSymbol != null && current.ContainingSymbol is INamespaceOrTypeSymbol)
-            {
-                var containing = (INamespaceOrTypeSymbol)current.ContainingSymbol;
-
-                if (containing.IsNamespace)
-                {
-                    var ns = (INamespaceSymbol)containing;
-                    if (ns.IsGlobalNamespace)
-                        break;
-                }
-
-                yield return containing;
-                current = containing;
-
-                if (current.IsNamespace)
-                    break;
-            }
-        }
-
         public static string GetGeneratedSourceFileName(this SyntaxTree syntaxTree, string generatorName)
         {
             var (isSuccess, fileName) = TryGetFileNameWithoutExtension(syntaxTree);

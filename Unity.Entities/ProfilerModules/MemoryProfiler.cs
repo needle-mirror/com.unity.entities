@@ -9,6 +9,10 @@ namespace Unity.Entities
 {
     static partial class MemoryProfiler
     {
+        internal const string k_CategoryName = "Entities Memory";
+        internal const string k_AllocatedMemoryCounterName = "Allocated Memory";
+        internal const string k_UnusedMemoryCounterName = "Unused Memory";
+
         static bool s_Initialized;
 
         sealed class SharedGuid { internal static readonly SharedStatic<Guid> Ref = SharedStatic<Guid>.GetOrCreate<SharedGuid>(); }
@@ -28,9 +32,9 @@ namespace Unity.Entities
                 return;
 
             SharedGuid.Ref.Data = new Guid("d1589a720beb45b78a4087311ae83a2c");
-            SharedProfilerCategory.Ref.Data = new ProfilerCategory("Entities Memory");
-            SharedAllocatedBytesCounter.Ref.Data = new BytesCounter("Allocated Memory");
-            SharedUnusedBytesCounter.Ref.Data = new BytesCounter("Unused Memory");
+            SharedProfilerCategory.Ref.Data = new ProfilerCategory(k_CategoryName);
+            SharedAllocatedBytesCounter.Ref.Data = new BytesCounter(k_AllocatedMemoryCounterName);
+            SharedUnusedBytesCounter.Ref.Data = new BytesCounter(k_UnusedMemoryCounterName);
 
             s_Initialized = true;
         }

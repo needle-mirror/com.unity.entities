@@ -6,18 +6,28 @@ uid: install-setup
 
 When you set up an Entities project, there are additional steps you must follow. This page contains information on the packages included in the Entities release, and how to install them.
 
+## Unity Editor version
+
+You must use Unity Editor version 2020.3.30 with Entities 0.50.
+
+## IDE support
+Entities 0.50 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
+
+* Visual Studio 2022+
+* Rider 2021.3.3+
+
 ## Package installation
 
-The Entities packages aren't listed in the Package Manager, even if you've enabled the **Preview Packages** setting. You can use the following ways to install the Entities packages:
+The Entities package isn't listed in the Package Manager, even if you've enabled the **Preview Packages** setting. You can use the following ways to install the Entities package:
 
-* Use **Add package from git URL...** under the **+** menu at the top left of the package manager to add packages either by name (such as `com.unity.entities`), or by Git URL (but this option isn't available for DOTS packages). If you want to use a Git URL instead of just a name in the Package Manager, you must have the git command line tools installed.
+* Use **Add package from git URL** under the **+** menu at the top left of the package manager to add packages either by name (such as `com.unity.entities`), or by Git URL (but this option isn't available for DOTS packages). If you want to use a Git URL instead of just a name in the Package Manager, you must have the git command line tools installed.
 * Directly edit the `Packages\manifest.json` file in the Unity project. You must add both the package name and its version to the file, which you can find by looking at the documentation of each package (such as `"com.unity.entities" : "x.x.x-preview.x"`).
 
 For more information, see the documentation on [Installing hidden packages](https://docs.unity3d.com/Packages/Installation/manual/index.html).
 
 ## Entities 0.50 packages
 
-The following table lists the ECS-based packages that have been tested together with Unity 2020 LTS:
+The following table lists the ECS-based packages that have been tested together with Unity 2020.3.30:
 
 | **Package name** | **Version number** |
 |---|---|
@@ -33,23 +43,7 @@ The following packages are also automatically included when installing the Entit
 |[Burst](https://docs.unity3d.com/Packages/com.unity.burst@latest)|	1.6.4|
 |[Collections](https://docs.unity3d.com/Packages/com.unity.collections@latest)|	1.2.3|
 |[Jobs](https://docs.unity3d.com/Packages/com.unity.jobs@latest)|0.50.0|
-|[Mathematics](https://docs.unity3d.com/Packages/com.unity.mathematics@latest)|	1.2.6|
-
-## IDE support
-Entities 0.50 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
-
-* Visual Studio 2022+
-* Rider 2021.3.3+
-
-## Building your application
-
-To build your application, you must install the [Entities Platforms package](https://docs.unity3d.com/Packages/com.unity.platforms@latest). For more information on how to build your application, see the documentation on [Building an Entities project](ecs_building_projects.md).
-
-## IDE support
-Entities 0.50 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
-
-* Visual Studio 2022+
-* Rider 2021.3.3+
+|[Mathematics](https://docs.unity3d.com/Packages/com.unity.mathematics@latest)|	1.2.5|
 
 ## Building your application
 

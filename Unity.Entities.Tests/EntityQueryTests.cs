@@ -1982,6 +1982,228 @@ namespace Unity.Entities.Tests
             }
         }
 
+        struct ReadFromEntityJob : IJob
+        {
+            [ReadOnly] public ComponentTypeHandle<Entity> TypeHandle;
+            public void Execute()
+            {
+            }
+        }
+
+        struct WriteToEntityJob : IJob
+        {
+            public ComponentTypeHandle<Entity> TypeHandle;
+            public void Execute()
+            {
+            }
+        }
+
+        [Test]
+        public void EntityQuery_ToEntityArray_WithRunningJob_NoDependency_Throws()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, 10000, World.UpdateAllocator.ToAllocator);
+            NativeArray<Entity> output = default;
+
+            // Test with a job that reads from entity data; this should work fine.
+            var typeHandleRO = m_Manager.GetComponentTypeHandle<Entity>(true);
+            var jobHandleRO = new ReadFromEntityJob { TypeHandle = typeHandleRO }.Schedule();
+            //query.AddDependency(jobHandleRO); //This test makes sure we detect the race condition if this dependency is NOT established.
+            Assert.DoesNotThrow(() => { output = query.ToEntityArray(World.UpdateAllocator.ToAllocator); });
+            jobHandleRO.Complete();
+            CollectionAssert.AreEqual(entities.ToArray(), output.ToArray());
+            if (output.IsCreated)
+                output.Dispose();
+
+
+            // It's highly unusual for a job to have write access to the Entity component, but for symmetry with the subsequent
+            // tests we'll test it here anyway.
+            var typeHandleRW = m_Manager.GetComponentTypeHandle<Entity>(false);
+            var jobHandleRW = new WriteToEntityJob { TypeHandle = typeHandleRW }.Schedule();
+            //query.AddDependency(jobHandleRW); //This test makes sure we detect the race condition if this dependency is NOT established.
+            Assert.Throws<InvalidOperationException>(() => { output = query.ToEntityArray(World.UpdateAllocator.ToAllocator); });
+            jobHandleRW.Complete();
+        }
+
+        [Test]
+        public void EntityQuery_ToEntityArray_WithRunningJob_WithDependency_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, 10000, World.UpdateAllocator.ToAllocator);
+            NativeArray<Entity> output = default;
+
+            // Test with a job that reads from entity data; this should work fine.
+            var typeHandleRO = m_Manager.GetComponentTypeHandle<Entity>(true);
+            var jobHandleRO = new ReadFromEntityJob { TypeHandle = typeHandleRO }.Schedule();
+            query.AddDependency(jobHandleRO);
+            Assert.DoesNotThrow(() => { output = query.ToEntityArray(World.UpdateAllocator.ToAllocator); });
+            jobHandleRO.Complete();
+            CollectionAssert.AreEqual(entities.ToArray(), output.ToArray());
+            if (output.IsCreated)
+                output.Dispose();
+
+            // It's highly unusual for a job to have write access to the Entity component, but for symmetry with the subsequent
+            // tests we'll test it here anyway.
+            var typeHandleRW = m_Manager.GetComponentTypeHandle<Entity>(false);
+            var jobHandleRW = new WriteToEntityJob { TypeHandle = typeHandleRW }.Schedule();
+            query.AddDependency(jobHandleRW);
+            Assert.DoesNotThrow(() => { output = query.ToEntityArray(World.UpdateAllocator.ToAllocator); });
+            jobHandleRW.Complete();
+            CollectionAssert.AreEqual(entities.ToArray(), output.ToArray());
+            if (output.IsCreated)
+                output.Dispose();
+        }
+
+        struct ReadFromComponentJob : IJobEntityBatch
+        {
+            [ReadOnly] public ComponentTypeHandle<EcsTestData> TypeHandle;
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            {
+            }
+        }
+
+        struct WriteToComponentJob : IJobEntityBatch
+        {
+            public ComponentTypeHandle<EcsTestData> TypeHandle;
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
+            {
+            }
+        }
+
+        [Test]
+        public void EntityQuery_ToComponentDataArray_WithRunningJob_NoDependency_Throws()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+
+            NativeArray<EcsTestData> newValues =
+                CollectionHelper.CreateNativeArray<EcsTestData>(entities.Length, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsTestData(i));
+                newValues[i] = new EcsTestData(2*i);
+            }
+
+            // test with running job reading from component data. This should work fine.
+            NativeArray<EcsTestData> testValues = default;
+            using var readValues = query.ToComponentDataArrayAsync<EcsTestData>(World.UpdateAllocator.ToAllocator, out var readJobHandle);
+            //query.AddDependency(readJobHandle); //This test makes sure we detect the race condition if this dependency is NOT established.
+            Assert.DoesNotThrow(() => { testValues = query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator); });
+            readJobHandle.Complete();
+            CollectionAssert.AreEqual(readValues.ToArray(), testValues.ToArray());
+            if (testValues.IsCreated)
+                testValues.Dispose();
+
+            // test with running job writing to component data. This is a race condition.
+            var typeHandleRW = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            var writeJobHandle = new WriteToComponentJob { TypeHandle = typeHandleRW }.ScheduleParallel(query);
+            Assert.Throws<InvalidOperationException>(() => { testValues = query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator); });
+            writeJobHandle.Complete();
+            if (testValues.IsCreated)
+                testValues.Dispose();
+        }
+
+        [Test]
+        public void EntityQuery_ToComponentDataArray_WithRunningJob_WithDependency_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+
+            NativeArray<EcsTestData> newValues =
+                CollectionHelper.CreateNativeArray<EcsTestData>(entities.Length, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsTestData(i));
+                newValues[i] = new EcsTestData(2*i);
+            }
+
+            // test with running job reading from component data
+            NativeArray<EcsTestData> testValues = default;
+            using var readValues = query.ToComponentDataArrayAsync<EcsTestData>(World.UpdateAllocator.ToAllocator, out var readJobHandle);
+            query.AddDependency(readJobHandle); // ensure the following query operation sees this job when it completes its dependencies
+            Assert.DoesNotThrow(() => { testValues = query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator); });
+            CollectionAssert.AreEqual(readValues.ToArray(), testValues.ToArray());
+            testValues.Dispose();
+
+            // test with running job writing to component data
+            query.CopyFromComponentDataArrayAsync(newValues, out var writeJobHandle);
+            query.AddDependency(writeJobHandle); // ensure the following query operation sees this job when it completes its dependencies
+            Assert.DoesNotThrow(() => { testValues = query.ToComponentDataArray<EcsTestData>(World.UpdateAllocator.ToAllocator); });
+            CollectionAssert.AreEqual(newValues.ToArray(), testValues.ToArray());
+            testValues.Dispose();
+
+            newValues.Dispose();
+        }
+
+        [Test]
+        public void EntityQuery_CopyFromComponentDataArray_WithRunningJob_NoDependency_Throws()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+
+            NativeArray<EcsTestData> newValues =
+                CollectionHelper.CreateNativeArray<EcsTestData>(entities.Length, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsTestData(i));
+                newValues[i] = new EcsTestData(2*i);
+            }
+
+            // test with running job reading from component data. This is a race condition.
+            var typeHandleRO = m_Manager.GetComponentTypeHandle<EcsTestData>(true);
+            var readJobHandle = new ReadFromComponentJob { TypeHandle = typeHandleRO }.ScheduleParallel(query);
+            Assert.Throws<InvalidOperationException>(() => { query.CopyFromComponentDataArray(newValues); });
+            readJobHandle.Complete();
+
+            // test with running job writing to component data. This is a race condition.
+            var typeHandleRW = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            var writeJobHandle = new WriteToComponentJob { TypeHandle = typeHandleRW }.ScheduleParallel(query);
+            Assert.Throws<InvalidOperationException>(() => { query.CopyFromComponentDataArray(newValues); });
+            writeJobHandle.Complete();
+
+            newValues.Dispose();
+        }
+
+        [Test]
+        public void EntityQuery_CopyFromComponentDataArray_WithRunningJob_WithDependency_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+            using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+
+            NativeArray<EcsTestData> newValues =
+                CollectionHelper.CreateNativeArray<EcsTestData>(entities.Length, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                m_Manager.SetComponentData(entities[i], new EcsTestData(i));
+                newValues[i] = new EcsTestData(2*i);
+            }
+
+            // test with running job reading from component data
+            using var readValues = query.ToComponentDataArrayAsync<EcsTestData>(World.UpdateAllocator.ToAllocator, out var readJobHandle);
+            query.AddDependency(readJobHandle); // ensure the following query operation sees this job when it completes its dependencies
+            Assert.DoesNotThrow(() => { query.CopyFromComponentDataArray(newValues); });
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                Assert.AreEqual(i, readValues[i].value);
+                Assert.AreEqual(newValues[i].value, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
+            }
+
+            // test with running job writing to component data
+            query.CopyFromComponentDataArrayAsync(readValues, out var writeJobHandle);
+            query.AddDependency(writeJobHandle); // ensure the following query operation sees this job when it completes its dependencies
+            Assert.DoesNotThrow(() => { query.CopyFromComponentDataArray(newValues); });
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                Assert.AreEqual(newValues[i].value, m_Manager.GetComponentData<EcsTestData>(entities[i]).value);
+            }
+        }
+
 #if !UNITY_DOTSRUNTIME
         [AlwaysUpdateSystem]
         public partial class CachedSystemQueryTestSystem : SystemBase

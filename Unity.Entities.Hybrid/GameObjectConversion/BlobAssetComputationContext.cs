@@ -135,7 +135,7 @@ namespace Unity.Entities
         /// </remarks>
         public void UpdateBlobStore()
         {
-            var keys = m_BlobPerUnityObject.GetUniqueKeyArrayNBC(Allocator.Temp);
+            var keys = m_BlobPerUnityObject.GetUniqueKeyArray(Allocator.Temp);
             using (keys.Item1)
             {
                 for (var k = 0; k < keys.Item2; ++k)

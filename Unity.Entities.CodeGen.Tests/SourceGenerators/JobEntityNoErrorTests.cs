@@ -267,5 +267,61 @@ namespace Unity.Entities.CodeGen.SourceGenerators.Tests
             AssertProducesNoError(source, DefaultUsings, true);
         }
 
+        [Test]
+        public void InnerNamespaceUsing()
+        {
+            var source = @"
+            namespace SomeNameSpace {
+                using Unity.Entities;
+                public partial struct SomeJob : IJobEntity {
+                    public void Execute() {}
+                }
+            }";
+            AssertProducesNoError(source, new string[]{}, true);
+        }
+
+        [Test]
+        public void JobInStruct()
+        {
+            var source = @"
+            using Unity.Entities;
+            public partial struct SomeOuter {
+                public partial struct SomeJob : IJobEntity {
+                    public void Execute() {}
+                }
+            }";
+            AssertProducesNoError(source, new string[]{}, true);
+
+        }
+
+        [Test]
+        public void JobInClass()
+        {
+            var source = @"
+            using Unity.Entities;
+            public partial class SomeOuter {
+                public partial struct SomeJob : IJobEntity {
+                    public void Execute() {}
+                }
+            }";
+            AssertProducesNoError(source, new string[]{}, true);
+        }
+
+        [Test]
+        public void TwoJobs()
+        {
+            var source = @"
+            using Unity.Entities;
+            public partial struct SomeOuter {
+                public partial struct SomeJobA : IJobEntity {
+                    public void Execute() {}
+                }
+                public partial struct SomeJobB : IJobEntity {
+                    public void Execute() {}
+                }
+            }";
+            AssertProducesNoError(source,new string[]{}, true);
+
+        }
     }
 }

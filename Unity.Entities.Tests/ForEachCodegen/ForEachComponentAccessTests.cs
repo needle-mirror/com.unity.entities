@@ -185,8 +185,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     .WithoutBurst()
                     .ForEach((Entity entity, in EcsTestDataEntity tde) =>
                     {
-                        var val = GetComponent<EcsTestData>(tde.value1).value;
-                        SetComponent(entity, new EcsTestData(val));
+                        SetComponent(entity, GetComponent<EcsTestData>(tde.value1));
                     }).Schedule();
                 Dependency.Complete();
             }

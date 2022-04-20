@@ -49,6 +49,8 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
                 var syntaxTreesToCandidateAuthoringComponents = authoringComponentReceiver.CandidateSyntaxes.GroupBy(node => node.SyntaxTree);
                 foreach (var candidateAuthoringComponents in syntaxTreesToCandidateAuthoringComponents)
                 {
+                    context.CancellationToken.ThrowIfCancellationRequested();
+
                     var syntaxTree = candidateAuthoringComponents.Key;
                     var authoringComponentsInSyntaxTree = new List<AuthoringComponentDescription>();
                     foreach (var candidateAuthoringComponentSyntax in candidateAuthoringComponents)
@@ -94,7 +96,9 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
             }
             catch (Exception exception)
             {
-                //context.WaitForDebuggerInAssembly();
+                if (exception is OperationCanceledException)
+                    throw;
+
                 context.LogError("SGICE004", "Authoring Component", exception.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
             }
         }
@@ -116,7 +120,7 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
 
         public void Initialize(GeneratorInitializationContext context)
         {
-            context.RegisterForSyntaxNotifications(() => new AuthoringComponentReceiver());
+            context.RegisterForSyntaxNotifications(() => new AuthoringComponentReceiver(context.CancellationToken));
         }
     }
 }

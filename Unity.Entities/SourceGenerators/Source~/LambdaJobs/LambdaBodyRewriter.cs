@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
@@ -70,6 +71,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             // Only need to do this if we are not doing structural changes (in which case we can't as structural changes will invalidate)
             if (!description.WithStructuralChanges)
             {
+                var replacedToOriginal = new Dictionary<SyntaxNode, SyntaxNode>(rewrittenLambdaBodyData.thisAccessNodesNeedingReplacement.Count);
                 foreach (var originalNode in rewrittenLambdaBodyData.thisAccessNodesNeedingReplacement)
                 {
                     var originalInvocation = originalNode.Ancestors().OfType<InvocationExpressionSyntax>().First();
@@ -78,11 +80,11 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                     var currentNodeInvocationExpression = currentNode.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
                     if (currentNodeInvocationExpression == null)
                         continue;
-
-                    var replacementMemberAccessExpression = lambdaBodyRewriter.GenerateReplacementMemberAccessExpression(description, originalInvocation, model);
-                    if (replacementMemberAccessExpression != null)
-                        rewrittenLambdaExpression = rewrittenLambdaExpression.ReplaceNode(currentNodeInvocationExpression, replacementMemberAccessExpression);
+                    replacedToOriginal[currentNodeInvocationExpression] = originalInvocation;
                 }
+
+                rewrittenLambdaExpression = rewrittenLambdaExpression.ReplaceNodes(replacedToOriginal.Keys, (node, replacedNode)
+                    => lambdaBodyRewriter.GenerateReplacementMemberAccessExpression(description, replacedToOriginal[node], replacedNode, model) ?? replacedNode);
             }
 
             // Go through all local declaration nodes and replace them with assignment nodes (or remove) if they are now captured variables that live in job struct
@@ -120,9 +122,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             return (rewrittenLambdaExpression, lambdaBodyRewriter.DataFromEntityFields.Values.ToList(), methodsForLocalFunctions);
         }
 
-        SyntaxNode GenerateReplacementMemberAccessExpression(LambdaJobDescription description, SyntaxNode originalNode, SemanticModel model)
+        SyntaxNode GenerateReplacementMemberAccessExpression(LambdaJobDescription description, SyntaxNode originalNode, SyntaxNode replaced, SemanticModel model)
         {
-            if (originalNode is InvocationExpressionSyntax originalInvocationNode)
+            if (originalNode is InvocationExpressionSyntax originalInvocationNode && replaced is InvocationExpressionSyntax replacedExpression)
             {
                 if (model.GetSymbolInfo(originalInvocationNode.Expression).Symbol is IMethodSymbol methodSymbol &&
                     methodSymbol.ContainingType.Is("Unity.Entities.SystemBase") &&
@@ -197,7 +199,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                             }
                         }
 
-                        return patchMethod.GeneratePatchedReplacementSyntax(methodSymbol, this, originalInvocationNode);
+                        return patchMethod.GeneratePatchedReplacementSyntax(methodSymbol, this, replacedExpression);
                     }
                 }
             }

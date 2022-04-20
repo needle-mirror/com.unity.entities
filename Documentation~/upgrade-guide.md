@@ -239,6 +239,13 @@ struct RotationSystem : JobComponentSystem
     JobHandle inputDeps)
   {
       var job = new EntityRotationJob 
+      {
+          dt = Time.deltaTime 
+      };
+      return job.Schedule(this, inputDeps);
+  } 
+}
+
       
 ```
 
@@ -269,6 +276,13 @@ struct RotationSystem : SystemBase
   {
       var job = new EntityRotationJob 
       { 
+          dt = Time.deltaTime 
+      };
+      job.Schedule(); 
+      // Note: Schedule has to be called 
+      // from variable for sourcegen to work
+  }
+}        
 ```
 
 <a name="editor"></a>

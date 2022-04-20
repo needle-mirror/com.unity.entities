@@ -180,7 +180,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
         #endregion
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-        #region ManyManagedComponents
+        #region ManagedComponents
+
+        [Test]
+        public void UnityEngineComponent() => m_TestSystem.UnityEngineComponent();
+
+        [Test]
+        public void UnityEngineObject() => m_TestSystem.UnityEngineGameObject();
+
+        [Test]
+        public void UnityEngineScriptableObject() => m_TestSystem.UnityEngineScriptableObject();
 
         [Test]
         public void ManyManagedComponents() => m_TestSystem.ManyManagedComponents();
@@ -1195,13 +1204,60 @@ namespace Unity.Entities.Tests.ForEachCodegen
             #endregion
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-            #region ManyManagedComponents
+            #region ManagedComponents
+
+            public partial struct UnityEngineComponentJob : IJobEntity
+            {
+                void Execute(Transform transform) => transform.position = Vector3.up;
+            }
+
+            public void UnityEngineComponent()
+            {
+                var go = new GameObject("Original");
+                var ghostEntity = EntityManager.CreateEntity();
+                EntityManager.AddComponentObject(ghostEntity, go.transform);
+                new UnityEngineComponentJob().Run();
+                Assert.AreEqual(go.transform.position, Vector3.up);
+            }
+
+            public partial struct UnityEngineGameObjectJob : IJobEntity
+            {
+                void Execute(GameObject go) => go.name = "Changed";
+            }
+
+            public void UnityEngineGameObject()
+            {
+                var go = new GameObject("Original");
+                var ghostEntity = EntityManager.CreateEntity();
+                EntityManager.AddComponentObject(ghostEntity, go);
+                new UnityEngineGameObjectJob().Run();
+                Assert.AreEqual(go.name, "Changed");
+            }
+
+            public class TestScriptableObject : ScriptableObject
+            {
+                public int value;
+            }
+
+            public partial struct UnityEngineScriptableObjectJob : IJobEntity
+            {
+                void Execute(TestScriptableObject so) => so.value = 1;
+            }
+
+            public void UnityEngineScriptableObject()
+            {
+                var so = ScriptableObject.CreateInstance<TestScriptableObject>();
+                var ghostEntity = EntityManager.CreateEntity();
+                EntityManager.AddComponentObject(ghostEntity, so);
+                new UnityEngineScriptableObjectJob().Run();
+                Assert.AreEqual(so.value, 1);
+            }
 
             public partial struct ManyManagedComponentsJob : IJobEntity
             {
                 public NativeReference<int> Count;
 
-                public void Execute(EcsTestManagedComponent t0, EcsTestManagedComponent2 t1, EcsTestManagedComponent3 t2, EcsTestManagedComponent4 t3)
+                void Execute(EcsTestManagedComponent t0, EcsTestManagedComponent2 t1, EcsTestManagedComponent3 t2, EcsTestManagedComponent4 t3)
                 {
                     Assert.AreEqual("SomeString", t0.value);
                     Assert.AreEqual("SomeString2", t1.value2);

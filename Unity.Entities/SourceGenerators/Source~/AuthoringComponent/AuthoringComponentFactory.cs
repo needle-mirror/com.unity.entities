@@ -35,7 +35,7 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
 
             string generatedClass =
                 $@"[UnityEngine.DisallowMultipleComponent]
-                   [System.Runtime.CompilerServices.CompilerGenerated]
+                   [global::System.Runtime.CompilerServices.CompilerGenerated]
                    {authoringComponentDescription.AttributesToPreserve.Select(a => $"[{a}]").SeparateByNewLine()}
                    public class {authoringComponentDescription.DeclaringType.Name}Authoring : UnityEngine.MonoBehaviour, Unity.Entities.IConvertGameObjectToEntity
                    {{
@@ -70,8 +70,8 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
             string withNestedType =
                 generatedClass.Replace(
                     placeholder,
-                   $@"[System.Serializable]
-                                [System.Runtime.CompilerServices.CompilerGenerated]
+                   $@"[global::System.Serializable]
+                                [global::System.Runtime.CompilerServices.CompilerGenerated]
                                 public struct {storedType}
                                 {{
                                     {CreateBufferElementDataClassFields(authoringComponentDescription)}
@@ -109,7 +109,7 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
 
             string generatedClass =
                  $@"[UnityEngine.DisallowMultipleComponent]
-                    [System.Runtime.CompilerServices.CompilerGenerated]
+                    [global::System.Runtime.CompilerServices.CompilerGenerated]
                     {authoringComponentDescription.AttributesToPreserve.Select(a => $"[{a}]").SeparateByNewLine()}
                     public class {authoringComponentDescription.DeclaringType.Name}Authoring : UnityEngine.MonoBehaviour, Unity.Entities.IConvertGameObjectToEntity{declareReferencedPrefabsInterface}
                     {{
@@ -131,7 +131,7 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
             }
 
             string declareReferencedPrefabsMethod =
-                $@"public void DeclareReferencedPrefabs(System.Collections.Generic.List<UnityEngine.GameObject> __referencedPrefabs)
+                $@"public void DeclareReferencedPrefabs(global::System.Collections.Generic.List<UnityEngine.GameObject> __referencedPrefabs)
                    {{
                        {CreateDeclareReferencedPrefabsMethodBody(authoringComponentDescription)}
                    }}";

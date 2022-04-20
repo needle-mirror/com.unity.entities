@@ -694,7 +694,6 @@ namespace Unity.Entities
         public bool AddComponent(Entity entity, ComponentType componentType)
         {
             var access = GetCheckedEntityDataAccess();
-            access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
             var result = access->AddComponentDuringStructuralChange(entity, componentType);
             access->EndStructuralChanges(ref changes);
@@ -1052,7 +1051,6 @@ namespace Unity.Entities
         public bool RemoveComponent(Entity entity, ComponentType componentType)
         {
             var access = GetCheckedEntityDataAccess();
-            access->AssertMainThread();
             var changes = access->BeginStructuralChanges();
             var result = access->RemoveComponentDuringStructuralChange(entity, componentType);
             access->EndStructuralChanges(ref changes);

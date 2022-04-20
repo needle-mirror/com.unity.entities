@@ -194,7 +194,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         }
 
         internal override string EntitiesJournaling_RecordChunkMethodParams() =>
-            !QueryTypeIsReadOnly() ? $@"in Unity.Entities.ComponentTypeHandle<{TypeSymbol.ToFullName()}> {Syntax.Identifier}TypeHandle, System.IntPtr {Syntax.Identifier}ArrayPtr" : null;
+            !QueryTypeIsReadOnly() ? $@"in Unity.Entities.ComponentTypeHandle<{TypeSymbol.ToFullName()}> {Syntax.Identifier}TypeHandle, global::System.IntPtr {Syntax.Identifier}ArrayPtr" : null;
         internal override string EntitiesJournaling_RecordChunkArguments() =>
             !QueryTypeIsReadOnly() ? $@"in __{Syntax.Identifier}TypeHandle, {Syntax.Identifier}ArrayPtr" : null;
         internal override string EntitiesJournaling_RecordChunkSetComponent() =>

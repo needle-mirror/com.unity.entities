@@ -38,7 +38,7 @@ namespace Unity.Entities.SourceGen.Common
 
         public static SyntaxList<AttributeListSyntax> GetCompilerGeneratedAttribute()
         {
-            return AttributeListFromAttributeName("System.Runtime.CompilerServices.CompilerGenerated");
+            return AttributeListFromAttributeName("global::System.Runtime.CompilerServices.CompilerGenerated");
         }
 
         public static SyntaxList<AttributeListSyntax> AttributeListFromAttributeName(string attributeName) =>

@@ -20,6 +20,8 @@ namespace Unity.Entities.SourceGen.SystemGenerator
         {
             foreach (var diagnostic in context.ReportedDiagnostics.Where(diagnostic => diagnostic.Id == _partialStructWarningRule.SuppressedDiagnosticId))
             {
+                context.CancellationToken.ThrowIfCancellationRequested();
+
                 var node = diagnostic.Location.SourceTree.GetRoot(context.CancellationToken).FindNode(diagnostic.Location.SourceSpan);
                 if (node is StructDeclarationSyntax structSyntax)
                 {

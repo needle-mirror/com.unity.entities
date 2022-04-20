@@ -393,12 +393,12 @@ namespace Unity.Entities.SourceGen.JobEntity
                 _ => throw new ArgumentOutOfRangeException(nameof(extensionType), extensionType, null)
             };
 
-            var methodAndArguments = GetMethodAndArguments(scheduleMode);
+            var methodAndArguments = GetMethodAndArguments(scheduleMode, jobEntityDescription.HasManagedComponents());
             var returnType = containsReturn ? "Unity.Jobs.JobHandle" : "void";
             var returnExpression = $"{"return ".EmitIfTrue(containsReturn)}Unity.Entities.{staticExtensionsClass}.{methodAndArguments};";
 
             var method =
-                $@"[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+                $@"[global::System.Runtime.CompilerServices.MethodImpl(global::System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                     {returnType} {methodName}({fullTypeName} job, Unity.Entities.EntityQuery entityQuery, Unity.Jobs.JobHandle dependency)
                     {{
                         {GenerateUpdateCalls(assignments).SeparateBySemicolonAndNewLine()};{Environment.NewLine}
@@ -409,19 +409,19 @@ namespace Unity.Entities.SourceGen.JobEntity
             return (Syntax: (MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(method), Name: methodName);
         }
 
-        static string GetMethodAndArguments(ScheduleMode scheduleMode)
-        {
-            return scheduleMode switch
+        static string GetMethodAndArguments(ScheduleMode scheduleMode, bool hasManagedComponent) =>
+            scheduleMode switch
             {
                 ScheduleMode.Schedule => "Schedule(job, entityQuery, dependency)",
                 ScheduleMode.ScheduleByRef => "ScheduleByRef(ref job, entityQuery, dependency)",
                 ScheduleMode.ScheduleParallel => "ScheduleParallel(job, entityQuery, dependency)",
                 ScheduleMode.ScheduleParallelByRef => "ScheduleParallelByRef(ref job, entityQuery, dependency)",
+                ScheduleMode.Run when hasManagedComponent => "RunWithoutJobs(ref job, entityQuery)",
                 ScheduleMode.Run => "Run(job, entityQuery)",
+                ScheduleMode.RunByRef when hasManagedComponent => "RunByRefWithoutJobs(ref job, entityQuery)",
                 ScheduleMode.RunByRef => "RunByRef(ref job, entityQuery)",
                 _ => throw new ArgumentOutOfRangeException()
             };
-        }
 
         static IEnumerable<string> GenerateUpdateCalls(IEnumerable<(JobEntityParam JobEntityFieldToAssignTo, string ComponentTypeField)> assignments)
         {

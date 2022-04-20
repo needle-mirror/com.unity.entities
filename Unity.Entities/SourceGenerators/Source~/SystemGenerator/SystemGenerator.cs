@@ -21,10 +21,9 @@ namespace Unity.Entities.SourceGen.SystemGenerator
     public class SystemGenerator : ISourceGenerator
     {
         const string GeneratorName = "System";
-        public void Initialize(GeneratorInitializationContext context)
-        {
-            context.RegisterForSyntaxNotifications(() => new SystemSyntaxReceiver());
-        }
+
+        public void Initialize(GeneratorInitializationContext context) =>
+            context.RegisterForSyntaxNotifications(() => new SystemSyntaxReceiver(context.CancellationToken));
 
         public void Execute(GeneratorExecutionContext context)
         {
@@ -50,15 +49,17 @@ namespace Unity.Entities.SourceGen.SystemGenerator
 
                 foreach (var syntaxTree in syntaxTreesWithCandidate)
                 {
+                    context.CancellationToken.ThrowIfCancellationRequested();
+
                     var success = true;
                     var systemTypesInTree = SystemGeneratorHelper.GetSystemTypeInTreeWithCandidate(syntaxTree, allModules);
                     var originalToGeneratedPartial = new Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>();
-                    var additionalUsings = new HashSet<string>();
                     var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
-                    var rootNodes = new List<MemberDeclarationSyntax>();
 
                     foreach (var systemTypeSyntax in systemTypesInTree)
                     {
+                        context.CancellationToken.ThrowIfCancellationRequested();
+
                         lastLocation = systemTypeSyntax.GetLocation();
 
                         var systemType = semanticModel.GetDeclaredSymbol(systemTypeSyntax);
@@ -71,6 +72,8 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                         var allModulesAffectingSystemType = SystemGeneratorHelper.GetAllModulesAffectingSystemType(systemTypeSyntax, allModules, context);
                         foreach (var module in allModulesAffectingSystemType)
                         {
+                            context.CancellationToken.ThrowIfCancellationRequested();
+
                             success &= module.GenerateSystemType(systemTypeGeneratorContext);
                             if (module.RequiresReferenceToBurst && !assemblyHasReferenceToBurst)
                             {
@@ -97,20 +100,17 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                         }
 
                         originalToGeneratedPartial[systemTypeSyntax] = systemTypeGeneratorContext.GeneratePartialType();
-
-                        rootNodes = GetRootNodes(syntaxTree, originalToGeneratedPartial);
-
-                        additionalUsings.UnionWith(systemTypeGeneratorContext.AdditionalUsings);
                     }
 
+                    var rootNodes = TypeCreationHelpers.GetReplacedRootNodes(syntaxTree, originalToGeneratedPartial);
                     if (rootNodes.Count == 0)
                         continue;
-
-                    var outputSource = GenerateSourceTextForSyntaxTree(context, syntaxTree, rootNodes, additionalUsings);
+                    context.CancellationToken.ThrowIfCancellationRequested();
+                    var outputSource = TypeCreationHelpers.GenerateSourceTextForRootNodes(GeneratorName, context, syntaxTree, rootNodes);
 
                     // Only output source to compilation if we are successful (failing early in this case will speed up compilation and avoid non-useful errors)
                     if (success)
-                        OutputNewSourceToCompilation(context, syntaxTree.GetGeneratedSourceFileName(GeneratorName), outputSource);
+                        context.AddSource(syntaxTree.GetGeneratedSourceFileName(GeneratorName), outputSource);
                     OutputNewSourceToFile(context, syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly, GeneratorName), outputSource);
                 }
 
@@ -128,7 +128,25 @@ namespace Unity.Entities.SourceGen.SystemGenerator
             }
             catch (Exception exception)
             {
+                if (exception is OperationCanceledException)
+                    throw;
+
                 context.LogError("SGICE002", "SystemGenerator", exception.ToString(), lastLocation ?? context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+            }
+        }
+
+        static void OutputNewSourceToFile(GeneratorExecutionContext context, string generatedSourceFilePath, SourceText sourceTextForNewClass)
+        {
+            try
+            {
+                LogInfo($"Outputting generated source to file {generatedSourceFilePath}...");
+                File.WriteAllText(generatedSourceFilePath, sourceTextForNewClass.ToString());
+            }
+            catch (IOException ioException)
+            {
+                // Emit exception as info but don't block compilation or generate error to fail tests
+                context.LogInfo("SGICE005", "System Generator New",
+                    ioException.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
             }
         }
 
@@ -150,103 +168,6 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                 var newSyntaxTreeWithReplacements = replacer.Visit(item.Key.GetRoot());
                 File.WriteAllText(item.Key.FilePath, newSyntaxTreeWithReplacements.ToFullString());
             }
-        }
-
-        static List<MemberDeclarationSyntax> GetRootNodes(SyntaxTree syntaxTree, Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> originalToGeneratedPartial)
-        {
-            var newRootNodes = new List<MemberDeclarationSyntax>();
-            var originalToPartialSyntaxDictionary = originalToGeneratedPartial.ToDictionary(entry => (SyntaxNode) entry.Key, entry => (SyntaxNode) entry.Value);
-            var allOriginalNodesAlsoInGeneratedTree = originalToGeneratedPartial.Keys.SelectMany(node => node.AncestorsAndSelf()).ToImmutableHashSet();
-
-            foreach (var childNode in syntaxTree.GetRoot().ChildNodes())
-            {
-                switch (childNode)
-                {
-                    case NamespaceDeclarationSyntax _ :
-                    case ClassDeclarationSyntax _ :
-                    case StructDeclarationSyntax _ :
-                    {
-                        var newRootNode =
-                            SystemGeneratorHelper.ConstructGeneratedTree(childNode, originalToPartialSyntaxDictionary, allOriginalNodesAlsoInGeneratedTree);
-                        if (newRootNode != null)
-                            newRootNodes.Add(newRootNode);
-                        break;
-                    }
-                }
-            }
-
-            return newRootNodes;
-        }
-
-        static void OutputNewSourceToFile(GeneratorExecutionContext context, string generatedSourceFilePath, SourceText sourceTextForNewClass)
-        {
-            try
-            {
-                LogInfo($"Outputting generated source to file {generatedSourceFilePath}...");
-                File.WriteAllText(generatedSourceFilePath, sourceTextForNewClass.ToString());
-            }
-            catch (IOException ioException)
-            {
-                // Emit exception as info but don't block compilation or generate error to fail tests
-                context.LogInfo("SGICE005", "System Generator New",
-                    ioException.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
-            }
-        }
-
-        static void OutputNewSourceToCompilation(GeneratorExecutionContext generatorExecutionContext, string generatedSourceFileName, SourceText sourceTextForNewClass)
-        {
-            generatorExecutionContext.AddSource(generatedSourceFileName, sourceTextForNewClass);
-        }
-
-        static string GeneratedLineTriviaToGeneratedSource { get; } = "// __generatedline__";
-
-        static SourceText GenerateSourceTextForSyntaxTree(
-            GeneratorExecutionContext generatorExecutionContext,
-            SyntaxTree syntaxTree,
-            IEnumerable<MemberDeclarationSyntax> generatedRootNodes,
-            IEnumerable<string> additionalUsings)
-        {
-            // Create compilation unit
-            var existingUsings =
-                syntaxTree
-                    .GetCompilationUnitRoot(generatorExecutionContext.CancellationToken)
-                    .WithoutPreprocessorTrivia().Usings;
-
-            var compilationUnit =
-                CompilationUnit()
-                    .AddMembers(generatedRootNodes.ToArray())
-                    .WithoutPreprocessorTrivia()
-                    .WithUsings(existingUsings.AddUsingStatements(additionalUsings))
-                    .NormalizeWhitespace();
-
-            var generatedSourceFilePath = syntaxTree.GetGeneratedSourceFilePath(generatorExecutionContext.Compilation.Assembly, GeneratorName);
-
-            // Output as source
-            var sourceTextForNewClass =
-                compilationUnit.GetText(Encoding.UTF8)
-                    .WithInitialLineDirectiveToGeneratedSource(generatedSourceFilePath)
-                    .WithIgnoreUnassignedVariableWarning();
-
-            var textChanges = new List<TextChange>();
-            foreach (var line in sourceTextForNewClass.Lines)
-            {
-                var lineText = line.ToString();
-                if (lineText.Contains(GeneratedLineTriviaToGeneratedSource))
-                {
-                    textChanges.Add(new TextChange(line.Span,
-                        lineText.Replace(GeneratedLineTriviaToGeneratedSource, $"#line {line.LineNumber + 2} \"{generatedSourceFilePath}\"")));
-                }
-                else if (lineText.Contains("#line") && lineText.TrimStart().IndexOf("#line", StringComparison.Ordinal) != 0)
-                {
-                    var indexOfLineDirective = lineText.IndexOf("#line", StringComparison.Ordinal);
-                    textChanges.Add(new TextChange(line.Span,
-                        lineText.Substring(0, indexOfLineDirective - 1) + Environment.NewLine +
-                        lineText.Substring(indexOfLineDirective)));
-                }
-            }
-
-            sourceTextForNewClass = sourceTextForNewClass.WithChanges(textChanges);
-            return sourceTextForNewClass;
         }
     }
 }

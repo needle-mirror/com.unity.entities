@@ -379,7 +379,7 @@ namespace Unity.Entities.PerformanceTests
                                 handle_ = new EcsTestSetComponentValueTo10_BaseLine
                                 {
                                     EcsTestDataRW = typeHandle
-                                }.ScheduleParallel(basicQuery, 1, handle_);
+                                }.ScheduleParallel(basicQuery, ScheduleGranularity.Entity, default, handle_);
                             })
                             .WarmupCount(5)
                             .CleanUp(() => {handle_.Complete();})

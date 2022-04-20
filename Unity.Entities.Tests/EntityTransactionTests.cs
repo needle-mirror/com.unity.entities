@@ -371,5 +371,89 @@ namespace Unity.Entities.Tests
             m_Manager.EndExclusiveEntityTransaction();
             Assert.Throws<InvalidOperationException>(() => transaction.CreateEntity());
         }
+
+        struct AddComponentJob: IJob
+        {
+            public ExclusiveEntityTransaction Transaction;
+            public Entity SrcEntity;
+            public ComponentType ComponentType;
+
+            public void Execute()
+            {
+                Transaction.AddComponent(SrcEntity, ComponentType);
+            }
+        }
+
+        [Test]
+        public void AddComponentInJob()
+        {
+            var entity = m_Manager.CreateEntity();
+            var componentType = typeof(EcsTestData);
+            Assert.IsFalse(m_Manager.HasComponent(entity,componentType));
+
+            var job = new AddComponentJob
+            {
+                Transaction = m_Manager.BeginExclusiveEntityTransaction(),
+                SrcEntity = entity,
+                ComponentType = componentType,
+            };
+
+            var jobHandle = job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
+
+            jobHandle.Complete();
+            m_Manager.EndExclusiveEntityTransaction();
+            Assert.IsTrue(m_Manager.HasComponent(entity,componentType));
+        }
+
+        struct AddMissingComponent: IJob
+        {
+            public ExclusiveEntityTransaction Transaction;
+            public NativeArray<Entity> SrcEntities;
+            public ComponentType ComponentType;
+            public void Execute()
+            {
+                for (int i = 0; i < SrcEntities.Length; i++)
+                {
+                    if (!Transaction.HasComponent(SrcEntities[i],ComponentType))
+                        Transaction.AddComponent(SrcEntities[i],ComponentType);
+                }
+            }
+        }
+
+        struct RemoveComponentJob: IJob
+        {
+            public ExclusiveEntityTransaction Transaction;
+            public Entity SrcEntity;
+            public ComponentType ComponentType;
+
+            public void Execute()
+            {
+                Transaction.RemoveComponent(SrcEntity, ComponentType);
+            }
+        }
+
+        [Test]
+        public void RemoveComponentInJob()
+        {
+            var componentType = typeof(EcsTestData);
+            var entity = m_Manager.CreateEntity(componentType);
+            Assert.IsTrue(m_Manager.HasComponent(entity,componentType));
+
+            var job = new RemoveComponentJob
+            {
+                Transaction = m_Manager.BeginExclusiveEntityTransaction(),
+                SrcEntity = entity,
+                ComponentType = componentType,
+            };
+
+            //Cannot be called on worker thread yet
+            var jobHandle = job.Schedule(m_Manager.ExclusiveEntityTransactionDependency);
+            jobHandle.Complete();
+
+            m_Manager.EndExclusiveEntityTransaction();
+
+            Assert.IsFalse(m_Manager.HasComponent(entity,componentType));
+        }
+
     }
 }

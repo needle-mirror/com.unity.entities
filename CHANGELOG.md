@@ -1,5 +1,72 @@
 # Changelog
 
+## [0.50.1-preview.2] - 2022-04-20
+
+### Changed
+
+Release preparations, no functional changes.
+
+
+## [0.50.1-preview.1] - 2022-04-07
+
+### Added
+
+* Documentation on EntityCommandBuffer public functions including ParallelWriter and EntityCommandBufferManagedComponentExtensions.
+* Hybrid assemblies will not be included in DOTS Runtime builds.
+* `[WithAll]` Attribute that can be added to a struct that implements IJobEntity. Adding additional required components to the existing execute parameter required components.
+* `[WithNone]` Attribute that can be added to a struct that implements IJobEntity. Specifying which components shouldn't be on the entity found by the query.
+* `[WithAny]` Attribute that can be added to a struct that implements IJobEntity. Specifying that the entity found by this query should have at least one of these components.
+* `[WithChangeFilter]` Attribute that can be added to a struct that implements IJobEntity, as well as on component parameters within the signature of the execute method. This makes it so that the query only runs on entities, which has marked a change on the component specified by the `[WithChangeFilter]`.
+* `[WithEntityQueryOptions]` Attribute that can be added to a struct that implements IJobEntity. Enabling you to query on disabled entities, prefab entities, and use write groups on entities.
+* Diagnostic suppressor to ignore specific generation of CS0282 warnings due to codegen.
+* SystemBase.GetBuffer takes an optional isReadOnly parameter.
+
+### Changed
+
+* DOTS Hierarchy now display SubScenes' state (opened, livelinked, closed or not loaded).
+* When using `EntityManager.SetName` with a managed `string` as a parameter, if a string longer than 61 characters is used, the string will be truncated to fit within an `EntityName`,
+* Improved the performance of the `EntityQuery` matching chunk cache in applications with many empty archetypes.
+* Removed `IJobForeach`, due to long notice of deprecation
+* Changed `LiveLinkPatcher` and `LiveLinkPlayerSystem` to use `IJobEntityBatch`, due to removal of `IJobForeach`
+* Changed docs from `IJobForeach` and `IJobChunk` to refer to `IJobEntity`, and `IJobEntityBatch` respectivly
+* Changed IJE out of `DOTS_EXPERIMENTAL`
+* Update dependency on com.unity.roslyn to 0.1.3-preview (no longer ignore CS0282 warnings globally).
+* Updated docs explaining how to use IJobEntity.
+* Updated com.unity.roslyn to `0.2.1-preview`
+* CheckDisposed method in EntityQueryEnumerator is now public
+* The Current property for a generated Aspect Enumerator now has a conditional CheckDisposed call to identify when the property is being accessed with a disposed enumerator instance
+* SystemBase.GetBuffer registers a job dependency for the IBufferElementData type specified.
+
+### Deprecated
+
+### Removed
+
+* Remove the LiveLink feature and its build component.
+* DOTS Compiler Inspector. Functionality is now available via viewing generated code directly from Temp/GeneratedCode in the project directory.
+
+### Fixed
+
+* Bug with EntityCommandBuffer removing multiple components from multiple entities when the number of entities was more than 10.
+* Defining `UNITY_DOTS_DEBUG` in standalone builds no longer triggers false positives from `AssertValidArchetype()`.
+* When setting many long strings using `EntityManager.SetName`, the editor will properly handle the storage of these names.
+* `EntityQuery.ToComponentDataArray<T>()` and `EntityQuery.CopyFromComponentDataArray<T>()` now detect potential race conditions against running jobs which access the component `T`. These jobs must be completed before the `EntityQuery` methods are called.
+* WorldSystemFilter, DisableAutoCreation, and AlwaysUpdateSystem attributes working with ISystem systems
+* Interface implemented execute methods now work with IJobEntity. Before this point you couldn't make an interface of `interface ITranslationExecute { void Execute(ref Translation translation) }` and implement it in an IJobEntity: `partial struct TranslationJob : IJobEntity, ITranslationExecute { void Execute(ref Translation translation) {} }`
+* `.Schedule` and `.ScheduleParallel` Invocations for IJobEntity without a jobhandle now matches Entities.ForEach automatic  chain `SystemBase.Dependency` handling
+* Dangling files left after a build using buildconfigs under certain circumstances
+* Remove the double registers of world allocator when creating a world.
+* Improved performance of Source Generators when run in IDEs.
+* `ExclusiveEntityTransaction.AddComponent` and `ExclusiveEntityTransaction.RemoveComponent` will no longer throw  with the error message of `Must be called from the main thread`
+* SGICE002 Issue with nesting `SetComponent(GetComponent)` for replaced syntax in Entities.ForEach.
+* "System" in namespace causing issues with Entities.ForEach and other codegen.
+* use of WithDisposeOnCompletion with Job.WithCode if a `using System.Collections` is missing.
+* `EntityQuery.Singleton` methods work correctly when the query has multiple required component data
+* `EntityQuery.ToEntityArray()`, `EntityQuery.ToComponentDataArray<T>()` and `EntityQuery.CopyFromComponentDataArray<T>()` now complete any jobs running against the query's component types before performing the requested operation. This fixes a race condition introduced in Entities 0.17 (and present in Entities 0.50).
+* `IJobEntity` inside nested struct now works.
+* `IJobEntity` now works inside namespaces that have `using` statements.
+* Fixes Issue where UnityEngine.Component didn't work as ManagedComponents for IJobEntity.
+
+
 ## [0.50.0] - 2021-09-17
 
 ### Added
@@ -142,6 +209,8 @@
 * Debugging of source-generated Entities.ForEach
 * Some main-threads `EntityCommandBuffer` methods were missing the necessary safety checks.
 * StructuralChangeProfiler should now have the proper scope when making changes through the EntityCommandBuffer and EntityManager.
+
+
 
 ## [0.19.0] - 2021-03-15
 

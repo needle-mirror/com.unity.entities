@@ -10,7 +10,6 @@ namespace Unity.Entities
         public readonly struct BytesCounter
         {
             readonly ProfilerCounterValue<ulong> m_Counter;
-            readonly FixedString32Bytes m_Name;
 
             public ulong Value
             {
@@ -19,12 +18,8 @@ namespace Unity.Entities
             }
 
             [NotBurstCompatible]
-            public string Name => m_Name.ToString();
-
-            [NotBurstCompatible]
             public BytesCounter(string name)
             {
-                m_Name = name;
                 m_Counter = new ProfilerCounterValue<ulong>(SharedProfilerCategory.Ref.Data, name, ProfilerMarkerDataUnit.Bytes,
                     ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush);
             }

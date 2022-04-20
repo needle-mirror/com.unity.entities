@@ -13,6 +13,12 @@ using static Unity.Entities.SourceGen.SystemGeneratorCommon.EntitiesSourceFactor
 
 namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
 {
+    enum RewrittenSyntax
+    {
+        Method,
+        Property
+    }
+
     public readonly struct SystemGeneratorContext : ISourceGeneratorDiagnosable
     {
         public TypeDeclarationSyntax SystemType { get; }
@@ -24,9 +30,9 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
         readonly List<EntityQueryField> _queryFields;
         readonly List<ComponentTypeHandleFieldDescription> _componentTypeFields;
         readonly Dictionary<MethodDeclarationSyntax, Dictionary<SyntaxNode, SyntaxNode>> _originalMethodToReplacements;
-        public readonly List<MemberDeclarationSyntax> NewMembers;
-        public readonly HashSet<string> AdditionalUsings;
+        readonly Dictionary<PropertyDeclarationSyntax, Dictionary<SyntaxNode, SyntaxNode>> _originalPropertyToReplacements;
         readonly HashSet<string> _onCreateForCompilerAdditionalSyntax;
+        public readonly List<MemberDeclarationSyntax> NewMembers;
 
         public SystemGeneratorContext(TypeDeclarationSyntax originalSystemType, SemanticModel semanticModel, Compilation compilation,
             IEnumerable<string> preprocessorSymbolNames)
@@ -40,10 +46,10 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
             _queryFields = new List<EntityQueryField>();
             _componentTypeFields = new List<ComponentTypeHandleFieldDescription>();
             _originalMethodToReplacements = new Dictionary<MethodDeclarationSyntax, Dictionary<SyntaxNode, SyntaxNode>>();
-            new Dictionary<PropertyDeclarationSyntax, Dictionary<SyntaxNode, SyntaxNode>>();
-            NewMembers = new List<MemberDeclarationSyntax>();
-            AdditionalUsings = new HashSet<string>();
+            _originalPropertyToReplacements = new Dictionary<PropertyDeclarationSyntax, Dictionary<SyntaxNode, SyntaxNode>>();
             _onCreateForCompilerAdditionalSyntax = new HashSet<string>();
+
+            NewMembers = new List<MemberDeclarationSyntax>();
         }
 
         public void ReplaceNodeInMethod(SyntaxNode originalNode, SyntaxNode replacementNode)
@@ -61,9 +67,17 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
                 _originalMethodToReplacements.Add(method, new Dictionary<SyntaxNode, SyntaxNode> {{originalNode, replacementNode}});
         }
 
+        public void ReplaceNodeInProperty(PropertyDeclarationSyntax property, SyntaxNode originalNode, SyntaxNode replacementNode)
+        {
+            if (_originalPropertyToReplacements.TryGetValue(property, out var replacements))
+                replacements.Add(originalNode, replacementNode);
+            else
+                _originalPropertyToReplacements.Add(property, new Dictionary<SyntaxNode, SyntaxNode> {{originalNode, replacementNode}});
+        }
+
         public bool MadeChangesToSystem()
         {
-            return _originalMethodToReplacements.Count > 0 || _queryFields.Count > 0;
+            return _originalMethodToReplacements.Count > 0 || _queryFields.Count > 0 || _originalPropertyToReplacements.Count > 0;
         }
 
         public string GetOrCreateQueryField(EntityQueryDescription queryDescription)
@@ -130,9 +144,9 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
                 generatedClassDeclaration = ClassDeclaration(SystemType.Identifier);
 
             generatedClassDeclaration = generatedClassDeclaration
-                    .WithBaseList(baseList)
-                    .WithModifiers(SystemType.Modifiers)
-                    .WithAttributeLists(SourceGenHelpers.GetCompilerGeneratedAttribute());
+                .WithBaseList(baseList)
+                .WithModifiers(SystemType.Modifiers)
+                .WithAttributeLists(SourceGenHelpers.GetCompilerGeneratedAttribute());
 
             var typeParameterList = SystemType.ChildNodes().OfType<TypeParameterListSyntax>().SingleOrDefault();
             if (typeParameterList != null)
@@ -150,7 +164,7 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
                 var originalMethodSymbol = SemanticModel.GetDeclaredSymbol(kvp.Key);
                 var targetMethodNameAndSignature = originalMethodSymbol.GetMethodAndParamsAsString();
 
-                var (modifiers, attributeList) = GetModifiersAndAttributes(targetMethodNameAndSignature, rewrittenMethod);
+                var (modifiers, attributeList) = GetModifiersAndAttributes(targetMethodNameAndSignature, rewrittenMethod, RewrittenSyntax.Method);
 
                 var stableHashCode =
                     SourceGenHelpers.GetStableHashCode($"{originalMethodSymbol.ContainingType.ToFullName()}_{targetMethodNameAndSignature}") & 0x7fffffff;
@@ -159,6 +173,34 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
                     generatedClassDeclaration
                         .AddMembers(
                             rewrittenMethod
+                                .WithoutPreprocessorTrivia()
+                                .WithIdentifier(Identifier($"__{kvp.Key.Identifier.Text}_{stableHashCode:X}"))
+                                .WithModifiers(modifiers)
+                                .WithAttributeLists(attributeList));
+            }
+
+            foreach (var kvp in _originalPropertyToReplacements)
+            {
+                var methodReplacer = new SyntaxNodeReplacer(kvp.Value);
+                var rewrittenProperty = (PropertyDeclarationSyntax) methodReplacer.Visit(kvp.Key);
+
+                if (rewrittenProperty == kvp.Key)
+                {
+                    break;
+                }
+
+                rewrittenProperty = rewrittenProperty.WithoutPreprocessorTrivia();
+                var originalPropertySymbol = SemanticModel.GetDeclaredSymbol(kvp.Key);
+
+                var (modifiers, attributeList) = GetModifiersAndAttributes(originalPropertySymbol.OriginalDefinition.ToString(), rewrittenProperty, RewrittenSyntax.Property);
+
+                var stableHashCode =
+                    SourceGenHelpers.GetStableHashCode($"{originalPropertySymbol.ContainingType.ToFullName()}_{originalPropertySymbol.OriginalDefinition}") & 0x7fffffff;
+
+                generatedClassDeclaration =
+                    generatedClassDeclaration
+                        .AddMembers(
+                            rewrittenProperty
                                 .WithoutPreprocessorTrivia()
                                 .WithIdentifier(Identifier($"__{kvp.Key.Identifier.Text}_{stableHashCode:X}"))
                                 .WithModifiers(modifiers)
@@ -176,12 +218,17 @@ namespace  Unity.Entities.SourceGen.SystemGeneratorCommon
             return generatedClassDeclaration.AddMembers(
                 OnCreateForCompilerMethod(_onCreateForCompilerAdditionalSyntax, _componentTypeFields, _queryFields, GetAccessModifiers(), isInISystem));
 
-            static (SyntaxTokenList, SyntaxList<AttributeListSyntax>) GetModifiersAndAttributes(string targetMethodNameAndSignature, MemberDeclarationSyntax rewrittenMethod)
+            static (SyntaxTokenList, SyntaxList<AttributeListSyntax>) GetModifiersAndAttributes(string targetMethodNameAndSignature, MemberDeclarationSyntax rewritten, RewrittenSyntax rewrittenSyntax)
             {
-                var modifiers = new SyntaxTokenList(rewrittenMethod.Modifiers.Where(m => !m.IsKind(SyntaxKind.OverrideKeyword)));
+                var modifiers = new SyntaxTokenList(rewritten.Modifiers.Where(m => !m.IsKind(SyntaxKind.OverrideKeyword)));
 
                 var dotsCompilerPatchedMethodArguments = ParseAttributeArgumentList($"(\"{targetMethodNameAndSignature}\")");
-                var dotsCompilerPatchedMethodAttribute = Attribute(IdentifierName("Unity.Entities.DOTSCompilerPatchedMethod"), dotsCompilerPatchedMethodArguments);
+
+                string attributeName = rewrittenSyntax == RewrittenSyntax.Method
+                    ? "Unity.Entities.DOTSCompilerPatchedMethod"
+                    : "Unity.Entities.DOTSCompilerPatchedProperty";
+
+                var dotsCompilerPatchedMethodAttribute = Attribute(IdentifierName(attributeName), dotsCompilerPatchedMethodArguments);
 
                 var attributeList = new SyntaxList<AttributeListSyntax>();
                 attributeList = attributeList.Add(AttributeList(SeparatedList(new[] {dotsCompilerPatchedMethodAttribute})));

@@ -9,6 +9,12 @@ namespace Unity.Entities
 {
     static partial class StructuralChangesProfiler
     {
+        internal const string k_CategoryName = "Entities Structural Changes";
+        internal const string k_CreateEntityCounterName = "Create Entity";
+        internal const string k_DestroyEntityCounterName = "Destroy Entity";
+        internal const string k_AddComponentCounterName = "Add Component";
+        internal const string k_RemoveComponentCounterName = "Remove Component";
+
         sealed class SharedInit { internal static readonly SharedStatic<bool> Ref = SharedStatic<bool>.GetOrCreate<SharedInit>(); }
         sealed class SharedGuid { internal static readonly SharedStatic<Guid> Ref = SharedStatic<Guid>.GetOrCreate<SharedGuid>(); }
         sealed class SharedProfilerCategory { internal static readonly SharedStatic<ProfilerCategory> Ref = SharedStatic<ProfilerCategory>.GetOrCreate<SharedProfilerCategory>(); }
@@ -33,12 +39,12 @@ namespace Unity.Entities
                 return;
 
             SharedGuid.Ref.Data = new Guid("7e866afa654f4469aef462540c0192fa");
-            SharedProfilerCategory.Ref.Data = new ProfilerCategory("Entities Structural Changes");
+            SharedProfilerCategory.Ref.Data = new ProfilerCategory(k_CategoryName);
             SharedStructuralChangesData.Ref.Data = new UnsafeList<StructuralChangeData>(1, Allocator.Persistent);
-            SharedCreateEntityCounter.Ref.Data = new TimeCounter("Create Entity");
-            SharedDestroyEntityCounter.Ref.Data = new TimeCounter("Destroy Entity");
-            SharedAddComponentCounter.Ref.Data = new TimeCounter("Add Component");
-            SharedRemoveComponentCounter.Ref.Data = new TimeCounter("Remove Component");
+            SharedCreateEntityCounter.Ref.Data = new TimeCounter(k_CreateEntityCounterName);
+            SharedDestroyEntityCounter.Ref.Data = new TimeCounter(k_DestroyEntityCounterName);
+            SharedAddComponentCounter.Ref.Data = new TimeCounter(k_AddComponentCounterName);
+            SharedRemoveComponentCounter.Ref.Data = new TimeCounter(k_RemoveComponentCounterName);
 
             Initialized = true;
         }

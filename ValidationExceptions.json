@@ -1,0 +1,20 @@
+{
+    "ErrorExceptions": [
+        {
+            "ValidationTest": "API Validation",
+            "ExceptionMessage": "For Experimental or Preview Packages, breaking changes require a new minor version.",
+            "PackageVersion": "0.50.1-preview.2"
+        },
+        {
+            "ValidationTest": "API Validation",
+            "ExceptionMessage": "Assembly \"Unity.Properties\" no longer exists or is no longer included in build. For Experimental or Preview Packages, this change requires a new minor version.",
+            "PackageVersion": "0.50.1-preview.2"
+        },
+        {
+            "ValidationTest": "API Validation",
+            "ExceptionMessage": "Assembly \"Unity.Properties.UI.Editor\" no longer exists or is no longer included in build. For Experimental or Preview Packages, this change requires a new minor version.",
+            "PackageVersion": "0.50.1-preview.2"
+        }
+    ],
+    "WarningExceptions": []
+}

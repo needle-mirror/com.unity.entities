@@ -19,12 +19,29 @@ namespace Unity.Entities.Tests
 
         public partial class SystemBase_TestSystem : SystemBase
         {
+            public int SingletonProperty
+            {
+                get => GetSingleton<EcsTestData>().value;
+                set => SetSingleton(new EcsTestData {value = value});
+            }
+
             public struct SingletonDataInSystem : IComponentData
             {
                 public float value;
             }
 
             protected override void OnUpdate() {}
+
+            public void SingletonPropertyGetterAndSetter()
+            {
+                EntityManager.CreateEntity(typeof(EcsTestData));
+
+                var defaultSingletonValue = SingletonProperty;
+                Assert.AreEqual(expected: 0, defaultSingletonValue);
+
+                SingletonProperty = 10;
+                Assert.AreEqual(10, GetSingleton<EcsTestData>().value);
+            }
 
             public void GetSetSingleton()
             {
@@ -256,6 +273,12 @@ namespace Unity.Entities.Tests
             }
 
     #endif
+        }
+
+        [Test]
+        public void SystemBase_SingletonGetterAndSetter()
+        {
+            TestSystem.SingletonPropertyGetterAndSetter();
         }
 
         [Test]

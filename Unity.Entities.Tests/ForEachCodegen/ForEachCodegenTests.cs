@@ -558,6 +558,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestSystem.MethodsWithSameName(genericType);
         }
 
+        [Test]
+        public void SystemWithinSystem()
+        {
+            var system = World.GetOrCreateSystem<MyTestSystem.SomeInnerSystem>();
+            Assert.DoesNotThrow(() => system.SomeMethodThatShouldRun());
+        }
+
         partial class ParentTestSystem  : SystemBase
         {
             protected override void OnUpdate() { }
@@ -1387,6 +1394,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
             }
 
             protected override void OnUpdate() { }
+
+            public partial class SomeInnerSystem : SystemBase
+            {
+                public void SomeMethodThatShouldRun()
+                {
+                    Entities.ForEach(()=>{}).Run();
+                }
+
+                protected override void OnUpdate() => throw new NotImplementedException();
+            }
         }
 
         // test for a stack underflow introduced by an ILPP introduced try/finally clearing the

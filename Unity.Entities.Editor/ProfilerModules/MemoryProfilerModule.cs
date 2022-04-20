@@ -1,31 +1,99 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Editor.Bridge;
 using UnityEditor;
 using UnityEditor.Profiling;
 using UnityEditorInternal;
-using UnityEngine;
 using UnityEngine.UIElements;
+using Unity.Editor.Bridge;
 using static Unity.Entities.EntitiesProfiler;
 using static Unity.Entities.MemoryProfiler;
 
+#if UNITY_2021_2_OR_NEWER
+using Unity.Profiling.Editor;
+#else
+using UnityEngine;
+#endif
+
 namespace Unity.Entities.Editor
 {
+#if UNITY_2021_2_OR_NEWER
+    [ProfilerModuleMetadata("Entities Memory", IconPath = "Profiler.Memory")]
+    partial class MemoryProfilerModule : ProfilerModule
+    {
+        class MemoryProfilerViewController : ProfilerModuleViewController
+        {
+            readonly MemoryProfilerModuleView m_View;
+            long m_FrameIndex = -1;
+
+            public bool IsRecording => ProfilerWindowBridge.IsRecording(ProfilerWindow);
+
+            public MemoryProfilerViewController(ProfilerWindow profilerWindow) :
+                base(profilerWindow)
+            {
+                m_View = new MemoryProfilerModuleView();
+                m_View.SearchFinished = () => Update();
+                ProfilerWindow.SelectedFrameIndexChanged += OnSelectedFrameIndexChanged;
+            }
+
+            protected override VisualElement CreateView()
+            {
+                return m_View.Create();
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (!disposing)
+                    return;
+
+                ProfilerWindow.SelectedFrameIndexChanged -= OnSelectedFrameIndexChanged;
+                base.Dispose(disposing);
+            }
+
+            void OnSelectedFrameIndexChanged(long index)
+            {
+                m_FrameIndex = index;
+                if (IsRecording)
+                    return;
+
+                m_View.ArchetypesDataSource = GetFrames(index).SelectMany(GetTreeViewData).ToArray();
+                m_View.Search();
+            }
+
+            public void Update()
+            {
+                if (m_FrameIndex == -1 || IsRecording || !m_View.HasArchetypesDataSource)
+                    m_View.Clear(IsRecording ? s_DisplayingFrameDataDisabled : s_NoFrameDataAvailable);
+                else
+                    m_View.Update();
+            }
+        }
+
+        static ProfilerCounterDescriptor[] ProfilerCounters = new[]
+        {
+            new ProfilerCounterDescriptor(k_AllocatedMemoryCounterName, k_CategoryName),
+            new ProfilerCounterDescriptor(k_UnusedMemoryCounterName, k_CategoryName)
+        };
+
+        public MemoryProfilerModule() :
+            base(ProfilerCounters, ProfilerModuleChartType.Line, new[] { k_CategoryName })
+        {
+        }
+
+        public override ProfilerModuleViewController CreateDetailsViewController() => new MemoryProfilerViewController(ProfilerWindow);
+    }
+#else
     partial class MemoryProfilerModule : MemoryProfilerModuleBase
     {
-        static readonly string s_NoFrameDataAvailable = L10n.Tr("No frame data available. Select a frame from the charts above to see its details here.");
-        static readonly string s_DisplayingFrameDataDisabled = L10n.Tr("Displaying of frame data disabled while recording. To see the data, pause recording.");
-
-        MemoryProfilerModuleView m_View;
+        readonly MemoryProfilerModuleView m_View;
         long m_FrameIndex = -1;
 
         public override string ProfilerCategoryName => Category.Name;
 
         public override string[] ProfilerCounterNames => new[]
         {
-            AllocatedBytesCounter.Name,
-            UnusedBytesCounter.Name
+            k_AllocatedMemoryCounterName,
+            k_UnusedMemoryCounterName
         };
 
         public MemoryProfilerModule()
@@ -63,6 +131,13 @@ namespace Unity.Entities.Editor
             m_FrameIndex = -1;
             m_View.Clear(s_NoFrameDataAvailable);
         }
+    }
+#endif
+
+    partial class MemoryProfilerModule
+    {
+        static readonly string s_NoFrameDataAvailable = L10n.Tr("No frame data available. Select a frame from the charts above to see its details here.");
+        static readonly string s_DisplayingFrameDataDisabled = L10n.Tr("Displaying of frame data disabled while recording. To see the data, pause recording.");
 
         static IEnumerable<MemoryProfilerTreeViewItemData> GetTreeViewData(RawFrameDataView frame)
         {

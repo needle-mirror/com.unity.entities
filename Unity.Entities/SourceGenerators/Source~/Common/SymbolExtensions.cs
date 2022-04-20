@@ -147,7 +147,6 @@ namespace Unity.Entities.SourceGen.Common
                 strBuilder.Append($"_{param.Type.ToDisplayString(QualifiedFormatWithoutSpecialTypeNames).Replace(" ", string.Empty)}");
             }
 
-
             return strBuilder.ToString();
         }
 

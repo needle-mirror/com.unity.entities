@@ -26,77 +26,45 @@ namespace Unity.Entities.SourceGen.JobEntity
 
         public void Initialize(GeneratorInitializationContext context)
         {
-            context.RegisterForSyntaxNotifications(() => new JobEntitySyntaxReceiver());
+            context.RegisterForSyntaxNotifications(() => new JobEntitySyntaxReceiver(context.CancellationToken));
         }
 
         public void Execute(GeneratorExecutionContext context)
         {
             var systemReceiver = (JobEntitySyntaxReceiver)context.SyntaxReceiver;
 
-            foreach (var kvp in systemReceiver.JobCandidatesBySyntaxTree)
+            try
             {
-                var syntaxTree = kvp.Key;
-                var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
-                var candidates = kvp.Value;
-                var generatedStructs = candidates
-                    .Select(candidate => new JobEntityDescription(candidate, semanticModel, this))
-                    .Where(jobEntityDescription => jobEntityDescription.Valid)
-                    .Select(jobEntityDescription => jobEntityDescription.Generate());
-
-                var outputSource = GenerateSourceTextForSyntaxTree(context, syntaxTree, generatedStructs);
-                OutputNewSourceToCompilation(context, syntaxTree.GetGeneratedSourceFileName(GeneratorName), outputSource);
-                OutputNewSourceToFile(context, syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly, GeneratorName), outputSource);
-            }
-        }
-
-        const string GeneratedLineTriviaToGeneratedSource = "// __generatedline__";
-
-        static SourceText GenerateSourceTextForSyntaxTree(
-            GeneratorExecutionContext generatorExecutionContext,
-            SyntaxTree syntaxTree,
-            IEnumerable<MemberDeclarationSyntax> generatedRootNodes,
-            params string[] additionalUsings)
-        {
-            // Create compilation unit
-            var existingUsings =
-                syntaxTree
-                    .GetCompilationUnitRoot(generatorExecutionContext.CancellationToken)
-                    .WithoutPreprocessorTrivia().Usings;
-
-            var compilationUnit =
-                CompilationUnit()
-                    .AddMembers(generatedRootNodes.ToArray())
-                    .WithoutPreprocessorTrivia()
-                    .WithUsings(existingUsings.AddUsingStatements(additionalUsings.ToArray()))
-                    .NormalizeWhitespace();
-
-            var generatedSourceFilePath = syntaxTree.GetGeneratedSourceFilePath(generatorExecutionContext.Compilation.Assembly, "JobEntity");
-
-            // Output as source
-            var sourceTextForNewClass =
-                compilationUnit.GetText(Encoding.UTF8)
-                    .WithInitialLineDirectiveToGeneratedSource(generatedSourceFilePath)
-                    .WithIgnoreUnassignedVariableWarning();
-
-            var textChanges = new List<TextChange>();
-            foreach (var line in sourceTextForNewClass.Lines)
-            {
-                var lineText = line.ToString();
-                if (lineText.Contains(GeneratedLineTriviaToGeneratedSource))
+                foreach (var kvp in systemReceiver.JobCandidatesBySyntaxTree)
                 {
-                    textChanges.Add(new TextChange(line.Span,
-                        lineText.Replace(GeneratedLineTriviaToGeneratedSource, $"#line {line.LineNumber + 2} \"{generatedSourceFilePath}\"")));
-                }
-                else if (lineText.Contains("#line") && lineText.TrimStart().IndexOf("#line") != 0)
-                {
-                    var indexOfLineDirective = lineText.IndexOf("#line");
-                    textChanges.Add(new TextChange(line.Span,
-                        lineText.Substring(0, indexOfLineDirective - 1) + Environment.NewLine +
-                        lineText.Substring(indexOfLineDirective)));
+                    context.CancellationToken.ThrowIfCancellationRequested();
+                    var syntaxTree = kvp.Key;
+                    var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
+                    var candidates = kvp.Value;
+                    var originalToGeneratedPartial = new Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>();
+                    foreach (var candidate in candidates)
+                    {
+                        var jobEntityDescription = new JobEntityDescription(candidate, semanticModel, this);
+                        if (jobEntityDescription.Valid)
+                            originalToGeneratedPartial[candidate] = jobEntityDescription.Generate();
+                    }
+
+                    var rootNodes = TypeCreationHelpers.GetReplacedRootNodes(syntaxTree, originalToGeneratedPartial);
+                    if (rootNodes.Count == 0)
+                        continue;
+
+                    var outputSource = TypeCreationHelpers.GenerateSourceTextForRootNodes(GeneratorName, context, syntaxTree, rootNodes);
+                    context.AddSource(syntaxTree.GetGeneratedSourceFileName(GeneratorName), outputSource);
+                    OutputNewSourceToFile(context, syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly, GeneratorName), outputSource);
                 }
             }
+            catch (Exception exception)
+            {
+                if (exception is OperationCanceledException)
+                    throw;
 
-            return sourceTextForNewClass.WithChanges(textChanges);
+                context.LogError("SGICE003", "IJobEntity Generator", exception.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+            }
         }
 
         static void OutputNewSourceToFile(GeneratorExecutionContext generatorExecutionContext, string generatedSourceFilePath, SourceText sourceTextForNewClass)
@@ -112,11 +80,6 @@ namespace Unity.Entities.SourceGen.JobEntity
                 generatorExecutionContext.LogInfo("SGICE005", "JobEntity Generator",
                     ioException.ToString(), generatorExecutionContext.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
             }
-        }
-
-        static void OutputNewSourceToCompilation(GeneratorExecutionContext generatorExecutionContext, string generatedSourceFileName, SourceText sourceTextForNewClass)
-        {
-            generatorExecutionContext.AddSource(generatedSourceFileName, sourceTextForNewClass);
         }
     }
 }

@@ -146,10 +146,12 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             foreach (var singletonAccess in SingletonAccessCandidates.Where(candidate => candidate.ContainingSystemType == systemGeneratorContext.SystemType))
             {
                 var singletonAccessCandidate = (SingletonAccessCandidate)singletonAccess;
-                var singletonAccessDescription = new SingletonAccessDescription(singletonAccessCandidate, singletonAccess.SyntaxNode.Ancestors().OfType<MethodDeclarationSyntax>().First(), systemGeneratorContext.SemanticModel);
+                var singletonAccessDescription = new SingletonAccessDescription(singletonAccessCandidate, systemGeneratorContext.SemanticModel);
 
                 if (singletonAccessDescription.Success)
+                {
                     singletonAccessDescriptions.Add(singletonAccessDescription);
+                }
             }
 
             // Check to make sure we have no systems with duplicate names
@@ -186,7 +188,6 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 if (lambdaJobDescription.WithStructuralChangesAndLambdaBodyInSystem)
                     systemGeneratorContext.NewMembers.Add(EntitiesSourceFactory.LambdaJobs.LambdaBodyMethodFor(lambdaJobDescription));
 
-
                 if (lambdaJobDescription.NeedsJobFunctionPointers)
                 {
                     string delegateName = lambdaJobDescription.LambdaJobKind switch
@@ -202,7 +203,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                         systemGeneratorContext.AddOnCreateForCompilerSyntax(
                             @$"{lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst.Data =
                                 new Unity.Burst.FunctionPointer<{delegateName}>(
-                                    System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(({delegateName}){lambdaJobDescription.JobStructName}.RunWithoutJobSystem));");
+                                    global::System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(({delegateName}){lambdaJobDescription.JobStructName}.RunWithoutJobSystem));");
                         if (lambdaJobDescription.Burst.IsEnabled)
                         {
                             systemGeneratorContext.AddOnCreateForCompilerSyntax(
@@ -229,11 +230,25 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             {
                 singletonAccessDescription.EntityQueryFieldName = systemGeneratorContext.GetOrCreateQueryField(new EntityQueryDescription()
                 {
-                    All = new []
+                    All = new (INamedTypeSymbol typeInfo, bool isReadOnly)[]
                         {
                             (singletonAccessDescription.SingletonType, singletonAccessDescription.AccessType != SingletonAccessType.Set)
                         }
                 });
+            }
+
+            if (singletonAccessDescriptions.Any(desc => desc.ContainedIn == SingletonAccessDescription.ContainingType.Property))
+            {
+                foreach (var propertyDeclarationSyntax in systemGeneratorContext.SystemType.DescendantNodes().OfType<PropertyDeclarationSyntax>())
+                {
+                    var singletonDescriptionsInProperty =
+                        singletonAccessDescriptions.Where(desc => desc.ContainingProperty == propertyDeclarationSyntax);
+
+                    foreach (var description in singletonDescriptionsInProperty)
+                    {
+                        systemGeneratorContext.ReplaceNodeInProperty(description.ContainingProperty, description.OriginalNode, description.GenerateReplacementNode());
+                    }
+                }
             }
 
             // Go through all methods containing descriptions and register syntax replacements with SystemGeneratorContext
