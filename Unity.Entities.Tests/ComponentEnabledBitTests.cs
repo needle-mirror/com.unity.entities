@@ -139,7 +139,7 @@ namespace Unity.Entities.Tests
             return entityIndex % (2 + chunkIndex) == 0;
         }
 
-        static unsafe void SetupChunkWithEnabledBits(ref EntityManager manager, ComponentType enableableType, Allocator allocator, out NativeArray<Entity> outEntities, out UnsafeHashMap<Entity, bool> outMap, out EntityArchetype outArchetype, int chunkCount = 1, params ComponentType[] additionalTypes)
+        static unsafe void SetupChunkWithEnabledBits(ref EntityManager manager, ComponentType enableableType, Allocator allocator, out NativeArray<Entity> outEntities, out UnsafeParallelHashMap<Entity, bool> outMap, out EntityArchetype outArchetype, int chunkCount = 1, params ComponentType[] additionalTypes)
         {
             var types = new List<ComponentType>();
             types.Add(enableableType);
@@ -148,7 +148,7 @@ namespace Unity.Entities.Tests
 
             outArchetype = manager.CreateArchetype(types.ToArray());
 
-            outMap = new UnsafeHashMap<Entity, bool>(outArchetype.ChunkCapacity * chunkCount, allocator);
+            outMap = new UnsafeParallelHashMap<Entity, bool>(outArchetype.ChunkCapacity * chunkCount, allocator);
             outEntities = manager.CreateEntity(outArchetype, outArchetype.ChunkCapacity * chunkCount, allocator);
 
             for (int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex)
@@ -163,7 +163,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        static unsafe void CheckChunkDataAndMapConsistency(EntityManager manager, ComponentType enableableType, NativeArray<Entity> entities, UnsafeHashMap<Entity, bool> map, int skipStartIndex = -1, int skipCount = 0)
+        static unsafe void CheckChunkDataAndMapConsistency(EntityManager manager, ComponentType enableableType, NativeArray<Entity> entities, UnsafeParallelHashMap<Entity, bool> map, int skipStartIndex = -1, int skipCount = 0)
         {
             for (int i = 0; i < entities.Length; ++i)
             {
@@ -177,7 +177,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        static unsafe void CheckChunkDataAndMapConsistency_WithRemapping(EntityManager dstManager, ComponentType enableableType, NativeArray<Entity> srcEntities, NativeArray<Entity> dstEntities, UnsafeHashMap<Entity, bool> map, int skipIndex = -1)
+        static unsafe void CheckChunkDataAndMapConsistency_WithRemapping(EntityManager dstManager, ComponentType enableableType, NativeArray<Entity> srcEntities, NativeArray<Entity> dstEntities, UnsafeParallelHashMap<Entity, bool> map, int skipIndex = -1)
         {
             for (int i = 0; i < srcEntities.Length; ++i)
             {

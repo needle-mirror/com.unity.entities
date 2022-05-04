@@ -133,7 +133,7 @@ namespace Unity.Entities
         internal AllocatorManager.AllocatorHandle m_AllocatorHandle;
         private StateAllocator _stateMemory;
         private UnsafeList<ushort> _pendingDestroys;
-        private UnsafeMultiHashMap<long, ushort> _unmanagedSlotByTypeHash;
+        private UnsafeParallelMultiHashMap<long, ushort> _unmanagedSlotByTypeHash;
         internal readonly ulong SequenceNumber;
         public WorldFlags Flags;
         public TimeData CurrentTime;
@@ -169,7 +169,7 @@ namespace Unity.Entities
             SequenceNumber = sequenceNumber;
             MaximumDeltaTime = 1.0f / 3.0f;
             Flags = flags;
-            _unmanagedSlotByTypeHash = new UnsafeMultiHashMap<long, ushort>(32, m_AllocatorHandle);
+            _unmanagedSlotByTypeHash = new UnsafeParallelMultiHashMap<long, ushort>(32, m_AllocatorHandle);
             _pendingDestroys = new UnsafeList<ushort>(32, m_AllocatorHandle);
             _stateMemory = default;
             _stateMemory.Init();

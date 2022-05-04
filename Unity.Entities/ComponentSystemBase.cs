@@ -303,7 +303,10 @@ namespace Unity.Entities
         internal void BeforeUpdateVersioning()
         {
             var state = CheckedState();
-            state->m_EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->IncrementGlobalSystemVersion();
+            var store = state->m_EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+            store->IncrementGlobalSystemVersion();
+
             ref var qs = ref state->EntityQueries;
             for (int i = 0; i < qs.Length; ++i)
             {
@@ -313,7 +316,13 @@ namespace Unity.Entities
 
         internal void AfterUpdateVersioning()
         {
-            CheckedState()->m_LastSystemVersion = EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->GlobalSystemVersion;
+            var state = CheckedState();
+            var store = state->m_EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+            // Store global system version before incrementing it again
+            state->m_LastSystemVersion = store->GlobalSystemVersion;
+
+            store->IncrementGlobalSystemVersion();
         }
 
         internal void CompleteDependencyInternal()
@@ -594,6 +603,18 @@ namespace Unity.Entities
         protected internal EntityQuery GetEntityQuery(params EntityQueryDesc[] queryDesc)
         {
             return GetEntityQueryInternal(queryDesc);
+        }
+
+        /// <summary>
+        /// Create an entity query from a query description builder.
+        /// </summary>
+        /// <remarks>This function looks for a cached query matching the combined query descriptions, and returns it
+        /// if one exists; otherwise, the function creates a new query instance and caches it.</remarks>
+        /// <returns>The new or cached query.</returns>
+        /// <param name="builder">The description builder</param>
+        public EntityQuery GetEntityQuery(in EntityQueryDescBuilder builder)
+        {
+            return CheckedState()->GetEntityQueryInternal(builder);
         }
 
 #if UNITY_ENTITIES_RUNTIME_TOOLING

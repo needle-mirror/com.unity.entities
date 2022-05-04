@@ -109,6 +109,8 @@ namespace Unity.Editor.Bridge
 
         public bool hasChildren => m_Children?.Count > 0;
 
+        public int childCount => m_Children?.Count ?? 0;
+
         public void AddChild(TItem child)
         {
             if (child == null)

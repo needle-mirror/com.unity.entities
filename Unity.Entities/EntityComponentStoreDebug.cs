@@ -23,7 +23,7 @@ namespace Unity.Entities
         {
             Assert.IsTrue(ManagedChangesTracker.Empty);
             var managedComponentIndices = new UnsafeBitArray(m_ManagedComponentIndex, Allocator.Temp);
-            var usedSequenceNumbers = new UnsafeHashSet<ulong>(512, Allocator.Temp);
+            var usedSequenceNumbers = new UnsafeParallelHashSet<ulong>(512, Allocator.Temp);
 
             Assert.IsTrue(managedComponentData.Length >= m_ManagedComponentIndex);
             for (int i = m_ManagedComponentIndex; i < managedComponentData.Length; ++i)

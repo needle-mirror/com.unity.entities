@@ -20,7 +20,7 @@ namespace Unity.Entities
             [NotBurstCompatible]
             public BytesCounter(string name)
             {
-                m_Counter = new ProfilerCounterValue<ulong>(SharedProfilerCategory.Ref.Data, name, ProfilerMarkerDataUnit.Bytes,
+                m_Counter = new ProfilerCounterValue<ulong>(Category, name, ProfilerMarkerDataUnit.Bytes,
                     ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush);
             }
         }

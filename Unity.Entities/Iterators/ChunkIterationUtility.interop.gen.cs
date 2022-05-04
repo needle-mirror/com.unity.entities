@@ -61,9 +61,9 @@ namespace Unity.Entities
             public static _dlg_GatherComponentDataWithFilter _bfp_GatherComponentDataWithFilter;
             public delegate void _dlg_GatherComponentData(IntPtr componentData, int typeIndex, in UnsafeCachedChunkList cache);
             public static _dlg_GatherComponentData _bfp_GatherComponentData;
-            public delegate void _dlg_CopyComponentArrayToChunksWithFilter(IntPtr componentData, int typeIndex, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache);
+            public delegate void _dlg_CopyComponentArrayToChunksWithFilter(IntPtr componentData, int typeIndex, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache, uint globalSystemVersion);
             public static _dlg_CopyComponentArrayToChunksWithFilter _bfp_CopyComponentArrayToChunksWithFilter;
-            public delegate void _dlg_CopyComponentArrayToChunks(IntPtr componentData, int typeIndex, in UnsafeCachedChunkList cache);
+            public delegate void _dlg_CopyComponentArrayToChunks(IntPtr componentData, int typeIndex, in UnsafeCachedChunkList cache, uint globalSystemVersion);
             public static _dlg_CopyComponentArrayToChunks _bfp_CopyComponentArrayToChunks;
             public delegate int _dlg_CalculateChunkAndEntityCount(ref UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, out int chunkCount);
             public static _dlg_CalculateChunkAndEntityCount _bfp_CalculateChunkAndEntityCount;
@@ -376,59 +376,59 @@ namespace Unity.Entities
         }
 #endif
 
-        public  static void CopyComponentArrayToChunksWithFilter (byte* componentData, int typeIndex, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache)
+        public  static void CopyComponentArrayToChunksWithFilter (byte* componentData, int typeIndex, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache, uint globalSystemVersion)
         {
 #if !UNITY_IOS
             if (UseDelegate())
             {
-                _forward_mono_CopyComponentArrayToChunksWithFilter(componentData, typeIndex, ref matchingArchetypePtrList, ref filter, in cache);
+                _forward_mono_CopyComponentArrayToChunksWithFilter(componentData, typeIndex, ref matchingArchetypePtrList, ref filter, in cache, globalSystemVersion);
                 return;
             }
 #endif
 
-            _CopyComponentArrayToChunksWithFilter(componentData, typeIndex, ref matchingArchetypePtrList, ref filter, in cache);
+            _CopyComponentArrayToChunksWithFilter(componentData, typeIndex, ref matchingArchetypePtrList, ref filter, in cache, globalSystemVersion);
         }
 
 #if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_CopyComponentArrayToChunksWithFilter))]
-        private static void _mono_to_burst_CopyComponentArrayToChunksWithFilter(IntPtr componentData, int typeIndex, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache)
+        private static void _mono_to_burst_CopyComponentArrayToChunksWithFilter(IntPtr componentData, int typeIndex, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache, uint globalSystemVersion)
         {
-            _CopyComponentArrayToChunksWithFilter((byte*)componentData, typeIndex, ref matchingArchetypePtrList, ref filter, in cache);
+            _CopyComponentArrayToChunksWithFilter((byte*)componentData, typeIndex, ref matchingArchetypePtrList, ref filter, in cache, globalSystemVersion);
         }
 
         [BurstDiscard]
-        private static void _forward_mono_CopyComponentArrayToChunksWithFilter(byte* componentData, int typeIndex, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache)
+        private static void _forward_mono_CopyComponentArrayToChunksWithFilter(byte* componentData, int typeIndex, ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache, uint globalSystemVersion)
         {
-            Managed._bfp_CopyComponentArrayToChunksWithFilter((IntPtr) componentData, typeIndex, ref matchingArchetypePtrList, ref filter, in cache);
+            Managed._bfp_CopyComponentArrayToChunksWithFilter((IntPtr) componentData, typeIndex, ref matchingArchetypePtrList, ref filter, in cache, globalSystemVersion);
         }
 #endif
 
-        public  static void CopyComponentArrayToChunks (byte* componentData, int typeIndex, in UnsafeCachedChunkList cache)
+        public  static void CopyComponentArrayToChunks (byte* componentData, int typeIndex, in UnsafeCachedChunkList cache, uint globalSystemVersion)
         {
 #if !UNITY_IOS
             if (UseDelegate())
             {
-                _forward_mono_CopyComponentArrayToChunks(componentData, typeIndex, in cache);
+                _forward_mono_CopyComponentArrayToChunks(componentData, typeIndex, in cache, globalSystemVersion);
                 return;
             }
 #endif
 
-            _CopyComponentArrayToChunks(componentData, typeIndex, in cache);
+            _CopyComponentArrayToChunks(componentData, typeIndex, in cache, globalSystemVersion);
         }
 
 #if !UNITY_IOS
         [BurstCompile]
         [MonoPInvokeCallback(typeof(Managed._dlg_CopyComponentArrayToChunks))]
-        private static void _mono_to_burst_CopyComponentArrayToChunks(IntPtr componentData, int typeIndex, in UnsafeCachedChunkList cache)
+        private static void _mono_to_burst_CopyComponentArrayToChunks(IntPtr componentData, int typeIndex, in UnsafeCachedChunkList cache, uint globalSystemVersion)
         {
-            _CopyComponentArrayToChunks((byte*)componentData, typeIndex, in cache);
+            _CopyComponentArrayToChunks((byte*)componentData, typeIndex, in cache, globalSystemVersion);
         }
 
         [BurstDiscard]
-        private static void _forward_mono_CopyComponentArrayToChunks(byte* componentData, int typeIndex, in UnsafeCachedChunkList cache)
+        private static void _forward_mono_CopyComponentArrayToChunks(byte* componentData, int typeIndex, in UnsafeCachedChunkList cache, uint globalSystemVersion)
         {
-            Managed._bfp_CopyComponentArrayToChunks((IntPtr) componentData, typeIndex, in cache);
+            Managed._bfp_CopyComponentArrayToChunks((IntPtr) componentData, typeIndex, in cache, globalSystemVersion);
         }
 #endif
 

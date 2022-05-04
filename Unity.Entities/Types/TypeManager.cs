@@ -123,7 +123,7 @@ namespace Unity.Entities
         static int                          s_TypeCount;
         static bool                         s_Initialized;
         static NativeArray<TypeInfo>        s_TypeInfos;
-        static NativeHashMap<ulong, int>    s_StableTypeHashToTypeIndex;
+        static NativeParallelHashMap<ulong, int>    s_StableTypeHashToTypeIndex;
         static NativeList<EntityOffsetInfo> s_EntityOffsetList;
         static NativeList<EntityOffsetInfo> s_BlobAssetRefOffsetList;
         static NativeList<EntityOffsetInfo> s_WeakAssetRefOffsetList;
@@ -476,7 +476,7 @@ namespace Unity.Entities
 
             s_TypeCount = 0;
             s_TypeInfos = new NativeArray<TypeInfo>(MaximumTypesCount, Allocator.Persistent);
-            s_StableTypeHashToTypeIndex = new NativeHashMap<ulong, int>(MaximumTypesCount, Allocator.Persistent);
+            s_StableTypeHashToTypeIndex = new NativeParallelHashMap<ulong, int>(MaximumTypesCount, Allocator.Persistent);
             s_EntityOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
             s_BlobAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
             s_WeakAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);

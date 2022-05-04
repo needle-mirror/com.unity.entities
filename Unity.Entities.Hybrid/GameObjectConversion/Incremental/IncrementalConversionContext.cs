@@ -48,7 +48,7 @@ namespace Unity.Entities.Conversion
             return ObjectCache;
         }
 
-        static void CopyToList(NativeHashSet<int> xs, NativeList<int> output)
+        static void CopyToList(NativeParallelHashSet<int> xs, NativeList<int> output)
         {
             foreach (var x in xs)
                 output.Add(x);
@@ -90,7 +90,7 @@ namespace Unity.Entities.Conversion
                 ref var data = ref UnsafeUtility.AsRef<RemoveFromHierarchy>(ptr);
 
                 int capacity = data.DeletedInstanceIds.Length + data.ReconvertHierarchyInstanceIds.Length;
-                var deletedInstances = new NativeHashSet<int>(capacity, Allocator.TempJob);
+                var deletedInstances = new NativeParallelHashSet<int>(capacity, Allocator.TempJob);
                 {
                     data.Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(data.DeletedInstanceIds, deletedInstances);
                     data.Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(data.ReconvertHierarchyInstanceIds, deletedInstances);
@@ -165,7 +165,7 @@ namespace Unity.Entities.Conversion
                                     outData.ReconvertHierarchyRequests.Add(changeSuccessful[i].InstanceId);
                             }
 
-                            using (var visitedInstances = new NativeHashSet<int>(0, Allocator.TempJob))
+                            using (var visitedInstances = new NativeParallelHashSet<int>(0, Allocator.TempJob))
                             {
                                 Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(changeFailed, visitedInstances);
                                 CopyToList(visitedInstances, outData.RemovedInstanceIds);
@@ -340,14 +340,14 @@ namespace Unity.Entities.Conversion
             _collectNewGameObjectsMarker.End();
         }
 
-        public NativeHashSet<int> CollectAndClearDependencies(IncrementalConversionData conversionData)
+        public NativeParallelHashSet<int> CollectAndClearDependencies(IncrementalConversionData conversionData)
         {
             using (var conversionRequests = new NativeList<int>(Allocator.TempJob))
             {
                 conversionRequests.AddRange(conversionData.ReconvertSingleRequests);
 
 
-                using (var visitedInstances = new NativeHashSet<int>(0, Allocator.TempJob))
+                using (var visitedInstances = new NativeParallelHashSet<int>(0, Allocator.TempJob))
                 {
                     Hierarchy.AsReadOnly()
                         .CollectHierarchyInstanceIdsAsync(conversionData.ReconvertHierarchyRequests, visitedInstances)
@@ -361,7 +361,7 @@ namespace Unity.Entities.Conversion
                         conversionRequests.Add(c.gameObject.GetInstanceID());
                 }
 
-                var dependentInstanceIds = new NativeHashSet<int>(0, Allocator.TempJob);
+                var dependentInstanceIds = new NativeParallelHashSet<int>(0, Allocator.TempJob);
                 new CollectDependencies
                 {
                     Dependencies = Dependencies,

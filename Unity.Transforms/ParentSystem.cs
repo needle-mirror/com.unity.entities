@@ -50,10 +50,11 @@ namespace Unity.Transforms
         [BurstCompile]
         struct GatherChangedParents : IJobEntityBatch
         {
-            public NativeMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToAdd;
-            public NativeMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToRemove;
-            public NativeHashMap<Entity, int>.ParallelWriter UniqueParents;
+            public NativeParallelMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToAdd;
+            public NativeParallelMultiHashMap<Entity, Entity>.ParallelWriter ParentChildrenToRemove;
+            public NativeParallelHashMap<Entity, int>.ParallelWriter UniqueParents;
             public ComponentTypeHandle<PreviousParent> PreviousParentTypeHandle;
+            [ReadOnly] public BufferFromEntity<Child> ChildFromEntity;
 
             [ReadOnly] public ComponentTypeHandle<Parent> ParentTypeHandle;
             [ReadOnly] public EntityTypeHandle EntityTypeHandle;
@@ -79,7 +80,7 @@ namespace Unity.Transforms
                             ParentChildrenToAdd.Add(parentEntity, childEntity);
                             UniqueParents.TryAdd(parentEntity, 0);
 
-                            if (previousParentEntity != Entity.Null)
+                            if (ChildFromEntity.HasComponent(previousParentEntity))
                             {
                                 ParentChildrenToRemove.Add(previousParentEntity, childEntity);
                                 UniqueParents.TryAdd(previousParentEntity, 0);
@@ -98,7 +99,7 @@ namespace Unity.Transforms
         [BurstCompile]
         struct FindMissingChild : IJob
         {
-            [ReadOnly] public NativeHashMap<Entity, int> UniqueParents;
+            [ReadOnly] public NativeParallelHashMap<Entity, int> UniqueParents;
             [ReadOnly] public BufferFromEntity<Child> ChildFromEntity;
             public NativeList<Entity> ParentsMissingChild;
 
@@ -119,9 +120,9 @@ namespace Unity.Transforms
         [BurstCompile]
         struct FixupChangedChildren : IJob
         {
-            [ReadOnly] public NativeMultiHashMap<Entity, Entity> ParentChildrenToAdd;
-            [ReadOnly] public NativeMultiHashMap<Entity, Entity> ParentChildrenToRemove;
-            [ReadOnly] public NativeHashMap<Entity, int> UniqueParents;
+            [ReadOnly] public NativeParallelMultiHashMap<Entity, Entity> ParentChildrenToAdd;
+            [ReadOnly] public NativeParallelMultiHashMap<Entity, Entity> ParentChildrenToRemove;
+            [ReadOnly] public NativeParallelHashMap<Entity, int> UniqueParents;
 
             public BufferFromEntity<Child> ChildFromEntity;
 
@@ -174,10 +175,11 @@ namespace Unity.Transforms
                 for (int i = 0; i < parents.Length; i++)
                 {
                     var parent = parents[i];
-                    var children = ChildFromEntity[parent];
-
-                    RemoveChildrenFromParent(parent, children);
-                    AddChildrenToParent(parent, children);
+                    if (ChildFromEntity.TryGetBuffer(parent, out var children))
+                    {
+                        RemoveChildrenFromParent(parent, children);
+                        AddChildrenToParent(parent, children);
+                    }
                 }
             }
         }
@@ -287,15 +289,16 @@ namespace Unity.Transforms
             // 2. Get (Parent,Child) to add
             // 3. Get unique Parent change list
             // 4. Set PreviousParent to new Parent
-            var parentChildrenToAdd = new NativeMultiHashMap<Entity, Entity>(count, Allocator.TempJob);
-            var parentChildrenToRemove = new NativeMultiHashMap<Entity, Entity>(count, Allocator.TempJob);
-            var uniqueParents = new NativeHashMap<Entity, int>(count, Allocator.TempJob);
+            var parentChildrenToAdd = new NativeParallelMultiHashMap<Entity, Entity>(count, Allocator.TempJob);
+            var parentChildrenToRemove = new NativeParallelMultiHashMap<Entity, Entity>(count, Allocator.TempJob);
+            var uniqueParents = new NativeParallelHashMap<Entity, int>(count, Allocator.TempJob);
             var gatherChangedParentsJob = new GatherChangedParents
             {
                 ParentChildrenToAdd = parentChildrenToAdd.AsParallelWriter(),
                 ParentChildrenToRemove = parentChildrenToRemove.AsParallelWriter(),
                 UniqueParents = uniqueParents.AsParallelWriter(),
                 PreviousParentTypeHandle = state.GetComponentTypeHandle<PreviousParent>(false),
+                ChildFromEntity = state.GetBufferFromEntity<Child>(),
                 ParentTypeHandle = state.GetComponentTypeHandle<Parent>(true),
                 EntityTypeHandle = state.GetEntityTypeHandle(),
                 LastSystemVersion = state.LastSystemVersion

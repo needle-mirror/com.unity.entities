@@ -19,7 +19,6 @@ When you select the module, the details pane at the bottom of the Profiler windo
 | Unused Entities | The total number of Entities that can fit into all available chunks for the selected Archetype, minus the number of active Entities (represented by the Entities stat). |
 | Chunks | Number of [chunks](ecs_core.md#memory-chunks) this Archetype uses. |
 | Chunk Capacity | The number of Entities with this Archetype that can fit into a chunk. This number is equal to the total number of **Entities** and **Unused Entities**. |
-| Segments | The number of unique values across all [shared Components](shared_component_data.md) in the selected Archetype. The more unique values there are, the more chunks that are needed. A high number of Segments means that there might be a lot of empty chunks and unused Entities in your project. |
 | Components | Displays the total number of Components in the Archetype and the total amount of memory assigned to them in KB. <br/><br/>To see the list of Components and their individual memory allocation, expand this section. |
 | External Components | Lists the [Chunk Components](ecs_chunk_component.md) and [Shared Components](shared_component_data.md) that affect this Archetype. |
 

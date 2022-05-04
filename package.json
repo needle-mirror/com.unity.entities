@@ -1,24 +1,24 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "0.50.1-preview.2",
+  "version": "0.51.0-preview.32",
   "unity": "2020.3",
   "unityRelease": "0f1",
   "dependencies": {
-    "com.unity.burst": "1.6.4",
+    "com.unity.burst": "1.6.6",
     "com.unity.properties": "1.7.0-preview",
     "com.unity.properties.ui": "1.7.0-preview",
     "com.unity.serialization": "1.7.0-preview.1",
-    "com.unity.collections": "1.2.3",
-    "com.unity.mathematics": "1.2.5",
+    "com.unity.collections": "1.3.1",
+    "com.unity.mathematics": "1.2.6",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.unitywebrequest": "1.0.0",
-    "com.unity.test-framework.performance": "2.3.1-preview",
+    "com.unity.test-framework.performance": "2.8.0-preview",
     "com.unity.nuget.mono-cecil": "1.10.1",
-    "com.unity.jobs": "0.50.0-preview.9",
+    "com.unity.jobs": "0.51.0-preview.32",
     "com.unity.scriptablebuildpipeline": "1.19.2",
-    "com.unity.platforms": "0.50.0-preview.4",
-    "com.unity.roslyn": "0.2.1-preview",
+    "com.unity.platforms": "0.51.0-preview.31",
+    "com.unity.roslyn": "0.2.2-preview",
     "com.unity.profiling.core": "1.0.0"
   },
   "description": "The Entities package provides a modern Entity Component System (ECS) implementation with a basic set of systems and components made for Unity.",
@@ -28,14 +28,14 @@
     "unity"
   ],
   "upm": {
-    "changelog": "### Changed\n\nRelease preparations, no functional changes."
+    "changelog": "### Changed\n\n* Package Dependencies\n  * `com.unity.jobs` to version `0.51.0`\n  * `com.unity.platforms` to version `0.51.0`\n  * `com.unity.mathematics` to version `1.2.6`\n  * `com.unity.collections` to version `1.3.1`\n  * `com.unity.burst` to version `1.6.6`\n* Increased the maximum number of shared components per entity from 8 to 16.\n* Updated dependency on version of com.unity.roslyn package that will work with both Unity 2020 and Unity 2021.\n\n### Fixed\n\n* DOTS Entities throws a compilation error when using named arguments.\n* Fix Create -> ECS -> System template now adds partial keyword.\n* Fixed a possible memory stomp triggered by specific sequences of `ComponentDataFromEntity` or `BufferFromEntity` calls.\n* EntityQuery.CopyFromComponentDataArray<T>() and EntityQuery.CopyFromComponentDataArrayAsync<T>() now correctly set the change version of any chunks they write to.\n* If the value of the Parent component of an entity is changed while the previous parent entity was destroyed at the same time, an exception could be thrown during the next update of the transform system.\n* Changes to ComponentData made outside of Systems will be properly detected by EntityQueries with changed version filters.\n\n### Added\n\n* New `BufferTypeHandle.Update()` method. Rather than creating new type handles every frame in `OnUpdate()`, it is more efficient to create the handle once in a system's `OnCreate()`, cache it as a member on the system, and call its `.Update()` method from `OnUpdate()` before using the handle.\n* SystemBase.GetEntityQuery can now take an EntityQueryDescBuilder."
   },
   "upmCi": {
-    "footprint": "856858fb14188877e23de169e358117ed38f5ad5"
+    "footprint": "2e0c1b88c30ecf09308dd8c0191553ae9ff88184"
   },
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "f510d2cf044b48696ac6e43c591f2fb031f46fca"
+    "revision": "469d2b30300a7ff2c2b15f72ee8613e374c37b63"
   }
 }

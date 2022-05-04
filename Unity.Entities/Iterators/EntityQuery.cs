@@ -385,7 +385,7 @@ namespace Unity.Entities
         [NotBurstCompatible]
         internal ComponentType[] GetQueryTypes()
         {
-            using (var types = new NativeHashSet<ComponentType>(128, Allocator.Temp))
+            using (var types = new NativeParallelHashSet<ComponentType>(128, Allocator.Temp))
             {
 
                 for (var i = 0; i < _QueryData->ArchetypeQueryCount; ++i)

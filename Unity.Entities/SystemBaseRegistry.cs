@@ -41,7 +41,7 @@ namespace Unity.Entities
 
     internal unsafe struct UnmanagedSystemTypeRegistryData
     {
-        private UnsafeHashMap<long, int> m_TypeHashToIndex;
+        private UnsafeParallelHashMap<long, int> m_TypeHashToIndex;
         private UnsafeList<UnmanagedComponentSystemDelegates> m_Delegates;
         private UnsafeList<FixedString64Bytes> m_DebugNames;
 
@@ -49,7 +49,7 @@ namespace Unity.Entities
 
         internal void Construct()
         {
-            m_TypeHashToIndex = new UnsafeHashMap<long, int>(64, Allocator.Persistent);
+            m_TypeHashToIndex = new UnsafeParallelHashMap<long, int>(64, Allocator.Persistent);
             m_Delegates = new UnsafeList<UnmanagedComponentSystemDelegates>(64, Allocator.Persistent);
             m_DebugNames = new UnsafeList<FixedString64Bytes>(64, Allocator.Persistent);
         }

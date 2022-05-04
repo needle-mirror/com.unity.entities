@@ -39,8 +39,8 @@ namespace Unity.Entities.Conversion
     {
         private NativeArray<int> _instanceId;
         private NativeArray<int> _parentIndex;
-        private NativeHashMap<int, int> _indexByInstanceId;
-        private NativeMultiHashMap<int, int> _childIndicesByIndex;
+        private NativeParallelHashMap<int, int> _indexByInstanceId;
+        private NativeParallelMultiHashMap<int, int> _childIndicesByIndex;
 
         internal SceneHierarchy(IncrementalHierarchy hierarchy)
         {
@@ -83,9 +83,9 @@ namespace Unity.Entities.Conversion
         [ExcludeFromDocs]
         public struct Children : IEnumerator<int>, IEnumerable<int>
         {
-            private NativeMultiHashMap<int, int>.Enumerator _iter;
+            private NativeParallelMultiHashMap<int, int>.Enumerator _iter;
 
-            internal Children(NativeMultiHashMap<int, int>.Enumerator iter)
+            internal Children(NativeParallelMultiHashMap<int, int>.Enumerator iter)
             {
                 _iter = iter;
             }
@@ -115,12 +115,12 @@ namespace Unity.Entities.Conversion
         /// <param name="rootInstanceIds">The instance ids of the root objects.</param>
         /// <param name="visitedInstanceIds">A hashset that is used to output the collected instance ids.</param>
         public static void CollectHierarchyInstanceIds(this SceneHierarchy hierarchy, NativeArray<int> rootInstanceIds,
-            NativeHashSet<int> visitedInstanceIds)
+            NativeParallelHashSet<int> visitedInstanceIds)
         {
             CollectHierarchyInstanceIdsImpl(hierarchy, rootInstanceIds, visitedInstanceIds);
         }
 
-        static void CollectHierarchyInstanceIdsImpl(SceneHierarchy hierarchy, NativeArray<int> rootInstanceIds, NativeHashSet<int> visitedInstanceIds)
+        static void CollectHierarchyInstanceIdsImpl(SceneHierarchy hierarchy, NativeArray<int> rootInstanceIds, NativeParallelHashSet<int> visitedInstanceIds)
         {
             var openIndices = new NativeList<int>(0, Allocator.Temp);
             for (int i = 0; i < rootInstanceIds.Length; i++)
@@ -151,7 +151,7 @@ namespace Unity.Entities.Conversion
             [ReadOnly]
             internal NativeArray<int> Roots;
             [WriteOnly]
-            internal NativeHashSet<int> VisitedInstances;
+            internal NativeParallelHashSet<int> VisitedInstances;
             void IJob.Execute()
             {
                 CollectHierarchyInstanceIds(Hierarchy, Roots, VisitedInstances);
@@ -166,7 +166,7 @@ namespace Unity.Entities.Conversion
         /// <param name="visitedInstanceIds">A hashset that is used to output the collected instance ids.</param>
         /// <param name="dependency">The dependency for the job.</param>
         /// <returns>A job handle representing the job.</returns>
-        public static JobHandle CollectHierarchyInstanceIdsAsync(this SceneHierarchy hierarchy, NativeArray<int> rootInstanceIds, NativeHashSet<int> visitedInstanceIds, JobHandle dependency=default)
+        public static JobHandle CollectHierarchyInstanceIdsAsync(this SceneHierarchy hierarchy, NativeArray<int> rootInstanceIds, NativeParallelHashSet<int> visitedInstanceIds, JobHandle dependency=default)
         {
             return new CollectHierarchyInstanceIdsJob
             {
@@ -187,7 +187,7 @@ namespace Unity.Entities.Conversion
         /// it was a root, false otherwise.</param>
         /// <param name="dependency">The dependency for the job.</param>
         /// <returns>A job handle representing the job.</returns>
-        public static JobHandle CollectHierarchyInstanceIdsAndIndicesAsync(this SceneHierarchy hierarchy, NativeList<int> instanceIds, NativeHashMap<int, bool> visitedIndices, JobHandle dependency=default)
+        public static JobHandle CollectHierarchyInstanceIdsAndIndicesAsync(this SceneHierarchy hierarchy, NativeList<int> instanceIds, NativeParallelHashMap<int, bool> visitedIndices, JobHandle dependency=default)
         {
             return new CollectHierarchyInstanceIdsAndIndicesJob
             {
@@ -202,7 +202,7 @@ namespace Unity.Entities.Conversion
         {
             [ReadOnly] internal SceneHierarchy Hierarchy;
             internal NativeList<int> VisitedInstanceIds;
-            [WriteOnly] internal NativeHashMap<int, bool> VisitedIndices; // true if part of the input, false if child
+            [WriteOnly] internal NativeParallelHashMap<int, bool> VisitedIndices; // true if part of the input, false if child
 
             public void Execute()
             {

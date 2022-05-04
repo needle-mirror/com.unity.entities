@@ -402,6 +402,33 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void ComponentDataFromEntity_TryGetComponent_FullyUpdatesLookupCache()
+        {
+            var archetypeA = m_Manager.CreateArchetype(typeof(EcsTestData));
+            var archetypeX = m_Manager.CreateArchetype(typeof(EcsTestTag));
+
+            var entityA = m_Manager.CreateEntity(archetypeA);
+            m_Manager.SetComponentData(entityA, new EcsTestData(17));
+            var entityX = m_Manager.CreateEntity(archetypeX);
+
+            var lookup = m_Manager.GetComponentDataFromEntity<EcsTestData>();
+
+            // For a while, TryGetComponent left the cdfe.LookupCache in an inconsistent state. We can't inspect the
+            // (private) LookupCache directly, so instead we'll test the observable effect of an stale cache: a particular
+            // sequence of calls that results in invalid data being returned (possibly a crash)
+
+            // the get[] accessor fully updates the LookupCache, and returns correct data.
+            EcsTestData data = lookup[entityA];
+            Assert.AreEqual(17, data.value);
+            // A failed TryGetComponent() will succeed, only (before the fix) only updates the cache's IndexInArchetype,
+            // setting it to -1; the other cache fields are untouched.
+            Assert.IsFalse(lookup.TryGetComponent(entityX, out data));
+            // The set[] accessor will *NOT* update the LookupCache, because cache.Archetype still matches.
+            // Before the fix, this will pass IndexInArchetype=-1 to SetChangeVersion(), which asserts / stomps unrelated memory.
+            Assert.DoesNotThrow(() => { lookup[entityA] = new EcsTestData(23); });
+        }
+
+        [Test]
         public void BufferFromEntity_TryGetBuffer_Works()
         {
             var entity = m_Manager.CreateEntity();
@@ -422,6 +449,35 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(array.TryGetBuffer(entity, out var bufferData));
             //I can't do an equivalence check to default since equals appears to not be implemented
             Assert.IsFalse(bufferData.IsCreated);
+        }
+
+        [Test]
+        public void BufferFromEntity_TryGetBuffer_FullyUpdatesLookupCache()
+        {
+            var archetypeA = m_Manager.CreateArchetype(typeof(EcsIntElement));
+            var archetypeX = m_Manager.CreateArchetype(typeof(EcsTestTag));
+
+            var entityA = m_Manager.CreateEntity(archetypeA);
+            var buffer = m_Manager.GetBuffer<EcsIntElement>(entityA);
+            buffer.Add(new EcsIntElement{Value = 17});
+            var entityX = m_Manager.CreateEntity(archetypeX);
+
+            var lookup = m_Manager.GetBufferFromEntity<EcsIntElement>();
+
+            // For a while, TryGetComponent left the cdfe.LookupCache in an inconsistent state. We can't inspect the
+            // (private) LookupCache directly, so instead we'll test the observable effect of an stale cache: a particular
+            // sequence of calls that results in invalid data being returned (possibly a crash)
+
+            // the get[] accessor fully updates the LookupCache, and returns correct data.
+            buffer = lookup[entityA];
+            Assert.AreEqual(1, buffer.Length);
+            Assert.AreEqual(17, buffer[0].Value);
+            // A failed TryGetBuffer() will succeed, only (before the fix) only updates the cache's IndexInArchetype,
+            // setting it to -1; the other cache fields are untouched.
+            Assert.IsFalse(lookup.TryGetBuffer(entityX, out buffer));
+            // The get[] accessor for a read/write BFE will *NOT* update the LookupCache, because cache.Archetype still matches.
+            // Before the fix, this will pass IndexInArchetype=-1 to SetChangeVersion(), which asserts / stomps unrelated memory.
+            Assert.DoesNotThrow(() => { buffer = lookup[entityA]; });
         }
 #endif
 

@@ -24,7 +24,7 @@ namespace Unity.Entities
 
         // Blob Asset Ptr Storage
         NativeList<BlobAssetPtr> m_BlobAssets;
-        NativeHashMap<BlobAssetPtr, int> m_BlobAssetMap;
+        NativeParallelHashMap<BlobAssetPtr, int> m_BlobAssetMap;
 
         /// <summary>
         /// Gathers all blob asset references within the specified object.
@@ -34,7 +34,7 @@ namespace Unity.Entities
         /// <param name="blobAssetMap">Mapping to track existing blob asset references encountered.</param>
         /// <exception cref="ArgumentNullException">The given object was null.</exception>
         /// <exception cref="MissingPropertyBagException">The given object has no property bag associated with it.</exception>
-        public void GatherBlobAssetReferences(object obj, NativeList<BlobAssetPtr> blobAssets, NativeHashMap<BlobAssetPtr, int> blobAssetMap)
+        public void GatherBlobAssetReferences(object obj, NativeList<BlobAssetPtr> blobAssets, NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap)
         {
             if (null == obj)
             {

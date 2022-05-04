@@ -70,7 +70,7 @@ namespace Unity.Entities.Editor
             /// <summary>
             /// The packed index per non-entity handle.
             /// </summary>
-            UnsafeHashMap<HierarchyNodeHandle, int> m_IndexByHandle;
+            UnsafeParallelHashMap<HierarchyNodeHandle, int> m_IndexByHandle;
 
             /// <summary>
             /// Gets a value indicating if the packed hierarchy has been initialized or not.
@@ -130,7 +130,7 @@ namespace Unity.Entities.Editor
                 m_HandleNodes = UnsafeList<HierarchyImmutableNodeData>.Create(16, allocator);
                 m_EntityNodes = UnsafeList<Entity>.Create(16, allocator);
                 m_IndexByEntity = UnsafeList<int>.Create(16, allocator);
-                m_IndexByHandle = new UnsafeHashMap<HierarchyNodeHandle, int>(16, allocator);
+                m_IndexByHandle = new UnsafeParallelHashMap<HierarchyNodeHandle, int>(16, allocator);
                 Clear();
             }
 
@@ -508,7 +508,7 @@ namespace Unity.Entities.Editor
             public int EntityCapacity;
 
             [ReadOnly] public HierarchyNodeMap<HierarchyNodeData> Nodes;
-            [ReadOnly] public UnsafeMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> Children;
+            [ReadOnly] public UnsafeParallelMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> Children;
             [ReadOnly] public int ReadChangeVersion;
 
             public ExportImmutableState State;

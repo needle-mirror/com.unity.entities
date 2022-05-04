@@ -76,7 +76,7 @@ namespace Unity.Entities
         static void ApplyBlobAssetChanges(
             EntityManager entityManager,
             NativeArray<EntityGuid> packedEntityGuids,
-            NativeMultiHashMap<int, Entity> packedEntities,
+            NativeParallelMultiHashMap<int, Entity> packedEntities,
             NativeArray<ComponentType> packedTypes,
             NativeArray<BlobAssetChange> createdBlobAssets,
             NativeArray<byte> createdBlobAssetData,
@@ -88,7 +88,7 @@ namespace Unity.Entities
 
             s_ApplyBlobAssetChangesProfilerMarker.Begin();
 
-            var managedObjectBlobAssetReferencePatches = new NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>(blobAssetReferenceChanges.Length, Allocator.Temp);
+            var managedObjectBlobAssetReferencePatches = new NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>(blobAssetReferenceChanges.Length, Allocator.Temp);
 
             var patcherBlobAssetSystem = entityManager.World.GetOrCreateSystem<EntityPatcherBlobAssetSystem>();
 
@@ -199,7 +199,7 @@ namespace Unity.Entities
         class ManagedObjectBlobAssetReferencePatcher : PropertyVisitor, Properties.Adapters.IVisit<BlobAssetReferenceData>
         {
             EntityPatcherBlobAssetSystem m_EntityPatcherBlobAssetSystem;
-            NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator Patches;
+            NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator Patches;
 
             public ManagedObjectBlobAssetReferencePatcher(EntityPatcherBlobAssetSystem entityPatcherBlobAssetSystem)
             {
@@ -207,7 +207,7 @@ namespace Unity.Entities
                 AddAdapter(this);
             }
 
-            public void ApplyPatches(ref object obj, NativeMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator patches)
+            public void ApplyPatches(ref object obj, NativeParallelMultiHashMap<EntityComponentPair, ManagedObjectBlobAssetReferencePatch>.Enumerator patches)
             {
                 Patches = patches;
                 PropertyContainer.Visit(ref obj, this);

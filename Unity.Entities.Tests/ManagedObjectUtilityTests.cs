@@ -162,7 +162,7 @@ namespace Unity.Entities.Tests
             var managedObjectBlobs = new ManagedObjectBlobs();
 
             using (var blobAssets = new NativeList<BlobAssetPtr>(1, Allocator.Temp))
-            using (var blobAssetsMap = new NativeHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
+            using (var blobAssetsMap = new NativeParallelHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
             {
                 managedObjectBlobs.GatherBlobAssetReferences(a, blobAssets, blobAssetsMap);
 
@@ -182,7 +182,7 @@ namespace Unity.Entities.Tests
             };
             
             using (var blobAssets = new NativeList<BlobAssetPtr>(1, Allocator.Temp))
-            using (var blobAssetsMap = new NativeHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
+            using (var blobAssetsMap = new NativeParallelHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
             {
                 managedObjectBlobs.GatherBlobAssetReferences(a, blobAssets, blobAssetsMap);
 
@@ -201,7 +201,7 @@ namespace Unity.Entities.Tests
                 };
 
                 using (var blobAssets = new NativeList<BlobAssetPtr>(1, Allocator.Temp))
-                using (var blobAssetsMap = new NativeHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
+                using (var blobAssetsMap = new NativeParallelHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
                 {
                     managedObjectBlobs.GatherBlobAssetReferences(b, blobAssets, blobAssetsMap);
 
@@ -217,7 +217,7 @@ namespace Unity.Entities.Tests
             var managedObjectBlobs = new ManagedObjectBlobs();
             
             using (var blobAssets = new NativeList<BlobAssetPtr>(1, Allocator.Temp))
-            using (var blobAssetsMap = new NativeHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
+            using (var blobAssetsMap = new NativeParallelHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
             {
                 var classWithPrimitives = new ClassWithPrimitives();
                 var classWithNestedClass = new ClassWithNestedClass {Nested = new ClassWithPrimitives()};

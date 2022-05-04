@@ -1,6 +1,6 @@
-# Upgrading from Entities 0.17 to Entities 0.50
+# Upgrading from Entities 0.17 to Entities 0.51
 
-To upgrade to Entities 0.50 you'll need to do the following:
+To upgrade to Entities 0.51 from 0.17 you'll need to do the following:
 
 **Entities**
 
@@ -61,7 +61,7 @@ To auto update your project’s systems with this keyword:
 <a name="systembase"></a>
 ## Upgrade JobComponentSystem to SystemBase 
 
-The `JobComponentSystem `type has been fully removed in 0.50 and is replaced by `SystemBase`. `SystemBase` is tested internally with both unit and performance tests, gives more options for scheduling, and does implicit job ordering by default. More information can be found below and in the [SystemBase](xref:Unity.Entities.SystemBase) section of the manual. SystemBase has been previously released and doesn't have new semantics. 
+The `JobComponentSystem `type has been fully removed and is replaced by `SystemBase`. `SystemBase` is tested internally with both unit and performance tests, gives more options for scheduling, and does implicit job ordering by default. More information can be found below and in the [SystemBase](xref:Unity.Entities.SystemBase) section of the manual. SystemBase has been previously released and doesn't have new semantics. 
 
 #### Implicit job scheduling: convert JobComponentSystem types to use the Dependency field
 
@@ -148,7 +148,7 @@ To upgrade ISystemBase to ISystem either:
 
 ### Replace IJobForEach with IJobEntity
 
-`IJobForEach` has been removed in 0.50. You should use `IJobEntity` instead, which works more like a job, and more like `Entities.ForEach`. It's easier to support because it generates the underlying `IJobEntityBatch`. To summarize the changes:
+`IJobForEach` has been removed. You should use `IJobEntity` instead, which works more like a job, and more like `Entities.ForEach`. It's easier to support because it generates the underlying `IJobEntityBatch`. To summarize the changes:
 
 * You can no longer use `IJobForEach`.
 * Use `IJobEntity`, with job attributes, implicit scheduling, and query generation instead.
@@ -289,27 +289,27 @@ struct RotationSystem : SystemBase
 
 ### Remove DOTS Editor package
 
-Remove any references to the DOTS Editor package (com.unity.dots.editor). The package has been merged into the Entities 0.5 package, and any previous version will conflict and cause compilation errors.
+Remove any references to the DOTS Editor package (com.unity.dots.editor). The package has been merged into the Entities package, and any previous version will conflict and cause compilation errors.
 
 <a name="audio"></a>
 
 ### Remove Audio package
 
-The Audio package (com.unity.audio) isn't supported in 0.50. You should remove the package and any related scripts from your project.
+The Audio package (com.unity.audio) isn't supported. You should remove the package and any related scripts from your project.
 
 <a name="animations"></a>
 
 ### Remove Animations package
 
-The Animations package (com.unity.animations) isn't supported in 0.50. You should remove the package and any related scripts from your project.
+The Animations package (com.unity.animations) isn't supported. You should remove the package and any related scripts from your project.
 
 <a name="#efewithname"></a>
 
 ### Use string literals with Entities.WithName
 
-Before 0.50 you could use string constants with `Entities.WithName`, but the requirement is now more strict and only string literals will work.
+In previous versions, you could use string constants with `Entities.WithName`, but the requirement is now more strict and only string literals will work.
 
-What used to work before 0.50:
+What used to work before:
 ```c#
 const string name = "SomeName";
 Entities
@@ -376,7 +376,7 @@ Entities
 }).Run();
 ```
 
-In 0.50, the example above doesn't compile and throws the following error instead:
+In the current version, the example above doesn't compile and throws the following error instead:
 
 > error DC0012: Entities.WithReadOnly is called with an invalid argument XXX. You can only use Entities.WithReadOnly on local variables that are captured inside the lambda. Please assign the field to a local variable and use that instead.
 
@@ -599,7 +599,7 @@ To upgrade it, use the following code:
    }
 ```
 
-The following code shows the difference between using `ITriggerEventJob` with `JobComponentSystem` or `SystemBase`. The  `SystemBase` example is useful for working with the 0.5 Entities package.
+The following code shows the difference between using `ITriggerEventJob` with `JobComponentSystem` or `SystemBase`. 
 
 **JobComponentSystem example:**
 

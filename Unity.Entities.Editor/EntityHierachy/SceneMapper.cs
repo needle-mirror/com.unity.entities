@@ -34,7 +34,7 @@ namespace Unity.Entities.Editor
 
         Hash128 m_ScenesCountFingerprint;
         uint m_CachedSceneSectionMappingVersion;
-        NativeHashMap<Entity, Entity> m_CachedSceneSectionMapping;
+        NativeParallelHashMap<Entity, Entity> m_CachedSceneSectionMapping;
 
         public bool SceneManagerDirty { get; private set; }
 
@@ -87,7 +87,7 @@ namespace Unity.Entities.Editor
             EditorSceneManager.sceneOpened += SetSceneManagerDirty;
             EditorSceneManager.sceneClosed += SetSceneManagerDirty;
             EditorSceneManager.newSceneCreated += SetSceneManagerDirty;
-            m_CachedSceneSectionMapping = new NativeHashMap<Entity, Entity>(10, Allocator.Persistent);
+            m_CachedSceneSectionMapping = new NativeParallelHashMap<Entity, Entity>(10, Allocator.Persistent);
         }
 
         public void Dispose()
@@ -194,7 +194,7 @@ namespace Unity.Entities.Editor
             }
         }
 
-        NativeHashMap<Entity, Entity> GetSceneSectionMapping(World world)
+        NativeParallelHashMap<Entity, Entity> GetSceneSectionMapping(World world)
         {
             if (world.EntityManager.GlobalSystemVersion == m_CachedSceneSectionMappingVersion)
                 return m_CachedSceneSectionMapping;
@@ -224,7 +224,7 @@ namespace Unity.Entities.Editor
         {
             [ReadOnly] public BufferFromEntity<ResolvedSectionEntity> BufferAccessor;
             [ReadOnly, DeallocateOnJobCompletion] public NativeArray<Entity> Entities;
-            [WriteOnly] public NativeHashMap<Entity, Entity> SceneSectionToSubsceneMap;
+            [WriteOnly] public NativeParallelHashMap<Entity, Entity> SceneSectionToSubsceneMap;
 
             public void Execute()
             {

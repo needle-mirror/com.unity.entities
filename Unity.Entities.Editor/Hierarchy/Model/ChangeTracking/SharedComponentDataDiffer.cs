@@ -23,8 +23,8 @@ namespace Unity.Entities.Editor
         readonly object m_DefaultComponentDataValue;
         readonly List<object> m_ManagedComponentStoreStateCopy = new List<object>();
 
-        NativeHashMap<ulong, int> m_ManagedComponentIndexInCopyByChunk;
-        NativeHashMap<ulong, ShadowChunk> m_ShadowChunks;
+        NativeParallelHashMap<ulong, int> m_ManagedComponentIndexInCopyByChunk;
+        NativeParallelHashMap<ulong, ShadowChunk> m_ShadowChunks;
         NativeList<ShadowChunk> m_AllocatedShadowChunksForTheFrame;
         NativeList<ChangesCollector> m_GatheredChanges;
         NativeList<ulong> m_RemovedShadowChunks;
@@ -43,8 +43,8 @@ namespace Unity.Entities.Editor
 
             WatchedComponentType = componentType;
             m_TypeIndex = componentType.TypeIndex;
-            m_ManagedComponentIndexInCopyByChunk = new NativeHashMap<ulong, int>(100, Allocator.Persistent);
-            m_ShadowChunks = new NativeHashMap<ulong, ShadowChunk>(100, Allocator.Persistent);
+            m_ManagedComponentIndexInCopyByChunk = new NativeParallelHashMap<ulong, int>(100, Allocator.Persistent);
+            m_ShadowChunks = new NativeParallelHashMap<ulong, ShadowChunk>(100, Allocator.Persistent);
             m_DefaultComponentDataValue = Activator.CreateInstance(componentType.GetManagedType());
 
             m_AllocatedShadowChunksForTheFrame = new NativeList<ShadowChunk>(16, Allocator.Persistent);
@@ -215,7 +215,7 @@ namespace Unity.Entities.Editor
             public int TypeIndex;
 
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [ReadOnly] public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            [ReadOnly] public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [NativeDisableUnsafePtrRestriction] public ChangesCollector* GatheredChanges;
 
             public void Execute(int index)
@@ -286,7 +286,7 @@ namespace Unity.Entities.Editor
         {
             public int TypeIndex;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [ReadOnly] public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            [ReadOnly] public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [NativeDisableUnsafePtrRestriction] public ShadowChunk* AllocatedShadowChunks;
 
             public void Execute(int index)
@@ -323,13 +323,13 @@ namespace Unity.Entities.Editor
 
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             [ReadOnly, NativeDisableUnsafePtrRestriction] public ShadowChunk* AllocatedShadowChunks;
-            public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [WriteOnly] public NativeList<ulong> RemovedChunks;
 
             public void Execute()
             {
                 var knownChunks = ShadowChunksBySequenceNumber.GetKeyArray(Allocator.Temp);
-                var processedChunks = new NativeHashMap<ulong, byte>(Chunks.Length, Allocator.Temp);
+                var processedChunks = new NativeParallelHashMap<ulong, byte>(Chunks.Length, Allocator.Temp);
                 for (var index = 0; index < Chunks.Length; index++)
                 {
                     var chunk = Chunks[index].m_Chunk;
@@ -383,7 +383,7 @@ namespace Unity.Entities.Editor
             [ReadOnly] public NativeArray<ulong> RemovedShadowChunks;
 
             [NativeDisableUnsafePtrRestriction] public int* IndexOfFirstAdded;
-            [ReadOnly] public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            [ReadOnly] public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
 
             public NativeList<int> IndicesInManagedComponentStore;
             public NativeList<Entity> AddedEntities;
@@ -431,8 +431,8 @@ namespace Unity.Entities.Editor
             [ReadOnly] public NativeArray<ChangesCollector> GatheredChanges;
             [ReadOnly] public NativeArray<ulong> RemovedShadowChunks;
 
-            public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
-            public NativeHashMap<ulong, int> SharedComponentValueIndexByChunk;
+            public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            public NativeParallelHashMap<ulong, int> SharedComponentValueIndexByChunk;
 
             [WriteOnly] public NativeArray<int> IndicesInManagedComponentStore;
             [WriteOnly] public NativeArray<Entity> AddedEntities;

@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
 using UnityEngine;
 using static Unity.Entities.Editor.MemoryProfilerModule;
+using static Unity.Entities.MemoryProfiler;
 
 namespace Unity.Entities.Editor
 {
@@ -16,8 +18,10 @@ namespace Unity.Entities.Editor
         [MenuItem(Constants.MenuItems.ArchetypesWindow, false, Constants.MenuItems.WindowPriority)]
         static void OpenWindow() => GetWindow<ArchetypesWindow>();
 
+        Stopwatch m_UpdateTimer;
         ArchetypesMemoryDataRecorder m_Recorder;
         NativeList<ulong> m_ArchetypesStableHash;
+        NativeList<ArchetypeMemoryData> m_ArchetypesMemoryData;
         MemoryProfilerModuleView m_View;
 
         void OnEnable()
@@ -27,14 +31,16 @@ namespace Unity.Entities.Editor
 
             m_Recorder = new ArchetypesMemoryDataRecorder();
             m_ArchetypesStableHash = new NativeList<ulong>(64, Allocator.Persistent);
+            m_ArchetypesMemoryData = new NativeList<ArchetypeMemoryData>(64, Allocator.Persistent);
             m_View = new MemoryProfilerModuleView();
             m_View.SearchFinished = () =>
             {
                 if (!m_View.HasArchetypesDataSource)
                     m_View.Clear(s_NoDataAvailable);
                 else
-                    m_View.Update();
+                    m_View.Rebuild();
             };
+            m_UpdateTimer = new Stopwatch();
 
             var viewElement = m_View.Create();
             m_View.Clear(s_NoDataAvailable);
@@ -43,18 +49,27 @@ namespace Unity.Entities.Editor
 
         void OnDisable()
         {
+            m_ArchetypesMemoryData.Dispose();
             m_ArchetypesStableHash.Dispose();
             m_Recorder.Dispose();
+            m_UpdateTimer.Reset();
         }
 
         protected override void OnUpdate()
         {
+            if (m_UpdateTimer.IsRunning && m_UpdateTimer.ElapsedMilliseconds < 500)
+                return;
+
+            m_UpdateTimer.Restart();
+
             m_Recorder.Record();
-            if (!SequenceEqual(m_ArchetypesStableHash, m_Recorder.ArchetypesStableHash))
+            if (!MemCmp(m_ArchetypesStableHash, m_Recorder.ArchetypesStableHash) ||
+                !MemCmp(m_ArchetypesMemoryData, m_Recorder.ArchetypesMemoryData))
             {
                 m_View.ArchetypesDataSource = GetTreeViewData().ToArray();
                 m_View.Search();
                 m_ArchetypesStableHash.CopyFrom(m_Recorder.ArchetypesStableHash);
+                m_ArchetypesMemoryData.CopyFrom(m_Recorder.ArchetypesMemoryData);
             }
         }
 
@@ -76,10 +91,13 @@ namespace Unity.Entities.Editor
             }
         }
 
-        static unsafe bool SequenceEqual<T>(NativeArray<T> array1, NativeArray<T> array2)
+        static unsafe bool MemCmp<T>(NativeArray<T> lhs, NativeArray<T> rhs)
             where T : unmanaged
         {
-            return array1.Length == array2.Length ? UnsafeUtility.MemCmp(array1.GetUnsafeReadOnlyPtr(), array2.GetUnsafeReadOnlyPtr(), sizeof(T) * array1.Length) == 0 : false;
+            if (lhs.Length != rhs.Length)
+                return false;
+
+            return UnsafeUtility.MemCmp(lhs.GetUnsafeReadOnlyPtr(), rhs.GetUnsafeReadOnlyPtr(), sizeof(T) * lhs.Length) == 0;
         }
     }
 }

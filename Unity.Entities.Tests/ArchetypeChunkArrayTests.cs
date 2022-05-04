@@ -996,6 +996,83 @@ namespace Unity.Entities.Tests
             World.Update();
         }
 
+        partial class BufferTypeHandleUpdateDummySystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                var ent = EntityManager.CreateEntity(typeof(EcsIntElement));
+                var buf = EntityManager.GetBuffer<EcsIntElement>(ent);
+                buf.Add(new EcsIntElement { Value = 17 });
+            }
+        }
+        partial class BufferTypeHandleUpdateSystem : SystemBase
+        {
+            private BufferTypeHandle<EcsIntElement> typeHandle1;
+
+            protected override void OnCreate()
+            {
+                typeHandle1 = GetBufferTypeHandle<EcsIntElement>();
+            }
+
+            protected override void OnUpdate()
+            {
+                var typeHandle2 = GetBufferTypeHandle<EcsIntElement>();
+                // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
+                Assert.AreNotEqual(typeHandle2.GlobalSystemVersion, typeHandle1.GlobalSystemVersion);
+                Assert.AreNotEqual(typeHandle2.m_Safety0, typeHandle1.m_Safety0);
+                // After updating the cached handle, these values (and the handles as a whole) should match
+                typeHandle1.Update(this);
+                Assert.AreEqual(typeHandle2.GlobalSystemVersion, typeHandle1.GlobalSystemVersion);
+                Assert.AreEqual(typeHandle2.m_Safety0, typeHandle1.m_Safety0);
+            }
+        }
+
+        [Test]
+        public void BufferTypeHandle_SystemBase_UpdateWorks()
+        {
+            var dummy = World.CreateSystem<BufferTypeHandleUpdateDummySystem>();
+            var sys = World.CreateSystem<BufferTypeHandleUpdateSystem>();
+            World.Update();
+            World.Update();
+            World.Update();
+        }
+
+        struct BufferTypeHandleUpdateSystemUnmanaged : ISystem
+        {
+            private BufferTypeHandle<EcsIntElement> typeHandle1;
+
+            public void OnCreate(ref SystemState state)
+            {
+                typeHandle1 = state.GetBufferTypeHandle<EcsIntElement>();
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                var typeHandle2 = state.GetBufferTypeHandle<EcsIntElement>();
+                // A cached handle is not guaranteed to match a newly-created handle if other systems have run in the interim.
+                Assert.AreNotEqual(typeHandle2.GlobalSystemVersion, typeHandle1.GlobalSystemVersion);
+                Assert.AreNotEqual(typeHandle2.m_Safety0, typeHandle1.m_Safety0);
+                // After updating the cached handle, these values (and the handles as a whole) should match
+                typeHandle1.Update(ref state);
+                Assert.AreEqual(typeHandle2.GlobalSystemVersion, typeHandle1.GlobalSystemVersion);
+                Assert.AreEqual(typeHandle2.m_Safety0, typeHandle1.m_Safety0);
+            }
+        }
+
+        [Test]
+        public void BufferTypeHandle_ISystem_UpdateWorks()
+        {
+            var dummy = World.CreateSystem<BufferTypeHandleUpdateDummySystem>();
+            var sys = World.AddSystem<BufferTypeHandleUpdateSystemUnmanaged>();
+            World.Update();
+            World.Update();
+            World.Update();
+        }
+
         // These tests require:
         // - JobsDebugger support for static safety IDs (added in 2020.1)
         // - Asserting throws

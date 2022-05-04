@@ -342,6 +342,16 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void CanBeginExclusiveEntityTransactionWorks()
+        {
+            Assert.IsTrue(m_Manager.CanBeginExclusiveEntityTransaction());
+            m_Manager.BeginExclusiveEntityTransaction();
+            Assert.IsFalse(m_Manager.CanBeginExclusiveEntityTransaction());
+            m_Manager.EndExclusiveEntityTransaction();
+            Assert.IsTrue(m_Manager.CanBeginExclusiveEntityTransaction());
+        }
+
+        [Test]
         public void CanChainTransactions()
         {
             m_Manager.BeginExclusiveEntityTransaction();

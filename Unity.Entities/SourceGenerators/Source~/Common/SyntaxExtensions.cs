@@ -100,10 +100,14 @@ namespace Unity.Entities.SourceGen.Common
         {
             var fileName = GetGeneratedSourceFileName(syntaxTree, generatorName);
 
-            var saveToDirectory = Path.Combine(SourceGenHelpers.GetProjectPath(), "Temp", "GeneratedCode", assembly.Name);
-            Directory.CreateDirectory(saveToDirectory);
-
-            return Path.Combine(saveToDirectory, fileName);
+            if (SourceGenHelpers.CanWriteToProjectPath)
+            {
+                var saveToDirectory = Path.Combine(SourceGenHelpers.ProjectPath, "Temp", "GeneratedCode", assembly.Name);
+                Directory.CreateDirectory(saveToDirectory);
+                return Path.Combine(saveToDirectory, fileName);
+            }
+            else
+                return Path.Combine("Temp", "GeneratedCode", assembly.Name);
         }
 
         static (bool IsSuccess, string FileName) TryGetFileNameWithoutExtension(SyntaxTree syntaxTree)

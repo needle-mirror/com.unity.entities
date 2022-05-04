@@ -76,12 +76,12 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// The children mapping for nodes. 
         /// </summary>
-        UnsafeMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> m_Children;
+        UnsafeParallelMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> m_Children;
         
         /// <summary>
         /// Mapping scene reference entity to the <see cref="UnityEngine.SceneManagement.Scene"/> it belongs to.
         /// </summary>
-        NativeHashMap<Entity, Scene> m_SceneReferenceEntityToScene;
+        NativeParallelHashMap<Entity, Scene> m_SceneReferenceEntityToScene;
 
         /// <summary>
         /// Returns the current change version for the hierarchy. This value is incremented every time the hierarchy is exported to the immutable set.
@@ -98,8 +98,8 @@ namespace Unity.Entities.Editor
             m_HierarchyNodeStoreData = (HierarchyNodeStoreData*) UnsafeUtility.Malloc(UnsafeUtility.SizeOf<HierarchyNodeStoreData>(), UnsafeUtility.AlignOf<HierarchyNodeStoreData>(), allocator);
             m_HierarchyNodeStoreData->ChangeVersion = 1;
             m_Nodes = new HierarchyNodeMap<HierarchyNodeData>(allocator);
-            m_Children = new UnsafeMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle>(16, allocator);
-            m_SceneReferenceEntityToScene = new NativeHashMap<Entity, Scene>(16, allocator);
+            m_Children = new UnsafeParallelMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle>(16, allocator);
+            m_SceneReferenceEntityToScene = new NativeParallelHashMap<Entity, Scene>(16, allocator);
 
             m_Nodes.SetSharedDefault(k_SharedDefaultEntity);
         }

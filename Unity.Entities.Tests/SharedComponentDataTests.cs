@@ -68,6 +68,61 @@ namespace Unity.Entities.Tests
         public SharedData9(int val) { value = val; }
     }
 
+    struct SharedData10 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData10(int val) { value = val; }
+    }
+
+    struct SharedData11 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData11(int val) { value = val; }
+    }
+
+    struct SharedData12 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData12(int val) { value = val; }
+    }
+
+    struct SharedData13 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData13(int val) { value = val; }
+    }
+
+    struct SharedData14 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData14(int val) { value = val; }
+    }
+
+    struct SharedData15 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData15(int val) { value = val; }
+    }
+
+    struct SharedData16 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData16(int val) { value = val; }
+    }
+
+    struct SharedData17 : ISharedComponentData
+    {
+        public int value;
+
+        public SharedData17(int val) { value = val; }
+    }
 
     class SharedComponentDataTests : ECSTestsFixture
     {
@@ -455,17 +510,13 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(
                 typeof(EcsTestData),
-                typeof(SharedData1),
-                typeof(SharedData2),
-                typeof(SharedData3),
-                typeof(SharedData4),
-                typeof(SharedData5),
-                typeof(SharedData6),
-                typeof(SharedData7),
-                typeof(SharedData8));
+                typeof(SharedData1), typeof(SharedData2), typeof(SharedData3), typeof(SharedData4),
+                typeof(SharedData5), typeof(SharedData6), typeof(SharedData7), typeof(SharedData8),
+                typeof(SharedData9), typeof(SharedData10), typeof(SharedData11), typeof(SharedData12),
+                typeof(SharedData13), typeof(SharedData14), typeof(SharedData15), typeof(SharedData16));
 
             Entity e = m_Manager.CreateEntity(archetype);
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(e));
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData17>(e));
         }
 
         [Test]
@@ -473,18 +524,14 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(
                 typeof(EcsTestData),
-                typeof(SharedData1),
-                typeof(SharedData2),
-                typeof(SharedData3),
-                typeof(SharedData4),
-                typeof(SharedData5),
-                typeof(SharedData6),
-                typeof(SharedData7),
-                typeof(SharedData8));
+                typeof(SharedData1), typeof(SharedData2), typeof(SharedData3), typeof(SharedData4),
+                typeof(SharedData5), typeof(SharedData6), typeof(SharedData7), typeof(SharedData8),
+                typeof(SharedData9), typeof(SharedData10), typeof(SharedData11), typeof(SharedData12),
+                typeof(SharedData13), typeof(SharedData14), typeof(SharedData15), typeof(SharedData16));
 
             Entity e = m_Manager.CreateEntity(archetype);
             EntityQuery q = m_Manager.CreateEntityQuery(typeof(EcsTestData));
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(q));
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData17>(q));
             q.Dispose();
         }
 
@@ -493,18 +540,14 @@ namespace Unity.Entities.Tests
         {
             var archetype = m_Manager.CreateArchetype(
                 typeof(EcsTestData),
-                typeof(SharedData1),
-                typeof(SharedData2),
-                typeof(SharedData3),
-                typeof(SharedData4),
-                typeof(SharedData5),
-                typeof(SharedData6),
-                typeof(SharedData7),
-                typeof(SharedData8));
+                typeof(SharedData1), typeof(SharedData2), typeof(SharedData3), typeof(SharedData4),
+                typeof(SharedData5), typeof(SharedData6), typeof(SharedData7), typeof(SharedData8),
+                typeof(SharedData9), typeof(SharedData10), typeof(SharedData11), typeof(SharedData12),
+                typeof(SharedData13), typeof(SharedData14), typeof(SharedData15), typeof(SharedData16));
 
             var entities = new NativeArray<Entity>(1024, Allocator.Persistent);
             m_Manager.CreateEntity(archetype, entities);
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData9>(entities));
+            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent<SharedData17>(entities));
             entities.Dispose();
         }
 

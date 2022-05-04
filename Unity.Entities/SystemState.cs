@@ -379,6 +379,14 @@ namespace Unity.Entities
             }
         }
 
+        internal void AfterUpdateVersioning()
+        {
+            // Store global system version before incrementing it again
+            m_LastSystemVersion = m_EntityComponentStore->GlobalSystemVersion;
+
+            m_EntityComponentStore->IncrementGlobalSystemVersion();
+        }
+
         [Conditional("UNITY_ENTITIES_RUNTIME_TOOLING")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void BeforeUpdateResetRunTracker()
@@ -517,11 +525,6 @@ namespace Unity.Entities
         }
 
 #endif
-
-        internal void AfterUpdateVersioning()
-        {
-            m_LastSystemVersion = m_EntityComponentStore->GlobalSystemVersion;
-        }
 
         internal bool ShouldRunSystem()
         {
@@ -723,7 +726,7 @@ namespace Unity.Entities
         /// <remarks>This function looks for a cached query matching the combined query descriptions, and returns it
         /// if one exists; otherwise, the function creates a new query instance and caches it.</remarks>
         /// <returns>The new or cached query.</returns>
-        /// <param name="queryDesc">The description builder</param>
+        /// <param name="builder">The description builder</param>
         public EntityQuery GetEntityQuery(in EntityQueryDescBuilder builder)
         {
             return GetEntityQueryInternal(builder);

@@ -63,7 +63,7 @@ namespace Unity.Entities.Editor
             Label m_UnusedEntityCount;
             Label m_ChunkCount;
             Label m_ChunkCapacity;
-            Label m_SegmentCount;
+            //Label m_SegmentCount;
             FoldoutField m_ComponentsFoldout;
             Label m_ComponentsSizeInChunk;
             Label m_ExternalComponents;
@@ -202,8 +202,8 @@ namespace Unity.Entities.Editor
                 content.Q<Label>("chunk-capacity-label").text = s_ChunkCapacity;
                 m_ChunkCapacity = content.Q<Label>("chunk-capacity-value");
 
-                content.Q<Label>("segment-count-label").text = s_Segments;
-                m_SegmentCount = content.Q<Label>("segment-count-value");
+                //content.Q<Label>("segment-count-label").text = s_Segments;
+                //m_SegmentCount = content.Q<Label>("segment-count-value");
 
                 m_ComponentsFoldout = content.Q<FoldoutField>("components");
                 m_ComponentsFoldout.text = s_Components;
@@ -226,7 +226,7 @@ namespace Unity.Entities.Editor
                 m_SharedComponentsFoldout.open = true;
             }
 
-            public void Update()
+            public void Rebuild()
             {
                 if (m_Window == null)
                     return;
@@ -259,6 +259,8 @@ namespace Unity.Entities.Editor
                     rootItem.totalAllocatedBytes += archetypeData.AllocatedBytes;
                     rootItem.totalUnusedBytes += archetypeData.UnusedBytes;
                 }
+
+                AddLeafCountRecursive(rootItem);
 
                 rootItem.SortChildrenRecursive(item => item.totalAllocatedBytes, false);
                 if (rootItem.hasChildren)
@@ -312,7 +314,7 @@ namespace Unity.Entities.Editor
                     m_UnusedEntityCount.text = CountToString(item.data.UnusedEntityCount);
                     m_ChunkCount.text = CountToString(item.data.ChunkCount);
                     m_ChunkCapacity.text = CountToString(item.data.ChunkCapacity);
-                    m_SegmentCount.text = CountToString(item.data.SegmentCount);
+                    //m_SegmentCount.text = CountToString(item.data.SegmentCount);
                     m_ComponentsFoldout.Clear();
                     m_ExternalComponents.SetVisibility(false);
                     m_ChunkComponentsFoldout.Clear();
@@ -397,11 +399,21 @@ namespace Unity.Entities.Editor
                     m_UnusedEntityCount.text = null;
                     m_ChunkCount.text = null;
                     m_ChunkCapacity.text = null;
-                    m_SegmentCount.text = null;
+                    //m_SegmentCount.text = null;
                     m_ComponentsFoldout.Clear();
                     m_ChunkComponentsFoldout.Clear();
                     m_SharedComponentsFoldout.Clear();
                 }
+            }
+
+            int AddLeafCountRecursive(MemoryProfilerTreeViewItem item)
+            {
+                var count = item.hasChildren ? 0 : 1;
+                foreach (var child in item.children)
+                    count += AddLeafCountRecursive(child);
+                if (item.hasChildren)
+                    item.displayName += $" ({count})";
+                return count;
             }
 
             static int GetTypeSizeInChunk(int typeIndex)

@@ -44,7 +44,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Storage for all other node types. This is a hash based lookup based on the <see cref="HierarchyNodeHandle"/>.
         /// </summary>
-        UnsafeHashMap<HierarchyNodeHandle, T> m_ValueByHandle;
+        UnsafeParallelHashMap<HierarchyNodeHandle, T> m_ValueByHandle;
 
         /// <summary>
         /// Returns the internal entity data storage.
@@ -54,7 +54,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Returns the internal entity data storage.
         /// </summary>
-        internal UnsafeHashMap<HierarchyNodeHandle, T> ValueByHandle => m_ValueByHandle;
+        internal UnsafeParallelHashMap<HierarchyNodeHandle, T> ValueByHandle => m_ValueByHandle;
 
         /// <summary>
         /// Returns the number of hashed handle nodes.
@@ -89,13 +89,13 @@ namespace Unity.Entities.Editor
 
                     default:
                     {
-                        if (UnsafeHashMapBase<HierarchyNodeHandle, T>.TryGetFirstValueAtomic(m_ValueByHandle.m_Buffer, handle, out var item, out var iterator))
+                        if (UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.TryGetFirstValueAtomic(m_ValueByHandle.m_Buffer, handle, out var item, out var iterator))
                         {
-                            UnsafeHashMapBase<HierarchyNodeHandle, T>.SetValue(m_ValueByHandle.m_Buffer, ref iterator, ref value);
+                            UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.SetValue(m_ValueByHandle.m_Buffer, ref iterator, ref value);
                         }
                         else
                         {
-                            if (UnsafeHashMapBase<HierarchyNodeHandle, T>.TryAdd(m_ValueByHandle.m_Buffer, handle, value, false, m_Allocator))
+                            if (UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.TryAdd(m_ValueByHandle.m_Buffer, handle, value, false, m_Allocator))
                                 m_HierarchyNodeMapData->ValueByHandleCount++;
                         }
                     }
@@ -112,7 +112,7 @@ namespace Unity.Entities.Editor
         {
             m_Allocator = allocator;
             m_ValueByEntity = new EntityMapDense<T>(16, allocator);
-            m_ValueByHandle = new UnsafeHashMap<HierarchyNodeHandle, T>(16, allocator) {{HierarchyNodeHandle.Root, default}};
+            m_ValueByHandle = new UnsafeParallelHashMap<HierarchyNodeHandle, T>(16, allocator) {{HierarchyNodeHandle.Root, default}};
             m_HierarchyNodeMapData = (HierarchyNodeMapData*) UnsafeUtility.Malloc(UnsafeUtility.SizeOf<HierarchyNodeMapData>(), UnsafeUtility.AlignOf<HierarchyNodeMapData>(), allocator);
             m_HierarchyNodeMapData->ValueByHandleCount = 1;
         }

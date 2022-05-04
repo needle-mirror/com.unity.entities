@@ -56,7 +56,7 @@ Unity can automatically generate authoring components for simple runtime ECS com
 
 Unity can automatically generate authoring components for simple [IComponentData](xref:Unity.Entities.IComponentData) components. When Unity generates an authoring component, you can add an `IComponentData` directly to a GameObject in a Scene within the Unity Editor. You can then use the **Inspector** window to set the initial values for the component.
 
-To indicate that you want to generate an authoring component, add the `[GenerateAuthoringComponent]` attribute to the IComponentData declaration.  Unity automatically generates a MonoBehaviour class that contains the public fields of the component and provides a Conversion method that converts those fields over into runtime component data.
+To tell Unity to generate an authoring component, add the `[GenerateAuthoringComponent]` attribute to the IComponentData declaration. Unity automatically generates a MonoBehaviour class that contains the public fields of the component and provides a Conversion method that converts those fields over into runtime component data.
 
 ```c#
 [GenerateAuthoringComponent]
@@ -71,8 +71,6 @@ Note the following restrictions:
 - Only one component in a single C# file can have a generated authoring component, and the C# file must not have another MonoBehaviour in it.
 - ECS only reflects public fields and they have the same name as that specified in the component.
 - ECS reflects fields of an Entity type in the IComponentData as fields of GameObject types in the MonoBehaviour it generates. ECS converts the GameObjects or Prefabs you assign to these fields as referenced Prefabs. 
-- Only public fields are reflected and they will have the same name as that specified in the component.
-- Fields of an Entity type in the IComponentData are reflected as fields of GameObject types in the generated MonoBehaviour. GameObjects or Prefabs you assign to these fields are converted as referenced prefabs.
 
 ### For IBufferElementData
 

@@ -250,6 +250,10 @@ namespace Unity.Entities
 
         public uint* GetChangeVersionArrayForType(int indexInArchetype)
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            Assert.IsTrue(indexInArchetype >= 0 && indexInArchetype < ComponentCount,
+                "out-of-range indexInArchetype passed to GetChangeVersionArrayForType");
+#endif
             return ChangeVersions + (indexInArchetype * Capacity);
         }
 

@@ -39,7 +39,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// The set of expanded states for the nodes.
         /// </summary>
-        NativeHashSet<HierarchyNodeHandle> m_ExpandedHashSet;
+        NativeParallelHashSet<HierarchyNodeHandle> m_ExpandedHashSet;
 
         /// <summary>
         /// The currently applied search query.
@@ -121,7 +121,7 @@ namespace Unity.Entities.Editor
             m_ImmutableNodeChangeVersion = 0;
             m_Nodes = new NativeList<int>(allocator);
             m_IndexByNode = new NativeList<int>(allocator);
-            m_ExpandedHashSet = new NativeHashSet<HierarchyNodeHandle>(16, allocator);
+            m_ExpandedHashSet = new NativeParallelHashSet<HierarchyNodeHandle>(16, allocator);
         }
 
         public void Dispose()
@@ -357,7 +357,7 @@ namespace Unity.Entities.Editor
         struct BuildExpandedNodes : IJob
         {
             [ReadOnly] public HierarchyNodeStore.Immutable Hierarchy;
-            [ReadOnly] public NativeHashSet<HierarchyNodeHandle> Expanded;
+            [ReadOnly] public NativeParallelHashSet<HierarchyNodeHandle> Expanded;
             
             public NativeList<int> Nodes;
             public NativeList<int> IndexByNode;

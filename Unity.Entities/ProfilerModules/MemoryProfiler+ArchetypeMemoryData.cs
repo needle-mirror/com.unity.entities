@@ -10,49 +10,6 @@ namespace Unity.Entities
         [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
         public readonly unsafe struct ArchetypeMemoryData : IEquatable<ArchetypeMemoryData>
         {
-            [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
-            internal readonly struct SharedComponentValuesKey : IEquatable<SharedComponentValuesKey>
-            {
-                readonly Archetype* m_Archetype;
-                readonly int m_ChunkIndex;
-
-                public SharedComponentValuesKey(Archetype* archetype, int chunkIndex)
-                {
-                    m_Archetype = archetype;
-                    m_ChunkIndex = chunkIndex;
-                }
-
-                int GetSharedComponentValue(int sharedComponentIndexInTypeArray)
-                {
-                    return *(m_Archetype->Chunks.GetSharedComponentValues(0).firstIndex + m_ChunkIndex + sharedComponentIndexInTypeArray * m_Archetype->Chunks.Capacity);
-                }
-
-                public bool Equals(SharedComponentValuesKey other)
-                {
-                    for (var i = 0; i < m_Archetype->NumSharedComponents; i++)
-                    {
-                        if (other.GetSharedComponentValue(i) != GetSharedComponentValue(i))
-                            return false;
-                    }
-                    return true;
-                }
-
-                [NotBurstCompatible]
-                public override bool Equals(object obj)
-                {
-                    return obj is SharedComponentValuesKey sharedComponentValuesKey ? Equals(sharedComponentValuesKey) : false;
-                }
-
-                public override int GetHashCode()
-                {
-                    var hash = 23;
-                    for (var i = 0; i < m_Archetype->NumSharedComponents; i++)
-                        hash = hash * 31 + GetSharedComponentValue(i);
-
-                    return hash;
-                }
-            }
-
             public readonly ulong WorldSequenceNumber;
             public readonly ulong StableHash;
             public readonly int EntityCount;
@@ -65,7 +22,7 @@ namespace Unity.Entities
                 StableHash = archetype->StableHash;
                 EntityCount = archetype->EntityCount;
                 ChunkCount = archetype->Chunks.Count;
-                SegmentCount = CalculateUniqueSharedComponentValuesCount(archetype);
+                SegmentCount = 0; // TODO: find a faster way to get this value
             }
 
             public ulong CalculateAllocatedBytes()
@@ -91,25 +48,6 @@ namespace Unity.Entities
             public int CalculateUnusedEntityCount(ArchetypeData archetypeData)
             {
                 return (ChunkCount * archetypeData.ChunkCapacity) - EntityCount;
-            }
-
-            static int CalculateUniqueSharedComponentValuesCount(Archetype* archetype)
-            {
-                if (archetype->NumSharedComponents == 0)
-                    return 0;
-
-                var uniqueSharedComponentValueCount = 0;
-                using (var map = new NativeHashMap<SharedComponentValuesKey, byte>(16, Allocator.Temp))
-                {
-                    for (var i = 0; i < archetype->Chunks.Count; i++)
-                    {
-                        var key = new SharedComponentValuesKey(archetype, i);
-                        if (map.TryAdd(key, 1))
-                            uniqueSharedComponentValueCount++;
-                    }
-                }
-
-                return uniqueSharedComponentValueCount;
             }
 
             public bool Equals(ArchetypeMemoryData other)

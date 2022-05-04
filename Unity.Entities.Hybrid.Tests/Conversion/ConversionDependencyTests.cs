@@ -56,7 +56,7 @@ namespace Unity.Entities.Tests.Conversion
         public void GameObjectDependencies_WithInvalidDependent_Throws()
             => Assert.Throws<ArgumentNullException>(() => m_Dependencies.DependOnGameObject(null, CreateGameObject("Test")));
 
-        private void CalculateDependents(int instanceId, NativeHashSet<int> outDependents)
+        private void CalculateDependents(int instanceId, NativeParallelHashSet<int> outDependents)
         {
             using (var arr = new NativeArray<int>(1, Allocator.Persistent) {[0] = instanceId})
             {
@@ -74,7 +74,7 @@ namespace Unity.Entities.Tests.Conversion
             m_Dependencies.DependOnGameObject(goA, goB);
             m_Dependencies.DependOnGameObject(goB, goC);
             int instanceId = goC.GetInstanceID();
-            var dependents = new NativeHashSet<int>(0, Allocator.Temp);
+            var dependents = new NativeParallelHashSet<int>(0, Allocator.Temp);
             CalculateDependents(instanceId, dependents);
             Assert.IsTrue(dependents.Contains(goA.GetInstanceID()), "Failed to include transitive dependency");
             Assert.IsTrue(dependents.Contains(goB.GetInstanceID()), "Failed to include direct dependency");
@@ -90,7 +90,7 @@ namespace Unity.Entities.Tests.Conversion
 
             m_Dependencies.DependOnComponent(goA, goB.transform);
             int instanceId = goB.GetInstanceID();
-            var dependents = new NativeHashSet<int>(0, Allocator.Temp);
+            var dependents = new NativeParallelHashSet<int>(0, Allocator.Temp);
             CalculateDependents(instanceId, dependents);
             Assert.IsTrue(dependents.Contains(goA.GetInstanceID()), "Failed to include direct dependency");
             Assert.IsTrue(dependents.Contains(goB.GetInstanceID()), "Failed to include self among dependents");
@@ -110,7 +110,7 @@ namespace Unity.Entities.Tests.Conversion
             m_Dependencies.ClearDependencies(instances);
 
             int instanceId = goC.GetInstanceID();
-            var dependents = new NativeHashSet<int>(0, Allocator.Temp);
+            var dependents = new NativeParallelHashSet<int>(0, Allocator.Temp);
             CalculateDependents(instanceId, dependents);
             Assert.IsFalse(dependents.Contains(goA.GetInstanceID()), "Failed to remove dependency");
             Assert.IsTrue(dependents.Contains(goB.GetInstanceID()), "Failed to include direct dependency");
@@ -137,7 +137,7 @@ namespace Unity.Entities.Tests.Conversion
             Assert.DoesNotThrow(() => m_Dependencies.DependOnGameObject(goA, goB));
 
             var instanceId = goB.GetInstanceID();
-            var dependents = new NativeHashSet<int>(0, Allocator.Temp);
+            var dependents = new NativeParallelHashSet<int>(0, Allocator.Temp);
             CalculateDependents(instanceId, dependents);
             Assert.IsTrue(dependents.Contains(goA.GetInstanceID()), "Failed to include direct dependency");
             Assert.IsTrue(dependents.Contains(goB.GetInstanceID()), "Failed to include self among dependents");
@@ -183,7 +183,7 @@ namespace Unity.Entities.Tests.Conversion
 
             m_Dependencies.DependOnComponent(goA, goB.transform);
             int instanceId = goB.GetInstanceID();
-            var dependents = new NativeHashSet<int>(0, Allocator.Temp);
+            var dependents = new NativeParallelHashSet<int>(0, Allocator.Temp);
             CalculateDependents(instanceId, dependents);
             Assert.IsTrue(dependents.Contains(goA.GetInstanceID()), "Failed to include direct dependency");
             Assert.IsTrue(dependents.Contains(goB.GetInstanceID()), "Failed to include self among dependents");
@@ -208,7 +208,7 @@ namespace Unity.Entities.Tests.Conversion
             AssertDependencyExists(m_Dependencies.AssetDependencyTracker, asset.GetInstanceID(), go);
 
             var assets = new NativeArray<int>(1, Allocator.Temp) {[0] = asset.GetInstanceID()};
-            var results = new NativeHashSet<int>(1, Allocator.Temp);
+            var results = new NativeParallelHashSet<int>(1, Allocator.Temp);
             m_Dependencies.CalculateAssetDependents(assets, results);
             var r = results.ToNativeArray(Allocator.Temp);
             Assert.AreEqual(1, r.Length);

@@ -173,15 +173,14 @@ namespace Unity.Entities.Editor
 
                 if (createEntityItem.hasChildren)
                     rootItem.AddChild(createEntityItem);
-
                 if (destroyEntityItem.hasChildren)
                     rootItem.AddChild(destroyEntityItem);
-
                 if (addComponentItem.hasChildren)
                     rootItem.AddChild(addComponentItem);
-
                 if (removeComponentItem.hasChildren)
                     rootItem.AddChild(removeComponentItem);
+
+                AddLeafCountRecursive(rootItem);
 
                 rootItem.SortChildrenRecursive(item => item.totalElapsedNanoseconds, false);
                 if (rootItem.hasChildren)
@@ -217,6 +216,16 @@ namespace Unity.Entities.Editor
                 m_Message.SetVisibility(true);
                 m_Message.text = message;
                 m_Content.SetVisibility(false);
+            }
+
+            int AddLeafCountRecursive(StructuralChangesProfilerTreeViewItem item)
+            {
+                var count = item.hasChildren ? 0 : 1;
+                foreach (var child in item.children)
+                    count += AddLeafCountRecursive(child);
+                if (item.hasChildren)
+                    item.displayName += $" ({count})";
+                return count;
             }
         }
     }

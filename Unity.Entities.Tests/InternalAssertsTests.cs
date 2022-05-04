@@ -44,12 +44,15 @@ namespace Unity.Entities.Tests
             });
 
             // Add component should be invalid for adding one too many shared component.
-            entity = m_Manager.CreateEntity(typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2), typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4),
-                typeof(EcsTestSharedComp5), typeof(EcsTestSharedComp6), typeof(EcsTestSharedComp7), typeof(EcsTestSharedComp8));
-            Assert.AreEqual(8, EntityComponentStore.kMaxSharedComponentCount, "Update test if this constant changes.");
+            entity = m_Manager.CreateEntity(
+                typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2), typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4),
+                typeof(EcsTestSharedComp5), typeof(EcsTestSharedComp6), typeof(EcsTestSharedComp7), typeof(EcsTestSharedComp8),
+                typeof(EcsTestSharedComp9), typeof(EcsTestSharedComp10), typeof(EcsTestSharedComp11), typeof(EcsTestSharedComp12),
+                typeof(EcsTestSharedComp13), typeof(EcsTestSharedComp14), typeof(EcsTestSharedComp15), typeof(EcsTestSharedComp16));
+            Assert.AreEqual(16, EntityComponentStore.kMaxSharedComponentCount, "Update test if this constant changes.");
             Assert.Throws<InvalidOperationException>(() =>
             {
-                access->EntityComponentStore->AssertCanAddComponent(entity, typeof(EcsTestSharedComp9));
+                access->EntityComponentStore->AssertCanAddComponent(entity, typeof(EcsTestSharedComp17));
             });
 
             // Add component should be invalid for destroyed entity.
@@ -103,10 +106,13 @@ namespace Unity.Entities.Tests
             });
 
             // Add component should be invalid for adding one too many shared component.
-            types = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestSharedComp9));
-            entity = m_Manager.CreateEntity(typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2), typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4),
-                typeof(EcsTestSharedComp5), typeof(EcsTestSharedComp6), typeof(EcsTestSharedComp7), typeof(EcsTestSharedComp8));
-            Assert.AreEqual(8, EntityComponentStore.kMaxSharedComponentCount, "Update test if this constant changes.");
+            types = new ComponentTypes(typeof(EcsTestData), typeof(EcsTestSharedComp17));
+            entity = m_Manager.CreateEntity(
+                typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2), typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4),
+                typeof(EcsTestSharedComp5), typeof(EcsTestSharedComp6), typeof(EcsTestSharedComp7), typeof(EcsTestSharedComp8),
+                typeof(EcsTestSharedComp9), typeof(EcsTestSharedComp10), typeof(EcsTestSharedComp11), typeof(EcsTestSharedComp12),
+                typeof(EcsTestSharedComp13), typeof(EcsTestSharedComp14), typeof(EcsTestSharedComp15), typeof(EcsTestSharedComp16));
+            Assert.AreEqual(16, EntityComponentStore.kMaxSharedComponentCount, "Update test if this constant changes.");
             Assert.Throws<InvalidOperationException>(() =>
             {
                 access->EntityComponentStore->AssertCanAddComponents(entity, types);

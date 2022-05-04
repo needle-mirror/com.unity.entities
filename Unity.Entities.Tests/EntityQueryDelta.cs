@@ -1,8 +1,8 @@
 using System;
 using NUnit.Framework;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
-using UnityEngine;
 
 namespace Unity.Entities.Tests
 {
@@ -664,5 +664,134 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData>(e).value);
         }
 #endif
+
+        partial class SpawnerSystem : SystemBase
+        {
+            private EntityQuery _query;
+
+            protected override void OnCreate()
+            {
+                _query = GetEntityQuery(typeof(EcsTestData));
+                RequireSingletonForUpdate<EcsTestTag>();
+            }
+
+            protected override void OnStartRunning()
+            {
+                // Increment all EcsTestData components, then add a new one.
+
+                // Component data should not normally be accessed like this, this is just
+                // to test in-place changes outside of OnUpdate.
+                var arr = _query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+                for (var i = 0; i < arr.Length; i++)
+                {
+                    var data = arr[i];
+                    data.value++;
+                    arr[i] = data;
+                }
+                _query.CopyFromComponentDataArray(arr);
+
+                var entity = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(entity, new EcsTestData { value = 0 });
+            }
+
+            protected override void OnStopRunning()
+            {
+                // Double all EcsTestData component values
+                var arr = _query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+                for (var i = 0; i < arr.Length; i++)
+                {
+                    var data = arr[i];
+                    data.value *= 2;
+                    arr[i] = data;
+                }
+                _query.CopyFromComponentDataArray(arr);
+            }
+
+            protected override void OnUpdate()
+            {
+            }
+        }
+
+        partial class ReactiveSystem : SystemBase
+        {
+            public JobHandle LastDependency;
+            protected override void OnUpdate()
+            {
+                Entities
+                    .WithChangeFilter<EcsTestData>()
+                    .ForEach((ref EcsTestData data) =>
+                    {
+                        data.value++;
+                    }).Schedule();
+
+                LastDependency = Dependency;
+            }
+        }
+
+        [Test]
+        public void ChangeFilterWorksWithOnStartRunningAndOnStopRunning()
+        {
+            var group = World.CreateSystem<SimulationSystemGroup>();
+            var spawnerSys = World.CreateSystem<SpawnerSystem>();
+            var reactiveSys = World.CreateSystem<ReactiveSystem>();
+
+            group.AddSystemToUpdateList(spawnerSys);
+            group.AddSystemToUpdateList(reactiveSys);
+
+            var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
+
+            var singletonEntity = m_Manager.CreateEntity();
+            // Add required component for SpawnerSystem
+            m_Manager.AddComponent<EcsTestTag>(singletonEntity);
+
+            Assert.AreEqual(0, query.CalculateEntityCount(), "Should start with no entities");
+
+            World.Update();
+
+            reactiveSys.LastDependency.Complete();
+            Assert.AreEqual(1, query.CalculateEntityCount(), "OnStartRunning should have created 1 entity");
+            var array = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(1, array[0].value, "Change-filtered system should have incremented value");
+
+            World.Update();
+
+            reactiveSys.LastDependency.Complete();
+            var array2 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(1, array2[0].value, "Change-filtered system should not run with no changes to component");
+
+            m_Manager.RemoveComponent<EcsTestTag>(singletonEntity);
+            World.Update();
+
+            reactiveSys.LastDependency.Complete();
+            var array3 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            // OnStopRunning doubles previous component, ReactiveSystem should increment after that
+            Assert.AreEqual(3, array3[0].value, "Change-filtered system should run with changes from OnStopRunning");
+
+            World.Update();
+
+            reactiveSys.LastDependency.Complete();
+            var array4 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(3, array4[0].value, "Change-filtered system should not run with no changes to component");
+
+            // Reenable to test OnStartRunning after initial run
+            m_Manager.AddComponent<EcsTestTag>(singletonEntity);
+            World.Update();
+
+            reactiveSys.LastDependency.Complete();
+            var array5 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(2, query.CalculateEntityCount(), "Restarted system should have created 1 entity in OnStartRunning");
+            // OnStartRunning increments existing value and ReactiveSystem increments changed components again
+            Assert.AreEqual(5, array5[0].value, "Change-filtered system should increment existing entity that was changed");
+            Assert.AreEqual(1, array5[1].value, "Change-filtered system should increment new entity created in OnStartRunning");
+
+            array5[1] = new EcsTestData { value = 6 };
+            query.CopyFromComponentDataArray(array5);
+
+            World.Update();
+
+            reactiveSys.LastDependency.Complete();
+            var array6 = query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(7, array6[1].value, "Change-filtered system should increment existing entity that was changed without accompanying structural change in the chunk");
+        }
     }
 }

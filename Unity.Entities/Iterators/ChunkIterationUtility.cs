@@ -756,7 +756,8 @@ namespace Unity.Entities
 
         [BurstMonoInteropMethod(MakePublic = true)]
         private static void _CopyComponentArrayToChunksWithFilter(byte* componentData,int typeIndex,
-            ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache)
+            ref UnsafeMatchingArchetypePtrList matchingArchetypePtrList, ref EntityQueryFilter filter, in UnsafeCachedChunkList cache,
+            uint globalSystemVersion)
         {
             var matchingArchetypes = matchingArchetypePtrList.Ptr;
             var matchingIndices = *cache.PerChunkMatchingArchetypeIndex;
@@ -775,7 +776,9 @@ namespace Unity.Entities
                     var typeOffset = archetype->Offsets[indexInTypeArray];
                     var typeSize = archetype->SizeOfs[indexInTypeArray];
 
-                    var dst = chunk->Buffer + typeOffset;
+                    LookupCache typeLookupCache = default;
+                    var dst = ChunkDataUtility.GetComponentDataWithTypeRW(chunk, archetype, 0, typeIndex,
+                        globalSystemVersion, ref typeLookupCache);
                     var src = componentData + (entityOffsetInChunk * typeSize);
 
                     var copySize = typeSize * chunkCount;
@@ -788,9 +791,9 @@ namespace Unity.Entities
         }
 
         [BurstMonoInteropMethod(MakePublic = true)]
-        private static void _CopyComponentArrayToChunks(byte* componentData,int typeIndex, in UnsafeCachedChunkList cache)
+        private static void _CopyComponentArrayToChunks(byte* componentData,int typeIndex, in UnsafeCachedChunkList cache,
+            uint globalSystemVersion)
         {
-
             int entityOffsetInChunk = 0;
             for(int i = 0; i < cache.Length; i++)
             {
@@ -802,7 +805,9 @@ namespace Unity.Entities
                 var typeOffset = archetype->Offsets[indexInTypeArray];
                 var typeSize = archetype->SizeOfs[indexInTypeArray];
 
-                var dst = chunk->Buffer + typeOffset;
+                LookupCache typeLookupCache = default;
+                var dst = ChunkDataUtility.GetComponentDataWithTypeRW(chunk, archetype, 0, typeIndex,
+                    globalSystemVersion, ref typeLookupCache);
                 var src = componentData + (entityOffsetInChunk * typeSize);
 
                 var copySize = typeSize * chunkCount;
@@ -826,7 +831,8 @@ namespace Unity.Entities
             var job = new CopyComponentArrayToChunksJob
             {
                 ComponentData = (byte*)componentDataArray.GetUnsafePtr(),
-                TypeIndex = typeHandle.m_TypeIndex
+                TypeIndex = typeHandle.m_TypeIndex,
+                GlobalSystemVersion = typeHandle.GlobalSystemVersion,
             };
             var jobHandle = job.ScheduleParallel(entityQuery, dependsOn);
             jobHandle.Complete();
@@ -846,7 +852,8 @@ namespace Unity.Entities
             var job = new CopyComponentArrayToChunksJob
             {
                 ComponentData = (byte*)componentDataArray.GetUnsafePtr(),
-                TypeIndex = typeHandle.m_TypeIndex
+                TypeIndex = typeHandle.m_TypeIndex,
+                GlobalSystemVersion = typeHandle.GlobalSystemVersion,
             };
             jobHandle = job.ScheduleParallel(entityQuery, dependsOn);
         }
@@ -864,14 +871,14 @@ namespace Unity.Entities
             if (!entityQuery.HasFilter())
             {
                 CopyComponentArrayToChunks((byte*)componentDataArray.GetUnsafePtr(), typeHandle.m_TypeIndex,
-                    in cache);
+                    in cache, typeHandle.GlobalSystemVersion);
             }
             else
             {
                 var filter = entityQuery.__impl->_Filter;
 
                 CopyComponentArrayToChunksWithFilter((byte*)componentDataArray.GetUnsafePtr(), typeHandle.m_TypeIndex,
-                    ref matchingArchetypePtrList, ref filter, in cache);
+                    ref matchingArchetypePtrList, ref filter, in cache, typeHandle.GlobalSystemVersion);
             }
         }
 

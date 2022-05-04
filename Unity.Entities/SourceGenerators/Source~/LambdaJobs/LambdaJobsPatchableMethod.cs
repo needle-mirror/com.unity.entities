@@ -26,6 +26,9 @@ namespace Unity.Entities.SourceGen.LambdaJobs
             GetFromFirstMethodParam
         }
 
+        static string[] GetArguments(InvocationExpressionSyntax originalNode) =>
+            originalNode.DescendantNodes().OfType<ArgumentSyntax>().Select(arg => arg.Expression.ToString()).ToArray();
+
         internal static readonly LambdaJobsPatchableMethod[] PatchableMethods =
         {
             new LambdaJobsPatchableMethod()
@@ -35,7 +38,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                 {
                     var dataAccessField = rewriter.GetOrCreateDataAccessField(methodSymbol.TypeArguments.First(), true, AccessorDataType.ComponentDataFromEntity);
-                    var entityArgument = originalNode.DescendantNodes().OfType<ArgumentSyntax>().First();
+                    var entityArgument = GetArguments(originalNode)[0];
                     return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}[{entityArgument}]");
                 }
             },
@@ -47,9 +50,10 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 {
                     var dataAccessField = rewriter.GetOrCreateDataAccessField(methodSymbol.TypeArguments.First(), false, AccessorDataType.ComponentDataFromEntity);
                     var arguments = originalNode.DescendantNodes().OfType<ArgumentSyntax>().ToArray();
-                    var entityArgument = arguments[0];
-                    var valueArgument = arguments[1];
-                    return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}[{entityArgument}] = {valueArgument}");
+                    var (entityArgument, valueArgument) =
+                        arguments[0].NameColon?.Name.Identifier.ValueText == "component" ?
+                            (arguments[1], arguments[0]) : (arguments[0], arguments[1]);
+                    return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}[{entityArgument.Expression}] = {valueArgument.Expression}");
                 }
             },
             new LambdaJobsPatchableMethod()
@@ -59,7 +63,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                 {
                     var dataAccessField = rewriter.GetOrCreateDataAccessField(methodSymbol.TypeArguments.First(), true, AccessorDataType.ComponentDataFromEntity);
-                    var arguments = originalNode.DescendantNodes().OfType<ArgumentSyntax>().ToArray();
+                    var arguments = GetArguments(originalNode);
                     var entityArgument = arguments[0];
                     return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}.HasComponent({entityArgument})");
                 }
@@ -70,8 +74,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 AccessRights = ComponentAccessRights.GetFromFirstMethodParam,
                 GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                 {
-                    var arguments = originalNode.DescendantNodes().OfType<ArgumentSyntax>().ToArray();
-                    var isReadOnly = arguments.Length > 0 && bool.Parse(arguments[0].ToString().ToLower());
+                    var arguments = GetArguments(originalNode);
+                    var isReadOnly = arguments.Length > 0 && bool.Parse(arguments[0].ToLower());
                     var dataAccessField = rewriter.GetOrCreateDataAccessField(methodSymbol.TypeArguments.First(), isReadOnly, AccessorDataType.ComponentDataFromEntity);
                     return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}");
                 }
@@ -83,7 +87,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                 {
                     var dataAccessField = rewriter.GetOrCreateDataAccessField(methodSymbol.TypeArguments.First(), false, AccessorDataType.BufferFromEntity);
-                    var entityArgument = originalNode.DescendantNodes().OfType<ArgumentSyntax>().First();
+                    var entityArgument = GetArguments(originalNode).First();
                     return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}[{entityArgument}]");
                 }
             },
@@ -93,8 +97,8 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 AccessRights =  ComponentAccessRights.GetFromFirstMethodParam,
                 GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                 {
-                    var arguments = originalNode.DescendantNodes().OfType<ArgumentSyntax>().ToArray();
-                    var isReadOnly = arguments.Length > 0 && bool.Parse(arguments[0].ToString().ToLower());
+                    var arguments = GetArguments(originalNode);
+                    var isReadOnly = arguments.Length > 0 && bool.Parse(arguments[0].ToLower());
                     var dataAccessField = rewriter.GetOrCreateDataAccessField(methodSymbol.TypeArguments.First(), isReadOnly, AccessorDataType.BufferFromEntity);
                     return SyntaxFactory.ParseExpression($"{dataAccessField.FieldName}");
                 }

@@ -24,7 +24,7 @@ Like a native container, an ECB has a job safety handle. While a job that uses a
 
 [Structural changes](sync_points.md#structural-changes) cannot be performed in a job, so an ECB is very useful for deferring structural changes until the job is completed. For example:
 
-[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffer.cs#ecb_single_threaded)]
+[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_single_threaded)]
 
 ## ECB use in a parallel job
 
@@ -61,7 +61,7 @@ In a parallel job, the sort key you need for each entity is a number that has a 
 
 Example use:
 
-[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffer.cs#ecb_multi_threaded)]
+[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_multi_threaded)]
 
 > [!NOTE]
 > Note that the lambda parameter must be called `entityInQueryIndex`. Otherwise, `Entities.ForEach` doesn't know what int you're talking about.
@@ -73,7 +73,7 @@ Example use:
 
 The `Playback` method throws an exception if called more than once unless the ECB is created with the `PlaybackPolicy.MultiPlayback` option:
 
-[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffer.cs#ecb_multi_playback)]
+[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_multi_playback)]
 
 The main use case for multi-playback is repeatedly spawning a set of entities: after using an ECB to create and configure a set of new entities, you can repeat playback to respawn another matching set of entities.
 
@@ -100,7 +100,7 @@ Rather than manually play back and dispose a command buffer yourself, you can ha
 
 For example:
 
-[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffer.cs#ecb_from_ecbsystem)]
+[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_from_ecbsystem)]
 
 > [!NOTE]
 > You should *not* manually play back and dispose an ECB created by an ECB system. The ECB system will do both for you.
@@ -128,14 +128,14 @@ These update at the begin and end of the three standard system groups. See [Defa
 
 These standard five ECB systems should suffice for most purposes, but you can create your own ECB systems if necessary:
 
-[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffer.cs#ecb_define_ecbsystem)]
+[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_define_ecbsystem)]
 
 ## Deferred entities
 
 The ECB methods `CreateEntity` and `Instantiate` record commands to create entities. Because these methods just record commands instead of immediately creating entities, they return `Entity` values with negative indexes representing placeholder entities that do not yet exist. These placeholder `Entity` values are only meaningful in recorded commands of the same ECB.
 
-[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffer.cs#ecb_deferred_entities)]
+[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_deferred_entities)]
 
 Values recorded in an `AddComponent`, `SetComponent`, or `SetBuffer` command might have `Entity` fields. In playback, any placeholder `Entity` values in these components or buffers will be remapped to the corresponding actual entities.
 
-[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffer.cs#ecb_deferred_remapping)]
+[!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_deferred_remapping)]

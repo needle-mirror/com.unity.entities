@@ -14,7 +14,7 @@ namespace Unity.Entities.Conversion.IncrementalConversionJobs
         [ReadOnly] public NativeList<int> ChangedInstanceIds;
         [ReadOnly] public NativeArray<int> DeletedInstanceIds;
 
-        public NativeHashSet<int> Dependents;
+        public NativeParallelHashSet<int> Dependents;
 
         public void Execute()
         {
@@ -37,7 +37,7 @@ namespace Unity.Entities.Conversion.IncrementalConversionJobs
         [ReadOnly]
         public NativeArray<int> DeletedInstances;
         [ReadOnly]
-        public NativeHashSet<int> ChangedInstances;
+        public NativeParallelHashSet<int> ChangedInstances;
 
         public void Execute()
         {

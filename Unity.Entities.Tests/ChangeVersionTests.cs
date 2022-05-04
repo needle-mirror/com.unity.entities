@@ -136,6 +136,110 @@ namespace Unity.Entities.Tests
             Assert.AreNotEqual(0, system.LastSystemVersion);
         }
 
+        partial class ChunkDidChangeManagedSystem : SystemBase
+        {
+            ComponentTypeHandle<EcsTestData> m_ComponentTypeHandle;
+            EntityQuery m_Query;
+
+            public bool DidChange { get; private set; }
+
+            protected override void OnCreate()
+            {
+                m_ComponentTypeHandle = GetComponentTypeHandle<EcsTestData>();
+                m_Query = GetEntityQuery(typeof(EcsTestData));
+            }
+
+            protected override void OnUpdate()
+            {
+                using (var chunks = m_Query.CreateArchetypeChunkArray(Allocator.Temp))
+                {
+                    Assert.That(chunks.Length, Is.EqualTo(1));
+                    DidChange = chunks[0].DidChange(m_ComponentTypeHandle, LastSystemVersion);
+                }
+            }
+        }
+
+        [Test]
+        public void Chunk_DidChange_ManagedSystemDetectsChange()
+        {
+            var system = World.GetOrCreateSystem<ChunkDidChangeManagedSystem>();
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            system.Update();
+            Assert.That(system.DidChange, Is.True);
+
+            system.Update();
+            Assert.That(system.DidChange, Is.False);
+
+            system.Update();
+            Assert.That(system.DidChange, Is.False);
+
+            m_Manager.SetComponentData(entity, new EcsTestData { value = 1 });
+
+            system.Update();
+            Assert.That(system.DidChange, Is.True);
+
+            system.Update();
+            Assert.That(system.DidChange, Is.False);
+
+            system.Update();
+            Assert.That(system.DidChange, Is.False);
+        }
+
+        partial struct ChunkDidChangeUnmanagedSystem : ISystem
+        {
+            ComponentTypeHandle<EcsTestData> m_ComponentTypeHandle;
+            EntityQuery m_Query;
+
+            public bool DidChange { get; private set; }
+
+            public void OnCreate(ref SystemState state)
+            {
+                m_ComponentTypeHandle = state.GetComponentTypeHandle<EcsTestData>();
+                m_Query = state.GetEntityQuery(typeof(EcsTestData));
+            }
+
+            public void OnDestroy(ref SystemState state)
+            {
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                using (var chunks = m_Query.CreateArchetypeChunkArray(Allocator.Temp))
+                {
+                    Assert.That(chunks.Length, Is.EqualTo(1));
+                    DidChange = chunks[0].DidChange(m_ComponentTypeHandle, state.LastSystemVersion);
+                }
+            }
+        }
+
+        [Test]
+        public void Chunk_DidChange_UnmanagedSystemDetectsChange()
+        {
+            var system = World.GetOrCreateSystem<ChunkDidChangeUnmanagedSystem>();
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+
+            system.Update(World.Unmanaged);
+            Assert.That(system.Struct.DidChange, Is.True);
+
+            system.Update(World.Unmanaged);
+            Assert.That(system.Struct.DidChange, Is.False);
+
+            system.Update(World.Unmanaged);
+            Assert.That(system.Struct.DidChange, Is.False);
+
+            m_Manager.SetComponentData(entity, new EcsTestData { value = 1 });
+
+            system.Update(World.Unmanaged);
+            Assert.That(system.Struct.DidChange, Is.True);
+
+            system.Update(World.Unmanaged);
+            Assert.That(system.Struct.DidChange, Is.False);
+
+            system.Update(World.Unmanaged);
+            Assert.That(system.Struct.DidChange, Is.False);
+        }
+
         partial class DidChangeTestSystem : SystemBase
         {
             protected override void OnUpdate()

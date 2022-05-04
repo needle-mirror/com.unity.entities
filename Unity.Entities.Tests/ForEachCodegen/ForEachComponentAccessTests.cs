@@ -164,6 +164,17 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 Dependency.Complete();
             }
 
+            public void SetComponentViaNamedArgument_SetsValue()
+            {
+                Entities
+                    .WithoutBurst()
+                    .ForEach((Entity entity, in EcsTestDataEntity tde) =>
+                    {
+                        SetComponent(component: new EcsTestData() { value = 2 }, entity: entity);
+                    }).Schedule();
+                Dependency.Complete();
+            }
+
             public void GetComponentFromStaticField_GetsValue()
             {
                 Entities.ForEach((ref EcsTestDataEntity tde) => { tde.value0 = GetComponent<EcsTestData>(tde.value1).value; }).Schedule();
@@ -373,6 +384,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             TestSystem.GetComponentFromComponentDataField_GetsValue();
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestDataEntity>(TestEntity1).value0);
+        }
+
+        [Test]
+        public void SetComponentViaNamedArgument_SetsValue()
+        {
+            TestSystem.SetComponentViaNamedArgument_SetsValue();
+            Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 
         [Test]

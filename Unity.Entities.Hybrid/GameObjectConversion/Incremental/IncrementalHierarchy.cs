@@ -39,12 +39,12 @@ namespace Unity.Entities.Conversion
         /// <summary>
         /// Maps the index of each element to the indices of its children.
         /// </summary>
-        public NativeMultiHashMap<int, int> ChildIndicesByIndex;
+        public NativeParallelMultiHashMap<int, int> ChildIndicesByIndex;
 
         /// <summary>
         /// Maps instance IDs to indices in the hierarchy.
         /// </summary>
-        public NativeHashMap<int, int> IndexByInstanceId;
+        public NativeParallelHashMap<int, int> IndexByInstanceId;
 
         public void Dispose()
         {
@@ -352,8 +352,8 @@ namespace Unity.Entities.Conversion
             hierarchy = new IncrementalHierarchy
             {
                 TransformArray = new TransformAccessArray(roots.Length),
-                ChildIndicesByIndex = new NativeMultiHashMap<int, int>(roots.Length, alloc),
-                IndexByInstanceId = new NativeHashMap<int, int>(roots.Length, alloc),
+                ChildIndicesByIndex = new NativeParallelMultiHashMap<int, int>(roots.Length, alloc),
+                IndexByInstanceId = new NativeParallelHashMap<int, int>(roots.Length, alloc),
                 InstanceId = new NativeList<int>(roots.Length, alloc),
                 ParentIndex = new NativeList<int>(roots.Length, alloc)
             };

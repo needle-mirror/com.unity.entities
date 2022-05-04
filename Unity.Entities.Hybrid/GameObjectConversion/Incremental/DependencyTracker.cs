@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -16,13 +16,13 @@ namespace Unity.Entities
     [BurstCompatible]
     internal struct DependencyTracker : IDisposable
     {
-        UnsafeMultiHashMap<int, int> _dependentsByInstanceId;
-        UnsafeMultiHashMap<int, int> _dependenciesByInstanceId;
+        UnsafeParallelMultiHashMap<int, int> _dependentsByInstanceId;
+        UnsafeParallelMultiHashMap<int, int> _dependenciesByInstanceId;
 
         internal DependencyTracker(Allocator allocator)
         {
-            _dependentsByInstanceId = new UnsafeMultiHashMap<int, int>(0, allocator);
-            _dependenciesByInstanceId = new UnsafeMultiHashMap<int, int>(0, allocator);
+            _dependentsByInstanceId = new UnsafeParallelMultiHashMap<int, int>(0, allocator);
+            _dependenciesByInstanceId = new UnsafeParallelMultiHashMap<int, int>(0, allocator);
         }
 
         public void Dispose()
@@ -75,11 +75,11 @@ namespace Unity.Entities
         public bool HasDependents(int instanceId) => _dependentsByInstanceId.ContainsKey(instanceId);
 
         internal NativeArray<int> GetAllDependencies(Allocator allocator) => _dependentsByInstanceId.GetKeyArray(allocator);
-        internal UnsafeMultiHashMap<int, int>.Enumerator GetAllDependents(int instanceId) => _dependentsByInstanceId.GetValuesForKey(instanceId);
+        internal UnsafeParallelMultiHashMap<int, int>.Enumerator GetAllDependents(int instanceId) => _dependentsByInstanceId.GetValuesForKey(instanceId);
         internal bool HasDependencies() => !_dependentsByInstanceId.IsEmpty;
         internal bool HasDependencies(int instanceId) => _dependentsByInstanceId.ContainsKey(instanceId);
 
-        internal unsafe void CalculateDependents(NativeArray<int> instanceIds, NativeHashSet<int> outDependents)
+        internal unsafe void CalculateDependents(NativeArray<int> instanceIds, NativeParallelHashSet<int> outDependents)
         {
             var toBeProcessed = new UnsafeList<int>(0, Allocator.Temp);
             toBeProcessed.AddRange(instanceIds.GetUnsafeReadOnlyPtr(), instanceIds.Length);
@@ -104,7 +104,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="instanceIds">The instance ids whose dependents should be collected</param>
         /// <param name="outDependents">The hash set to add the dependents to.</param>
-        public void CalculateDirectDependents(NativeArray<int> instanceIds, NativeHashSet<int> outDependents)
+        public void CalculateDirectDependents(NativeArray<int> instanceIds, NativeParallelHashSet<int> outDependents)
         {
             for (int i = 0; i < instanceIds.Length; i++)
             {

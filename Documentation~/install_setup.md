@@ -8,10 +8,10 @@ When you set up an Entities project, there are additional steps you must follow.
 
 ## Unity Editor version
 
-You must use Unity Editor version 2020.3.30 with Entities 0.50.
+You must use Unity Editor versions 2020.3.30+ or 2021.3.4+ with entities 0.51.
 
 ## IDE support
-Entities 0.50 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
+Entities 0.51 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
 
 * Visual Studio 2022+
 * Rider 2021.3.3+
@@ -25,16 +25,16 @@ The Entities package isn't listed in the Package Manager, even if you've enabled
 
 For more information, see the documentation on [Installing hidden packages](https://docs.unity3d.com/Packages/Installation/manual/index.html).
 
-## Entities 0.50 packages
+## Entities 0.51 packages
 
-The following table lists the ECS-based packages that have been tested together with Unity 2020.3.30:
+The following table lists the ECS-based packages that have been tested together with Unity 2020.3.30+ and 2021.3.4+:
 
 | **Package name** | **Version number** |
 |---|---|
-|Entities (this package)|0.50.0|
-|[Hybrid Renderer](https://docs.unity3d.com/Packages/com.unity.rendering.hybrid@latest)|0.50.0|
-|[Netcode](https://docs.unity3d.com/Packages/com.unity.netcode@latest)|	0.50.0|
-|[Physics](https://docs.unity3d.com/Packages/com.unity.physics@latest)|	0.50.0|
+|Entities (this package)|0.51.0|
+|[Hybrid Renderer](https://docs.unity3d.com/Packages/com.unity.rendering.hybrid@latest)|0.51.0|
+|[Netcode](https://docs.unity3d.com/Packages/com.unity.netcode@latest)|	0.51.0|
+|[Physics](https://docs.unity3d.com/Packages/com.unity.physics@latest)|	0.51.0|
 
 The following packages are also automatically included when installing the Entities package:
 
@@ -42,8 +42,14 @@ The following packages are also automatically included when installing the Entit
 |---|---|
 |[Burst](https://docs.unity3d.com/Packages/com.unity.burst@latest)|	1.6.4|
 |[Collections](https://docs.unity3d.com/Packages/com.unity.collections@latest)|	1.2.3|
-|[Jobs](https://docs.unity3d.com/Packages/com.unity.jobs@latest)|0.50.0|
+|[Jobs](https://docs.unity3d.com/Packages/com.unity.jobs@latest)|0.51.0|
 |[Mathematics](https://docs.unity3d.com/Packages/com.unity.mathematics@latest)|	1.2.5|
+
+## IDE support
+Entities 0.51 uses the [Microsoft Source Generator](https://docs.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview) feature for its code generation. Because of this, you should use an IDE that's compatible with source generators. Previous IDE versions might experience slow-downs or mark valid code as errors. The following IDEs are compatible with source generators:
+
+* Visual Studio 2022+
+* Rider 2021.3.3+
 
 ## Building your application
 
@@ -53,7 +59,7 @@ To build your application, you must install the [Entities Platforms package](htt
 
 The following platforms are supported build targets for Entities projects:
 
-* **Mobile:** Android, iOS **Note:** Hybrid Renderer only supports Vulkan on Android in 0.50.
+* **Mobile:** Android, iOS **Note:** Hybrid Renderer only supports Vulkan on Android in 0.50 and 0.51.
 * **Desktop:** Windows, macOS, Linux
 * **Consoles:** Xbox (One, Series), Playstation (4, 5)
 

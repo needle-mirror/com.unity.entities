@@ -252,12 +252,12 @@ namespace Unity.Entities
             public NativeList<T> List;
 
             [NativeDisableContainerSafetyRestriction]
-            public NativeHashMap<T, int> Lookup;
+            public NativeParallelHashMap<T, int> Lookup;
 
             public PackedCollection(int capacity, Allocator label)
             {
                 List = new NativeList<T>(capacity, label);
-                Lookup = new NativeHashMap<T, int>(capacity, label);
+                Lookup = new NativeParallelHashMap<T, int>(capacity, label);
             }
 
             public void ResizeUninitialized(int count)
@@ -394,7 +394,7 @@ namespace Unity.Entities
 
             public void Execute()
             {
-                var archLookup = new UnsafeHashSet<ulong>(128, Allocator.Temp);
+                var archLookup = new UnsafeParallelHashSet<ulong>(128, Allocator.Temp);
 
                 for (int i = 0; i < CreatedEntities.Length; ++i)
                 {
@@ -1071,7 +1071,7 @@ namespace Unity.Entities
                 }
             }
 
-            static ulong GetBlobAssetHash(NativeHashMap<BlobAssetPtr, BlobAssetPtr> remap, BlobAssetReferenceData* blobAssetReferenceData)
+            static ulong GetBlobAssetHash(NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> remap, BlobAssetReferenceData* blobAssetReferenceData)
             {
                 if (blobAssetReferenceData->m_Ptr == null)
                     return 0;
@@ -1216,8 +1216,8 @@ namespace Unity.Entities
             [ReadOnly] public PackedEntityGuidsCollection Entities;
             [ReadOnly] public PackedCollection<ComponentTypeHash> ComponentTypes;
 
-            [ReadOnly] [NativeDisableContainerSafetyRestriction] public NativeHashMap<BlobAssetPtr, BlobAssetPtr> AfterBlobAssetRemap;
-            [ReadOnly] [NativeDisableContainerSafetyRestriction] public NativeHashMap<BlobAssetPtr, BlobAssetPtr> BeforeBlobAssetRemap;
+            [ReadOnly] [NativeDisableContainerSafetyRestriction] public NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> AfterBlobAssetRemap;
+            [ReadOnly] [NativeDisableContainerSafetyRestriction] public NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> BeforeBlobAssetRemap;
 
             /// <summary>
             /// If set, components are not compared bit-wise. Bit-wise comparison implies that two components that
@@ -1311,8 +1311,8 @@ namespace Unity.Entities
             EntityInChunkChanges entityChanges,
             ComponentChanges componentChanges,
             bool useReferentialEquivalence,
-            NativeHashMap<BlobAssetPtr, BlobAssetPtr> afterBlobAssetRemap,
-            NativeHashMap<BlobAssetPtr, BlobAssetPtr> beforeBlobAssetRemap)
+            NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> afterBlobAssetRemap,
+            NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> beforeBlobAssetRemap)
         {
             return new GatherComponentChangesReadOnlyData
             {
@@ -1355,8 +1355,8 @@ namespace Unity.Entities
             ref ComponentChanges componentChanges,
             EntityInChunkChanges entityChanges,
             bool useReferentialEquivalence,
-            NativeHashMap<BlobAssetPtr, BlobAssetPtr> afterBlobAssetRemap,
-            NativeHashMap<BlobAssetPtr, BlobAssetPtr> beforeBlobAssetRemap,
+            NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> afterBlobAssetRemap,
+            NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> beforeBlobAssetRemap,
             Allocator allocator,
             out JobHandle jobHandle,
             JobHandle dependsOn = default)
@@ -1678,7 +1678,7 @@ namespace Unity.Entities
                 var entityGuidsPtr = (EntityGuid*)NameChanges.NameChangedEntityGuids.GetUnsafeReadOnlyPtr();
 
                 var length = CreatedEntities.Length + NameModifiedEntities.Length + DestroyedEntities.Length;
-                var entitiesLookup = new UnsafeHashSet<EntityGuid>(length, Allocator.TempJob);
+                var entitiesLookup = new UnsafeParallelHashSet<EntityGuid>(length, Allocator.TempJob);
 
                 // Created entities will ALWAYS show up in the entityGuid set so we can safely grab the names.
                 // They will exist in the after world.

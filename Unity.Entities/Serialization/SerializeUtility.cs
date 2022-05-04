@@ -282,9 +282,9 @@ namespace Unity.Entities.Serialization
             /// <summary>
             /// A map of <see cref="BlobAssetReferenceData"/> to index in the serialized batch.
             /// </summary>
-            readonly NativeHashMap<BlobAssetPtr, int> m_BlobAssetMap;
+            readonly NativeParallelHashMap<BlobAssetPtr, int> m_BlobAssetMap;
 
-            readonly NativeHashSet<UntypedWeakReferenceId> m_WeakAssetRefs;
+            readonly NativeParallelHashSet<UntypedWeakReferenceId> m_WeakAssetRefs;
 
             /// <summary>
             /// An array of absolute byte offsets for all blob assets within the serialized batch.
@@ -293,9 +293,9 @@ namespace Unity.Entities.Serialization
 
             public ManagedObjectWriterAdapter(
                 EntityRemapUtility.EntityRemapInfo* entityRemapInfo,
-                NativeHashMap<BlobAssetPtr, int> blobAssetMap,
+                NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap,
                 NativeArray<int> blobAssetOffsets,
-                NativeHashSet<UntypedWeakReferenceId> weakAssetRefs)
+                NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
             {
                 SerializeEntityReferences = true;
                 m_EntityRemapInfo = entityRemapInfo;
@@ -444,7 +444,7 @@ namespace Unity.Entities.Serialization
         {
             var isNameLoaded = false;
             var hasTypesName = false;
-            UnsafeHashMap<ulong, int> namesFromStableHash = default;
+            UnsafeParallelHashMap<ulong, int> namesFromStableHash = default;
             StringTableReaderHandle stringStable = default;
 
             // Unknown type rarely occur, so we built the type hash/name map only at the first call of this method
@@ -462,7 +462,7 @@ namespace Unity.Entities.Serialization
                         stringStable = dotsReader.OpenStringTableNode(debugSectionNode.FindNode<DotsSerialization.StringTableNode>());
                         var typesNameNode = debugSectionNode.FindNode<DotsSerialization.TypeNamesNode>();
                         var typeCount = typesNameNode.As<DotsSerialization.TypeNamesNode>().TypeCount;
-                        namesFromStableHash = new UnsafeHashMap<ulong, int>(typeCount, Allocator.Temp);
+                        namesFromStableHash = new UnsafeParallelHashMap<ulong, int>(typeCount, Allocator.Temp);
                         using (var readerHandle = typesNameNode.GetReaderHandle())
                         {
                             var r = readerHandle.Reader;
@@ -957,7 +957,7 @@ namespace Unity.Entities.Serialization
             SerializeWorldInternal(entityManager, writer, out referencedObjects, entityRemapInfos, default, new Settings(), isDOTSRuntime);
         }
 
-        internal static unsafe BlobAssetReference<DotsSerialization.BlobHeader> SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, NativeHashSet<UntypedWeakReferenceId> weakAssetRefs, Settings settings, bool isDOTSRuntime = false, bool buildBlobHeader = false)
+        internal static unsafe BlobAssetReference<DotsSerialization.BlobHeader> SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs, Settings settings, bool isDOTSRuntime = false, bool buildBlobHeader = false)
         {
             BlobAssetReference<DotsSerialization.BlobHeader> blobHeader = default;
             using (var dotsWriter = DotsSerialization.CreateWriter(writer, WorldFileType, "EntityBinaryFile"))
@@ -1100,11 +1100,11 @@ namespace Unity.Entities.Serialization
             Chunk* tempChunk,
             ManagedComponentStore mcs,
             NativeArray<int> blobAssetOffsets,
-            NativeHashMap<BlobAssetPtr, int> blobAssetMap,
+            NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap,
             NativeList<BufferPatchRecord> bufferPatches,
             NativeList<int> bufferPatchesCountPerChunk,
             NativeList<IntPtr> bufferDataList,
-            NativeHashSet<UntypedWeakReferenceId> weakAssetRefs)
+            NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
         {
             using (var chunkNode = dotsWriter.CreateNode<DotsSerialization.RevisionedRawDataNode>(ChunksNodeType))
             using (var writerHandle = chunkNode.GetWriterHandle())
@@ -1156,8 +1156,8 @@ namespace Unity.Entities.Serialization
         }
 
         private static unsafe object[] WriteSharedAndManagedComponents(EntityManager entityManager, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, bool isDOTSRuntime, DotsSerializationWriter dotsWriter,
-            NativeArray<int> sharedComponentArrays, UnsafePtrList<Archetype> archetypeArray, int[] sharedComponentsToSerialize, NativeHashMap<BlobAssetPtr, int> blobAssetMap, NativeArray<int> blobAssetOffsets,
-			 NativeHashSet<UntypedWeakReferenceId> weakAssetRefs)
+            NativeArray<int> sharedComponentArrays, UnsafePtrList<Archetype> archetypeArray, int[] sharedComponentsToSerialize, NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap, NativeArray<int> blobAssetOffsets,
+			 NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
         {
             object[] referencedObjects;
             using (var sharedComponentsNode = dotsWriter.CreateNode<DotsSerialization.RevisionedRawDataNode>(SharedAndManagedComponentsNodeType))
@@ -1227,7 +1227,7 @@ namespace Unity.Entities.Serialization
         }
 
         private static void WriteBlobAssetNode(EntityManager entityManager, bool isDOTSRuntime, DotsSerializationWriter dotsWriter, int[] sharedComponentsToSerialize,
-            UnsafePtrList<Archetype> archetypeArray, out NativeHashMap<BlobAssetPtr, int> blobAssetMap, out NativeArray<int> blobAssetOffsets)
+            UnsafePtrList<Archetype> archetypeArray, out NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap, out NativeArray<int> blobAssetOffsets)
         {
             using (var blobAssetNode = dotsWriter.CreateNode<DotsSerialization.RevisionedRawDataNode>(BlobAssetsNodeType))
             using (var writerHandle = blobAssetNode.GetWriterHandle())
@@ -1312,7 +1312,7 @@ namespace Unity.Entities.Serialization
             using (var typesNameNode = dotsWriter.CreateNode<DotsSerialization.TypeNamesNode>(TypesNameNodeType))
             using (var writerHandle = typesNameNode.GetWriterHandle())
             {
-                var typesHashSet = new UnsafeHashSet<int>(1024, Allocator.Temp);
+                var typesHashSet = new UnsafeParallelHashSet<int>(1024, Allocator.Temp);
                 var archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp);
                 for (int i = 0; i != archetypeArray.Length; i++)
                 {
@@ -1353,7 +1353,7 @@ namespace Unity.Entities.Serialization
 
                 archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp);
 
-                var typeHashToIndexMap = new UnsafeHashMap<ulong, int>(1024, Allocator.Temp);
+                var typeHashToIndexMap = new UnsafeParallelHashMap<ulong, int>(1024, Allocator.Temp);
                 for (int i = 0; i != archetypeArray.Length; i++)
                 {
                     var archetype = archetypeArray.Ptr[i];
@@ -1419,9 +1419,9 @@ namespace Unity.Entities.Serialization
             out object[] referencedObjects,
             bool isDOTSRuntime,
             EntityRemapUtility.EntityRemapInfo* remapping,
-            NativeHashMap<BlobAssetPtr, int> blobAssetMap,
+            NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap,
             NativeArray<int> blobAssetOffsets,
-            NativeHashSet<UntypedWeakReferenceId> weakAssetRefs)
+            NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
         {
             int managedComponentCount = 0;
             referencedObjects = null;
@@ -1696,9 +1696,9 @@ namespace Unity.Entities.Serialization
             bool isDOTSRuntime,
             UnsafePtrList<Archetype> archetypeArray,
             out NativeList<BlobAssetPtr> blobAssets,
-            out NativeHashMap<BlobAssetPtr, int> blobAssetMap)
+            out NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap)
         {
-            blobAssetMap = new NativeHashMap<BlobAssetPtr, int>(100, Allocator.TempJob);
+            blobAssetMap = new NativeParallelHashMap<BlobAssetPtr, int>(100, Allocator.TempJob);
 
             blobAssets = new NativeList<BlobAssetPtr>(100, Allocator.TempJob);
             for (int a = 0; a < archetypeArray.Length; ++a)
@@ -1835,7 +1835,7 @@ namespace Unity.Entities.Serialization
         }
 
         private static unsafe void AddBlobAssetRefInfo(byte* componentData, TypeManager.EntityOffsetInfo* blobAssetRefOffsets, int blobAssetRefCount,
-            ref NativeHashMap<BlobAssetPtr, int> blobAssetMap, ref NativeList<BlobAssetPtr> blobAssets)
+            ref NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap, ref NativeList<BlobAssetPtr> blobAssets)
         {
             for (int i = 0; i < blobAssetRefCount; ++i)
             {
@@ -1854,7 +1854,7 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe void GetWeakAssetRefsInChunk(Chunk* chunk, NativeHashSet<UntypedWeakReferenceId> weakAssetRefs)
+        private static unsafe void GetWeakAssetRefsInChunk(Chunk* chunk, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
         {
             var archetype = chunk->Archetype;
             var typeCount = archetype->TypesCount;
@@ -1908,7 +1908,7 @@ namespace Unity.Entities.Serialization
         }
 
         private static unsafe void GetWeakAssetRefsInComponent(byte* componentData, TypeManager.EntityOffsetInfo* weakAssetRefOffsets, int weakAssetRefCount,
-            NativeHashSet<UntypedWeakReferenceId> weakAssetRefs)
+            NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
         {
             for (int i = 0; i < weakAssetRefCount; ++i)
             {
@@ -1918,7 +1918,7 @@ namespace Unity.Entities.Serialization
         }
 
         private static unsafe void PatchBlobAssetsInChunkBeforeSave(Chunk* tempChunk, Chunk* originalChunk,
-            NativeArray<int> blobAssetOffsets, NativeHashMap<BlobAssetPtr, int> blobAssetMap)
+            NativeArray<int> blobAssetOffsets, NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap)
         {
             var archetype = originalChunk->Archetype;
             var typeCount = archetype->TypesCount;
@@ -1971,7 +1971,7 @@ namespace Unity.Entities.Serialization
         }
 
         private static unsafe void PatchBlobAssetRefInfoBeforeSave(byte* componentData, TypeManager.EntityOffsetInfo* blobAssetRefOffsets, int blobAssetRefCount,
-            NativeArray<int> blobAssetOffsets, NativeHashMap<BlobAssetPtr, int> blobAssetMap)
+            NativeArray<int> blobAssetOffsets, NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap)
         {
             for (int i = 0; i < blobAssetRefCount; ++i)
             {
@@ -2037,7 +2037,7 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe void FillSharedComponentArrays(NativeArray<int> sharedComponentArrays, UnsafePtrList<Archetype> archetypeArray, NativeHashMap<int, int> sharedComponentMapping)
+        private static unsafe void FillSharedComponentArrays(NativeArray<int> sharedComponentArrays, UnsafePtrList<Archetype> archetypeArray, NativeParallelHashMap<int, int> sharedComponentMapping)
         {
             var sharedComponentIndexRemap = stackalloc int[EntityComponentStore.kMaxSharedComponentCount];
             int index = 0;
@@ -2062,10 +2062,10 @@ namespace Unity.Entities.Serialization
             Assert.AreEqual(sharedComponentArrays.Length, index);
         }
 
-        private static unsafe NativeHashMap<int, int> GatherSharedComponents(UnsafePtrList<Archetype> archetypeArray, out int sharedComponentArraysTotalCount)
+        private static unsafe NativeParallelHashMap<int, int> GatherSharedComponents(UnsafePtrList<Archetype> archetypeArray, out int sharedComponentArraysTotalCount)
         {
             sharedComponentArraysTotalCount = 0;
-            var sharedIndexToSerialize = new NativeHashMap<int, int>(1024, Allocator.Temp);
+            var sharedIndexToSerialize = new NativeParallelHashMap<int, int>(1024, Allocator.Temp);
             sharedIndexToSerialize.TryAdd(0, 0); // All default values map to 0
             int nextIndex = 1;
             for (int iArchetype = 0; iArchetype < archetypeArray.Length; ++iArchetype)
@@ -2114,7 +2114,7 @@ namespace Unity.Entities.Serialization
             return ((byte*)ptr) + offset;
         }
 
-        static unsafe void WriteArchetypes(BinaryWriter writer, UnsafePtrList<Archetype> archetypeArray, UnsafeHashMap<ulong, int> typeHashToIndexMap)
+        static unsafe void WriteArchetypes(BinaryWriter writer, UnsafePtrList<Archetype> archetypeArray, UnsafeParallelHashMap<ulong, int> typeHashToIndexMap)
         {
             writer.Write(archetypeArray.Length);
 

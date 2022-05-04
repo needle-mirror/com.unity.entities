@@ -26,8 +26,8 @@ namespace Unity.Entities.Editor
         readonly HashSet<Entity> m_KnownMissingParent = new HashSet<Entity>();
         readonly HashSet<EntityHierarchyNodeId> m_NodesBeingAddedTempSet = new HashSet<EntityHierarchyNodeId>();
 
-        NativeHashMap<Entity, SceneTag> m_SceneTagPerEntity = new NativeHashMap<Entity, SceneTag>(Constants.EntityHierarchy.InitialCapacity.EntityNode, Allocator.Persistent);
-        NativeHashMap<EntityHierarchyNodeId, Hash128> m_SceneNodes = new NativeHashMap<EntityHierarchyNodeId, Hash128>(Constants.EntityHierarchy.InitialCapacity.SceneNode, Allocator.Persistent);
+        NativeParallelHashMap<Entity, SceneTag> m_SceneTagPerEntity = new NativeParallelHashMap<Entity, SceneTag>(Constants.EntityHierarchy.InitialCapacity.EntityNode, Allocator.Persistent);
+        NativeParallelHashMap<EntityHierarchyNodeId, Hash128> m_SceneNodes = new NativeParallelHashMap<EntityHierarchyNodeId, Hash128>(Constants.EntityHierarchy.InitialCapacity.SceneNode, Allocator.Persistent);
 
         EntityQuery m_RootEntitiesQuery;
         EntityQueryMask m_RootEntitiesQueryMask;

@@ -863,13 +863,22 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void TRS_SetParent_OldParentIsDestroyed()
+        public void TRS_SetParent_OldParentIsDestroyed([Values] bool withSystemState)
         {
             var parentSystem = World.GetOrCreateSystem<ParentSystem>();
 
             var parentA = m_Manager.CreateEntity(typeof(LocalToWorld));
             var parentB = m_Manager.CreateEntity(typeof(LocalToWorld));
             var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalToParent));
+
+            if (withSystemState)
+            {
+                // Having a system state or not is important to validate the check in the
+                // parenting system that it should not try to update a child buffer when it doesn't exist.
+                // Because that's the difference between having a destroyed parent entity,
+                // or a parent entity without the buffer.
+                m_Manager.AddComponent<EcsStateTag1>(parentA);
+            }
 
             m_Manager.SetComponentData(child, new Parent {Value = parentA});
 
@@ -881,6 +890,9 @@ namespace Unity.Entities.Tests
             parentSystem.Update(World.Unmanaged);
 
             Assert.AreEqual(parentB, m_Manager.GetComponentData<Parent>(child).Value);
+
+            var children = m_Manager.GetBuffer<Child>(parentB).AsNativeArray();
+            CollectionAssert.AreEqual(children.Reinterpret<Entity>(), new[] { child });
         }
     }
 }

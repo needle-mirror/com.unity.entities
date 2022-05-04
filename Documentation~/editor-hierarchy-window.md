@@ -16,5 +16,5 @@ To see the full Entities hierarchy in both Edit mode and Play mode,  you must en
 ## Additional resources
 
 * [Entities user manual](ecs_entities.md)
-* [Entities Inspector reference](editor-entities-inspector.md)
+* [Entity Inspector reference](editor-entity-inspector.md)
 * [World user manual](world.md)

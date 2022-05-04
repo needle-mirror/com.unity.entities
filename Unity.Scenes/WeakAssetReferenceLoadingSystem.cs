@@ -37,13 +37,13 @@ namespace Unity.Scenes
             public Entity PrefabRoot;
         }
 
-        internal NativeMultiHashMap<EntityPrefabReference, Entity> InProgressLoads;
-        internal NativeHashMap<EntityPrefabReference, LoadedPrefab> LoadedPrefabs;
+        internal NativeParallelMultiHashMap<EntityPrefabReference, Entity> InProgressLoads;
+        internal NativeParallelHashMap<EntityPrefabReference, LoadedPrefab> LoadedPrefabs;
 
         protected override void OnCreate()
         {
-            InProgressLoads = new NativeMultiHashMap<EntityPrefabReference, Entity>(1, Allocator.Persistent);
-            LoadedPrefabs = new NativeHashMap<EntityPrefabReference, LoadedPrefab>(1, Allocator.Persistent);
+            InProgressLoads = new NativeParallelMultiHashMap<EntityPrefabReference, Entity>(1, Allocator.Persistent);
+            LoadedPrefabs = new NativeParallelHashMap<EntityPrefabReference, LoadedPrefab>(1, Allocator.Persistent);
         }
 
         protected override void OnDestroy()

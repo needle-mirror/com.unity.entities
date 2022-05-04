@@ -21,10 +21,13 @@
         <ui:Label name="chunk-capacity-label"/>
         <ui:Label name="chunk-capacity-value"/>
       </ui:VisualElement>
+<!--
+      Disabled until we find a better way to get this info
       <ui:VisualElement name="segment-count" class="memory-profiler-right-pane__item">
         <ui:Label name="segment-count-label"/>
         <ui:Label name="segment-count-value"/>
       </ui:VisualElement>
+-->
       <uiee:FoldoutField name="components"/>
       <ui:Label name="external-components" class="memory-profiler-right-pane__external-components"/>
       <uiee:FoldoutField name="chunk-components"/>

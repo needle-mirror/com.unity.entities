@@ -22,9 +22,9 @@ namespace Unity.Entities
     {
         public BlobAssetStore()
         {
-            m_BlobAssets = new NativeHashMap<Hash128, BlobAssetReferenceData>(128, Allocator.Persistent);
-            m_HashByOwner = new NativeMultiHashMap<int, Hash128>(128, Allocator.Persistent);
-            m_RefCounterPerBlobHash = new NativeHashMap<Hash128, int>(128, Allocator.Persistent);
+            m_BlobAssets = new NativeParallelHashMap<Hash128, BlobAssetReferenceData>(128, Allocator.Persistent);
+            m_HashByOwner = new NativeParallelMultiHashMap<int, Hash128>(128, Allocator.Persistent);
+            m_RefCounterPerBlobHash = new NativeParallelHashMap<Hash128, int>(128, Allocator.Persistent);
         }
 
         /// <summary>
@@ -197,9 +197,9 @@ namespace Unity.Entities
         /// </remarks>
         internal int CacheMiss => m_CacheMiss;
 
-        NativeHashMap<Hash128, BlobAssetReferenceData> m_BlobAssets;
-        NativeHashMap<Hash128, int> m_RefCounterPerBlobHash;
-        NativeMultiHashMap<int, Hash128> m_HashByOwner;
+        NativeParallelHashMap<Hash128, BlobAssetReferenceData> m_BlobAssets;
+        NativeParallelHashMap<Hash128, int> m_RefCounterPerBlobHash;
+        NativeParallelMultiHashMap<int, Hash128> m_HashByOwner;
 
         int m_CacheHit;
         int m_CacheMiss;

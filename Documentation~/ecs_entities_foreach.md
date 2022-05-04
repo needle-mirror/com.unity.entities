@@ -38,12 +38,12 @@ The following example illustrates how to access the EntityQuery object implicitl
 <a name="optional-components"></a>
 ### Optional components
 
-You cannot create a query specifying optional components (using WithAny&lt;T,U&gt;) and also access those components in the lambda function. If you need to read or write to a component that is optional, you can split the Entities.ForEach construction into multiple jobs, one for each combination of the optional components. For example, if you had two optional components, you would need three ForEach constructions: one including the first optional component, one including the second, and one including both components. Another alternative is to iterate by chunk using IJobChunk.
+You can't create a query specifying optional components (using WithAny&lt;T,U&gt;) and also access those components in the lambda function. If you need to read or write to a component that is optional, you can split the Entities.ForEach construction into multiple jobs, one for each combination of the optional components. For example, if you had two optional components, you would need three ForEach constructions: one including the first optional component, one including the second, and one including both components. Another alternative is to iterate by chunk using IJobChunk.
 
 <a name="change-filtering"></a>
 ### Change filtering
 
-In cases where you only want to process an entity component when another entity of that component has changed since the last time the current [SystemBase] instance has run, you can enable change filtering using WithChangeFilter&lt;T&gt;. The component type used in the change filter must either be in the lambda function parameter list or part of a WithAll&lt;T&gt; statement.
+In cases where you only want to process an Entity Component when another Component of that Entity has changed since the last time the current [SystemBase] instance has run, you can use `WithChangeFilter<T>` to enable change filtering. The Component type used in the change filter must either be in the lambda function parameter list or part of a `WithAll<T>` statement.
 
 [!code-cs[with-change-filter](../DocCodeSamples.Tests/LambdaJobExamples.cs#with-change-filter)]
 

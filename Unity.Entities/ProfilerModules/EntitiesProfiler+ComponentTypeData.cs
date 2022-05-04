@@ -1,15 +1,14 @@
 using System.Runtime.InteropServices;
-using Unity.Collections;
 
 namespace Unity.Entities
 {
     partial class EntitiesProfiler
     {
-        [StructLayout(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Explicit, Size = 9)]
         public readonly struct ComponentTypeData
         {
-            public readonly ulong StableTypeHash;
-            public readonly ComponentTypeFlags Flags;
+            [FieldOffset(0)] public readonly ulong StableTypeHash;
+            [FieldOffset(8)] public readonly ComponentTypeFlags Flags;
 
             public ComponentTypeData(ulong stableTypeHash, ComponentTypeFlags flags)
             {

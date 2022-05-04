@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Assertions;
+using Unity.Burst.CompilerServices;
 using Unity.Mathematics;
 
 // ---------------------------------------------------------------------------------------------------------
@@ -316,7 +317,7 @@ namespace Unity.Entities
 
         const int kMaximumEmptyChunksInPool = 16; // can't alloc forever
         const int kDefaultCapacity = 1024;
-        internal const int kMaxSharedComponentCount = 8;
+        internal const int kMaxSharedComponentCount = 16;
 
         struct AddressSpaceTagType { }
         static readonly SharedStatic<ulong> s_TotalChunkAddressSpaceInBytes = SharedStatic<ulong>.GetOrCreate<AddressSpaceTagType>();
@@ -845,8 +846,17 @@ namespace Unity.Entities
                 return false;
 
             var archetype = m_ArchetypeByEntity[entity.Index];
-            ChunkDataUtility.GetIndexInTypeArray(archetype, type, ref cache.IndexInArcheType);
-            return  cache.IndexInArcheType != -1;
+            if (Hint.Unlikely(archetype != cache.Archetype))
+            {
+                cache.Archetype = archetype;
+                ChunkDataUtility.GetIndexInTypeArray(archetype, type, ref cache.IndexInArcheType);
+                if (Hint.Likely(cache.IndexInArcheType != -1))
+                {
+                    cache.ComponentOffset = archetype->Offsets[cache.IndexInArcheType];
+                    cache.ComponentSizeOf = archetype->SizeOfs[cache.IndexInArcheType];
+                }
+            }
+            return cache.IndexInArcheType != -1;
         }
 
         public bool HasComponent(Entity entity, ComponentType type)

@@ -16,8 +16,8 @@ namespace Unity.Entities.Conversion
         internal DependencyTracker AssetDependencyTracker;
 #endif
 
-        private NativeHashMap<int, DependencyTracker> _componentDependenciesByTypeIndex;
-        private NativeHashSet<int> _unresolvedComponentInstanceIds;
+        private NativeParallelHashMap<int, DependencyTracker> _componentDependenciesByTypeIndex;
+        private NativeParallelHashSet<int> _unresolvedComponentInstanceIds;
         internal bool HasUnresolvedComponentInstanceIds => !_unresolvedComponentInstanceIds.IsEmpty;
         readonly bool _isLiveConversion;
 
@@ -27,8 +27,8 @@ namespace Unity.Entities.Conversion
             if (_isLiveConversion)
             {
                 GameObjectDependencyTracker = new DependencyTracker(Allocator.Persistent);
-                _componentDependenciesByTypeIndex = new NativeHashMap<int, DependencyTracker>(0, Allocator.Persistent);
-                _unresolvedComponentInstanceIds = new NativeHashSet<int>(0, Allocator.Persistent);
+                _componentDependenciesByTypeIndex = new NativeParallelHashMap<int, DependencyTracker>(0, Allocator.Persistent);
+                _unresolvedComponentInstanceIds = new NativeParallelHashSet<int>(0, Allocator.Persistent);
             }
             else
             {
@@ -167,7 +167,7 @@ namespace Unity.Entities.Conversion
 
         }
 
-        internal void CalculateAssetDependents(NativeArray<int> assetInstanceIds, NativeHashSet<int> outDependents)
+        internal void CalculateAssetDependents(NativeArray<int> assetInstanceIds, NativeParallelHashSet<int> outDependents)
         {
 #if UNITY_EDITOR
             if (assetInstanceIds.Length == 0)
@@ -184,7 +184,7 @@ namespace Unity.Entities.Conversion
             => _componentDependenciesByTypeIndex.TryGetValue(typeIndex, out tracker);
 
 
-        internal void CalculateDependents(NativeArray<int> instanceIds, NativeHashSet<int> outDependents)
+        internal void CalculateDependents(NativeArray<int> instanceIds, NativeParallelHashSet<int> outDependents)
             => GameObjectDependencyTracker.CalculateDependents(instanceIds, outDependents);
 
         public void Dispose()

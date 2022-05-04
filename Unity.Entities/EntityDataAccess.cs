@@ -135,16 +135,16 @@ namespace Unity.Entities
 
 #if UNITY_EDITOR
         public int m_CachedEntityGUIDToEntityIndexVersion;
-        UntypedUnsafeHashMap m_CachedEntityGUIDToEntityIndex;
+        UntypedUnsafeParallelHashMap m_CachedEntityGUIDToEntityIndex;
 
         [BurstCompatible(CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
-        public ref UnsafeMultiHashMap<int, Entity> CachedEntityGUIDToEntityIndex
+        public ref UnsafeParallelMultiHashMap<int, Entity> CachedEntityGUIDToEntityIndex
         {
             get
             {
                 fixed (void* ptr = &m_CachedEntityGUIDToEntityIndex)
                 {
-                    return ref UnsafeUtility.AsRef<UnsafeMultiHashMap<int, Entity>>(ptr);
+                    return ref UnsafeUtility.AsRef<UnsafeParallelMultiHashMap<int, Entity>>(ptr);
                 }
             }
         }
@@ -162,21 +162,20 @@ namespace Unity.Entities
         public int m_InsideForEach;
 #endif
 
-        private UntypedUnsafeHashMap m_AliveEntityQueries;
+        private UntypedUnsafeParallelHashMap m_AliveEntityQueries;
 
-        internal ref UnsafeHashMap<ulong, byte> AliveEntityQueries
+        internal ref UnsafeParallelHashMap<ulong, byte> AliveEntityQueries
         {
             get
             {
                 fixed (void* ptr = &m_AliveEntityQueries)
                 {
-                    return ref UnsafeUtility.AsRef<UnsafeHashMap<ulong, byte>>(ptr);
+                    return ref UnsafeUtility.AsRef<UnsafeParallelHashMap<ulong, byte>>(ptr);
                 }
             }
         }
 
-        internal byte m_IsInExclusiveTransaction;
-        internal bool IsInExclusiveTransaction => m_IsInExclusiveTransaction != 0;
+        internal bool IsInExclusiveTransaction => m_DependencyManager.IsInTransaction;
 
         [BurstCompile]
         internal struct DestroyChunks : IJobBurstSchedulable
@@ -200,9 +199,9 @@ namespace Unity.Entities
             self->m_EntityOnlyArchetype = default;
             self->m_ManagedAccessHandle = ManagedEntityDataAccess.AllocHandle(managedGuts);
 
-            self->AliveEntityQueries = new UnsafeHashMap<ulong, byte>(32, Allocator.Persistent);
+            self->AliveEntityQueries = new UnsafeParallelHashMap<ulong, byte>(32, Allocator.Persistent);
 #if UNITY_EDITOR
-            self->CachedEntityGUIDToEntityIndex = new UnsafeMultiHashMap<int, Entity>(32, Allocator.Persistent);
+            self->CachedEntityGUIDToEntityIndex = new UnsafeParallelMultiHashMap<int, Entity>(32, Allocator.Persistent);
 #endif
             managedGuts.m_World = world;
 
@@ -372,8 +371,8 @@ namespace Unity.Entities
             CheckIsStructuralChange();
             EntityComponentStore->AssertNoQueuedManagedDeferredCommands();
 
-            if (m_IsInExclusiveTransaction == 0)
-                DependencyManager->CompleteAllJobsAndInvalidateArrays();
+            if (!m_DependencyManager.IsInTransaction)
+                m_DependencyManager.CompleteAllJobsAndInvalidateArrays();
         }
 
         public EntityComponentStore.ArchetypeChanges BeginStructuralChanges()

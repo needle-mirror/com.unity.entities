@@ -34,7 +34,7 @@ namespace Unity.Transforms
             }
 
             // Calculate the indices of all instances that we need to update the local-to-world on
-            NativeHashMap<int, bool> localToWorldIndices = new NativeHashMap<int, bool>(0, Allocator.TempJob);
+            NativeParallelHashMap<int, bool> localToWorldIndices = new NativeParallelHashMap<int, bool>(0, Allocator.TempJob);
             var collectionJob = m_Incremental.SceneHierarchy.Hierarchy
                 .CollectHierarchyInstanceIdsAndIndicesAsync(localToWorldInstancesList, localToWorldIndices);
 
@@ -75,7 +75,7 @@ namespace Unity.Transforms
         struct UpdateConvertedTransforms : IJobParallelForTransform
         {
             [ReadOnly] public SceneHierarchy Hierarchy;
-            [ReadOnly] public NativeHashMap<int, bool> ChangedIndices;
+            [ReadOnly] public NativeParallelHashMap<int, bool> ChangedIndices;
 
             [NativeDisableParallelForRestriction]
             public ComponentDataFromEntity<LocalToWorld> LocalToWorld;

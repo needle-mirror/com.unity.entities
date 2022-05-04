@@ -1,7 +1,7 @@
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 using System.Linq;
 using NUnit.Framework;
-using Unity.Entities.Serialization;
+
 using Unity.Entities.Tests.Conversion;
 using Unity.Scenes;
 

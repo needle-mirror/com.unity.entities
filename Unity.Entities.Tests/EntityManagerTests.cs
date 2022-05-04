@@ -254,7 +254,7 @@ namespace Unity.Entities.Tests
             var array = new NativeArray<Entity>(count, Allocator.Temp);
             m_Manager.CreateEntity(archetype, array);
 
-            var hash = new NativeHashMap<Entity, bool>(count, Allocator.Temp);
+            var hash = new NativeParallelHashMap<Entity, bool>(count, Allocator.Temp);
 
             var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestComponentWithBool>());
             using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))
@@ -672,7 +672,7 @@ namespace Unity.Entities.Tests
             m_ManagerDebug.UseMemoryInitPattern = true;
             m_ManagerDebug.MemoryInitPattern = kMemoryInitPattern;
 
-            NativeHashSet<ulong> seenChunkBuffers = new NativeHashSet<ulong>(8, Allocator.TempJob);
+            NativeParallelHashSet<ulong> seenChunkBuffers = new NativeParallelHashSet<ulong>(8, Allocator.TempJob);
             var dppArchetype = m_Manager.CreateArchetype(typeof(ComponentDataByteThen2PaddingBytes));
             var pdpArchetype = m_Manager.CreateArchetype(typeof(ComponentPaddingByteThenDataByteThenPaddingByte));
             Assert.AreEqual(dppArchetype.ChunkCapacity, pdpArchetype.ChunkCapacity);
@@ -863,7 +863,7 @@ namespace Unity.Entities.Tests
             var array = new NativeArray<Entity>(count, Allocator.Temp);
             m_Manager.CreateEntity(archetype, array);
 
-            var hash = new NativeHashMap<Entity, FixedString64Bytes>(count, Allocator.Temp);
+            var hash = new NativeParallelHashMap<Entity, FixedString64Bytes>(count, Allocator.Temp);
 
             var cg = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestManagedComponent>());
             using (var chunks = cg.CreateArchetypeChunkArray(Allocator.TempJob))

@@ -48,7 +48,7 @@ namespace Unity.Entities.Editor.Tests
             Action<VisualElement, ITreeViewItem> bindItem = (e, i) =>
             {
                 e.Q<Label>(s_LabelIdName).text = i.id.ToString();
-                e.Q<Label>(s_LabelSiblingIndexName).text = (i as TreeViewItemData<int>).data.ToString();
+                e.Q<Label>(s_LabelSiblingIndexName).text = (i as Unity.Editor.Bridge.TreeViewItemData<int>).data.ToString();
             };
 
             m_TreeView = new TreeView(m_RawItemList, 20, makeItem, ve => { }, bindItem);
@@ -69,7 +69,7 @@ namespace Unity.Entities.Editor.Tests
                 var currentId = nextId;
                 nextId++;
 
-                var newItem = new TreeViewItemData<int>
+                var newItem = new Unity.Editor.Bridge.TreeViewItemData<int>
                 {
                     id = currentId,
                     data = i

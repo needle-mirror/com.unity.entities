@@ -18,7 +18,7 @@ namespace Unity.Entities
         readonly ManagedObjectClone m_ManagedObjectClone = new ManagedObjectClone();
         readonly ManagedObjectRemap m_ManagedObjectRemap = new ManagedObjectRemap();
 
-        UnsafeMultiHashMap<int, int> m_HashLookup = new UnsafeMultiHashMap<int, int>(128, Allocator.Persistent);
+        UnsafeParallelMultiHashMap<int, int> m_HashLookup = new UnsafeParallelMultiHashMap<int, int>(128, Allocator.Persistent);
 
         List<object> m_SharedComponentData = new List<object>();
 
@@ -176,7 +176,7 @@ namespace Unity.Entities
         private int FindNonDefaultSharedComponentIndex(int typeIndex, int hashCode, void* newData)
         {
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
 
             if (!m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
                 return -1;
@@ -199,7 +199,7 @@ namespace Unity.Entities
         private int FindNonDefaultSharedComponentIndex(int typeIndex, int hashCode, object newData)
         {
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
 
             if (!m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
                 return -1;
@@ -359,7 +359,7 @@ namespace Unity.Entities
             m_FreeListIndex = index;
 
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
             if (m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
             {
                 do
@@ -393,7 +393,7 @@ namespace Unity.Entities
 
                     bool found = false;
                     int itemIndex;
-                    NativeMultiHashMapIterator<int> iter;
+                    NativeParallelMultiHashMapIterator<int> iter;
                     if (m_HashLookup.TryGetFirstValue(hashCode, out itemIndex, out iter))
                     {
                         do

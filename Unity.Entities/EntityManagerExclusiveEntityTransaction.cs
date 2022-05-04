@@ -35,25 +35,18 @@ namespace Unity.Entities
         /// Check whether or not a new exclusive entity transaction can begin.
         /// </summary>
         /// <returns><see langword="true"/> if a new exclusive transaction can begin, <see langword="false"/> otherwise.</returns>
-        [NotBurstCompatible]
         public bool CanBeginExclusiveEntityTransaction()
         {
-            try
-            {
-                var access = GetCheckedEntityDataAccess();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                if (IsInExclusiveTransaction)
-                    return false;
-#endif
-                if (access->IsInExclusiveTransaction)
-                    return false;
-                if (access->DependencyManager->IsInTransaction)
-                    return false;
-            }
-            catch
-            {
+            if (IsInExclusiveTransaction)
                 return false;
-            }
+            AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
+#endif
+
+            var access = GetUncheckedEntityDataAccess();
+            if (access->DependencyManager->IsInTransaction)
+                return false;
+            
             return true;
         }
 
@@ -84,7 +77,6 @@ namespace Unity.Entities
         #endif
 
             access->DependencyManager->BeginExclusiveTransaction();
-            access->m_IsInExclusiveTransaction = 1;
 
             var copy = this;
 
@@ -112,7 +104,6 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
         #endif
             m_EntityDataAccess->DependencyManager->EndExclusiveTransaction();
-            m_EntityDataAccess->m_IsInExclusiveTransaction = 0;
         }
 
         // ----------------------------------------------------------------------------------------------------------

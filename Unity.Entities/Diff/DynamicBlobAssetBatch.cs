@@ -12,13 +12,13 @@ namespace Unity.Entities
 
     unsafe struct BlobAssetCache : IDisposable
     {
-        public NativeHashMap<BlobAssetPtr, BlobAssetPtr> BlobAssetRemap;
+        public NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr> BlobAssetRemap;
         public DynamicBlobAssetBatch* BlobAssetBatch;
 
         public BlobAssetCache(Allocator allocator)
         {
             BlobAssetBatch = DynamicBlobAssetBatch.Allocate(allocator);
-            BlobAssetRemap = new NativeHashMap<BlobAssetPtr, BlobAssetPtr>(1, allocator);
+            BlobAssetRemap = new NativeParallelHashMap<BlobAssetPtr, BlobAssetPtr>(1, allocator);
         }
 
         public void Dispose()
@@ -140,7 +140,7 @@ namespace Unity.Entities
             }
         }
 
-        public void RemoveUnusedBlobAssets(NativeHashMap<ulong, int> usedBlobAssets)
+        public void RemoveUnusedBlobAssets(NativeParallelHashMap<ulong, int> usedBlobAssets)
         {
             var blobAssets = (BlobAssetPtr*)m_BlobAssets->Ptr;
 

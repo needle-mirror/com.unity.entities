@@ -32,17 +32,17 @@ namespace Unity.Entities
         public BlobAssetComputationContext(BlobAssetStore blobAssetStore, int initialCapacity, Allocator allocator)
         {
             m_BlobAssetStore = blobAssetStore ?? throw new ArgumentNullException(nameof(blobAssetStore), "A valid BlobAssetStore must be passed to construct a BlobAssetComputationContext");
-            m_ToCompute = new NativeHashMap<Hash128, TS>(initialCapacity, allocator);
-            m_Computed = new NativeHashMap<Hash128, BlobAssetReference<TB>>(initialCapacity, allocator);
-            m_BlobPerUnityObject = new NativeMultiHashMap<int, Hash128>(initialCapacity, allocator);
+            m_ToCompute = new NativeParallelHashMap<Hash128, TS>(initialCapacity, allocator);
+            m_Computed = new NativeParallelHashMap<Hash128, BlobAssetReference<TB>>(initialCapacity, allocator);
+            m_BlobPerUnityObject = new NativeParallelMultiHashMap<int, Hash128>(initialCapacity, allocator);
         }
 
         public bool IsCreated => m_ToCompute.IsCreated;
 
         BlobAssetStore m_BlobAssetStore;
-        NativeHashMap<Hash128, TS> m_ToCompute;
-        NativeHashMap<Hash128, BlobAssetReference<TB>> m_Computed;
-        NativeMultiHashMap<int, Hash128> m_BlobPerUnityObject;
+        NativeParallelHashMap<Hash128, TS> m_ToCompute;
+        NativeParallelHashMap<Hash128, BlobAssetReference<TB>> m_Computed;
+        NativeParallelMultiHashMap<int, Hash128> m_BlobPerUnityObject;
 
         public NativeArray<TS> GetSettings(Allocator allocator) => m_ToCompute.GetValueArray(allocator);
 

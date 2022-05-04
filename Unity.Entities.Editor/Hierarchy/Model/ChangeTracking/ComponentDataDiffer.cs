@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
 
         readonly int m_TypeIndex;
         readonly int m_ComponentSize;
-        readonly NativeHashMap<ulong, ShadowChunk> m_PreviousChunksBySequenceNumber;
+        readonly NativeParallelHashMap<ulong, ShadowChunk> m_PreviousChunksBySequenceNumber;
 
         NativeList<ShadowChunk> m_AllocatedShadowChunksForTheFrame;
         NativeList<ChangesCollector> m_GatheredChanges;
@@ -32,7 +32,7 @@ namespace Unity.Entities.Editor
             WatchedComponentType = componentType;
             m_TypeIndex = typeInfo.TypeIndex;
             m_ComponentSize = typeInfo.SizeInChunk;
-            m_PreviousChunksBySequenceNumber = new NativeHashMap<ulong, ShadowChunk>(16, Allocator.Persistent);
+            m_PreviousChunksBySequenceNumber = new NativeParallelHashMap<ulong, ShadowChunk>(16, Allocator.Persistent);
 
             m_AllocatedShadowChunksForTheFrame = new NativeList<ShadowChunk>(16, Allocator.Persistent);
             m_GatheredChanges = new NativeList<ChangesCollector>(16, Allocator.Persistent);
@@ -140,7 +140,7 @@ namespace Unity.Entities.Editor
             public int ComponentSize;
 
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [ReadOnly] public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            [ReadOnly] public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [NativeDisableUnsafePtrRestriction] public ChangesCollector* GatheredChanges;
 
             public void Execute(int index)
@@ -244,7 +244,7 @@ namespace Unity.Entities.Editor
             public int TypeIndex;
             public int ComponentSize;
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [ReadOnly] public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            [ReadOnly] public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [NativeDisableUnsafePtrRestriction] public ShadowChunk* AllocatedShadowChunks;
 
             public void Execute(int index)
@@ -286,14 +286,14 @@ namespace Unity.Entities.Editor
 
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
             [ReadOnly, NativeDisableUnsafePtrRestriction] public ShadowChunk* AllocatedShadowChunks;
-            public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [WriteOnly] public NativeList<byte> RemovedChunkComponentDataBuffer;
             [WriteOnly] public NativeList<Entity> RemovedChunkEntities;
 
             public void Execute()
             {
                 var knownChunks = ShadowChunksBySequenceNumber.GetKeyArray(Allocator.Temp);
-                var processedChunks = new NativeHashMap<ulong, byte>(Chunks.Length, Allocator.Temp);
+                var processedChunks = new NativeParallelHashMap<ulong, byte>(Chunks.Length, Allocator.Temp);
                 for (var index = 0; index < Chunks.Length; index++)
                 {
                     var chunk = Chunks[index].m_Chunk;

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+#if !UNITY_2021_1_OR_NEWER
 using ExternalCSharpCompiler;
+#endif
 using Unity.CompilationPipeline.Common;
 using UnityEditor;
 using UnityEditor.Compilation;
@@ -44,7 +46,7 @@ namespace Unity.Entities.CodeGen.Tests.SourceGenerationTests
 
         public static (bool IsSuccess, CompilerMessage[] CompilerMessages) Compile(string cSharpCode, IEnumerable<Type> referencedTypes, bool allowUnsafe = false)
         {
-            return Compile(referencedTypes, allowUnsafe, ($"{Path.GetRandomFileName()}.cs", cSharpCode));
+            return Compile(referencedTypes, allowUnsafe, ($"{AssetDatabase.GenerateUniqueAssetPath(nameof(TestCompiler))}.cs", cSharpCode));
         }
 
         public static (bool IsSuccess, CompilerMessage[] CompilerMessages) Compile(IEnumerable<Type> referencedTypes, bool allowUnsafe = false, params (string sourceFilePath, string sourceCode)[] cSharpFilePathAndCode)
@@ -73,4 +75,24 @@ namespace Unity.Entities.CodeGen.Tests.SourceGenerationTests
             return entirePath;
         }
     }
+
+    // Dummy type just to make C# happy while we move these tests over to xUnit tests
+    // All the test code that uses this type are actually ignored in 2021+.
+    // DOTS-5904
+#if UNITY_2021_1_OR_NEWER
+    class ExternalCompiler
+    {
+        public void BeginCompiling(AssemblyInfo assemblyInfo, string[] empty, OperatingSystemFamily operatingSystemFamily, string[] strings) =>
+            throw new NotImplementedException();
+
+        public CompilerMessage[] GetCompilerMessages() =>
+            throw new NotImplementedException();
+
+        public bool Poll() =>
+            throw new NotImplementedException();
+
+        public static List<string> GetReferencedSystemDllFullPaths() =>
+            throw new NotImplementedException();
+    }
+#endif
 }

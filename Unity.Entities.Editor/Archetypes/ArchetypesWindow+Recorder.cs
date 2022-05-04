@@ -90,7 +90,7 @@ namespace Unity.Entities.Editor
             public ArchetypesMemoryDataRecorder()
             {
                 m_Recorder = new Recorder();
-                m_WorldsData = new NativeList<WorldData>(4, Allocator.Persistent);
+                m_WorldsData = new NativeList<WorldData>(8, Allocator.Persistent);
                 m_ArchetypesData = new NativeList<ArchetypeData>(64, Allocator.Persistent);
                 m_ArchetypesMemoryData = new NativeList<ArchetypeMemoryData>(64, Allocator.Persistent);
                 m_ArchetypesStableHash = new NativeList<ulong>(64, Allocator.Persistent);

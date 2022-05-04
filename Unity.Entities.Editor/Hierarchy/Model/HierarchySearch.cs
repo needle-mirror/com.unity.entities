@@ -306,7 +306,7 @@ namespace Unity.Entities.Editor
             [NativeDisableUnsafePtrRestriction] public EntityName* NameByEntity;
 #endif
             
-            [ReadOnly] public NativeHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandleLowerInvariant;
+            [ReadOnly] public NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandleLowerInvariant;
 
             public NativeBitArray NodeMatchesMask;
 

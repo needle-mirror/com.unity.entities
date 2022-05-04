@@ -887,7 +887,7 @@ namespace Unity.Entities.Tests
             // Profiler.enabled = true;
 
             var sw = new Stopwatch();
-            TimeSpan _bigEntitiesFileReadTime;
+            TimeSpan _bigEntitiesFileReadTime = default;
             for (int i = 0; i < 3; i++)
             {
                 sw.Start();
@@ -1498,7 +1498,7 @@ namespace Unity.Entities.Tests
                 // We can't rely on the entity order matching how we filled the buffers so we instead ensure
                 // that we see buffers as many buffers as there are entities and we see buffers with 1 to 'entityCount'
                 // elements in them with ascending values from 0 to bufferLength-1
-                NativeHashMap<int, int> bufferMap = new NativeHashMap<int, int>(entityCount, Allocator.Temp);
+                NativeParallelHashMap<int, int> bufferMap = new NativeParallelHashMap<int, int>(entityCount, Allocator.Temp);
                 for (int i = 0; i < entityCount; ++i)
                 {
                     var buffer = entityManager.GetBuffer<EcsTestDataBlobAssetElement>(entities3[i]);
@@ -1526,7 +1526,7 @@ namespace Unity.Entities.Tests
                 var entities4 = group4.ToEntityArray(World.UpdateAllocator.ToAllocator);
                 Assert.AreEqual(entityCount, entities4.Length);
 
-                NativeHashMap<int, int> bufferMap2 = new NativeHashMap<int, int>(entityCount, Allocator.Temp);
+                NativeParallelHashMap<int, int> bufferMap2 = new NativeParallelHashMap<int, int>(entityCount, Allocator.Temp);
                 for (int i = 0; i < entityCount; ++i)
                 {
                     var buffer = entityManager.GetBuffer<EcsTestDataBlobAssetElement2>(entities4[i]);
@@ -1688,7 +1688,7 @@ namespace Unity.Entities.Tests
                 // We can't rely on the entity order matching how we filled the buffers so we instead ensure
                 // that we see buffers as many buffers as there are entities and we see buffers with 1 to 'entityCount'
                 // elements in them with ascending values from 0 to bufferLength-1
-                NativeHashMap<int, int> bufferMap = new NativeHashMap<int, int>(entityCount, Allocator.Temp);
+                NativeParallelHashMap<int, int> bufferMap = new NativeParallelHashMap<int, int>(entityCount, Allocator.Temp);
                 for (int i = 0; i < entityCount; ++i)
                 {
                     var buffer = entityManager.GetBuffer<EcsTestDataBlobAssetElement>(entities3[i]);
@@ -1716,7 +1716,7 @@ namespace Unity.Entities.Tests
                 var entities4 = group4.ToEntityArray(World.UpdateAllocator.ToAllocator);
                 Assert.AreEqual(entityCount, entities4.Length);
 
-                NativeHashMap<int, int> bufferMap2 = new NativeHashMap<int, int>(entityCount, Allocator.Temp);
+                NativeParallelHashMap<int, int> bufferMap2 = new NativeParallelHashMap<int, int>(entityCount, Allocator.Temp);
                 for (int i = 0; i < entityCount; ++i)
                 {
                     var buffer = entityManager.GetBuffer<EcsTestDataBlobAssetElement2>(entities4[i]);
@@ -2299,7 +2299,7 @@ namespace Unity.Entities.Tests
 
                 using (var entities = group1.ToEntityArray(World.UpdateAllocator.ToAllocator))
                 {
-                    NativeHashMap<int, int> idSet = new NativeHashMap<int, int>(entities.Length, Allocator.Temp);
+                    NativeParallelHashMap<int, int> idSet = new NativeParallelHashMap<int, int>(entities.Length, Allocator.Temp);
                     for (int i = 0; i < entities.Length; ++i)
                     {
                         var e = entities[i];

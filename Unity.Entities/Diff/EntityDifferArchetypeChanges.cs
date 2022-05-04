@@ -93,7 +93,7 @@ namespace Unity.Entities
         struct BuildChunkSequenceNumberMap : IJobParallelFor
         {
             [ReadOnly] public NativeArray<ArchetypeChunk> Chunks;
-            [WriteOnly] public NativeHashMap<ulong, ArchetypeChunk>.ParallelWriter ChunksBySequenceNumber;
+            [WriteOnly] public NativeParallelHashMap<ulong, ArchetypeChunk>.ParallelWriter ChunksBySequenceNumber;
             public void Execute(int index) => ChunksBySequenceNumber.TryAdd(Chunks[index].m_Chunk->SequenceNumber, Chunks[index]);
         }
 
@@ -107,7 +107,7 @@ namespace Unity.Entities
         {
             [ReadOnly] public NativeArray<ArchetypeChunk> SrcChunks;
             [ReadOnly] public NativeArray<ArchetypeChunk> DstChunks;
-            [ReadOnly] public NativeHashMap<ulong, ArchetypeChunk> SrcChunksBySequenceNumber;
+            [ReadOnly] public NativeParallelHashMap<ulong, ArchetypeChunk> SrcChunksBySequenceNumber;
             [WriteOnly] public NativeList<ArchetypeChunk> CreatedChunks;
             [WriteOnly] public NativeList<ArchetypeChunkChangeFlags> CreatedChunkFlags;
             [WriteOnly] public NativeList<int> CreatedChunkEntityCounts;
@@ -117,7 +117,7 @@ namespace Unity.Entities
 
             public void Execute()
             {
-                var visitedChunks = new NativeHashMap<ulong, int>(1, Allocator.Temp);
+                var visitedChunks = new NativeParallelHashMap<ulong, int>(1, Allocator.Temp);
 
                 var createdChunkEntityCounts = 0;
                 var destroyedChunkEntityCount = 0;
@@ -219,7 +219,7 @@ namespace Unity.Entities
             JobHandle dependsOn = default)
         {
             var archetypeChunkChanges = new ArchetypeChunkChanges(allocator);
-            var srcChunksBySequenceNumber = new NativeHashMap<ulong, ArchetypeChunk>(srcChunks.Length, Allocator.TempJob);
+            var srcChunksBySequenceNumber = new NativeParallelHashMap<ulong, ArchetypeChunk>(srcChunks.Length, Allocator.TempJob);
 
             var buildChunkSequenceNumberMap = new BuildChunkSequenceNumberMap
             {

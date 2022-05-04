@@ -278,7 +278,7 @@ namespace Unity.Entities.Tests.Conversion
             AssertSize(4);
             AssertConsistency(go);
 
-            var parentChanges = new NativeHashMap<int, int>(0, Allocator.Temp);
+            var parentChanges = new NativeParallelHashMap<int, int>(0, Allocator.Temp);
             c3.transform.SetParent(c2.transform);
             parentChanges.Add(c3.GetInstanceID(), c2.GetInstanceID());
             var success = new NativeList<IncrementalConversionChanges.ParentChange>(Allocator.Temp);
@@ -344,7 +344,7 @@ namespace Unity.Entities.Tests.Conversion
             // This has to be TempJob because of DOTS-1357
             var instanceIds = new NativeList<int>(0, Allocator.TempJob);
             var success = new NativeList<IncrementalConversionChanges.ParentChange>(0, Allocator.TempJob);
-            var reorder = new NativeHashMap<int, int>(0, Allocator.Temp);
+            var reorder = new NativeParallelHashMap<int, int>(0, Allocator.Temp);
             var gos = new List<GameObject>();
             try
             {
@@ -448,7 +448,7 @@ namespace Unity.Entities.Tests.Conversion
             var changedIds = new NativeList<int>(1, Allocator.TempJob);
             changedIds.Add(go.GetInstanceID());
 
-            var visitedInstances = new NativeHashSet<int>(6, Allocator.TempJob);
+            var visitedInstances = new NativeParallelHashSet<int>(6, Allocator.TempJob);
             m_Hierarchy.AsReadOnly().CollectHierarchyInstanceIds(changedIds, visitedInstances);
 
             try

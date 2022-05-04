@@ -47,7 +47,7 @@ namespace Unity.Transforms.Hybrid.Tests
             var changedIds = new NativeList<int>(1, Allocator.TempJob);
             changedIds.Add(go.GetInstanceID());
 
-            var visitedIndices = new NativeHashMap<int, bool>(6, Allocator.TempJob);
+            var visitedIndices = new NativeParallelHashMap<int, bool>(6, Allocator.TempJob);
 
 
             try

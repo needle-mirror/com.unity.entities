@@ -49,7 +49,7 @@ namespace Unity.Entities
             internal byte hasLoggedError;
             public UnsafeList<byte> buffer; // all the UTF-8 encoded bytes in one place
             public UnsafeList<Entry> entry; // one offset for each text in "buffer"
-            public UnsafeMultiHashMap<int, int> hash; // from string hash to table entry
+            public UnsafeParallelMultiHashMap<int, int> hash; // from string hash to table entry
             public int chars; // bytes in buffer allocated so far
             public int entries; // number of strings allocated so far
             public FixedString512Bytes kMaxEntriesMsg;
@@ -79,7 +79,7 @@ namespace Unity.Entities
             s_State.Data.buffer.Length = s_State.Data.buffer.Capacity;
             s_State.Data.entry = new UnsafeList<Entry>(kMaxEntries, Allocator.Persistent);
             s_State.Data.entry.Length = s_State.Data.entry.Capacity;
-            s_State.Data.hash = new UnsafeMultiHashMap<int, int>(kMaxEntries, Allocator.Persistent);
+            s_State.Data.hash = new UnsafeParallelMultiHashMap<int, int>(kMaxEntries, Allocator.Persistent);
             Clear();
             s_State.Data.initialized = 1;
             s_State.Data.hasLoggedError = 0;
@@ -134,7 +134,7 @@ namespace Unity.Entities
         {
             Assert.IsTrue(temp.Length <= kEntityNameMaxLengthBytes);
             int itemIndex;
-            NativeMultiHashMapIterator<int> iter;
+            NativeParallelMultiHashMapIterator<int> iter;
             if (s_State.Data.hash.TryGetFirstValue(h, out itemIndex, out iter))
             {
                 do

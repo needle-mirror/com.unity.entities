@@ -6,27 +6,38 @@ namespace Unity.Entities
 {
     partial class EntitiesProfiler
     {
+        /// <summary>
+        /// Struct used to store per archetype information.
+        /// The total size is 1024 bytes, which leaves enough room to store up to 111 component types.
+        /// </summary>
         [BurstCompatible(RequiredUnityDefine = "ENABLE_PROFILER")]
-        [StructLayout(LayoutKind.Sequential)]
-        public readonly unsafe struct ArchetypeData : IEquatable<ArchetypeData>
+        [StructLayout(LayoutKind.Explicit, Size = 1024)]
+        public unsafe struct ArchetypeData : IEquatable<ArchetypeData>
         {
+            [FieldOffset(0)] // 8 bytes
             public readonly ulong StableHash;
+
+            [FieldOffset(8)] // 4 bytes
             public readonly int ChunkCapacity;
+
+            [FieldOffset(12)] // 4 bytes
             public readonly int InstanceSize;
-            public readonly FixedList512Bytes<ComponentTypeData> ComponentTypes;
+
+            [FieldOffset(16)] // 1008 bytes
+            public readonly FixedComponentTypeDataList ComponentTypes;
 
             public ArchetypeData(Archetype* archetype)
             {
                 StableHash = archetype->StableHash;
                 ChunkCapacity = archetype->ChunkCapacity;
                 InstanceSize = archetype->InstanceSize;
-                ComponentTypes = new FixedList512Bytes<ComponentTypeData>();
+                ComponentTypes = new FixedComponentTypeDataList();
                 for (var i = 0; i < archetype->TypesCount && i < ComponentTypes.Capacity; ++i)
                 {
                     var typeIndex = archetype->Types[i].TypeIndex;
-                    var stableTypeIndex = TypeManager.GetTypeInfo(typeIndex).StableTypeHash;
+                    var stableTypeHash = TypeManager.GetTypeInfo(typeIndex).StableTypeHash;
                     var flags = TypeManager.IsChunkComponent(typeIndex) ? ComponentTypeFlags.ChunkComponent : ComponentTypeFlags.None;
-                    ComponentTypes.Add(new ComponentTypeData(stableTypeIndex, flags));
+                    ComponentTypes.Add(stableTypeHash, flags);
                 }
             }
 

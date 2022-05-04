@@ -224,7 +224,7 @@ namespace Unity.Scenes.Editor
             List<ReferencedUnityObjects> sectionRefObjs, WriteEntitySceneSettings writeEntitySceneSettings, ref ConversionJournalData journalData)
         {
             var prefabRoot = writeEntitySceneSettings.PrefabRoot;
-            using (var allTypes = new NativeHashMap<ComponentType, int>(100, Allocator.Temp))
+            using (var allTypes = new NativeParallelHashMap<ComponentType, int>(100, Allocator.Temp))
             using (var archetypes = new NativeList<EntityArchetype>(Allocator.Temp))
             {
                 entityManager.GetAllArchetypes(archetypes);
@@ -291,7 +291,7 @@ namespace Unity.Scenes.Editor
                 }
             );
 
-            var weakAssetRefs = new NativeHashSet<UntypedWeakReferenceId>(16, Allocator.Persistent);
+            var weakAssetRefs = new NativeParallelHashSet<UntypedWeakReferenceId>(16, Allocator.Persistent);
 
             {
                 var section = new SceneSection {SceneGUID = sceneGUID, Section = 0};
@@ -571,7 +571,7 @@ namespace Unity.Scenes.Editor
 
         internal static EntitySectionWriteResult WriteEntitySceneSection(EntityManager scene, Hash128 sceneGUID, string subsection,
             AssetImportContext importContext, WriteEntitySceneSettings writeEntitySceneSettings, out int objectReferenceCount, out ReferencedUnityObjects objRefs,
-            NativeHashSet<UntypedWeakReferenceId> weakAssetRefs,
+            NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs,
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos = default)
         {
             k_ProfileEntitiesSceneSave.Begin();
@@ -656,7 +656,7 @@ namespace Unity.Scenes.Editor
         }
 
         private static unsafe (int decompressedSize, int compressedSize, BlobAssetReference<DotsSerialization.BlobHeader>)
-            WriteEntityBinary(EntityManager scene, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, string entitiesBinaryPath, NativeHashSet<UntypedWeakReferenceId> weakAssetRefs,
+            WriteEntityBinary(EntityManager scene, out ReferencedUnityObjects objRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, string entitiesBinaryPath, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs,
             WriteEntitySceneSettings writeEntitySceneSettings,  bool buildBlobHeader = false)
         {
             BlobAssetReference<DotsSerialization.BlobHeader> blobHeader = default;
@@ -720,7 +720,7 @@ namespace Unity.Scenes.Editor
             public WeakReferenceGenerationType GenerationType;
         }
 
-        static void WriteWeakAssetRefs(NativeHashSet<UntypedWeakReferenceId> weakAssetRefs, Hash128 sceneGUID, AssetImportContext ctx, WriteEntitySceneSettings writeEntitySceneSettings)
+        static void WriteWeakAssetRefs(NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs, Hash128 sceneGUID, AssetImportContext ctx, WriteEntitySceneSettings writeEntitySceneSettings)
         {
             string path;
             if (ctx != null)

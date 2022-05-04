@@ -329,7 +329,7 @@ namespace Unity.Entities.Tests
         public struct HashWriter : IJobParallelFor
         {
             [WriteOnly]
-            public NativeHashMap<int, int>.ParallelWriter result;
+            public NativeParallelHashMap<int, int>.ParallelWriter result;
 
             public void Execute(int i)
             {
@@ -340,7 +340,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void ScheduleHashWriter()
         {
-            NativeHashMap<int, int> result = new NativeHashMap<int, int>(100, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, int> result = new NativeParallelHashMap<int, int>(100, World.UpdateAllocator.ToAllocator);
 
             HashWriter job = new HashWriter
             {
@@ -359,10 +359,10 @@ namespace Unity.Entities.Tests
         public struct HashWriterParallelFor : IJobParallelFor
         {
             [WriteOnly]
-            public NativeHashMap<int, int>.ParallelWriter result;
+            public NativeParallelHashMap<int, int>.ParallelWriter result;
 
             [WriteOnly]
-            public NativeHashMap<int, bool>.ParallelWriter threadMap;
+            public NativeParallelHashMap<int, bool>.ParallelWriter threadMap;
 
             public void Execute(int i)
             {
@@ -376,9 +376,9 @@ namespace Unity.Entities.Tests
         {
             const int MAPSIZE = 100;
             // Make sure that each iteration was called and the parallel write worked.
-            NativeHashMap<int, int> map = new NativeHashMap<int, int>(MAPSIZE, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, int> map = new NativeParallelHashMap<int, int>(MAPSIZE, World.UpdateAllocator.ToAllocator);
             // Tracks the threadIndex used for each job.
-            NativeHashMap<int, bool> threadMap = new NativeHashMap<int, bool>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, bool> threadMap = new NativeParallelHashMap<int, bool>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator);
 
             HashWriterParallelFor job = new HashWriterParallelFor()
             {
@@ -398,10 +398,10 @@ namespace Unity.Entities.Tests
         public struct MultiHashWriterParallelFor : IJobParallelFor
         {
             [WriteOnly]
-            public NativeMultiHashMap<int, int>.ParallelWriter result;
+            public NativeParallelMultiHashMap<int, int>.ParallelWriter result;
 
             [WriteOnly]
-            public NativeHashMap<int, bool>.ParallelWriter threadMap;
+            public NativeParallelHashMap<int, bool>.ParallelWriter threadMap;
 
             public void Execute(int i)
             {
@@ -415,9 +415,9 @@ namespace Unity.Entities.Tests
         {
             const int MAPSIZE = 100;
             // Make sure that each iteration was called and the parallel write worked.
-            NativeHashMap<int, int> map = new NativeHashMap<int, int>(MAPSIZE, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, int> map = new NativeParallelHashMap<int, int>(MAPSIZE, World.UpdateAllocator.ToAllocator);
             // Tracks the threadIndex used for each job.
-            NativeHashMap<int, bool> threadMap = new NativeHashMap<int, bool>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, bool> threadMap = new NativeParallelHashMap<int, bool>(JobsUtility.MaxJobThreadCount, World.UpdateAllocator.ToAllocator);
 
             HashWriterParallelFor job = new HashWriterParallelFor()
             {
@@ -554,7 +554,7 @@ namespace Unity.Entities.Tests
         {
             public const int N = 1000;
             // Don't declare [WriteOnly]. Write only is "automatic" for the ParallelWriter
-            public NativeHashMap<int, int>.ParallelWriter result;
+            public NativeParallelHashMap<int, int>.ParallelWriter result;
 
             public void Execute()
             {
@@ -572,7 +572,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void RunHashWriterJob()
         {
-            NativeHashMap<int, int> map = new NativeHashMap<int, int>(HashWriterJob.N, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, int> map = new NativeParallelHashMap<int, int>(HashWriterJob.N, World.UpdateAllocator.ToAllocator);
 
             HashWriterJob job = new HashWriterJob();
             job.result = map.AsParallelWriter();
@@ -650,7 +650,7 @@ namespace Unity.Entities.Tests
         public struct SimpleJobFor : IJobFor
         {
             [WriteOnly]
-            public NativeHashMap<int, int>.ParallelWriter result;
+            public NativeParallelHashMap<int, int>.ParallelWriter result;
 
             public void Execute(int i)
             {
@@ -663,7 +663,7 @@ namespace Unity.Entities.Tests
         {
             const int N = 1000;
 
-            NativeHashMap<int, int> output = new NativeHashMap<int, int>(N, World.UpdateAllocator.ToAllocator);
+            NativeParallelHashMap<int, int> output = new NativeParallelHashMap<int, int>(N, World.UpdateAllocator.ToAllocator);
             SimpleJobFor job = new SimpleJobFor()
             {
                 result = output.AsParallelWriter()

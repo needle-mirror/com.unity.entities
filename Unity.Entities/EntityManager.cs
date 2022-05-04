@@ -91,6 +91,11 @@ namespace Unity.Entities
             return m_EntityDataAccess;
         }
 
+        internal EntityDataAccess* GetUncheckedEntityDataAccess()
+        {
+            return m_EntityDataAccess;
+        }
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [BurstCompatible(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = BurstCompatibleAttribute.BurstCompatibleCompileTarget.Editor)]
         internal bool IsInsideForEach => GetCheckedEntityDataAccess()->m_InsideForEach != 0;

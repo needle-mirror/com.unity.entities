@@ -620,7 +620,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckWriteAndThrow(chunkComponentTypeHandle.m_Safety);
 #endif
             m_EntityComponentStore->AssertEntityHasComponent(m_Chunk->metaChunkEntity, chunkComponentTypeHandle.m_TypeIndex);
-            var ptr = m_EntityComponentStore->GetComponentDataWithTypeRW(m_Chunk->metaChunkEntity, chunkComponentTypeHandle.m_TypeIndex, m_EntityComponentStore->GlobalSystemVersion);
+            var ptr = m_EntityComponentStore->GetComponentDataWithTypeRW(m_Chunk->metaChunkEntity, chunkComponentTypeHandle.m_TypeIndex, chunkComponentTypeHandle.GlobalSystemVersion);
             UnsafeUtility.CopyStructureToPtr(ref value, ptr);
         }
 
@@ -1616,7 +1616,7 @@ namespace Unity.Entities
         where T : struct, IBufferElementData
     {
         internal readonly int m_TypeIndex;
-        internal readonly uint m_GlobalSystemVersion;
+        internal uint m_GlobalSystemVersion;
         internal readonly bool m_IsReadOnly;
 
         public uint GlobalSystemVersion => m_GlobalSystemVersion;
@@ -1654,6 +1654,32 @@ namespace Unity.Entities
             m_SafetyReadOnlyCount = isReadOnly ? 2 : 0;
             m_SafetyReadWriteCount = isReadOnly ? 0 : 2;
 #endif
+        }
+
+        /// <summary>
+        /// When a BufferTypeHandle is cached by a system across multiple system updates, calling this function
+        /// inside the system's OnUpdate() method performs the minimal incremental updates necessary to make the
+        /// type handle safe to use.
+        /// </summary>
+        /// <param name="system">The system on which this type handle is cached.</param>
+        public unsafe void Update(SystemBase system)
+        {
+            Update(ref *system.m_StatePtr);
+        }
+
+        /// <summary>
+        /// When a BufferTypeHandle is cached by a system across multiple system updates, calling this function
+        /// inside the system's OnUpdate() method performs the minimal incremental updates necessary to make the
+        /// type handle safe to use.
+        /// </summary>
+        /// <param name="state">The SystemState of the system on which this type handle is cached.</param>
+        unsafe public void Update(ref SystemState state)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            m_Safety0 = state.m_DependencyManager->Safety.GetSafetyHandleForBufferTypeHandle(m_TypeIndex, m_IsReadOnly);
+            m_Safety1 = state.m_DependencyManager->Safety.GetBufferHandleForBufferTypeHandle(m_TypeIndex);
+#endif
+            m_GlobalSystemVersion = state.m_EntityComponentStore->GlobalSystemVersion;
         }
     }
 

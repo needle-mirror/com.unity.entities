@@ -31,8 +31,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator
                 context.Compilation.ReferencedAssemblyNames.All(n => n.Name != "Unity.Entities") || context.Compilation.Assembly.Name.Contains("CodeGen.Tests"))
                 return;
 
-            if (context.AdditionalFiles.Any())
-                SetProjectPath(context.AdditionalFiles[0].Path);
+            SourceGenHelpers.Setup(context);
 
             Location lastLocation = null;
             LogInfo($"Source generating assembly {context.Compilation.Assembly.Name}...");
@@ -137,16 +136,20 @@ namespace Unity.Entities.SourceGen.SystemGenerator
 
         static void OutputNewSourceToFile(GeneratorExecutionContext context, string generatedSourceFilePath, SourceText sourceTextForNewClass)
         {
-            try
+            // Output as generated source file for debugging/inspection
+            if (SourceGenHelpers.CanWriteToProjectPath)
             {
-                LogInfo($"Outputting generated source to file {generatedSourceFilePath}...");
-                File.WriteAllText(generatedSourceFilePath, sourceTextForNewClass.ToString());
-            }
-            catch (IOException ioException)
-            {
-                // Emit exception as info but don't block compilation or generate error to fail tests
-                context.LogInfo("SGICE005", "System Generator New",
-                    ioException.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+                try
+                {
+                    LogInfo($"Outputting generated source to file {generatedSourceFilePath}...");
+                    File.WriteAllText(generatedSourceFilePath, sourceTextForNewClass.ToString());
+                }
+                catch (IOException ioException)
+                {
+                    // Emit exception as info but don't block compilation or generate error to fail tests
+                    context.LogInfo("SGICE005", "System Generator New",
+                        ioException.ToString(), context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
+                }
             }
         }
 

@@ -211,6 +211,7 @@ namespace Unity.Entities
     {
         [NativeDisableUnsafePtrRestriction] public byte* ComponentData;
         public int TypeIndex;
+        public uint GlobalSystemVersion;
 
         public void Execute(ArchetypeChunk batchInChunk, int batchIndex, int indexOfFirstEntityInQuery)
         {
@@ -219,7 +220,8 @@ namespace Unity.Entities
             var typeOffset = archetype->Offsets[indexInTypeArray];
             var typeSize = archetype->SizeOfs[indexInTypeArray];
 
-            var dst = batchInChunk.m_Chunk->Buffer + typeOffset;
+            var dst = ChunkDataUtility.GetComponentDataWithTypeRW(batchInChunk.m_Chunk,
+                batchInChunk.m_BatchStartEntityIndex, TypeIndex, GlobalSystemVersion);
             var src = ComponentData + (indexOfFirstEntityInQuery * typeSize);
             var copySize = typeSize * batchInChunk.Count;
 

@@ -35,7 +35,7 @@ namespace Unity.Scenes
     {
         static bool s_AppDomainUnloadRegistered;
         static bool s_Initialized;
-        static NativeHashMap<SceneEquatable, IntPtr> s_LoadedScenes;
+        static NativeParallelHashMap<SceneEquatable, IntPtr> s_LoadedScenes;
 
         internal static void Initialize()
         {
@@ -43,7 +43,7 @@ namespace Unity.Scenes
                 return;
             s_Initialized = true;
 
-            s_LoadedScenes = new NativeHashMap<SceneEquatable, IntPtr>(64, Allocator.Persistent);
+            s_LoadedScenes = new NativeParallelHashMap<SceneEquatable, IntPtr>(64, Allocator.Persistent);
 
             if (!s_AppDomainUnloadRegistered)
             {
@@ -59,7 +59,7 @@ namespace Unity.Scenes
             }
         }
 
-        internal static NativeHashMap<SceneEquatable, IntPtr> LoadedScenes => s_LoadedScenes;
+        internal static NativeParallelHashMap<SceneEquatable, IntPtr> LoadedScenes => s_LoadedScenes;
     }
 
     unsafe struct GameObjectSceneRefCount

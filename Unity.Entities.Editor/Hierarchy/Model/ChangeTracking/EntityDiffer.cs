@@ -15,7 +15,7 @@ namespace Unity.Entities.Editor
 
         readonly World m_World;
 
-        NativeHashMap<ulong, ShadowChunk> m_ShadowChunks;
+        NativeParallelHashMap<ulong, ShadowChunk> m_ShadowChunks;
 
         NativeList<ChangesCollector> m_GatheredChanges;
         NativeList<ShadowChunk> m_AllocatedShadowChunksForTheFrame;
@@ -24,7 +24,7 @@ namespace Unity.Entities.Editor
         public EntityDiffer(World world)
         {
             m_World = world;
-            m_ShadowChunks = new NativeHashMap<ulong, ShadowChunk>(16, Allocator.Persistent);
+            m_ShadowChunks = new NativeParallelHashMap<ulong, ShadowChunk>(16, Allocator.Persistent);
 
             m_GatheredChanges = new NativeList<ChangesCollector>(16, Allocator.Persistent);
             m_AllocatedShadowChunksForTheFrame = new NativeList<ShadowChunk>(16, Allocator.Persistent);
@@ -117,7 +117,7 @@ namespace Unity.Entities.Editor
             [ReadOnly]
             public NativeArray<ArchetypeChunk> Chunks;
             [ReadOnly]
-            public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [NativeDisableUnsafePtrRestriction]
             public ChangesCollector* GatheredChanges;
 
@@ -195,7 +195,7 @@ namespace Unity.Entities.Editor
             [ReadOnly]
             public NativeArray<ArchetypeChunk> Chunks;
             [ReadOnly]
-            public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [NativeDisableUnsafePtrRestriction]
             public ShadowChunk* AllocatedShadowChunks;
 
@@ -234,13 +234,13 @@ namespace Unity.Entities.Editor
             public NativeArray<ArchetypeChunk> Chunks;
             [ReadOnly]
             public NativeArray<ShadowChunk> AllocatedShadowChunks;
-            public NativeHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
+            public NativeParallelHashMap<ulong, ShadowChunk> ShadowChunksBySequenceNumber;
             [WriteOnly]
             public NativeList<Entity> RemovedChunkEntities;
 
             public void Execute()
             {
-                var processedChunks = new NativeHashSet<ulong>(Chunks.Length, Allocator.Temp);
+                var processedChunks = new NativeParallelHashSet<ulong>(Chunks.Length, Allocator.Temp);
                 for (var index = 0; index < Chunks.Length; index++)
                 {
                     var chunk = Chunks[index].m_Chunk;

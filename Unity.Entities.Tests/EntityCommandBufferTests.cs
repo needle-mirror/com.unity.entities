@@ -1245,18 +1245,20 @@ namespace Unity.Entities.Tests
         public void AddComponentForEntityQuery_CaptureAtRecord_SharedComponent_TooMany()
         {
             // test must be updated when kMaxSharedComponentCount is changed
-            Assert.AreEqual(8, EntityComponentStore.kMaxSharedComponentCount);
+            Assert.AreEqual(16, EntityComponentStore.kMaxSharedComponentCount);
 
-            var entity = m_Manager.CreateEntity(typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2),
-                    typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4),
-                    typeof(EcsTestSharedComp5), typeof(EcsTestSharedComp6));
+            var entity = m_Manager.CreateEntity(
+                typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2), typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4),
+                typeof(EcsTestSharedComp5), typeof(EcsTestSharedComp6), typeof(EcsTestSharedComp7), typeof(EcsTestSharedComp8),
+                typeof(EcsTestSharedComp9), typeof(EcsTestSharedComp10), typeof(EcsTestSharedComp11), typeof(EcsTestSharedComp12),
+                typeof(EcsTestSharedComp13), typeof(EcsTestSharedComp14));
             var entity2 = m_Manager.CreateEntity(typeof(EcsTestSharedComp), typeof(EcsTestSharedComp2),
                 typeof(EcsTestSharedComp3), typeof(EcsTestSharedComp4));
 
             using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
-                var types = new ComponentTypes(typeof(EcsTestSharedComp7), typeof(EcsTestSharedComp8), typeof(EcsTestSharedComp9));
+                var types = new ComponentTypes(typeof(EcsTestSharedComp15), typeof(EcsTestSharedComp16), typeof(EcsTestSharedComp17));
                 cmds.AddComponentForEntityQuery(entityQuery, types);
 
                 // Assert.Throws "Cannot add more than {kMaxSharedComponentCount} SharedComponent to a single Archetype"

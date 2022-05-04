@@ -96,15 +96,15 @@ namespace Unity.Entities.Editor
 
         World m_World;
 
-        NativeHashMap<HierarchyNodeHandle, FixedString64Bytes> m_Names;
-        NativeHashMap<HierarchyNodeHandle, FixedString64Bytes> m_NamesLowerInvariant;
+        NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> m_Names;
+        NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> m_NamesLowerInvariant;
 
 #if !DOTS_DISABLE_DEBUG_NAMES
         EntityNameStorageLowerInvariant m_EntityNameStorageLowerInvariant;
 #endif
 
-        internal NativeHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandle => m_Names;
-        internal NativeHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandleLowerInvariant => m_NamesLowerInvariant;
+        internal NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandle => m_Names;
+        internal NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandleLowerInvariant => m_NamesLowerInvariant;
         
 #if !DOTS_DISABLE_DEBUG_NAMES
         internal EntityName* NameByEntity => m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameByEntity;
@@ -115,8 +115,8 @@ namespace Unity.Entities.Editor
         {
             Formatting.Initialize();
 
-            m_Names = new NativeHashMap<HierarchyNodeHandle, FixedString64Bytes>(16, allocator);
-            m_NamesLowerInvariant = new NativeHashMap<HierarchyNodeHandle, FixedString64Bytes>(16, allocator);
+            m_Names = new NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes>(16, allocator);
+            m_NamesLowerInvariant = new NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes>(16, allocator);
 #if !DOTS_DISABLE_DEBUG_NAMES
             m_EntityNameStorageLowerInvariant = new EntityNameStorageLowerInvariant(EntityNameStorage.kMaxChars, allocator);
 #endif

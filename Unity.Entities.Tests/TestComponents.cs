@@ -299,6 +299,102 @@ namespace Unity.Entities.Tests
         }
     }
 
+    public struct EcsTestSharedComp10 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp10(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp11 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp11(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp12 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp12(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp13 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp13(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp14 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp14(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp15 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp15(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp16 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp16(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
+    public struct EcsTestSharedComp17 : ISharedComponentData
+    {
+        public int value0;
+        public int value1;
+        public int value2;
+
+        public EcsTestSharedComp17(int inValue)
+        {
+            value0 = value1 = value2 = inValue;
+        }
+    }
+
     [MaximumChunkCapacity(475)]
     struct EcsTestSharedCompWithMaxChunkCapacity : ISharedComponentData
     {

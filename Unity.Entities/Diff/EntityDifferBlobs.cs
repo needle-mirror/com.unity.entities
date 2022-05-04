@@ -33,12 +33,12 @@ namespace Unity.Entities
         internal struct BlobAssetsWithDistinctHash : IDisposable
         {
             public NativeList<BlobAssetPtr> BlobAssets;
-            public NativeHashMap<ulong, int> BlobAssetsMap;
+            public NativeParallelHashMap<ulong, int> BlobAssetsMap;
 
             public BlobAssetsWithDistinctHash(Allocator allocator)
             {
                 BlobAssets = new NativeList<BlobAssetPtr>(1, allocator);
-                BlobAssetsMap = new NativeHashMap<ulong, int>(1, allocator);
+                BlobAssetsMap = new NativeParallelHashMap<ulong, int>(1, allocator);
             }
 
             public void Dispose()
@@ -162,7 +162,7 @@ namespace Unity.Entities
 
             var managedObjectBlobs = new ManagedObjectBlobs();
             var managedObjectBlobAssets = new NativeList<BlobAssetPtr>(16, Allocator.Temp);
-            var managedObjectBlobAssetsMap = new NativeHashMap<BlobAssetPtr, int>(16, Allocator.Temp);
+            var managedObjectBlobAssetsMap = new NativeParallelHashMap<BlobAssetPtr, int>(16, Allocator.Temp);
 
             for (var chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
             {

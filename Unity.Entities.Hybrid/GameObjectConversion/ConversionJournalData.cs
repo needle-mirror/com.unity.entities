@@ -21,10 +21,10 @@ namespace Unity.Entities.Conversion
     /// </summary>
     internal struct ConvertedEntitiesAccessor
     {
-        NativeHashMap<int, int> m_HeadIdIndices; // object instanceId -> front index
+        NativeParallelHashMap<int, int> m_HeadIdIndices; // object instanceId -> front index
         MultiList<Entity, MultiListNativeArrayData<Entity>> m_Entities;
 
-        internal ConvertedEntitiesAccessor(NativeHashMap<int, int> headIndices,
+        internal ConvertedEntitiesAccessor(NativeParallelHashMap<int, int> headIndices,
             MultiList<Entity, MultiListNativeArrayData<Entity>> entities)
         {
             m_HeadIdIndices = headIndices;
@@ -48,7 +48,7 @@ namespace Unity.Entities.Conversion
 
     partial struct ConversionJournalData : IDisposable
     {
-        NativeHashMap<int, int> m_HeadIdIndices; // object instanceId -> front index
+        NativeParallelHashMap<int, int> m_HeadIdIndices; // object instanceId -> front index
         NativeList<int> m_FreeHeadIds;
         private int m_HeadIdCount;
 
@@ -67,7 +67,7 @@ namespace Unity.Entities.Conversion
 
         public void Init()
         {
-            m_HeadIdIndices = new NativeHashMap<int, int>(1000, Allocator.Persistent);
+            m_HeadIdIndices = new NativeParallelHashMap<int, int>(1000, Allocator.Persistent);
             m_FreeHeadIds = new NativeList<int>(Allocator.Persistent);
 
             m_Entities.Init();

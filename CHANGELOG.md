@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.51.0] - 2022-05-04
+
+### Changed
+
+* Package Dependencies
+  * `com.unity.jobs` to version `0.51.0`
+  * `com.unity.platforms` to version `0.51.0`
+  * `com.unity.mathematics` to version `1.2.6`
+  * `com.unity.collections` to version `1.3.1`
+  * `com.unity.burst` to version `1.6.6`
+* Increased the maximum number of shared components per entity from 8 to 16.
+* Updated dependency on version of com.unity.roslyn package that will work with both Unity 2020 and Unity 2021.
+
+### Fixed
+
+* DOTS Entities throws a compilation error when using named arguments.
+* Fix Create -> ECS -> System template now adds partial keyword.
+* Fixed a possible memory stomp triggered by specific sequences of `ComponentDataFromEntity` or `BufferFromEntity` calls.
+* EntityQuery.CopyFromComponentDataArray<T>() and EntityQuery.CopyFromComponentDataArrayAsync<T>() now correctly set the change version of any chunks they write to.
+* If the value of the Parent component of an entity is changed while the previous parent entity was destroyed at the same time, an exception could be thrown during the next update of the transform system.
+* Changes to ComponentData made outside of Systems will be properly detected by EntityQueries with changed version filters.
+
+### Added
+
+* New `BufferTypeHandle.Update()` method. Rather than creating new type handles every frame in `OnUpdate()`, it is more efficient to create the handle once in a system's `OnCreate()`, cache it as a member on the system, and call its `.Update()` method from `OnUpdate()` before using the handle.
+* SystemBase.GetEntityQuery can now take an EntityQueryDescBuilder.
+
+
+
+## [0.50.1-preview.3] - 2022-04-28
+
+### Changed
+
+Release preparations, no functional changes.
+
 ## [0.50.1-preview.2] - 2022-04-20
 
 ### Changed
@@ -173,6 +208,7 @@ Release preparations, no functional changes.
 
 ### Fixed
 
+* Fixed bug that caused compiler errors when users wrote multiple parts of the same partial type.
 * Fixed a minor typo when generating the name of a conversion World.
 * `[DisableAutoCreation]` is no longer inherited by subclasses, as documented.
 * Improved the Entity inspector responsiveness.

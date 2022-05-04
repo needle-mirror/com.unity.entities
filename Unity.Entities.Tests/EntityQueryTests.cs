@@ -2204,6 +2204,48 @@ namespace Unity.Entities.Tests
             }
         }
 
+        partial class EntityQueryDescBuilderTestSystem : SystemBase
+        {
+            public EntityQuery Query;
+            public JobHandle JobDependency => Dependency;
+
+            protected override void OnCreate()
+            {
+                var builder = new EntityQueryDescBuilder(Allocator.Temp);
+                builder.AddAll(typeof(EcsTestData));
+                builder.AddAll(ComponentType.ReadOnly<EcsTestData2>());
+                builder.AddNone(typeof(EcsTestTag));
+                builder.FinalizeQuery();
+                Query = GetEntityQuery(builder);
+            }
+
+            protected override void OnUpdate()
+            {
+                Entities.WithNone<EcsTestTag>().ForEach((ref EcsTestData sum, in EcsTestData2 addends) =>
+                {
+                    sum.value = addends.value0 + addends.value1;
+                }).Schedule();
+            }
+        }
+
+        [Test]
+        public void EntityQuery_SystemBase_GetEntityQueryFromEntityQueryDescBuilder_Works()
+        {
+            var entityWithTag = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestTag));
+            var entityWithoutTag = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            m_Manager.SetComponentData(entityWithoutTag, new EcsTestData2{ value0 = 27, value1 = 15 });
+
+            var sys = World.GetOrCreateSystem<EntityQueryDescBuilderTestSystem>();
+            sys.Update();
+
+            Assert.AreEqual(1, sys.Query.CalculateEntityCount());
+
+            sys.JobDependency.Complete();
+            var arr = sys.Query.ToComponentDataArray<EcsTestData>(Allocator.Temp);
+            Assert.AreEqual(42, arr[0].value);
+        }
+
+
 #if !UNITY_DOTSRUNTIME
         [AlwaysUpdateSystem]
         public partial class CachedSystemQueryTestSystem : SystemBase
@@ -2533,6 +2575,48 @@ namespace Unity.Entities.Tests
 
             dataArray.Dispose();
             values.Dispose();
+        }
+
+        [Test]
+        public void CopyFromComponentDataArray_SetsChangeVersion([Values] EntityQueryJobMode jobMode)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
+            m_Manager.CreateEntity(archetype, archetype.ChunkCapacity * 2);
+
+            var values = CollectionHelper.CreateNativeArray<EcsTestData, RewindableAllocator>(archetype.ChunkCapacity * 2, ref World.UpdateAllocator);
+            for (int i = 0; i < archetype.ChunkCapacity * 2; ++i)
+            {
+                values[i] = new EcsTestData{value = i};
+            }
+
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(true);
+            var query = EmptySystem.GetEntityQuery(typeof(EcsTestData));
+            using var chunksOld = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < chunksOld.Length; ++i)
+            {
+                Assert.AreEqual(typeHandle.GlobalSystemVersion, chunksOld[i].GetChangeVersion(typeHandle));
+            }
+
+            uint fakeSystemVersion = 42;
+            m_ManagerDebug.SetGlobalSystemVersion(fakeSystemVersion);
+            switch (jobMode)
+            {
+                case EntityQueryJobMode.Async:
+                    query.CopyFromComponentDataArrayAsync(values, out JobHandle jobHandle);
+                    jobHandle.Complete();
+                    break;
+                case EntityQueryJobMode.Immediate:
+                default:
+                    query.CopyFromComponentDataArray(values);
+                    break;
+            }
+            values.Dispose();
+
+            using var chunksNew = query.CreateArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < chunksOld.Length; ++i)
+            {
+                Assert.AreEqual(fakeSystemVersion, chunksNew[i].GetChangeVersion(typeHandle));
+            }
         }
 
         [Test]

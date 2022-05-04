@@ -61,7 +61,7 @@ namespace Unity.Entities.PerformanceTests
                 };
 
                 using (var blobAssets = new NativeList<BlobAssetPtr>(1, Allocator.Temp))
-                using (var blobAssetsMap = new NativeHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
+                using (var blobAssetsMap = new NativeParallelHashMap<BlobAssetPtr, int>(1, Allocator.Temp))
                 {
                     var managedObjectBlobs = new ManagedObjectBlobs();
 

@@ -65,7 +65,7 @@ namespace Unity.Entities.Editor
                 if (m_FrameIndex == -1 || IsRecording || !m_View.HasArchetypesDataSource)
                     m_View.Clear(IsRecording ? s_DisplayingFrameDataDisabled : s_NoFrameDataAvailable);
                 else
-                    m_View.Update();
+                    m_View.Rebuild();
             }
         }
 
@@ -123,7 +123,7 @@ namespace Unity.Entities.Editor
             if (m_FrameIndex == -1 || IsRecording || !m_View.HasArchetypesDataSource)
                 m_View.Clear(IsRecording ? s_DisplayingFrameDataDisabled : s_NoFrameDataAvailable);
             else
-                m_View.Update();
+                m_View.Rebuild();
         }
 
         public override void Clear()
