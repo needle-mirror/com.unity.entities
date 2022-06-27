@@ -40,3 +40,16 @@
 {
     border-bottom-color: #ffffff;
 }
+
+/*** List View/Tree View Hover/Selected TEMP FIX ***/
+
+.unity-list-view__item:hover
+{
+    background-color: #444444;
+}
+
+.unity-list-view__item--selected,
+.unity-list-view__item--selected:hover
+{
+    background-color: #2C5D87;
+}

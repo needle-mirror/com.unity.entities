@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Mono.Cecil;
 using Unity.Entities;
 using Unity.Entities.CodeGen;
@@ -60,9 +61,13 @@ namespace Unity.Entities.CodeGen.Cloner
             return false;
         }
 
+        // Convert nullable types names to ? suffix (System.Nullable<System.Int32> -> System.Int32?)
         // Remove /& characters and `# for type arity
-        static string CleanupTypeName(string typeName)
+        static string CleanupParameterTypeName(string typeName)
         {
+            typeName = Regex.Replace(typeName, @"System\.Nullable`1<(.*)>",
+                m => $"{m.Groups[1].Value}?");
+
             typeName = typeName.Replace('/', '.').Replace("&", "").Replace(" ", string.Empty);
             var indexOfArityStart = typeName.IndexOf('`');
             if (indexOfArityStart != -1)
@@ -101,7 +106,7 @@ namespace Unity.Entities.CodeGen.Cloner
                 }
 
 
-                strBuilder.Append($"_{CleanupTypeName(parameter.ParameterType.ToString())}");
+                strBuilder.Append($"_{CleanupParameterTypeName(parameter.ParameterType.ToString())}");
             }
 
             return strBuilder.ToString();

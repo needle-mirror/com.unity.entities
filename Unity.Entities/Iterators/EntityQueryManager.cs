@@ -186,7 +186,7 @@ namespace Unity.Entities
                         var type = types[i];
                         // Can not use Assert.AreEqual here because it uses the (object, object) overload which
                         // boxes the enums being compared, and that can not be burst compiled.
-                        Assert.IsTrue(ComponentType.AccessMode.ReadOnly == type.AccessModeType);
+                        Assert.IsTrue(ComponentType.AccessMode.ReadOnly == type.AccessModeType, "EntityQueryDescBuilder.None must convert ComponentType.AccessMode to ReadOnly");
 #endif
                         noneTypes.Add(types[i]);
                     }
@@ -266,23 +266,24 @@ namespace Unity.Entities
         }
 
 
-        public static bool CompareQuery(in EntityQueryDescBuilder queryDesc, EntityQueryData* queryData)
+        public static bool CompareQuery(in EntityQueryDescBuilder queryBuilder, EntityQueryData* queryData)
         {
-            int count = queryDesc.m_IndexData.Length;
+            int count = queryBuilder.m_IndexData.Length;
             if (queryData->ArchetypeQueryCount != count)
                 return false;
 
             for (int i = 0; i != count; i++)
             {
-                var q = queryDesc.m_IndexData[i];
+                ref var archetypeQuery = ref queryData->ArchetypeQuery[i];
+                var q = queryBuilder.m_IndexData[i];
 
-                if (!CompareQueryArray(queryDesc, q.All, queryData->ArchetypeQuery[i].All, queryData->ArchetypeQuery[i].AllAccessMode, queryData->ArchetypeQuery[i].AllCount))
+                if (!CompareQueryArray(queryBuilder, q.All, archetypeQuery.All, archetypeQuery.AllAccessMode, archetypeQuery.AllCount))
                     return false;
-                if (!CompareQueryArray(queryDesc, q.None, queryData->ArchetypeQuery[i].None, queryData->ArchetypeQuery[i].NoneAccessMode, queryData->ArchetypeQuery[i].NoneCount))
+                if (!CompareQueryArray(queryBuilder, q.None, archetypeQuery.None, archetypeQuery.NoneAccessMode, archetypeQuery.NoneCount))
                     return false;
-                if (!CompareQueryArray(queryDesc, q.Any, queryData->ArchetypeQuery[i].Any, queryData->ArchetypeQuery[i].AnyAccessMode, queryData->ArchetypeQuery[i].AnyCount))
+                if (!CompareQueryArray(queryBuilder, q.Any, archetypeQuery.Any, archetypeQuery.AnyAccessMode, archetypeQuery.AnyCount))
                     return false;
-                if (q.Options != queryData->ArchetypeQuery[i].Options)
+                if (q.Options != archetypeQuery.Options)
                     return false;
             }
 
@@ -1205,8 +1206,7 @@ namespace Unity.Entities
         {
             // The access mode of types in the None list is forced to ReadOnly; the query will not be accessing these
             // types at all, and should not be requesting read/write access to them.
-            if (t.AccessModeType == ComponentType.AccessMode.ReadWrite)
-                t.AccessModeType = ComponentType.AccessMode.ReadOnly;
+            t.AccessModeType = ComponentType.AccessMode.ReadOnly;
             m_None.Add(t);
         }
 

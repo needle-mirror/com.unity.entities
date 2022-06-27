@@ -1,7 +1,11 @@
 using System;
 using Unity.Burst;
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Jobs;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+
 #pragma warning disable 649
 
 namespace Unity.Entities.Tests.ForEachCodegen
@@ -92,6 +96,29 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }
 
                 Dependency.Complete();
+            }
+
+            public void SetComponent_WithArgumentWithElementAccessor_SetsValue(Entity entity, ScheduleType scheduleType)
+            {
+                var entityArray = new NativeArray<Entity>(1, Allocator.TempJob);
+                entityArray[0] = entity;
+
+                switch (scheduleType)
+                {
+                    case ScheduleType.Run:
+                        Entities.ForEach((ref EcsTestDataEntity tde) => { SetComponent(entityArray[0], new EcsTestData() { value = 2 }); }).Run();
+                        break;
+                    case ScheduleType.Schedule:
+                        Entities.ForEach((ref EcsTestDataEntity tde) => { SetComponent(entityArray[0], new EcsTestData() { value = 2 }); }).Schedule();
+                        break;
+                    case ScheduleType.ScheduleParallel:
+                        // Flagged as an DC0063 error at compile-time with sourcegen
+                        break;
+                }
+
+                Dependency.Complete();
+
+                entityArray.Dispose();
             }
 
             public void GetComponentThroughGetComponentDataFromEntity_GetsValue(Entity entity, ScheduleType scheduleType)
@@ -348,6 +375,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void SetComponent_SetsValue([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType)
         {
             TestSystem.SetComponent_SetsValue(TestEntity1, scheduleType);
+            Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
+        }
+
+        [Test]
+        public void SetComponent_WithArgumentWithElementAccessor_SetsValue([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType)
+        {
+            TestSystem.SetComponent_WithArgumentWithElementAccessor_SetsValue(TestEntity1, scheduleType);
             Assert.AreEqual(2, m_Manager.GetComponentData<EcsTestData>(TestEntity1).value);
         }
 

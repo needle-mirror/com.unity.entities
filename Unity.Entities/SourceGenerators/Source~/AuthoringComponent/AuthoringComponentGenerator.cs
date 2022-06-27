@@ -27,6 +27,7 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
                        && data.AttributeClass.Name == "GenerateAuthoringComponentAttribute";
             }
 
+            SourceGenHelpers.Setup(context);
             try
             {
                 if (context.Compilation.Assembly.Name.Contains("CodeGen.Tests"))
@@ -77,6 +78,9 @@ namespace Unity.Entities.SourceGen.AuthoringComponent
                     var sourceTextForNewClass = compilationUnit.GetText(Encoding.UTF8);
                     sourceTextForNewClass = sourceTextForNewClass.WithInitialLineDirectiveToGeneratedSource(generatedSourceFullPath);
                     context.AddSource(generatedSourceHint, sourceTextForNewClass);
+
+                    if(!SourceGenHelpers.CanWriteToProjectPath)
+                        continue;
 
                     // Output as generated source file for debugging/inspection
                     try

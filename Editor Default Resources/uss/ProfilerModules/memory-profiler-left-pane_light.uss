@@ -22,3 +22,17 @@
 {
     border-color: #aeaeae;
 }
+
+/*** List View/Tree View Hover/Selected TEMP FIX ***/
+
+.unity-list-view__item:hover
+{
+    background-color: #B2B2B2;
+}
+
+.unity-list-view__item--selected,
+.unity-list-view__item--selected:hover
+{
+    background-color: #3A72B0;
+    color: #ffffff;
+}

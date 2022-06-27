@@ -31,6 +31,7 @@ namespace Unity.Entities.SourceGen.JobEntity
 
         public void Execute(GeneratorExecutionContext context)
         {
+            SourceGenHelpers.Setup(context);
             var systemReceiver = (JobEntitySyntaxReceiver)context.SyntaxReceiver;
 
             try
@@ -69,6 +70,9 @@ namespace Unity.Entities.SourceGen.JobEntity
 
         static void OutputNewSourceToFile(GeneratorExecutionContext generatorExecutionContext, string generatedSourceFilePath, SourceText sourceTextForNewClass)
         {
+            if(!SourceGenHelpers.CanWriteToProjectPath)
+                return;
+
             try
             {
                 SourceGenHelpers.LogInfo($"Outputting generated source to file {generatedSourceFilePath}...");

@@ -305,14 +305,15 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, EmptySystem.EntityQueries.Length);
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         //@TODO: Behaviour is a slightly dodgy... Should probably just ignore and return same as single typeof(EcsTestData)
         [Test]
         public void GetEntityQuery_WithEntityThrows()
         {
             ComponentType[] e = { typeof(Entity), typeof(EcsTestData) };
-            EmptySystem.GetEntityQuery(e);
             Assert.Throws<ArgumentException>(() => EmptySystem.GetEntityQuery(e));
         }
+#endif
 
         [Test]
         public void GetEntityQuery_WithDuplicates()

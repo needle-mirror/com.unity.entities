@@ -567,20 +567,31 @@ namespace Unity.Entities
 
         internal EntityQuery GetEntityQueryInternal(ComponentType* componentTypes, int count)
         {
-            ref var handles = ref EntityQueries;
-
-            for (var i = 0; i != handles.Length; i++)
+            using var builder = new EntityQueryDescBuilder(Allocator.Temp);
+            for (var i = 0; i < count; i++)
             {
-                var query = handles[i];
+                var componentType = componentTypes[i];
 
-                if (query.CompareComponents(componentTypes, count))
-                    return query;
+                // This check was moved from Unity.Entities.EntityQueryManager.CompareComponents to preserve
+                // the existing behavior when backporting DOTS-6357 Fix EntityQuery Comparisons #4833
+                // It is not necessary in dots 1.0, with DOTS-6356 (#4578).
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                if (componentType.TypeIndex == TypeManager.GetTypeIndex<Entity>())
+                    throw new ArgumentException(
+                        "EntityQuery.CompareComponents may not include typeof(Entity), it is implicit");
+#endif
+                if (componentType.AccessModeType == ComponentType.AccessMode.Exclude)
+                {
+                    builder.AddNone(componentType);
+                }
+                else
+                {
+                    builder.AddAll(componentTypes[i]);
+                }
             }
+            builder.FinalizeQuery();
 
-            var newQuery = EntityManager.CreateEntityQuery(componentTypes, count);
-
-            AddReaderWriters(newQuery);
-            AfterQueryCreated(newQuery);
+            EntityQuery newQuery = GetEntityQueryInternal(builder);
 
             return newQuery;
         }
@@ -642,8 +653,6 @@ namespace Unity.Entities
         [NotBurstCompatible]
         internal EntityQuery GetEntityQueryInternal(EntityQueryDesc[] desc)
         {
-            ref var handles = ref EntityQueries;
-
             var builder = new EntityQueryDescBuilder(Allocator.Temp);
             EntityQueryManager.ConvertToEntityQueryDescBuilder(ref builder, desc);
             EntityQuery result = GetEntityQueryInternal(builder);

@@ -130,9 +130,16 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
                 return default;
             }
 
+            using var builder = new EntityQueryDescBuilder(Allocator.Temp);
+            for (var i = 0; i < componentTypes.Length; i++)
+            {
+                builder.AddAll(componentTypes[i]);
+            }
+            builder.FinalizeQuery();
+
             for (var i = 0; i != system.EntityQueries.Length; i++)
             {
-                if (system.EntityQueries[i].CompareComponents(componentTypes))
+                if (system.EntityQueries[i].CompareQuery(builder))
                     return system.EntityQueries[i];
             }
 
@@ -393,9 +400,16 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
                 return default;
             }
 
+            using var builder = new EntityQueryDescBuilder(Allocator.Temp);
+            for (var i = 0; i < componentTypes.Length; i++)
+            {
+                builder.AddAll(componentTypes[i]);
+            }
+            builder.FinalizeQuery();
+
             for (var i = 0; i != system.EntityQueries.Length; i++)
             {
-                if (system.EntityQueries[i].CompareComponents(componentTypes))
+                if (system.EntityQueries[i].CompareQuery(builder))
                     return system.EntityQueries[i];
             }
 

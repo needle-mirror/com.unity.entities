@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.51.1] - 2022-06-27
+
+### Changed
+
+* Package Dependencies
+  * `com.unity.jobs` to version `0.51.1`
+  * `com.unity.platforms` to version `0.51.1`
+  * `com.unity.collections` to version `1.4.0`
+  * `com.unity.jobs` to version `0.70.0`
+
+### Fixed
+
+* an issue with source generator that was causing a compilation error when the generator was unable to create the temporary output folder.
+* an issue with netcode source generator that was trying to run on assembly that did not have the right references and also when the project path was not assigned, making impossible to load the templates files.
+* Entities.ForEach in method with nullable parameter types.
+* SetComponent in Entities.ForEach with argument that has an element accessor.
+
+
+
 ## [0.51.0] - 2022-05-04
 
 ### Changed
@@ -21,6 +40,7 @@
 * EntityQuery.CopyFromComponentDataArray<T>() and EntityQuery.CopyFromComponentDataArrayAsync<T>() now correctly set the change version of any chunks they write to.
 * If the value of the Parent component of an entity is changed while the previous parent entity was destroyed at the same time, an exception could be thrown during the next update of the transform system.
 * Changes to ComponentData made outside of Systems will be properly detected by EntityQueries with changed version filters.
+* `EntityQuery` objects are consistently compared, regardless of which version of `GetEntityQuery` is called.
 
 ### Added
 

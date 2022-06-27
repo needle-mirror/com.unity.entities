@@ -2867,6 +2867,53 @@ namespace Unity.Entities.Tests
                 Assert.That(query.GetEntityQueryDesc(), Is.EqualTo(queryDesc));
             }
         }
+
+        partial class CalculateEntityCount_WithAny_System : SystemBase
+        {
+            private EntityQuery _query;
+            private EntityQuery _queryFromForEach;
+            protected override void OnCreate()
+            {
+                _query = GetEntityQuery(ComponentType.ReadOnly<TestTag0>(), ComponentType.ReadOnly<TestTag1>());
+            }
+
+            protected override void OnUpdate()
+            {
+                int expectedCount = _query.CalculateEntityCount();
+                int actualCount = 0;
+                // Should match 20 entities
+                Entities
+                    .WithAll<TestTag0>()
+                    .WithAny<TestTag2,TestTag3>()
+                    .ForEach((Entity entity, in TestTag1 bComponent) =>
+                    {
+                        actualCount++;
+                    }).Run();
+                // Should match the remaining 10 entities
+                Entities
+                    .WithAll<TestTag0>()
+                    .ForEach((Entity entity, in TestTag4 eComponent) =>
+                    {
+                        actualCount++;
+                    }).Run();
+                Assert.AreEqual(30, expectedCount, "Query on common components should match all 30 entities");
+                Assert.AreEqual(30, actualCount, "Between the two jobs, all 30 entities should be found once each");
+                //Assert.AreEqual(expectedCount, actualCount);
+            }
+        }
+
+        [Test]
+        public void CalculateEntityCount_WithAny_Works()
+        {
+            var archetype012 = m_Manager.CreateArchetype(typeof(TestTag0), typeof(TestTag1), typeof(TestTag2));
+            var archetype013 = m_Manager.CreateArchetype(typeof(TestTag0), typeof(TestTag1), typeof(TestTag3));
+            var archetype014 = m_Manager.CreateArchetype(typeof(TestTag0), typeof(TestTag1), typeof(TestTag4));
+            m_Manager.CreateEntity(archetype012, 10);
+            m_Manager.CreateEntity(archetype013, 10);
+            m_Manager.CreateEntity(archetype014, 10);
+            var sys = World.CreateSystem<CalculateEntityCount_WithAny_System>();
+            sys.Update();
+        }
     }
 }
 #endif // NET_DOTS

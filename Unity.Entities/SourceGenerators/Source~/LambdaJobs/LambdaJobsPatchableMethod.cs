@@ -27,7 +27,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
         }
 
         static string[] GetArguments(InvocationExpressionSyntax originalNode) =>
-            originalNode.DescendantNodes().OfType<ArgumentSyntax>().Select(arg => arg.Expression.ToString()).ToArray();
+            originalNode.DescendantNodes().OfType<ArgumentListSyntax>().First().Arguments.Select(arg => arg.Expression.ToString()).ToArray();
 
         internal static readonly LambdaJobsPatchableMethod[] PatchableMethods =
         {
@@ -49,7 +49,7 @@ namespace Unity.Entities.SourceGen.LambdaJobs
                 GeneratePatchedReplacementSyntax = (methodSymbol, rewriter, originalNode) =>
                 {
                     var dataAccessField = rewriter.GetOrCreateDataAccessField(methodSymbol.TypeArguments.First(), false, AccessorDataType.ComponentDataFromEntity);
-                    var arguments = originalNode.DescendantNodes().OfType<ArgumentSyntax>().ToArray();
+                    var arguments = originalNode.DescendantNodes().OfType<ArgumentListSyntax>().First().Arguments;
                     var (entityArgument, valueArgument) =
                         arguments[0].NameColon?.Name.Identifier.ValueText == "component" ?
                             (arguments[1], arguments[0]) : (arguments[0], arguments[1]);

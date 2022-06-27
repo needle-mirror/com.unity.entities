@@ -559,6 +559,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
+        public void MethodsWithNullableParameter()
+        {
+            int? blah = 3;
+            TestSystem.MethodsWithNullableParameter(blah);
+        }
+
+        [Test]
         public void SystemWithinSystem()
         {
             var system = World.GetOrCreateSystem<MyTestSystem.SomeInnerSystem>();
@@ -1387,6 +1394,13 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             public struct GenericTypeWithTwoTypeParams<TKey, TValue> { }
             public void MethodsWithSameName(GenericTypeWithTwoTypeParams<int, int> genericType)
+            {
+                var value = 0;
+                Entities.ForEach((Entity entity, in EcsTestData data) => { value = 3; }).Run();
+                Assert.AreEqual(3, value);
+            }
+
+            public void MethodsWithNullableParameter(int? someVal)
             {
                 var value = 0;
                 Entities.ForEach((Entity entity, in EcsTestData data) => { value = 3; }).Run();
